@@ -284,7 +284,7 @@ Rule 8 in section 4.
 Stacked on PR 3. Rules 5 and 6 in section 4.
 1. [ ] Week 8 retest card on Today (rule 5), saving through the existing
    settings storage and max-date stamping.
-2. [ ] Fatigue check storage: internal `FatigueCheck` and `FatigueCheckWire`
+2. [x] Fatigue check storage: internal `FatigueCheck` and `FatigueCheckWire`
    (v1) with explicit mapping, tolerant load with backup, re-read before
    save, and the pure "best of previous 3" and 10% comparison.
 3. [ ] Weekly check-in card and the drop warning on Today (rule 6,
