@@ -113,7 +113,7 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
    real `program.json`. The parser also rejects unknown fields, so a typo
    in `program.json` (e.g. `restSecs`) shows an error instead of being
    silently ignored; a genuinely new field needs a small parser change.
-3. [ ] Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
+3. [x] Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
    weekly increase. Unit tests built from worked examples (below).
 4. [ ] Settings screen: start date, max pull-ups, max dips (stored locally).
 5. [ ] Today screen: header (week N of 8, phase, day focus), blocks in session
