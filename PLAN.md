@@ -208,7 +208,7 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
    - E2E for Skip and for catching up after the page was hidden.
 - **Merge point:** a full session can be run with timers.
 
-  lock for the whole session once "session in progress" exists.
+Follow-ups from the PR 2 review (later PRs):
 - Schedule upcoming beeps on the audio clock so they stay on time while the
   browser throttles a hidden page.
 - Let the phone's Back gesture close the timer instead of leaving the app.
