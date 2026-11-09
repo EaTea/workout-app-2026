@@ -369,6 +369,13 @@ body {
   text-transform: uppercase;
 }
 
+/* Row under a superset block's title holding its between-pairs rest button. */
+.block-rest {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
 .item-row {
   display: flex;
   align-items: center;
@@ -556,4 +563,275 @@ body {
   margin-top: 14px;
   text-align: center;
   color: var(--accent);
+}
+
+/* Full-screen timer (EMOM, interval and rest timers) */
+.timer-view {
+  --timer-tint: var(--background);
+  --timer-button: #262b34;
+  --timer-ring: var(--accent);
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: env(safe-area-inset-top) 20px calc(24px + env(safe-area-inset-bottom));
+  background: var(--timer-tint);
+  color: var(--text);
+  outline: none;
+}
+
+/* Work is green, rest is blue: readable at a glance mid-round. */
+.timer-view[data-phase="work"] {
+  --timer-tint: #0f2a1c;
+  --timer-button: #1d4430;
+}
+
+.timer-view[data-phase="rest"] {
+  --timer-tint: #0e2140;
+  --timer-button: #1c3a68;
+}
+
+/* Finished: neutral tint and a neutral DONE word, whatever the last segment was. The extra [data-phase] outranks the work/rest rules that come later. */
+.timer-view[data-status="finished"][data-phase] {
+  --timer-tint: #171b22;
+  --timer-button: #262b34;
+}
+
+.timer-view[data-status="finished"][data-phase] .timer-phase {
+  color: var(--text);
+}
+
+.timer-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 640px;
+}
+
+.timer-close {
+  min-width: 56px;
+  min-height: 56px;
+  margin-left: -12px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.timer-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.timer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 640px;
+  text-align: center;
+}
+
+.timer-phase {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.timer-view[data-phase="work"] .timer-phase {
+  color: #5fd497;
+}
+
+.timer-view[data-phase="rest"] .timer-phase {
+  color: #7fb0ff;
+}
+
+/* Ring showing progress through the current minute: --progress is set from JS. */
+.timer-ring {
+  --progress: 0%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(300px, 70vw);
+  aspect-ratio: 1;
+  margin: 12px 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--timer-tint) calc(100% - 14px), transparent calc(100% - 13px)),
+    conic-gradient(var(--timer-ring) var(--progress), #2b313b 0);
+}
+
+.timer-ring[hidden],
+.timer-phase[hidden],
+.timer-round[hidden] {
+  display: none;
+}
+
+.timer-ring-caption {
+  color: #aab1bd;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.timer-ring-number {
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.timer-ring-total {
+  color: #6c7480;
+  font-size: 40px;
+}
+
+.timer-digits {
+  font-size: min(128px, 30vw);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.timer-round {
+  margin-top: 20px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.timer-label {
+  margin-top: 8px;
+  color: #b9c0cb;
+  font-size: 16px;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.timer-button {
+  flex: 1;
+  min-height: 72px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--timer-button);
+  color: var(--text);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.timer-button-primary {
+  background: var(--accent);
+}
+
+.timer-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Setup row (heavy bag, rest timer): steppers before Start, one summary line after. */
+.timer-setup {
+  margin-top: 28px;
+  color: #b9c0cb;
+}
+
+.timer-setup[hidden],
+.timer-setup-summary[hidden],
+.timer-setup-steppers[hidden] {
+  display: none;
+}
+
+.timer-setup-summary {
+  font-size: 16px;
+}
+
+.timer-setup-steppers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+}
+
+.timer-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-stepper-value {
+  min-width: 86px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.timer-stepper-button {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--timer-button);
+  color: var(--text);
+  font: inherit;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.timer-stepper-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* The ring jumps in whole steps with reduced motion (see timerView.ts); no CSS transitions are used otherwise. */
+
+/* Secondary button beside an EMOM row: starts the timer without opening the details sheet. */
+.item-start {
+  flex: none;
+  min-width: 72px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-text);
+  border-radius: 12px;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* "It's a new day" banner on Today: reuses .warning-banner, with a full-width button */
+.new-day-banner .warning-banner-text {
+  font-weight: 700;
+}
+
+.new-day-button {
+  width: 100%;
+  min-height: 56px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: #f5c451;
+  color: #2a2312;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
 }

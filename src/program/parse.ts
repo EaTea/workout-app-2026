@@ -5,7 +5,7 @@
  * as it maps, and every failure is an Error whose message starts with a
  * path-style location, e.g.
  *   days[2].blocks[1].items[0].exercise: unknown exercise "foo"
- * because that message is what Ed sees if he breaks program.json while editing.
+ * because that message is what Ed sees after breaking program.json while editing.
  *
  * Errors versus warnings: anything that would make a session wrong (wrong
  * type, missing field, unknown exercise id, progression gap) throws. A field

@@ -1,8 +1,12 @@
-import type { Program } from "../program/model";
+import type { Program, Range } from "../program/model";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
+import { createCuePlayer } from "../timer/cues";
+import { buildEmomPlan, buildIntervalPlan, buildRestPlan, defaultIntervalSettings, defaultRestSeconds, INTERVAL_LIMITS, REST_LIMITS } from "../timer/plans";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
+import { createRestMemory, restMemoryKey } from "./restMemory";
+import { openTimer } from "./timerView";
 import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatShortDate, isAwaitingRetest } from "./format";
 
 /**
@@ -15,6 +19,12 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *
  * It renders exactly what `buildSession` returns; all numbers are final.
  */
+
+/**
+ * Rest lengths Ed adjusted and started during this page load (see restMemory.ts).
+ * Module-level so it survives Today re-renders but not a reload.
+ */
+const adjustedRests = createRestMemory();
 
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). `onStartToday` is called
@@ -138,7 +148,7 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => parts.push(renderBlockCard(block, index + 1)));
+  session.blocks.forEach((block, index) => parts.push(renderBlockCard(block, index + 1, date)));
   return parts;
 }
 
@@ -171,12 +181,25 @@ function renderPhaseStrip(program: Program, phaseName: string, isDeload: boolean
 }
 
 /** One card for a block: numbered title, then one row per item. */
-function renderBlockCard(block: BlockView, position: number): HTMLElement {
+function renderBlockCard(block: BlockView, position: number, date: string): HTMLElement {
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
+  // Supersets rest between pairs, so the rest button belongs to the block rather than to one row.
+  if (block.restSecBetweenPairs) {
+    const restRow = element("div", "block-rest");
+    restRow.append(renderStartRestButton(
+      block.restSecBetweenPairs,
+      "Between pairs",
+      restMemoryKey(date, position, "between-pairs"),
+      undefined,
+      " between pairs",
+    ));
+    card.append(restRow);
+  }
+
   for (const item of block.items) {
-    card.append(renderItemRow(item));
+    card.append(renderItemRow(item, date, position));
   }
   return card;
 }
@@ -186,7 +209,7 @@ function renderBlockCard(block: BlockView, position: number): HTMLElement {
  * details sheet. When the dose needs a max, the dose is a separate link to
  * Settings instead (a link can't live inside a button).
  */
-function renderItemRow(item: ItemView): HTMLElement {
+function renderItemRow(item: ItemView, date: string, blockPosition: number): HTMLElement {
   const row = element("div", "item-row");
   const dose = formatItemDose(item);
 
@@ -226,6 +249,164 @@ function renderItemRow(item: ItemView): HTMLElement {
     row.append(updateLink);
   }
 
+  // EMOM items get their own Start button, a sibling so the row button keeps opening the details sheet.
+  if (item.format === "emom" && item.minutes !== undefined) {
+    row.append(renderStartEmomButton(item));
+  }
+
+  // Straight-set items with a prescribed rest get a rest button, tapped after each set.
+  if (item.format !== "interval" && item.restSec) {
+    row.append(renderStartRestButton(item.restSec, item.exercise.name, restMemoryKey(date, blockPosition, item.exercise.id), item.exercise.name));
+  }
+
+  // Heavy bag intervals likewise.
+  if (item.format === "interval" && item.rounds && item.workSec && item.restSec) {
+    row.append(renderStartIntervalButton(item));
+  }
+
   openButton.addEventListener("click", () => openExerciseSheet(item, openButton));
   return row;
+}
+
+/**
+ * "Start EMOM" button for an EMOM row. Opens the full-screen timer for the
+ * item (timer/plans.ts) with beeps and vibration (timer/cues.ts) wired in;
+ * the audio is unlocked/resumed on every tap inside the timer.
+ */
+function renderStartEmomButton(item: ItemView): HTMLButtonElement {
+  const button = element("button", "item-start", "Start EMOM");
+  button.type = "button";
+  // The visible text comes first in the accessible name (WCAG 2.5.3 label in name).
+  button.setAttribute("aria-label", `Start EMOM, ${item.exercise.name}`);
+
+  button.addEventListener("click", () => {
+    const cues = createCuePlayer();
+    openTimer(buildEmomPlan(item), {
+      dialogName: `${item.exercise.name} EMOM timer`,
+      onUserTap: () => cues.prime(),
+      onEvents: (events) => cues.handleEvents(events),
+      onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+    });
+  });
+  return button;
+}
+
+/**
+ * "Start timer" button for an interval row (the heavy bag finisher). Opens the
+ * timer with a setup row so Ed can change work, rest and rounds before
+ * starting; every change rebuilds the plan through buildIntervalPlan.
+ */
+function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
+  const button = element("button", "item-start", "Start timer");
+  button.type = "button";
+  button.setAttribute("aria-label", `Start timer, ${item.exercise.name}`);
+
+  button.addEventListener("click", () => {
+    const defaults = defaultIntervalSettings(item);
+    const cues = createCuePlayer();
+    const { minRounds, maxRounds, minSeconds, maxWorkSec, maxRestSec, secondsStep } = INTERVAL_LIMITS;
+
+    openTimer(buildIntervalPlan(item, defaults), {
+      dialogName: "Heavy bag timer",
+      onUserTap: () => cues.prime(),
+      onEvents: (events) => cues.handleEvents(events),
+      onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      setup: {
+        fields: [
+          {
+            id: "workSec", label: "work", value: defaults.workSec,
+            min: minSeconds, max: maxWorkSec, step: secondsStep,
+            format: (value) => `Work ${value}s`,
+          },
+          {
+            id: "restSec", label: "rest", value: defaults.restSec,
+            min: minSeconds, max: maxRestSec, step: secondsStep,
+            format: (value) => `Rest ${value}s`,
+          },
+          {
+            id: "rounds", label: "rounds", value: defaults.rounds,
+            min: minRounds, max: maxRounds, step: 1,
+            format: (value) => (value === 1 ? "1 round" : `${value} rounds`),
+          },
+        ],
+        rebuildPlan: (values) =>
+          buildIntervalPlan(item, {
+            rounds: values.rounds ?? defaults.rounds,
+            workSec: values.workSec ?? defaults.workSec,
+            restSec: values.restSec ?? defaults.restSec,
+          }),
+      },
+    });
+  });
+  return button;
+}
+
+/**
+ * "Rest 30s" button: opens a one-segment rest timer (timer/plans.ts) that
+ * starts at the low end of `range` and can be raised before Start. Used by
+ * item rows (`restSec`) and by superset blocks (`restSecBetweenPairs`). With
+ * no set logging yet, this button is how a rest begins; it can be tapped
+ * again after every set. The timer's finish cue tells Ed to begin the next set.
+ *
+ * A rest that Ed adjusted with the stepper and then started is remembered for
+ * the rest of the page load (restMemory.ts, under `memoryKey`): the next open
+ * defaults to it, and when the timer closes the button's own text and
+ * accessible name are updated in place (no Today re-render, so scroll and
+ * focus stay put). A fresh render reads the remembered value too.
+ *
+ * The visible text is "Rest 30s" plus an optional `visibleSuffix` (the
+ * between-pairs button says "Rest 45s between pairs" since no exercise row
+ * names it). `accessibleContext`, when given, is appended to the visible text
+ * for the accessible name ("Rest 30s, Med ball slams"), so the visible label
+ * stays at the start of the name (WCAG 2.5.3); without it the visible text is
+ * the name.
+ */
+function renderStartRestButton(
+  range: Range,
+  restName: string,
+  memoryKey: string,
+  accessibleContext?: string,
+  visibleSuffix = "",
+): HTMLButtonElement {
+  const button = element("button", "item-start");
+  button.type = "button";
+
+  /** Writes the label for `seconds` into the button's text and accessible name. */
+  function showSeconds(seconds: number): void {
+    const visibleText = `Rest ${seconds}s${visibleSuffix}`;
+    button.textContent = visibleText;
+    if (accessibleContext) button.setAttribute("aria-label", `${visibleText}, ${accessibleContext}`);
+  }
+  showSeconds(adjustedRests.get(memoryKey, defaultRestSeconds(range)));
+
+  button.addEventListener("click", () => {
+    const cues = createCuePlayer();
+    const { minSeconds, maxSeconds, secondsStep } = REST_LIMITS;
+    const startingSeconds = adjustedRests.get(memoryKey, defaultRestSeconds(range));
+    /** Follows the stepper, so Start can remember what was actually chosen. */
+    let chosenSeconds = startingSeconds;
+
+    openTimer(buildRestPlan(startingSeconds, restName), {
+      dialogName: "Rest timer",
+      onUserTap: () => cues.prime(),
+      onEvents: (events) => cues.handleEvents(events),
+      onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      onStart: () => adjustedRests.set(memoryKey, chosenSeconds),
+      onClose: () => showSeconds(adjustedRests.get(memoryKey, defaultRestSeconds(range))),
+      setup: {
+        fields: [
+          {
+            id: "seconds", label: "rest", value: startingSeconds,
+            min: minSeconds, max: maxSeconds, step: secondsStep,
+            format: (value) => `Rest ${value}s`,
+          },
+        ],
+        rebuildPlan: (values) => {
+          chosenSeconds = values.seconds ?? startingSeconds;
+          return buildRestPlan(chosenSeconds, restName);
+        },
+      },
+    });
+  });
+  return button;
 }

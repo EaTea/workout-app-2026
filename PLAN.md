@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 merged (#3). PR 1b in progress; PR 2 (timers) next.**
+Status: **PR 1 and PR 1b merged (#3, #4). PR 2 (timers) open for review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -9,7 +9,7 @@ The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 ## 1. What I understand the request to be
 
 Ed wants a small personal app for running the 8-week Explosive Endurance
-Program on his phone at the gym. The source material is in the project files:
+Program on a phone at the gym. The source material is in the project files:
 
 - `APP_BRIEF.md` lists the must-haves, nice-to-haves and constraints.
 - `program.json` is the source of truth for exercises, days, doses and
@@ -18,7 +18,7 @@ Program on his phone at the gym. The source material is in the project files:
   only to resolve ambiguities in `program.json`.
 
 The ask for this round is a **mockup optimised for mobile**: something Ed can
-open on his phone and click through to judge the layout and flow, built on
+open on a phone and click through to judge the layout and flow, built on
 real program data so it can grow into the real app instead of being thrown
 away. Following the brief's own suggestion, the first screens are "Today's
 workout", then timers, then logging.
@@ -100,7 +100,7 @@ the starting point. Revisit them if the app shows they're wrong.
      no hold: floor(max × %). "Saved during the retest week" means the max
      was saved on or after the week's Day 1. Settings records today's real
      date (never a `?date=` preview) on every max field Ed edits and saves,
-     even if he re-types the same number, so "retested, same result"
+     even if Ed re-types the same number, so "retested, same result"
      counts. Until PR 4's retest prompt exists, Ed saves the new max in
      Settings.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
@@ -131,10 +131,8 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 ### PR 0 — this plan *(design)* — merged as PR #2
 
 ### PR 1 — Skeleton and "Today's workout" *(behavior change)* — merged as PR #3
-Follow-ups not yet done: Today doesn't refresh after midnight if left open
-(revisit with timers in PR 2).
 
-### PR 1b — Rule changes from the PR 1 review *(behavior change)* — PR #4
+### PR 1b — Rule changes from the PR 1 review *(behavior change)* — merged as PR #4
 Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
 1. [x] Count program days from the start date. "Start today" button.
 2. [x] Deload weeks keep the previous week's EMOM reps.
@@ -163,15 +161,42 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
   week 8, or clearing dates when the start date changes.
 
 ### PR 2 — Timers *(behavior change)*
-1. Shared full-screen timer view: huge digits, round counter, start/pause/
-   skip, thumb-reachable controls.
-2. EMOM timer (beep + vibrate each minute, round N of M).
-3. Interval timer for the heavy bag (work/rest rounds).
-4. Rest timer launched from a set, using `restSec`.
-5. Screen Wake Lock while a session or timer is active.
+1. [x] Timer engine (pure state machine, wall-clock based, so it catches
+   up after the phone sleeps) and a shared full-screen timer view: huge
+   digits, round counter, start/pause/skip, thumb-reachable controls.
+2. [x] EMOM timer (beep + vibrate each minute, round N of M).
+3. [x] Interval timer for the heavy bag (work/rest rounds).
+4. [x] Rest timer launched from a set, using `restSec`.
+5. [x] Screen Wake Lock while a timer is running, and notice when Today
+   is left open past midnight (PR 1 follow-up).
    Unit tests for the timer state machine with a fake clock; E2E test that
    runs a short EMOM.
+6. [x] Fixes from the challenger review:
+   - One shared audio context for all timers (each timer made its own and
+     never closed it, so beeps could go silent mid-session), resumed on
+     every tap so iOS interruptions don't mute it; ask iOS to play through
+     the silent switch where supported.
+   - After the phone sleeps, play only the latest cue, not a burst.
+   - Hold the wake lock for as long as a timer is open (ready, paused or
+     finished too), not only while it runs.
+   - Midnight: don't swap the session out from under Ed. Show a "new day"
+     banner on Today with a button to switch, instead of re-rendering.
+   - Rest buttons remember an adjusted rest for the rest of the visit.
+   - Finished timers say "Done"; focus moves off buttons that become
+     disabled; visible button text is part of each accessible name; the
+     timer dialog keeps a stable name; the between-pairs button is labelled.
+   - E2E for Skip and for catching up after the page was hidden.
 - **Merge point:** a full session can be run with timers.
+
+Follow-ups from the PR 2 review (later PRs):
+- PR 3: start the rest timer when a set is ticked off, and hold the wake
+  lock for the whole session once "session in progress" exists.
+- Schedule upcoming beeps on the audio clock so they stay on time while the
+  browser throttles a hidden page.
+- Let the phone's Back gesture close the timer instead of leaving the app.
+- Power-endurance weeks (5–7): Ed chose that the heavy bag work default
+  gets +5s and the core rest between pairs −15s. Explosive rest stays as
+  written, since the program allows adding reps instead. Not built yet.
 
 ### PR 3 — Logging and "last time" *(behavior change)*
 1. Tick off sets; record reps, load and an optional note per set.

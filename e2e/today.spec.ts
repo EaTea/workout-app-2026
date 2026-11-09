@@ -102,7 +102,7 @@ test("tapping an exercise opens the details sheet; Escape closes it", async ({ p
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  const opener = row(page, "Pull-ups").getByRole("button");
+  const opener = row(page, "Pull-ups").locator(".item-open");
   await opener.click();
 
   const sheet = page.getByRole("dialog");
@@ -121,7 +121,7 @@ test("the sheet traps focus, freezes the page behind it, and restores both on cl
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("button", { name: "Close" })).toBeFocused();
   await expect(page.locator("nav.bottom-nav")).toHaveJSProperty("inert", true);
@@ -144,11 +144,11 @@ test("backdrop and close button also close the sheet", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
 
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   await page.locator(".sheet-backdrop").click({ position: { x: 10, y: 10 } });
   await expect(page.getByRole("dialog")).toBeHidden();
 });
@@ -157,11 +157,11 @@ test("evidence shows a link for URLs and plain text for coaching practice", asyn
   await seedSettings(page);
 
   await page.goto("/?date=2026-11-03");
-  await row(page, "Split-squat jumps").getByRole("button").click();
+  await row(page, "Split-squat jumps").locator(".item-open").click();
   await expect(page.getByRole("dialog").getByRole("link", { name: /Read the evidence/ })).toBeVisible();
 
   await page.goto("/?date=2026-11-04");
-  await row(page, "Plyo push-ups").getByRole("button").click();
+  await row(page, "Plyo push-ups").locator(".item-open").click();
   await expect(page.getByRole("dialog").getByText("Based on coaching practice")).toBeVisible();
   await expect(page.getByRole("dialog").getByRole("link", { name: /Read the evidence/ })).toHaveCount(0);
 });
@@ -185,7 +185,7 @@ test("no horizontal overflow on training, rest and sheet views", async ({ page }
   }
 
   await page.goto("/?date=2026-11-09");
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
@@ -298,4 +298,69 @@ test("week 8 mini-dose rows have no retest wording or Update max link", async ({
 
   await expect(row(page, "Dips").locator(".item-details")).not.toContainText("retest");
   await expect(row(page, "Dips").getByRole("link", { name: "Update max" })).toHaveCount(0);
+});
+
+test("Today left open past midnight offers a new-day banner instead of swapping the session", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/");
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+
+  await page.clock.runFor(120_000);
+
+  // The session is untouched; only the banner is added (and only once, even after more checks).
+  await expect(page.getByText("It's a new day.")).toBeVisible();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await page.clock.runFor(120_000);
+  await expect(page.getByText("It's a new day.")).toHaveCount(1);
+
+  const showToday = page.getByRole("button", { name: "Show today's session" });
+  const box = await showToday.boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(48);
+  await showToday.click();
+
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(0);
+});
+
+test("navigating away and back after midnight shows the new day without the banner", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/");
+  await page.clock.runFor(120_000);
+  await expect(page.getByText("It's a new day.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(0);
+});
+
+test("the new-day banner can appear behind an open timer and works after it closes", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Rest 30s, Med ball slams" }).click();
+  const overlay = page.getByRole("dialog", { name: "Rest timer" });
+
+  await page.clock.runFor(120_000);
+  // Added into the inert <main>, so it is inert too: the timer stays modal.
+  await expect(page.locator(".new-day-banner")).toHaveCount(1);
+  expect(await page.locator(".new-day-banner").evaluate((banner) => banner.closest("[inert]") !== null)).toBe(true);
+  await expect(overlay).toBeVisible();
+
+  await overlay.getByRole("button", { name: "✕ Close" }).click();
+  await expect(overlay).toBeHidden();
+  await page.getByRole("button", { name: "Show today's session" }).click();
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+});
+
+test("a ?date= preview stays on its date past midnight", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/?date=2026-11-09");
+
+  await page.clock.runFor(120_000);
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(0);
 });
