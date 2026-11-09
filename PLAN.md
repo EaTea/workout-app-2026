@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in progress, stacked on PR 4.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in progress (fixing the challenger review), stacked on PR 4.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -353,6 +353,24 @@ brief's remaining nice-to-haves.
    as inline SVG, no chart library.
    Unit tests for the rotation, CSV quoting and export mapping, and the
    chart's data series; E2E for each feature.
+4. [ ] **Fixes from the challenger review.** Decisions taken:
+   - The chart is per exercise *and* block type ("Pull-ups — EMOM",
+     "Pull-ups — mini-dose"), so main-strength and mini-dose sets aren't
+     mixed in one line. The table labels "best reps" and "heaviest load"
+     as separate bests (they can come from different sets).
+   - The rotation card shows on every training day of a rotated block
+     until "Got it" is tapped, and the dismissal is kept per block (keyed
+     by the block's first week), not just on its first day. "Got it" is
+     disabled in a `?date=` preview, like the other cards.
+   - History and the CSV show the name the warm-up was performed as (the
+     rotated-in name); the CSV keeps the original in its own
+     `exercise_name` column and adds `performed_as`. Timer and rest labels
+     use the shown name too.
+   - Export re-reads storage at the moment of the tap, and the JSON export
+     includes any corrupt-log backups (`corruptLogBackups`, optional). The
+     CSV starts with a UTF-8 BOM (for Excel) and guards formula-like cells
+     even after leading spaces.
+   - Stale doc comments fixed.
 - **Merge point:** every nice-to-have in the brief is in.
 
 ### Later (not planned in detail yet)
