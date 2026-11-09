@@ -105,6 +105,16 @@ week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
 too); then they use that max with no weekly increase.
 
+## Exporting your log
+
+In Settings, "Export log as CSV" gives one row per logged set (date, week,
+day, block, block type, exercise, set, reps, kg, note) for any spreadsheet.
+"Export everything as JSON" gives the log, the weekly checks and your
+settings in a versioned file (`"format": "explosive-endurance-export"`,
+`"version": 1`). Files are named `explosive-endurance-YYYY-MM-DD.csv` or
+`.json`; they download, or on iPhone open the share sheet so you can save
+them to Files. Nothing is sent anywhere, and there is no import yet.
+
 ## Install on a phone and use offline
 
 The production build includes a web manifest and a service worker

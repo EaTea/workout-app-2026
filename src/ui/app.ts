@@ -551,7 +551,7 @@ export function startApp(
       }
       const logTarget = parseLogRoute(window.location.hash);
       if (route === "settings") {
-        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave));
+        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => ({ settings, log, fatigueHistory })));
       } else if (route === "log" && logTarget !== undefined) {
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {

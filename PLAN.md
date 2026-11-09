@@ -336,7 +336,7 @@ brief's remaining nice-to-haves.
    them under the original exercise id). On the first training day of a
    rotation (week 5), Today shows a dismissible card listing the swaps and
    `alsoAvailable`.
-2. [ ] **Export** from Settings: "Export log as CSV" (one row per logged
+2. [x] **Export** from Settings: "Export log as CSV" (one row per logged
    set: date, week, day, block, exercise id, exercise name, set, reps,
    kg, note; RFC 4180 quoting) and "Export as JSON" (an export wire type
    holding the log, fatigue checks and settings, with its own version and
