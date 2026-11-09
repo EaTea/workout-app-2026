@@ -363,6 +363,35 @@ function parseFatigueCheck(raw: unknown, path: string): FatigueCheck {
   };
 }
 
+/**
+ * Fails unless the phases cover weeks 1..lengthWeeks exactly once: no week
+ * outside the program, none listed twice, none missing. The schedule looks
+ * a phase up for every week, so a gap would otherwise crash on that day.
+ */
+function checkProgressionCoversEveryWeek(progression: ProgressionPhase[], lengthWeeks: number): void {
+  const seenInPhase = new Map<number, number>();
+
+  progression.forEach((phase, phaseIndex) => {
+    phase.weeks.forEach((week, weekIndex) => {
+      const path = `progression[${phaseIndex}].weeks[${weekIndex}]`;
+      if (week < 1 || week > lengthWeeks) {
+        fail(path, `week ${week} is outside the program (weeks 1 to ${lengthWeeks})`);
+      }
+      const earlierPhase = seenInPhase.get(week);
+      if (earlierPhase !== undefined) {
+        fail(path, `week ${week} is already covered by progression[${earlierPhase}]`);
+      }
+      seenInPhase.set(week, phaseIndex);
+    });
+  });
+
+  for (let week = 1; week <= lengthWeeks; week++) {
+    if (!seenInPhase.has(week)) {
+      fail("progression", `week ${week} is not covered by any phase`);
+    }
+  }
+}
+
 /** Reads a required top-level section of the document. */
 function requireSection(root: UnknownRecord, key: string): unknown {
   return root[key] ?? fail(key, "section is missing");
@@ -396,24 +425,33 @@ export function parseProgram(json: unknown): Program {
   });
   if (Object.keys(days).length === 0) fail("days", "the program needs at least one training day");
 
+  const restDay = parseWeekday(readString(info, "restDay", "program"), "program.restDay");
+  if (days[restDay] !== undefined) {
+    fail("program.restDay", `${restDay} is the rest day but days has an entry for it`);
+  }
+
   const coreProgressionRecord = expectRecord(requireSection(root, "coreProgressions"), "coreProgressions");
   const coreProgressions: Record<string, string> = {};
   for (const key of Object.keys(coreProgressionRecord)) {
     coreProgressions[key] = readString(coreProgressionRecord, key, "coreProgressions");
   }
 
+  const lengthWeeks = readPositiveInteger(info, "lengthWeeks", "program");
+  const progression = expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
+    parseProgressionPhase(phase, `progression[${index}]`),
+  );
+  checkProgressionCoversEveryWeek(progression, lengthWeeks);
+
   return {
     name: readString(info, "name", "program"),
     goal: readString(info, "goal", "program"),
-    lengthWeeks: readPositiveInteger(info, "lengthWeeks", "program"),
-    restDay: parseWeekday(readString(info, "restDay", "program"), "program.restDay"),
+    lengthWeeks,
+    restDay,
     sessionOrder: readStringList(info, "sessionOrder", "program"),
     rules: readStringList(info, "rules", "program"),
     exercises,
     days,
-    progression: expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
-      parseProgressionPhase(phase, `progression[${index}]`),
-    ),
+    progression,
     coreProgressions,
     warmupRotation: parseWarmupRotation(requireSection(root, "warmupRotation"), "warmupRotation"),
     fatigueCheck: parseFatigueCheck(requireSection(root, "fatigueCheck"), "fatigueCheck"),

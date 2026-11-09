@@ -193,3 +193,28 @@ describe("parseProgram errors", () => {
     expect(() => parseProgram(null)).toThrow("program.json: expected an object but found null");
   });
 });
+
+describe("progression and rest day validation", () => {
+  it("rejects a week with no phase", () => {
+    expect(errorMessageAfter((json) => (json.progression[0].weeks = [1, 2]))).toBe("progression: week 3 is not covered by any phase");
+  });
+
+  it("rejects a week listed in two phases", () => {
+    expect(errorMessageAfter((json) => json.progression[1].weeks.push(2))).toBe(
+      "progression[1].weeks[1]: week 2 is already covered by progression[0]",
+    );
+  });
+
+  it("rejects weeks outside 1..lengthWeeks", () => {
+    expect(errorMessageAfter((json) => json.progression[1].weeks.push(9))).toBe(
+      "progression[1].weeks[1]: week 9 is outside the program (weeks 1 to 8)",
+    );
+    expect(errorMessageAfter((json) => json.progression[0].weeks.push(0))).toContain("week 0 is outside the program");
+  });
+
+  it("rejects a rest day that also has training", () => {
+    expect(errorMessageAfter((json) => (json.program.restDay = "Mon"))).toBe(
+      "program.restDay: Mon is the rest day but days has an entry for it",
+    );
+  });
+});
