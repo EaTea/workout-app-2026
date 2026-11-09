@@ -97,7 +97,8 @@ list straight away when it spots a likely typo.
 on your start date, and Day 7 is the rest day in the shipped program (not
 weekday names). A progression phase can set `"retest": true`; EMOMs in that
 week hold the previous week's reps until you save a new max for that exercise
-in Settings during the week; then they use that max with no weekly increase.
+during the week (Today shows a retest card for it in week 8; Settings works
+too); then they use that max with no weekly increase.
 
 ## Install on a phone and use offline
 

@@ -101,8 +101,9 @@ the starting point. Revisit them if the app shows they're wrong.
      was saved on or after the week's Day 1. Settings records today's real
      date (never a `?date=` preview) on every max field Ed edits and saves,
      even if Ed re-types the same number, so "retested, same result"
-     counts. Until PR 4's retest prompt exists, Ed saves the new max in
-     Settings.
+     counts. The week 8 retest card (rule 5) is the usual way to save it;
+     Settings works too. Only a date inside week 8 (Day 1 to Day 7) counts,
+     so moving the start date can't turn an old save into a retest.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
@@ -112,19 +113,28 @@ the starting point. Revisit them if the app shows they're wrong.
    with today's real date, so week 8's EMOM targets switch from the held
    week 7 reps to the new max at once (rule 3). The card stays until both
    maxes have been saved during week 8; "Not today" hides it for that date.
-   Before week 8 the prompt never appears.
+   Before week 8 the prompt never appears. In a `?date=` preview of any day
+   other than the real today, the card is shown but can't save (a preview
+   save would stamp today's date and change the max for every week).
+   Saving re-reads the stored settings and changes only that one max, so
+   two open copies of the app can't undo each other.
 6. **Weekly fatigue check** (PR 4, mockup 6). Once per program week, the
    first time Today shows a training day that week, a "Weekly check-in"
    card asks for best broad jump (metres, 2 decimals, 0.01 steps or typed)
-   and max pull-ups. Either may be left blank. "Save check-in" stores it;
+   and max pull-ups. Both start blank, with "Best recent" shown as a hint,
+   and either may be left blank (a blank is never saved as a number).
+   A preview of a date other than the real today can't save a check. "Save check-in" stores it;
    "Remind me tomorrow" hides it until the next calendar day of the same
    week, and after the week ends it's simply skipped. Each value is
    compared with the best of the previous 3 checks that recorded it,
    shown as "Best recent: 2.34 m" and a percentage; a drop of more than 10%
-   shows the `fatigueCheck.rule` text as a warning, both on the card and
+   shows the `fatigueCheck.rule` text as a warning headed "down more than
+   10% this week" (one week down is a signal, not yet "stays down"); the
+   percentage never rounds to a figure that contradicts the warning, both on the card and
    as a dismissible banner on Today for the rest of that week. Checks live
    in their own storage key with their own wire type and version, re-read
-   before each save like the log. Saving a check-in never changes the
+   before each save like the log; if the other copy of the app already
+   saved this week's check, the card goes away instead of overwriting it. Saving a check-in never changes the
    EMOM maxes in settings (that's the week 8 retest's job). Week 8's
    retest card replaces the check-in that week: saving the retest also
    records the max pull-ups as that week's check.
@@ -205,14 +215,12 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
 - **Merge point:** the rules work as agreed, with tests. Steps 4–6 get
   their own challenger review before PR #4 is updated.
 
-Follow-ups from the step 6 review, for PR 4's retest prompt:
+Follow-ups from the step 6 review:
 - The "held" reps are week 7's formula applied to the max saved now, not
   a record of what week 7 actually showed; a max raised late in week 7
   makes the held figure higher. Revisit once logging (PR 3) stores what
   was shown.
-- Moving the start date much earlier can make an old max date fall in
-  week 8 and look like a retest. Consider counting only dates inside
-  week 8, or clearing dates when the start date changes.
+- (Done in PR 4: only a save dated inside week 8 counts as a retest.)
 
 ### PR 2 — Timers *(behavior change)* — merged as PR #5
 1. [x] Timer engine (pure state machine, wall-clock based, so it catches
@@ -292,15 +300,29 @@ Stacked on PR 3. Rules 5 and 6 in section 4.
 4. [x] Installable, offline app: web manifest and icons (home screen on
    iPhone and Android), and a hand-written service worker. Pages under
    `/workout-app-2026/` is the scope. The app shell and its hashed assets
-   are precached at install (the list generated at build time), so the
-   app opens with no signal. `index.html` and `program.json` are fetched
-   network-first with a cache fallback, so edits to program.json show up
-   whenever there is a connection. A new version takes over on the next
-   launch, never mid-session.
+   are precached at install (the list generated at build time, fetched
+   past the browser's HTTP cache, and the cache named from the files'
+   contents), so the app opens with no signal. The app shell is served
+   from the precache: page loads never overwrite it, so a half-arrived
+   deploy or a stray URL can't break the offline app. `program.json` is
+   network-first with a cache fallback, so edits show up whenever there
+   is a connection. A new version is applied at launch, before anything
+   is on screen, never mid-session.
    Unit tests for the fatigue maths and storage mapping; E2E for the retest
    card, the check-in and its warning, and the app loading offline after a
    first visit.
+5. [ ] Fixes from the challenger review (rules 3, 5, 6 and the step 4 text
+   as now written): blank check-in fields; no saving from a preview; re-read
+   settings and checks before saving; the shell-safe service worker; the
+   iPhone status bar safe area; focus after each card action; the 10% pill;
+   44px tap-to-type targets; no hard-coded "pull-ups and dips" text; doc
+   and test gaps.
 - **Merge point:** every must-have and constraint in the brief is met.
+
+Follow-ups from the PR 4 review (later):
+- Store fatigue checks by date and work out the week when reading, so a
+  changed or restarted start date doesn't misfile old checks.
+- Week 8 records max pull-ups through the retest but no broad jump.
 
 ### Later (nice-to-haves, not planned in detail yet)
 - Warm-up rotation reminder every 4 weeks.
@@ -319,7 +341,7 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 23 Nov | W4 D1 | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 6 (week 3's reps); dip mini-dose 1 × 7 |
 | 8 Nov | W1 D7 | Rest | Rest-day card |
 | 21 Dec | W8 D1 | Deload + retest | Pull-up EMOM 5 min × 6 (week 7's 4 + 2, held: no max saved in week 8); after saving a retested max of 15 on 21 Dec, 5 min × 6 (floor(15 × 0.40), no hold) |
-| 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (retest prompt comes in PR 4) |
+| 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (the retest card shows on Today) |
 
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
