@@ -17,7 +17,6 @@ const MULTIPLY = "×";
 const DOT = " · ";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Friendly names for the block type ids used in program.json. One place to edit. */
 const BLOCK_LABELS: Record<string, string> = {
@@ -58,18 +57,16 @@ export function formatRepTarget(target: RepTarget): string {
   }
 }
 
-/** "Mon 9 Nov" from "2026-11-09". Used in the Today header and "Program starts ..." line. */
+/** "9 Nov" from "2026-11-09". Used in the Today header and "Program starts ..." line. */
 export function formatShortDate(calendarDate: string): string {
-  const [year = 0, month = 1, day = 1] = calendarDate.split("-").map(Number);
-  const weekday = WEEKDAY_NAMES[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
-  return `${weekday} ${day} ${MONTH_NAMES[month - 1]}`;
+  const [, month = 1, day = 1] = calendarDate.split("-").map(Number);
+  return `${day} ${MONTH_NAMES[month - 1]}`;
 }
 
 /**
- * Small header line, e.g. "Mon 9 Nov · Week 2 of 8 · Day 1": the real
+ * Small header line, e.g. "9 Nov · Week 2 of 8 · Day 1": the real
  * calendar date, then the program week (out of `lengthWeeks`) and day number
- * (counted from the start date; the program's own day name is deliberately
- * not shown). Used by the training header and the rest-day card.
+ * (counted from the start date). Used by the training header and the rest-day card.
  */
 export function formatSessionKicker(calendarDate: string, week: number, lengthWeeks: number, dayNumber: number): string {
   return `${formatShortDate(calendarDate)}${DOT}${formatWeekAndDay(week, lengthWeeks, dayNumber)}`;

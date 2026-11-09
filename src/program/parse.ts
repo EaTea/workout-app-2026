@@ -26,6 +26,7 @@ import type {
   Block,
   BlockItem,
   Day,
+  DayNumber,
   Evidence,
   Exercise,
   FatigueCheck,
@@ -36,10 +37,9 @@ import type {
   Range,
   Reps,
   SetPrescription,
-  Weekday,
   WarmupRotation,
 } from "./model";
-import { WEEKDAYS } from "./model";
+import { DAYS_PER_WEEK } from "./model";
 import type {
   BlockWire,
   DayWire,
@@ -416,11 +416,18 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: str
   };
 }
 
-/** Checks a string is one of the seven weekday abbreviations. */
-function parseWeekday(value: string, path: string): Weekday {
-  const weekday = WEEKDAYS.find((candidate) => candidate === value);
-  if (weekday === undefined) fail(path, `expected one of ${WEEKDAYS.join(", ")} but found ${JSON.stringify(value)}`);
-  return weekday;
+/**
+ * Reads `record[key]` as a program day number: a whole number from 1 to 7.
+ * Used for `days[].day` and `program.restDay`; anything else (a string such
+ * as text, 0, 8, 2.5) is rejected with the offending value in the message.
+ */
+function readDayNumber(record: UnknownRecord, key: string, path: string): DayNumber {
+  const value = record[key];
+  if (value === undefined) fail(child(path, key), "field is missing");
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > DAYS_PER_WEEK) {
+    fail(child(path, key), `expected a whole number from 1 to ${DAYS_PER_WEEK} but found ${JSON.stringify(value)}`);
+  }
+  return value;
 }
 
 /** Converts one training day and its blocks. */
@@ -432,7 +439,7 @@ function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: strin
   const blocks = expectArray(record.blocks ?? fail(blocksPath, "field is missing"), blocksPath);
 
   return {
-    day: parseWeekday(readString(record, "day", path), child(path, "day")),
+    day: readDayNumber(record, "day", path),
     focus: readString(record, "focus", path),
     targetMinutes: readNumber(record, "targetMinutes", path),
     blocks: blocks.map((block, index) => parseBlock(block, exercises, `${blocksPath}[${index}]`, warnings)),
@@ -538,17 +545,17 @@ export function parseProgram(json: unknown): ParseResult {
     exercises[id] = parseExercise(id, rawExercise, `exercises.${id}`, warnings);
   }
 
-  const days: Partial<Record<Weekday, Day>> = {};
+  const days: Partial<Record<DayNumber, Day>> = {};
   expectArray(requireSection(root, "days"), "days").forEach((rawDay, index) => {
     const day = parseDay(rawDay, exercises, `days[${index}]`, warnings);
-    if (days[day.day] !== undefined) fail(`days[${index}].day`, `${day.day} appears more than once`);
+    if (days[day.day] !== undefined) fail(`days[${index}].day`, `day ${day.day} appears more than once`);
     days[day.day] = day;
   });
   if (Object.keys(days).length === 0) fail("days", "the program needs at least one training day");
 
-  const restDay = parseWeekday(readString(info, "restDay", "program"), "program.restDay");
+  const restDay = readDayNumber(info, "restDay", "program");
   if (days[restDay] !== undefined) {
-    fail("program.restDay", `${restDay} is the rest day but days has an entry for it`);
+    fail("program.restDay", `day ${restDay} is the rest day but days has an entry for it`);
   }
 
   const coreProgressionRecord = expectRecord(requireSection(root, "coreProgressions"), "coreProgressions");

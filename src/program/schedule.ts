@@ -1,4 +1,4 @@
-import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps, Weekday } from "./model";
+import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps } from "./model";
 import { programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
 
@@ -104,14 +104,12 @@ export type SessionView =
   | { kind: "noStartDate" }
   | { kind: "notStarted"; startsOn: string }
   | { kind: "complete" }
-  | { kind: "rest"; week: number; dayNumber: number; programDay: Weekday; phase: string }
+  | { kind: "rest"; week: number; dayNumber: number; phase: string }
   | {
       kind: "training";
       week: number;
       /** Day of the program week, 1-7, counted from the start date. */
       dayNumber: number;
-      /** The program.json day key this slot runs ("Mon" = day 1 ... "Sun" = day 7). */
-      programDay: Weekday;
       phase: string;
       isDeload: boolean;
       focus: string;
@@ -134,13 +132,13 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     return status;
   }
 
-  const { week, dayNumber, programDay } = status;
+  const { week, dayNumber } = status;
   const phase = phaseForWeek(program, week);
   const isDeload = isDeloadPhase(phase);
-  const day = program.days[programDay];
+  const day = program.days[dayNumber];
 
   if (!day) {
-    return { kind: "rest", week, dayNumber, programDay, phase: phase.phase };
+    return { kind: "rest", week, dayNumber, phase: phase.phase };
   }
 
   const weeklyIncreaseOffset = weeklyIncreaseOffsetForWeek(program, week);
@@ -149,7 +147,6 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     kind: "training",
     week,
     dayNumber,
-    programDay,
     phase: phase.phase,
     isDeload,
     focus: day.focus,

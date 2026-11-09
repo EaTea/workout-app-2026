@@ -12,11 +12,11 @@ function row(page: Page, name: string) {
   return page.locator(".item-row", { hasText: name });
 }
 
-test("week 2 Monday shows header, six blocks in order and computed doses", async ({ page }) => {
+test("week 2 day 1 shows header, six blocks in order and computed doses", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await expect(page.getByText("Mon 9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
   await expect(page.getByText("~50 min · 6 blocks")).toBeVisible();
 
@@ -62,20 +62,20 @@ test("the rest day shows a rest card", async ({ page }) => {
   await page.goto("/?date=2026-11-08");
 
   await expect(page.getByRole("heading", { name: "Rest day" })).toBeVisible();
-  await expect(page.getByText("Sun 8 Nov · Week 1 of 8 · Day 7")).toBeVisible();
+  await expect(page.getByText("8 Nov · Week 1 of 8 · Day 7")).toBeVisible();
   await expect(page.locator(".block-card")).toHaveCount(0);
 });
 
 test("before the start date and after the program show friendly cards", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-10-30");
-  await expect(page.getByRole("heading", { name: "Program starts Mon 2 Nov" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Program starts 2 Nov" })).toBeVisible();
 
   await page.goto("/?date=2027-03-01");
   await expect(page.getByRole("heading", { name: "Program complete" })).toBeVisible();
 });
 
-test("a Wednesday start date makes Wed day 1 and Tue the rest day", async ({ page }) => {
+test("a mid-week start date makes the start date day 1 and day 7 the rest day", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem(
       "explosive-endurance.settings",
@@ -84,18 +84,18 @@ test("a Wednesday start date makes Wed day 1 and Tue the rest day", async ({ pag
   });
 
   await page.goto("/?date=2026-11-03");
-  await expect(page.getByRole("heading", { name: "Program starts Wed 4 Nov" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Program starts 4 Nov" })).toBeVisible();
 
   await page.goto("/?date=2026-11-04");
-  await expect(page.getByText("Wed 4 Nov · Week 1 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByText("4 Nov · Week 1 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
 
   await page.goto("/?date=2026-11-10");
   await expect(page.getByRole("heading", { name: "Rest day" })).toBeVisible();
-  await expect(page.getByText("Tue 10 Nov · Week 1 of 8 · Day 7")).toBeVisible();
+  await expect(page.getByText("10 Nov · Week 1 of 8 · Day 7")).toBeVisible();
 
   await page.goto("/?date=2026-11-11");
-  await expect(page.getByText("Wed 11 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByText("11 Nov · Week 2 of 8 · Day 1")).toBeVisible();
 });
 
 test("tapping an exercise opens the details sheet; Escape closes it", async ({ page }) => {

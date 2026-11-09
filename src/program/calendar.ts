@@ -1,6 +1,3 @@
-import type { Weekday } from "./model";
-import { WEEKDAYS } from "./model";
-
 /**
  * Calendar-date maths. Everything here works on whole calendar dates
  * ("YYYY-MM-DD"), never on clock times, so daylight-saving changes and time
@@ -12,11 +9,11 @@ import { WEEKDAYS } from "./model";
  * `schedule.ts` calls these to find the program week and day for a date.
  * The caller passes "today" in as a local calendar date string.
  *
- * Program days count from the start date, not from calendar weekdays:
+ * Program days count from the start date:
  *
  *   start date = day 1 of week 1; every 7 days begins a new week
- *   day 1..7 of a week run the program days named Mon..Sun in order
- *   (so "Mon" in program.json means "day 1", and "Sun" is the rest day)
+ *   day 1..7 of a week run the program days numbered 1..7 in program.json
+ *   (day 7 is the rest day)
  */
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -25,7 +22,7 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 export type ProgramStatus =
   | { kind: "noStartDate" }
   | { kind: "notStarted"; startsOn: string }
-  | { kind: "active"; week: number; dayNumber: number; programDay: Weekday }
+  | { kind: "active"; week: number; dayNumber: number }
   | { kind: "complete" };
 
 /**
@@ -57,14 +54,12 @@ export function toDayNumber(calendarDate: string): number {
  * Works out where `today` sits in the program: before it starts, in a given
  * week (1-based) and day of that week (1-7), or after the last week.
  *
- * The start date is day 1 of week 1, whatever weekday it falls on. Day
- * number N runs the program day named WEEKDAYS[N - 1] ("Mon" for day 1 ...
- * "Sun" for day 7, the rest day); that key is returned as `programDay`.
- * The calendar weekday of `today` plays no part.
+ * The start date is day 1 of week 1. Day number N runs the program day
+ * numbered N in program.json (day 7 is the rest day).
  *
  * Note: a start date saved by an earlier version of the app (when week 1
- * began on the Monday of the start date's week) is now simply read as day 1.
- * The stored format is unchanged, so no migration is needed.
+ * began at the start of the start date's calendar week) is now simply read as
+ * day 1. The stored format is unchanged, so no migration is needed.
  */
 export function programStatus(startDate: string | null, lengthWeeks: number, today: string): ProgramStatus {
   if (startDate === null) {
@@ -83,8 +78,8 @@ export function programStatus(startDate: string | null, lengthWeeks: number, tod
     return { kind: "complete" };
   }
 
-  const cycleSlot = daysSinceStart % 7;
-  return { kind: "active", week, dayNumber: cycleSlot + 1, programDay: WEEKDAYS[cycleSlot] as Weekday };
+  const dayNumber = (daysSinceStart % 7) + 1;
+  return { kind: "active", week, dayNumber };
 }
 
 /**

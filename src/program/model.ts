@@ -6,15 +6,16 @@
  * to handle "number or tuple" or "number or array" unions themselves.
  */
 
-/** A day-slot name as spelled in program.json (see `WEEKDAYS`; not a calendar weekday). */
-export type Weekday = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
-
 /**
- * The seven day names in program.json, in the order the program cycles
- * through them (Mon = program day 1 ... Sun = day 7). They are shorthand slot
- * names, not calendar weekdays: the app counts days from the start date.
+ * A program day number, 1 to 7. The app counts days from the start date
+ * (start date = day 1 of week 1), so day numbers are the only way sessions
+ * are named. Validity (a whole number 1-7) is checked by the parser; the type
+ * is a plain number so it can key `Program.days`.
  */
-export const WEEKDAYS: readonly Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export type DayNumber = number;
+
+/** The number of days in one program week (days 1-6 train, the rest day is day 7 in the shipped file). */
+export const DAYS_PER_WEEK = 7;
 
 /** An inclusive numeric range. A single value `n` is represented as min === max === n. */
 export interface Range {
@@ -39,7 +40,7 @@ export type Reps =
 /**
  * One set. Sets are always stored as a list of these, one per set, rather than
  * a count plus a template: `sets: 3, reps: "10-12"` becomes three identical
- * entries and Saturday's calf raise maps one-to-one. That keeps deload
+ * entries and the calf raise maps one-to-one. That keeps deload
  * halving a single `slice(0, Math.ceil(n / 2))` with no special cases for
  * per-set prescriptions.
  */
@@ -112,7 +113,8 @@ export interface Block {
 
 /** One training day. Blocks are in the order written in the file. */
 export interface Day {
-  day: Weekday;
+  /** This day's number within the program week (1-7). */
+  day: DayNumber;
   focus: string;
   targetMinutes: number;
   blocks: Block[];
@@ -145,12 +147,12 @@ export interface Program {
   name: string;
   goal: string;
   lengthWeeks: number;
-  restDay: Weekday;
+  restDay: DayNumber;
   sessionOrder: string[];
   rules: string[];
   exercises: Record<string, Exercise>;
-  /** Training days keyed by day-slot name ("Mon" = program day 1 ... "Sun" = day 7); the rest day has no entry. */
-  days: Partial<Record<Weekday, Day>>;
+  /** Training days keyed by day number (1-7); the rest day has no entry. */
+  days: Partial<Record<DayNumber, Day>>;
   progression: ProgressionPhase[];
   coreProgressions: Record<string, string>;
   warmupRotation: WarmupRotation;

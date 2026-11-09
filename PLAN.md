@@ -133,7 +133,7 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
 2. [x] Deload weeks keep the previous week's EMOM reps.
 3. [x] Unknown `program.json` fields warn and still load, with "did you
    mean" hints for likely typos.
-4. [ ] No weekdays anywhere: `program.json` numbers days 1–7
+4. [x] No weekdays anywhere: `program.json` numbers days 1–7
    (`"day": 1`, `"restDay": 7`) and its notes refer to days by number
    (e.g. "Day 4"); the app shows dates without weekday names; tests, README,
    mockups and the project-files copies of `program.json` and the program

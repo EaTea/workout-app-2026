@@ -13,7 +13,7 @@ test("first run prompts for a start date; settings save, drive Today and persist
   await expect(page.getByRole("status")).toHaveText("Saved");
   await expect(page).toHaveURL(/#\/today$/);
 
-  // Preview Monday of week 2 via the ?date= override.
+  // Preview week 2 day 1 via the ?date= override.
   await page.goto("/?date=2026-11-09");
   await expect(page.getByText("Week 2 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
@@ -25,7 +25,7 @@ test("first run prompts for a start date; settings save, drive Today and persist
 });
 
 test("Start today on first run saves today as day 1 and survives a reload", async ({ page }) => {
-  // Wed 4 Nov: a mid-week start is day 1 and shows the program's first session.
+  // 4 Nov: a mid-week start is day 1 and shows the program's first session.
   await page.goto("/?date=2026-11-04");
   await page.getByRole("button", { name: "Start today" }).click();
 
