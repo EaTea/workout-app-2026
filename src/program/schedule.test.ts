@@ -6,7 +6,7 @@ import type { BlockView, ItemView, SessionView } from "./schedule";
 import { buildSession } from "./schedule";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
-const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 } };
+const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
 
 /** Builds a session and asserts it is a training day, so tests can read its fields. */
 function trainingOn(date: string, overrides: Partial<TrainingSettings> = {}) {
@@ -204,11 +204,11 @@ describe("further schedule rules", () => {
 
 describe("edge cases", () => {
   it("reports noStartDate", () => {
-    expect(buildSession(program, { startDate: null, maxReps: {} }, "2026-11-02")).toEqual({ kind: "noStartDate" });
+    expect(buildSession(program, { startDate: null, maxReps: {}, maxSavedOn: {} }, "2026-11-02")).toEqual({ kind: "noStartDate" });
   });
 
   it("reports notStarted before a mid-week start date, then week 2 seven days after the start", () => {
-    const midWeek = { startDate: "2026-11-04", maxReps: settings.maxReps };
+    const midWeek = { startDate: "2026-11-04", maxReps: settings.maxReps, maxSavedOn: {} };
     expect(buildSession(program, midWeek, "2026-11-02")).toEqual({ kind: "notStarted", startsOn: "2026-11-04" });
     expect(buildSession(program, midWeek, "2026-11-11")).toMatchObject({ kind: "training", week: 2 });
   });
@@ -278,7 +278,7 @@ describe("percent-of-max rounding survives floating point", () => {
         return json;
       })(),
     ).program;
-    const session = buildSession(custom, { startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 } }, "2026-11-02");
+    const session = buildSession(custom, { startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 }, maxSavedOn: {} }, "2026-11-02");
     if (session.kind !== "training") throw new Error("expected training");
     expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: expected });
   });

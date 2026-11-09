@@ -133,7 +133,7 @@ export function startApp(
       }
       main.append(
         route === "settings"
-          ? renderSettingsScreen(program, settings, handleSave)
+          ? renderSettingsScreen(program, settings, resolveToday(window.location.search), handleSave)
           : renderTodayScreen(program, settings, resolveToday(window.location.search), handleStartToday, startTodayFailureMessage),
       );
       root.replaceChildren(main, renderNavigationBar(route));

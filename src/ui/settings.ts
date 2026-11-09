@@ -19,13 +19,46 @@ export interface SettingsFormValues {
   maxReps: Record<string, string>;
 }
 
+/** The fields the form edits; the saved-on dates are added by `stampMaxSavedDates`. */
+export type SettingsFormResult = Pick<TrainingSettings, "startDate" | "maxReps">;
+
 /** Result of validating the form: either clean settings or messages per field. */
 export type SettingsValidation =
-  | { ok: true; settings: TrainingSettings }
+  | { ok: true; settings: SettingsFormResult }
   | { ok: false; errors: { startDate?: string; maxReps: Record<string, string> } };
 
 /**
- * Checks raw form text and converts it to `TrainingSettings`. Called by the
+ * Works out the new `maxSavedOn` when the form is saved: a max whose value
+ * changed (or that is newly entered) is stamped with `today`; a cleared max
+ * loses its date; an unchanged max keeps its previous date (which may be
+ * missing for data saved before dates were recorded). Called by the Save
+ * handler after validation, with `today` from the `?date=` override or the
+ * local date. "Start today" does not go through here, so it leaves dates alone.
+ */
+export function stampMaxSavedDates(
+  previous: Pick<TrainingSettings, "maxReps" | "maxSavedOn">,
+  newMaxReps: Record<string, number>,
+  today: string,
+): Record<string, string> {
+  const maxSavedOn: Record<string, string> = {};
+
+  for (const [exerciseId, reps] of Object.entries(newMaxReps)) {
+    if (previous.maxReps[exerciseId] !== reps) {
+      maxSavedOn[exerciseId] = today;
+      continue;
+    }
+
+    const previousDate = previous.maxSavedOn[exerciseId];
+    if (previousDate !== undefined) {
+      maxSavedOn[exerciseId] = previousDate;
+    }
+  }
+
+  return maxSavedOn;
+}
+
+/**
+ * Checks raw form text and converts it to the form's settings fields. Called by the
  * Save handler; the error messages are shown inline under each field.
  */
 export function validateSettingsForm(values: SettingsFormValues): SettingsValidation {
@@ -63,7 +96,8 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
 }
 
 /**
- * Builds the Settings screen. `onSave` is called with validated settings when
+ * Builds the Settings screen. `today` is the date to stamp on changed maxes.
+ * `onSave` is called with validated settings when
  * the user presses Save; `app.ts` persists them, shows "Saved" and navigates.
  * `onSave` returns null on success or a message to show inline (e.g. storage
  * is full or blocked), in which case the user stays on this screen.
@@ -71,6 +105,7 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
 export function renderSettingsScreen(
   program: Program,
   current: TrainingSettings,
+  today: string,
   onSave: (settings: TrainingSettings) => string | null,
 ): HTMLElement {
   const screen = element("section", "screen");
@@ -147,7 +182,8 @@ export function renderSettingsScreen(
       return;
     }
 
-    saveError.textContent = onSave(result.settings) ?? "";
+    const maxSavedOn = stampMaxSavedDates(current, result.settings.maxReps, today);
+    saveError.textContent = onSave({ ...result.settings, maxSavedOn }) ?? "";
   });
 
   screen.append(form);

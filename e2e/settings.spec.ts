@@ -89,3 +89,27 @@ test("a broken program.json shows the error card", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Could not load the program" })).toBeVisible();
 });
+
+test("saving a changed max records today's date (format v2); an unchanged max keeps its date", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!window.localStorage.getItem("explosive-endurance.settings")) {
+      window.localStorage.setItem(
+        "explosive-endurance.settings",
+        JSON.stringify({ version: 1, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 } }),
+      );
+    }
+  });
+  await page.goto("/?date=2026-12-21#/settings");
+
+  await page.getByLabel("Max reps: Pull-ups").fill("15");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+
+  const stored = await page.evaluate(() => window.localStorage.getItem("explosive-endurance.settings"));
+  expect(JSON.parse(stored ?? "{}")).toEqual({
+    version: 2,
+    startDate: "2026-11-02",
+    maxReps: { pull_up: 15, dip: 15 },
+    maxSavedOn: { pull_up: "2026-12-21" },
+  });
+});

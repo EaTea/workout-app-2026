@@ -19,7 +19,7 @@ describe("resolveToday", () => {
 });
 
 describe("persistSettings", () => {
-  const settings = { startDate: "2026-11-02", maxReps: {} };
+  const settings = { startDate: "2026-11-02", maxReps: {}, maxSavedOn: {} };
 
   it("returns null when the write succeeds", () => {
     const storage = { setItem: () => undefined } as unknown as Storage;
