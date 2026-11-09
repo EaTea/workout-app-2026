@@ -1,9 +1,8 @@
 import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
-import { DAYS_PER_WEEK } from "./model";
+import { DAYS_PER_WEEK, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
 import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
-import { INTERVAL_LIMITS } from "../timer/plans";
 
 /**
  * Turns the program plus the athlete's settings into the concrete session
@@ -285,20 +284,22 @@ function buildBlock(block: Block, settings: TrainingSettings, week: WeekContext)
     format: block.format,
     rounds: block.rounds && (halve ? halveRange(block.rounds) : block.rounds),
     minutes: block.minutes === undefined ? undefined : halve ? halveRoundingUp(block.minutes) : block.minutes,
-    restSecBetweenPairs: restAdjusted ? shiftRange(block.restSecBetweenPairs as Range, restAdjustment) : block.restSecBetweenPairs,
+    restSecBetweenPairs: restAdjusted ? shiftRange(block.restSecBetweenPairs as Range, restAdjustment, MAX_REST_SECONDS) : block.restSecBetweenPairs,
     restAdjustment: restAdjusted ? restAdjustment : undefined,
     items: block.items.map((item) => buildItem(item, settings, halve, week)),
   };
 }
 
 /**
- * Moves both ends of a range by `seconds`, never below the timer's 5-second
- * floor (INTERVAL_LIMITS.minSeconds) so the timer can always start from it.
- * Used for the phase's timer adjustments (power endurance).
+ * Moves both ends of a range by `seconds`, kept between the timer's floor
+ * (MIN_TIMER_SECONDS) and `ceiling` (the matching stepper maximum), so the
+ * timer can always start from the result. Used for the phase's timer
+ * adjustments (power endurance): work uses MAX_INTERVAL_WORK_SECONDS, rest
+ * between pairs uses MAX_REST_SECONDS.
  */
-function shiftRange(range: Range, seconds: number): Range {
-  const floor = INTERVAL_LIMITS.minSeconds;
-  return { min: Math.max(floor, range.min + seconds), max: Math.max(floor, range.max + seconds) };
+function shiftRange(range: Range, seconds: number, ceiling: number): Range {
+  const clamp = (value: number) => Math.min(ceiling, Math.max(MIN_TIMER_SECONDS, value));
+  return { min: clamp(range.min + seconds), max: clamp(range.max + seconds) };
 }
 
 /**
@@ -327,7 +328,7 @@ function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, 
     minutes: item.minutes === undefined ? undefined : halve ? halveRoundingUp(item.minutes) : item.minutes,
     // Deload intervals use the low end of the range, halved (4-5 -> 2).
     rounds: item.rounds && (halve ? { min: halveRoundingUp(item.rounds.min), max: halveRoundingUp(item.rounds.min) } : item.rounds),
-    workSec: workAdjusted ? shiftRange(item.workSec as Range, workAdjustment) : item.workSec,
+    workSec: workAdjusted ? shiftRange(item.workSec as Range, workAdjustment, MAX_INTERVAL_WORK_SECONDS) : item.workSec,
     workSecAdjustment: workAdjusted ? workAdjustment : undefined,
     durationSec: item.durationSec,
     perSide: item.perSide,

@@ -185,3 +185,19 @@ export interface ProgramWarning {
   /** The known field this one is probably a misspelling of, e.g. "weeklyIncrease" for "weeklyIncreese". */
   suggestion?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Timer bounds shared by the schedule and the timers
+// ---------------------------------------------------------------------------
+
+/** Shortest work or rest a timer segment can have; the schedule never adjusts below it and the timers refuse less. Dependency-free so program/ need not import timer/. */
+export const MIN_TIMER_SECONDS = 5;
+
+/** Largest work time the heavy bag stepper offers; adjusted work ranges are capped here so the timer can always start from them. */
+export const MAX_INTERVAL_WORK_SECONDS = 180;
+
+/** Largest interval rest the heavy bag stepper offers. */
+export const MAX_INTERVAL_REST_SECONDS = 180;
+
+/** Largest rest the rest-timer stepper offers; the cap for adjusted rest between pairs. */
+export const MAX_REST_SECONDS = 300;

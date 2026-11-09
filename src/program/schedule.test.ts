@@ -437,4 +437,13 @@ describe("power endurance timer adjustments (weeks 5-7)", () => {
     expect(item(session.blocks, "heavy_bag").workSec).toEqual({ min: 5, max: 5 });
     expect(block(session.blocks, "core").restSecBetweenPairs).toEqual({ min: 5, max: 5 });
   });
+
+  it("never goes above the steppers' maximums (180s interval work, 300s rest between pairs)", () => {
+    const generous = structuredClone(program);
+    generous.progression[2]!.timerAdjustments = { intervalWorkSec: 1000, coreRestBetweenPairsSec: 1000 };
+    const session = buildSession(generous, settings, "2026-11-30");
+    if (session.kind !== "training") throw new Error("expected training");
+    expect(item(session.blocks, "heavy_bag").workSec).toEqual({ min: 180, max: 180 });
+    expect(block(session.blocks, "core").restSecBetweenPairs).toEqual({ min: 300, max: 300 });
+  });
 });

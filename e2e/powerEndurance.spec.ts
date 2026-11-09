@@ -32,6 +32,15 @@ test("week 5 day 1: Today shows the adjusted numbers and the heavy bag timer sta
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
   await expect(overlay.locator(".timer-title")).toHaveText("Heavy bag \u00b7 5 rounds");
   await expect(overlay.locator(".timer-digits")).toHaveText("0:35");
+  // The setup row shows the unchanged 30s rest alongside the adjusted work time.
+  await expect(overlay.locator(".timer-setup-summary")).toContainText("Rest 30s");
+  await overlay.getByRole("button", { name: "\u2715 Close" }).click();
+  await expect(overlay).toBeHidden();
+
+  // The core block's rest button opens a rest timer at the adjusted 30s.
+  await coreCard.getByRole("button", { name: /Rest 30s between pairs/ }).click();
+  const restOverlay = page.getByRole("dialog", { name: "Rest timer" });
+  await expect(restOverlay.locator(".timer-digits")).toHaveText("0:30");
 });
 
 test("week 5 day 5: core rest is 30s", async ({ page }) => {
