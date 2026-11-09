@@ -56,7 +56,7 @@ test("Progress section charts best reps per week and picks another exercise", as
   await expect(rows).toHaveText(["W12 Nov58", "W29 Nov68", "W316 Nov710"]);
 
   // Loads were logged, so the kg chart appears too.
-  const loadChart = progress.getByRole("img", { name: /^Pull-ups heaviest load rose from 8 kg in week 1 to 10 kg in week 3$/ });
+  const loadChart = progress.getByRole("img", { name: /^Pull-ups — Main strength heaviest load rose from 8 kg in week 1 to 10 kg in week 3$/ });
   await expect(loadChart).toBeVisible();
   await expect(loadChart.locator("circle")).toHaveCount(3);
 
