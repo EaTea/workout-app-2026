@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 and PR 1b merged (#3, #4). PR 2 (timers) open for review.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in progress.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -121,6 +121,26 @@ the starting point. Revisit them if the app shows they're wrong.
    session still loads. A name close to a known field gets a "did you
    mean" hint.
 
+8. **Logging (PR 3).** Every item on a training day can be logged, set
+   by set. An item's "sets" are its sets (after deload halving), its EMOM
+   minutes, or its heavy-bag rounds. Each logged set records reps (none for
+   bag rounds and timed holds, where the set is just ticked), an optional
+   load in kg, and an optional note. Reps and load are pre-filled from the
+   same exercise's previous set this session, else from last time, else
+   from the plan's target. Loads are kg only for now.
+   - The log is stored by program date (the same date Today uses, so a
+     `?date=` preview logs to the previewed day) in local storage, with its
+     own wire type and version, separate from settings.
+   - **Last time** for an exercise is the most recent earlier date with
+     at least one logged set of it, shown as "Last time (2 Nov): 6 × 6 at
+     6 kg" (sets × reps when every set matched, else the reps listed, e.g.
+     "6, 6, 5"). Warm-ups don't show it.
+   - Logging a set that has a prescribed rest starts the rest timer (the
+     PR 2 follow-up). A session is "in progress" from its first logged set
+     until midnight or until every set is logged; while it is, the screen
+     is kept awake on Today and the log screen (the other PR 2 follow-up).
+   - Logged sets can be edited or deleted. Nothing is sent anywhere.
+
 ## 5. Milestones and PR merge points
 
 Each milestone is a stopping point where the app builds, runs and is
@@ -160,7 +180,7 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
   week 8 and look like a retest. Consider counting only dates inside
   week 8, or clearing dates when the start date changes.
 
-### PR 2 — Timers *(behavior change)*
+### PR 2 — Timers *(behavior change)* — merged as PR #5
 1. [x] Timer engine (pure state machine, wall-clock based, so it catches
    up after the phone sleeps) and a shared full-screen timer view: huge
    digits, round counter, start/pause/skip, thumb-reachable controls.
@@ -188,8 +208,6 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
    - E2E for Skip and for catching up after the page was hidden.
 - **Merge point:** a full session can be run with timers.
 
-Follow-ups from the PR 2 review (later PRs):
-- PR 3: start the rest timer when a set is ticked off, and hold the wake
   lock for the whole session once "session in progress" exists.
 - Schedule upcoming beeps on the audio clock so they stay on time while the
   browser throttles a hidden page.
@@ -199,11 +217,22 @@ Follow-ups from the PR 2 review (later PRs):
   written, since the program allows adding reps instead. Not built yet.
 
 ### PR 3 — Logging and "last time" *(behavior change)*
-1. Tick off sets; record reps, load and an optional note per set.
-2. Save by date in local storage; history list by date.
-3. "Last time" hint next to each strength exercise.
-   Unit tests for the log mapping and "last time" lookup; E2E test that logs
-   a set, reloads, and sees it again.
+Rule 8 in section 4.
+1. [ ] Log model and storage: internal `WorkoutLog` and `LogWire` (v1)
+   with `logFromWire`/`logToWire`, load/save under its own key, and pure
+   functions to add, edit and delete a set and to read a day's sets. A
+   corrupt log is kept aside (not overwritten) and the app starts empty
+   with a warning. No UI yet.
+2. [ ] Log screen (mockup 2): open it from an item row; set list with
+   ticks, reps and kg steppers pre-filled per rule 8, optional note, "Log
+   set" (starts the rest timer when the item has one) and Skip. Today rows
+   show progress such as "2/6".
+3. [ ] "Last time" lookup and hint on Today rows and the log screen.
+4. [ ] History screen (the "History" tab): sessions by date, newest
+   first, each listing what was logged; tap a set to edit or delete it.
+5. [ ] Keep the screen awake while a session is in progress (rule 8).
+   Unit tests for the log mapping, set edits and "last time"; E2E test that
+   logs sets, reloads, and sees them on Today, the log screen and History.
 - **Merge point:** the must-haves for a gym session are usable.
 
 ### PR 4 — Retest, fatigue check, offline install *(behavior change)*
