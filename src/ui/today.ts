@@ -19,7 +19,7 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *
  *   buildSession(...) ─▶ SessionView
  *        training  ─▶ header, phase strip, deload note, one card per block
- *                       └ item row (button) ─▶ log screen (#/log/...), which has the details sheet
+ *                       └ item row (button) ─▶ log screen (#/log/<date>/..., pinned to the date shown), which has the details sheet
  *        rest / notStarted / complete / noStartDate ─▶ a single message card
  *
  * It renders exactly what `buildSession` returns; all numbers are final.
@@ -276,7 +276,7 @@ function renderItemRow(item: ItemView, block: BlockView, date: string, blockPosi
   }
 
   openButton.addEventListener("click", () => {
-    window.location.hash = logRouteHash(blockPosition, item.exercise.id);
+    window.location.hash = logRouteHash(date, blockPosition, item.exercise.id);
   });
   return row;
 }

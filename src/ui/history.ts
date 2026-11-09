@@ -6,6 +6,7 @@ import { deleteSet, editSet, sessionDates, type SetKey } from "../log/operations
 import { element } from "./dom";
 import { formatSetsSummary } from "./format";
 import { exerciseDisplayName, formatSessionHeader, loggedSetLabel, loggedSetNoun } from "./historyText";
+import type { ChangeLog } from "./logChange";
 import { renderSetEditor, type SetEditorValues } from "./setEditor";
 
 /**
@@ -14,14 +15,14 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
  * tapping an exercise expands its sets, and tapping a set opens the shared
  * edit panel (reps, kg, note, Save, Delete).
  *
- *   renderHistoryScreen(program, log, onLogChanged)
+ *   renderHistoryScreen(program, log, changeLog)
  *     state: log (own copy) · expandedGroups · editingSet · message
  *     draw() ─▶ for each date (newest first) ─▶ session card
  *                 header "9 Nov · Week 2 · Day 1 · Upper: pull"
  *                 exercise row ──tap──▶ expands ─▶ "Set 1 · 6 reps · 6 kg" rows
  *                                                    └─tap─▶ edit panel
  *     Save ─▶ editSet ─┐
- *     Delete ─▶ deleteSet ─┴▶ onLogChanged(log) saves (app.ts) ─▶ draw()
+ *     Delete ─▶ deleteSet ─┴▶ changeLog(op) re-reads, saves (app.ts) ─▶ draw()
  *
  * Deleting the last set of a session removes the session (`deleteSet`), so its
  * card disappears. As on the log screen, a failed save keeps the change in
@@ -33,13 +34,14 @@ export const EMPTY_HISTORY_MESSAGE = "Nothing logged yet. Tap an exercise on Tod
 
 /**
  * Builds the History screen. `initialLog` is app.ts's current log;
- * `onLogChanged(newLog)` must keep the new log in app state and returns null
- * when it was saved, or a message to show inline when saving failed.
+ * `changeLog(operation)` (see logChange.ts) applies one edit or delete to the
+ * freshly re-read stored log, saves it, and returns the log to show plus an
+ * inline message when saving failed or was refused.
  */
 export function renderHistoryScreen(
   program: Program,
   initialLog: WorkoutLog,
-  onLogChanged: (newLog: WorkoutLog) => string | null,
+  changeLog: ChangeLog,
 ): HTMLElement {
   const screen = element("section", "screen history-screen");
 
@@ -60,17 +62,18 @@ export function renderHistoryScreen(
     return editing !== undefined && editing.date === date && isKeyOfSet(editing.key, set);
   }
 
-  /** Keeps `newLog` in memory, hands it to app.ts to save, and remembers any failure message. */
-  function commit(newLog: WorkoutLog): void {
-    log = newLog;
-    message = onLogChanged(newLog) ?? undefined;
+  /** Asks app.ts to apply `operation` to the stored log and save it; adopts the resulting log and remembers any failure message. */
+  function commit(operation: (freshLog: WorkoutLog) => WorkoutLog): void {
+    const outcome = changeLog(operation);
+    log = outcome.log;
+    message = outcome.error ?? undefined;
   }
 
   /** Save tapped in the edit panel: stores the edited reps, load and note, then closes the panel. */
   function handleSave(date: string, set: LoggedSet, values: SetEditorValues): void {
     const note = values.note.trim();
     // A key with value undefined clears that field in the stored set.
-    commit(editSet(log, date, keyOf(set), {
+    commit((freshLog) => editSet(freshLog, date, keyOf(set), {
       reps: values.reps,
       loadKg: values.loadKg > 0 ? values.loadKg : undefined,
       note: note === "" ? undefined : note,
@@ -81,7 +84,7 @@ export function renderHistoryScreen(
 
   /** Delete tapped in the edit panel. The session card goes with its last set. */
   function handleDelete(date: string, set: LoggedSet): void {
-    commit(deleteSet(log, date, keyOf(set)));
+    commit((freshLog) => deleteSet(freshLog, date, keyOf(set)));
     editing = undefined;
     draw();
   }

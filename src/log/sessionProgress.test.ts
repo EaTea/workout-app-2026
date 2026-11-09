@@ -5,13 +5,21 @@ import { buildSession, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { countSetsForItem } from "./itemSets";
 import type { LoggedSet, WorkoutLog } from "./model";
-import { isSessionInProgress } from "./sessionProgress";
+import { isSessionInProgress as isInProgressAt, SESSION_IDLE_TIMEOUT_MILLISECONDS } from "./sessionProgress";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
 
 /** A training day (W2 D1) used by most tests. */
 const trainingDate = "2026-11-09";
+
+/** Ten minutes after the sets built by `allSetsOf` were logged: well inside the idle timeout. */
+const shortlyAfterLogging = new Date("2026-11-09T18:10:00Z");
+
+/** `isSessionInProgress` at `shortlyAfterLogging` unless a time is given. */
+function isSessionInProgress(session: SessionView, log: WorkoutLog, date: string, now: Date = shortlyAfterLogging): boolean {
+  return isInProgressAt(session, log, date, now);
+}
 
 /** Builds the session for `date` with the shared settings. */
 function sessionOn(date: string): SessionView {
@@ -48,7 +56,10 @@ describe("isSessionInProgress", () => {
     const sets = allSetsOf(session);
 
     expect(isSessionInProgress(session, logWith(trainingDate, sets.slice(0, 1)), trainingDate)).toBe(true);
-    expect(isSessionInProgress(session, logWith(trainingDate, sets.slice(0, -1)), trainingDate)).toBe(true);
+    // Everything but the last med ball slam set: still one set to go.
+    const allButLastSlam = sets.filter((set) => !(set.exerciseId === "med_ball_slam" && set.setNumber === 6));
+    expect(allButLastSlam).toHaveLength(sets.length - 1);
+    expect(isSessionInProgress(session, logWith(trainingDate, allButLastSlam), trainingDate)).toBe(true);
   });
 
   it("is false once every set is logged", () => {
@@ -85,5 +96,52 @@ describe("isSessionInProgress", () => {
     expect(isSessionInProgress({ kind: "notStarted", startsOn: "2026-11-02" }, { sessions: {} }, "2026-11-01")).toBe(false);
     expect(isSessionInProgress({ kind: "noStartDate" }, { sessions: {} }, trainingDate)).toBe(false);
     expect(isSessionInProgress({ kind: "complete" }, { sessions: {} }, "2030-01-01")).toBe(false);
+  });
+
+  it("ends 45 minutes after the most recent logged set, and a later set restarts the clock", () => {
+    const session = sessionOn(trainingDate);
+    const [first, second] = allSetsOf(session);
+    const early = { ...first!, loggedAt: new Date("2026-11-09T18:00:00Z") };
+    const late = { ...second!, loggedAt: new Date("2026-11-09T18:30:00Z") };
+    const justBefore = (loggedAt: Date) => new Date(loggedAt.getTime() + SESSION_IDLE_TIMEOUT_MILLISECONDS - 1);
+    const exactly = (loggedAt: Date) => new Date(loggedAt.getTime() + SESSION_IDLE_TIMEOUT_MILLISECONDS);
+
+    expect(isSessionInProgress(session, logWith(trainingDate, [early]), trainingDate, justBefore(early.loggedAt))).toBe(true);
+    expect(isSessionInProgress(session, logWith(trainingDate, [early]), trainingDate, exactly(early.loggedAt))).toBe(false);
+
+    // The second set (30 minutes later) keeps it open past the first set's 45 minutes.
+    expect(isSessionInProgress(session, logWith(trainingDate, [early, late]), trainingDate, exactly(early.loggedAt))).toBe(true);
+    expect(isSessionInProgress(session, logWith(trainingDate, [early, late]), trainingDate, exactly(late.loggedAt))).toBe(false);
+  });
+
+  it("does not need the warm-up block to be logged", () => {
+    const session = sessionOn(trainingDate);
+    if (session.kind !== "training") throw new Error("expected a training day");
+    const warmupPositions = session.blocks.flatMap((block, index) => (block.type === "warmup" ? [index + 1] : []));
+    expect(warmupPositions.length).toBeGreaterThan(0);
+
+    const withoutWarmup = allSetsOf(session).filter((set) => !warmupPositions.includes(set.blockPosition));
+    expect(isSessionInProgress(session, logWith(trainingDate, withoutWarmup), trainingDate)).toBe(false);
+  });
+
+  it("is in progress after only a warm-up set is logged", () => {
+    const session = sessionOn(trainingDate);
+    const warmupSet = allSetsOf(session).find((set) => set.blockPosition === 1);
+    expect(isSessionInProgress(session, logWith(trainingDate, [warmupSet!]), trainingDate)).toBe(true);
+  });
+
+  it("counts a heavy-bag rounds range (4-5) as complete at its low end", () => {
+    const session = sessionOn(trainingDate);
+    if (session.kind !== "training") throw new Error("expected a training day");
+    const bagBlock = session.blocks.findIndex((block) => block.items.some((item) => item.exercise.id === "heavy_bag")) + 1;
+    const bagItem = session.blocks[bagBlock - 1]!.items.find((item) => item.exercise.id === "heavy_bag")!;
+    expect(bagItem.rounds).toEqual({ min: 4, max: 5 });
+
+    const everythingButBag = allSetsOf(session).filter((set) => set.exerciseId !== "heavy_bag");
+    const bagRounds = (count: number): LoggedSet[] =>
+      Array.from({ length: count }, (_unused, index) => ({ exerciseId: "heavy_bag", blockPosition: bagBlock, setNumber: index + 1, loggedAt: new Date("2026-11-09T18:00:00Z") }));
+
+    expect(isSessionInProgress(session, logWith(trainingDate, [...everythingButBag, ...bagRounds(3)]), trainingDate)).toBe(true);
+    expect(isSessionInProgress(session, logWith(trainingDate, [...everythingButBag, ...bagRounds(4)]), trainingDate)).toBe(false);
   });
 });

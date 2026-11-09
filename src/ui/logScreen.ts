@@ -9,16 +9,19 @@ import { formatClock } from "../timer/engine";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
 import { blockLabel, formatPrescriptionSummary, formatRepTarget } from "./format";
+import type { ChangeLog } from "./logChange";
 import { lastTimeHint } from "./lastTimeHint";
 import { renderActionButton, renderNoteInput, renderStepper, KILOGRAM_STEP, MINIMUM_REPS } from "./setEditor";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 
 /**
- * The log screen for one item (mockup 2), at `#/log/<blockPosition>/<exerciseId>`.
- * Opened from an item row on Today; "‹" goes back to Today.
+ * The log screen for one item (mockup 2), at `#/log/<date>/<blockPosition>/<exerciseId>`.
+ * Opened from an item row on Today; "‹" goes back to Today. It logs to the
+ * date in its address, not to "today by the clock", so a session started at
+ * 23:50 keeps logging to that day after midnight.
  *
- *   Today row tap ──▶ #/log/2/med_ball_slam ──▶ renderLogScreen
+ *   Today row tap ──▶ #/log/2026-11-09/2/med_ball_slam ──▶ renderLogScreen
  *
  *   state: log (this screen's copy) · currentSetNumber · draft {reps, kg, note}
  *
@@ -28,8 +31,8 @@ import { currentRestSeconds, openRestTimer } from "./restTimer";
  *                        later sets (tap = jump to it)
  *          ─▶ sticky actions: [Skip] [✓ Log set · rest 0:30]   (or Save/Delete when editing)
  *
- *   ✓ Log set ─▶ logSet(log) ─▶ onLogChanged(log) saves it ─▶ next set becomes current
- *                                   │ save failed: inline error, change kept in memory
+ *   ✓ Log set ─▶ changeLog(fresh => logSet(fresh, ...)) re-reads and saves ─▶ next set becomes current
+ *                                   │ save failed: inline error, change kept in memory (refused: not applied)
  *                                   └─ item has a rest (not a superset or interval, and a
  *                                      set is still to come) ─▶ openRestTimer
  *   Skip ─▶ next unlogged set becomes current (nothing logged)
@@ -43,13 +46,12 @@ import { currentRestSeconds, openRestTimer } from "./restTimer";
  * `choosePrefill`). A "Last time (2 Nov): 6 × 6 at 6 kg" line sits under the set
  * list (not on warm-ups).
  *
- * The screen keeps its own copy of the log and tells app.ts about every change
- * through `onLogChanged`, so Today (re-rendered from app.ts's copy) is current
- * when Ed goes back.
+ * The screen keeps its own copy of the log, but never saves it. Every change is
+ * handed to app.ts through `changeLog` as one operation, which app.ts applies
+ * to the freshly re-read stored log (so another open copy of the app is not
+ * overwritten) and saves; the screen then adopts the log that comes back, and
+ * Today (re-rendered from app.ts's copy) is current when Ed goes back.
  */
-
-/** Inline message when a log change cannot be written to this device. */
-export const LOG_SAVE_FAILED_MESSAGE = "Couldn't save on this device. This set is kept until you reload.";
 
 /** Shown when a set that needs a rep count (max-based, no saved max) has none. */
 export const REPS_REQUIRED_MESSAGE = "Enter the reps you did. (The target needs your max: set it in Settings.)";
@@ -65,10 +67,10 @@ interface SetDraft {
 
 /**
  * Builds the log screen for the item at `blockPosition` / `exerciseId` of
- * the session on `date`. `initialLog` is app.ts's current log;
- * `onLogChanged(newLog)` is called after every change, must keep the new log
- * in app state and returns null when it was saved or a message to show inline
- * when saving failed. Unknown block/exercise, or a day with no training,
+ * the session on `date` (taken from the route). `initialLog` is app.ts's
+ * current log; `changeLog(operation)` applies one change to the stored log
+ * (see logChange.ts) and returns the log to show plus a message to show
+ * inline when saving failed or was refused. Unknown block/exercise, or a day with no training,
  * gives a "Nothing to log here" card.
  */
 export function renderLogScreen(
@@ -78,7 +80,7 @@ export function renderLogScreen(
   blockPosition: number,
   exerciseId: string,
   initialLog: WorkoutLog,
-  onLogChanged: (newLog: WorkoutLog) => string | null,
+  changeLog: ChangeLog,
 ): HTMLElement {
   const screen = element("section", "screen log-screen");
   const session = buildSession(program, settings, date);
@@ -169,10 +171,11 @@ export function renderLogScreen(
     return set;
   }
 
-  /** Keeps `newLog` in memory, hands it to app.ts to save, and remembers any failure message for display. */
-  function commit(newLog: WorkoutLog): void {
-    log = newLog;
-    message = onLogChanged(newLog) ?? undefined;
+  /** Asks app.ts to apply `operation` to the stored log and save it; adopts the resulting log and remembers any failure message for display. */
+  function commit(operation: (freshLog: WorkoutLog) => WorkoutLog): void {
+    const outcome = changeLog(operation);
+    log = outcome.log;
+    message = outcome.error ?? undefined;
   }
 
   /** "✓ Log set" tapped: logs the current set, moves on, and starts the rest if the item has one. */
@@ -185,7 +188,14 @@ export function renderLogScreen(
     }
 
     const loggedNumber = currentSetNumber;
-    commit(logSet(log, date, buildLoggedSet(loggedNumber, draft), sessionContext));
+    const loggedSet = buildLoggedSet(loggedNumber, draft);
+    commit((freshLog) => logSet(freshLog, date, loggedSet, sessionContext));
+
+    // A refused save leaves the set unlogged: stay on it, with the message showing, and no rest timer over it.
+    if (!loggedNumbers().includes(loggedNumber)) {
+      draw();
+      return;
+    }
 
     const upNext = nextSetNumber(loggedNumber, totalSets, loggedNumbers());
     focusSet(upNext);
@@ -221,13 +231,18 @@ export function renderLogScreen(
       return;
     }
 
-    let updatedLog = log;
-    for (const setNumber of remaining) {
-      const prefill = prefillForSet(trackedItem, setNumber, setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id), lastTime);
-      updatedLog = logSet(updatedLog, date, buildLoggedSet(setNumber, { ...prefill, note: "" }), sessionContext);
-    }
+    // Applied to the fresh stored log, which may already hold some of these sets from another open copy: those are left alone.
+    commit((freshLog) => {
+      let updatedLog = freshLog;
+      for (const setNumber of remaining) {
+        const itemSets = setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id);
+        if (itemSets.some((set) => set.setNumber === setNumber)) continue;
 
-    commit(updatedLog);
+        const prefill = prefillForSet(trackedItem, setNumber, itemSets, lastTime);
+        updatedLog = logSet(updatedLog, date, buildLoggedSet(setNumber, { ...prefill, note: "" }), sessionContext);
+      }
+      return updatedLog;
+    });
     focusSet(firstUnloggedSetNumber());
     draw();
   }
@@ -244,7 +259,7 @@ export function renderLogScreen(
     const changed = buildLoggedSet(currentSetNumber, draft);
     const key = { exerciseId: changed.exerciseId, blockPosition, setNumber: changed.setNumber };
     // A key with value undefined clears that field in the stored set.
-    commit(editSet(log, date, key, { reps: changed.reps, loadKg: changed.loadKg, note: changed.note }));
+    commit((freshLog) => editSet(freshLog, date, key, { reps: changed.reps, loadKg: changed.loadKg, note: changed.note }));
     focusSet(firstUnloggedSetNumber());
     draw();
   }
@@ -252,7 +267,8 @@ export function renderLogScreen(
   /** "Delete set" tapped while editing a logged set. */
   function handleDelete(): void {
     if (currentSetNumber === undefined) return;
-    commit(deleteSet(log, date, { exerciseId: trackedItem.exercise.id, blockPosition, setNumber: currentSetNumber }));
+    const key = { exerciseId: trackedItem.exercise.id, blockPosition, setNumber: currentSetNumber };
+    commit((freshLog) => deleteSet(freshLog, date, key));
     focusSet(firstUnloggedSetNumber());
     draw();
   }

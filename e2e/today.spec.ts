@@ -330,15 +330,26 @@ test("Today left open past midnight offers a new-day banner instead of swapping 
   await expect(page.getByText("It's a new day.")).toHaveCount(0);
 });
 
-test("navigating away and back after midnight shows the new day without the banner", async ({ page }) => {
+test("navigating away and back after midnight keeps the shown day and the banner until it is tapped", async ({ page }) => {
   await seedSettings(page);
   await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
   await page.goto("/");
+  // Wait for the app to start before running the clock, or the interval it sets up would never fire.
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
   await page.clock.runFor(120_000);
   await expect(page.getByText("It's a new day.")).toBeVisible();
 
+  // Rule 8: leaving Today and coming back does not move the session on; the banner is still there.
   await page.getByRole("link", { name: "Settings" }).click();
   await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(1);
+
+  await page.getByRole("link", { name: "History" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+
+  await page.getByRole("button", { name: "Show today's session" }).click();
   await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
   await expect(page.getByText("It's a new day.")).toHaveCount(0);
 });
@@ -347,6 +358,7 @@ test("the new-day banner can appear behind an open timer and works after it clos
   await seedSettings(page);
   await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
   await page.goto("/");
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
   await page.getByRole("button", { name: "Rest 30s, Med ball slams" }).click();
   const overlay = page.getByRole("dialog", { name: "Rest timer" });
 
@@ -366,6 +378,8 @@ test("a ?date= preview stays on its date past midnight", async ({ page }) => {
   await seedSettings(page);
   await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
   await page.goto("/?date=2026-11-09");
+  // Wait for the app to start before running the clock, or the interval it sets up would never fire.
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
 
   await page.clock.runFor(120_000);
   await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();

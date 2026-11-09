@@ -125,3 +125,27 @@ test("History is empty at first, and shows what was just logged on Today", async
   await expect(page.locator(".history-session-header")).toHaveText("9 Nov · Week 2 · Day 1 · Upper: pull");
   await expect(exerciseRow(page, "9 Nov", "Pull-ups")).toContainText("9 × 5");
 });
+
+test("a log with one bad set shows a warning and keeps the good set", async ({ page }) => {
+  await seedSettings(page);
+  const log = {
+    version: 1,
+    sessions: [
+      {
+        date: "2026-11-02", programWeek: 1, day: 1,
+        sets: [wireSet("med_ball_slam", 2, 1, 6), wireSet("med_ball_slam", 2, 2, 6, { reps: "six" })],
+      },
+    ],
+  };
+  await page.addInitScript((seed) => {
+    window.localStorage.setItem("explosive-endurance.log", JSON.stringify(seed));
+  }, log);
+  await page.goto("/?date=2026-11-09#/history");
+
+  await expect(page.locator(".warning-banner")).toContainText("1 set of your saved workout log could not be read and was set aside");
+  await expect(exerciseRow(page, "2 Nov", "Med ball slams")).toContainText("1 × 6");
+
+  // The original text was copied aside before anything could be saved over it.
+  const backupCount = await page.evaluate(() => Object.keys(window.localStorage).filter((key) => key.startsWith("explosive-endurance.log.corrupt-")).length);
+  expect(backupCount).toBe(1);
+});
