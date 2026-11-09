@@ -1,7 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **in review.** Stack, milestones and assumptions agreed; awaiting
-mockup feedback and merge. No app code exists yet.
+Status: **plan agreed and merged (PR #2). PR 1 in progress.**
 
 ## 1. What I understand the request to be
 
@@ -100,22 +99,22 @@ reviewable. Each implementation PR is built step by step by a lower-cost
 subagent, reviewed and committed by me, and challenged by a separate
 higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 
-### PR 0 — this plan *(design)*
-- [x] Write `PLAN.md`.
-- **Merge point:** Ed approves or edits the plan.
+### PR 0 — this plan *(design)* — merged as PR #2
 
 ### PR 1 — Skeleton and "Today's workout" *(behavior change)*
-1. Skeleton: Vite + TypeScript, `index.html` with "Hello", Vitest and
+1. [x] Skeleton: Vite + TypeScript, `index.html` with a placeholder, Vitest and
    Playwright wired up with one trivial test each, `README.md` with
    install/build/run/test commands, and a GitHub Actions workflow that
    deploys `main` to GitHub Pages so it can be opened on a phone. Verify it
-   builds and runs.
-2. Program wire and internal types, `parseProgram`, unit tests against the
+   builds and runs. Playwright uses the iPhone 13 viewport on Chromium
+   (the only browser installed here); CI runs unit tests and the build but
+   not Playwright yet.
+2. [ ] Program wire and internal types, `parseProgram`, unit tests against the
    real `program.json`.
-3. Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
+3. [ ] Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
    weekly increase. Unit tests built from worked examples (below).
-4. Settings screen: start date, max pull-ups, max dips (stored locally).
-5. Today screen: header (week N of 8, phase, day focus), blocks in session
+4. [ ] Settings screen: start date, max pull-ups, max dips (stored locally).
+5. [ ] Today screen: header (week N of 8, phase, day focus), blocks in session
    order as cards, tap an exercise to open cues/alternative/evidence. Phase
    changes from `progression` shown in a collapsible strip. Rest-day card.
    E2E test: set a start date and maxes, see the right session.
