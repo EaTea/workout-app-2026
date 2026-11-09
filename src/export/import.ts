@@ -20,17 +20,25 @@ import { EXPORT_FORMAT_NAME } from "./wire";
  *
  * What is refused (nothing is read at all): text that is not JSON, a file
  * that is not our format, a version other than 1, and a missing or
- * wholly unreadable `settings`, `log` or `fatigueChecks` section (replacing
- * the athlete's data with nothing because of a damaged file would be the
- * worst outcome). What is tolerated: individual bad sets or checks, which are
- * left out and listed in `problems`, exactly as the loaders do; an unknown
- * settings version or max-history block, which falls back to defaults and is
- * listed too. `corruptLogBackups` and `importBackups` in the file are ignored:
- * they are not part of the data an import restores.
+ * wholly unreadable `settings`, `log` or `fatigueChecks` section, a
+ * `settings` section of a version this app does not know and a `maxHistory`
+ * block that is not version 1 (replacing the athlete's data with defaults
+ * because of a file from a newer app would be the worst outcome), and files
+ * over 10 MB. What is tolerated: individual bad sets or checks, which are
+ * left out and listed in `problems`, exactly as the loaders do. Parsing never
+ * throws: anything unexpected becomes "could not be read".
+ * `corruptLogBackups` and `importBackups` in the file are ignored: they are
+ * not part of the data an import restores.
  *
  * Called by `ui/importSection.ts` when a file is chosen; nothing here touches
  * storage (`importApply.ts` does that after the athlete confirms).
  */
+
+/** Files larger than this are refused before they are read (an export of years of training is well under 1 MB). */
+export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
+
+/** The message for a file over `MAX_IMPORT_FILE_BYTES`; used by the Import card before it reads the file. */
+export const FILE_TOO_LARGE_MESSAGE = "This file is larger than 10 MB, so it is not an export from this app. Nothing was changed.";
 
 /** The data an import would write, in internal types. */
 export interface ImportedData {
@@ -39,8 +47,9 @@ export interface ImportedData {
   fatigueHistory: FatigueHistory;
 }
 
-/** What the confirmation step shows about the file. Dates are "YYYY-MM-DD"; the session dates are absent for an empty log. */
+/** What the confirmation step shows about the file. Dates are "YYYY-MM-DD"; the session dates are absent for an empty log. `exportedAt` is the file's ISO timestamp, absent when the file's is not a real date. */
 export interface ImportSummary {
+  exportedAt?: string;
   sessionCount: number;
   setCount: number;
   checkCount: number;
@@ -66,9 +75,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Turns the text of a chosen file into importable data or a refusal. Never
- * throws. See the file comment for what is refused and what is tolerated.
+ * throws: the real work is in `parseImportUnguarded`, and anything it throws
+ * that its own checks missed is reported as an unreadable file. See the file
+ * comment for what is refused and what is tolerated.
  */
 export function parseImport(fileText: string): ImportParseResult {
+  try {
+    return parseImportUnguarded(fileText);
+  } catch (error) {
+    return { ok: false, error: `This file could not be read (${describeError(error)}). Nothing was changed.` };
+  }
+}
+
+/** The parsing steps of `parseImport`, which may throw on input shapes nobody thought of; only `parseImport` calls it. */
+function parseImportUnguarded(fileText: string): ImportParseResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(fileText);
@@ -112,40 +132,47 @@ export function parseImport(fileText: string): ImportParseResult {
     return { ok: false, error: `The weekly check-ins in this file could not be read (${describeError(error)}), so it was not imported. Nothing was changed.` };
   }
 
-  const settings = readSettings(parsed, problems);
+  const settingsResult = readSettings(parsed);
+  if (!settingsResult.ok) return settingsResult;
+  const settings = settingsResult.settings;
 
   const data: ImportedData = { settings, log, fatigueHistory };
-  return { ok: true, data, summary: summarize(data), problems };
+  return { ok: true, data, summary: summarize(data, parsed.exportedAt), problems };
 }
 
 /**
- * Maps the file's `settings` (any settings version) and optional `maxHistory`
- * block to internal settings, adding a note to `problems` when either had to
- * fall back to defaults. A file without `maxHistory` (written before PR 8) is
- * fine: `settingsFromWire` rebuilds the history from the settings' maxes.
+ * Maps the file's `settings` (version 1 or 2) and optional `maxHistory` block
+ * to internal settings, or refuses a section whose version is unknown (the
+ * stored settings would otherwise be replaced by empty ones). A file without
+ * `maxHistory` (written before PR 8) is fine: `settingsFromWire` rebuilds the
+ * history from the settings' maxes.
  */
-function readSettings(file: Record<string, unknown>, problems: string[]): TrainingSettings {
+function readSettings(file: Record<string, unknown>): { ok: true; settings: TrainingSettings } | { ok: false; error: string } {
   const settingsWire = file.settings as Record<string, unknown>;
   if (settingsWire.version !== 1 && settingsWire.version !== 2) {
-    problems.push(`settings: unknown version ${JSON.stringify(settingsWire.version)}, so the start date and maxes are left empty`);
+    return {
+      ok: false,
+      error: `The settings in this file are version ${JSON.stringify(settingsWire.version)}, which this app cannot read, so nothing was imported. Nothing was changed.`,
+    };
   }
 
   const historyWire = file.maxHistory;
-  const historyIsPresent = historyWire !== undefined;
-  const maxHistory = maxHistoryFromWire(historyWire);
-  if (historyIsPresent && (!isRecord(historyWire) || historyWire.version !== 1)) {
-    problems.push("maxHistory: not a version 1 block, so it was ignored");
+  if (historyWire !== undefined && (!isRecord(historyWire) || historyWire.version !== 1)) {
+    return { ok: false, error: "The max history in this file is not a version this app can read, so nothing was imported. Nothing was changed." };
   }
 
-  return settingsFromWire(settingsWire, maxHistory);
+  return { ok: true, settings: settingsFromWire(settingsWire, maxHistoryFromWire(historyWire)) };
 }
 
 /** Counts and dates for the confirmation step. */
-function summarize(data: ImportedData): ImportSummary {
+function summarize(data: ImportedData, exportedAtWire: unknown): ImportSummary {
   const sessions = Object.values(data.log.sessions);
   const sessionDates = sessions.map((session) => session.date).sort();
 
+  const exportedAtIsReal = typeof exportedAtWire === "string" && !Number.isNaN(new Date(exportedAtWire).getTime());
+
   return {
+    exportedAt: exportedAtIsReal ? exportedAtWire : undefined,
     sessionCount: sessions.length,
     setCount: sessions.reduce((total, session) => total + session.sets.length, 0),
     checkCount: data.fatigueHistory.checks.length,

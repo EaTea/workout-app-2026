@@ -51,7 +51,7 @@ describe("parseImport", () => {
     const result = parseImport(fileText());
 
     expect(result.ok && result.summary).toEqual({
-      sessionCount: 2, setCount: 3, checkCount: 1, firstSessionDate: "2026-11-02", lastSessionDate: "2026-11-04", startDate: "2026-11-02",
+      exportedAt: "2026-11-09T08:00:00.000Z", sessionCount: 2, setCount: 3, checkCount: 1, firstSessionDate: "2026-11-02", lastSessionDate: "2026-11-04", startDate: "2026-11-02",
     });
   });
 
@@ -89,17 +89,57 @@ describe("parseImport", () => {
     expect(result.ok && result.data.settings.maxHistory.dip).toEqual([{ savedOn: "2026-11-02", reps: 15 }]);
   });
 
-  it("lists a maxHistory block of an unknown version and an unknown settings version, falling back to defaults", () => {
+  it("refuses an unknown settings version, changing nothing", () => {
+    const result = parseImport(fileText((file) => void (file.settings = { version: 7 })));
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain("version 7");
+    expect(!result.ok && result.error).toContain("Nothing was changed");
+  });
+
+  it("refuses a maxHistory block that is not version 1, changing nothing", () => {
+    for (const block of [{ version: 9, maxHistory: {} }, "text", [], null]) {
+      const result = parseImport(fileText((file) => void (file.maxHistory = block)));
+
+      expect(result.ok).toBe(false);
+      expect(!result.ok && result.error).toContain("max history");
+      expect(!result.ok && result.error).toContain("Nothing was changed");
+    }
+  });
+
+  it("handles exercise ids that are Object.prototype member names without throwing", () => {
+    const names = ["constructor", "toString", "hasOwnProperty", "__proto__", "valueOf"];
+    for (const name of names) {
+      const result = parseImport(fileText((file) => {
+        file.settings = { version: 2, startDate: "2026-11-02", maxReps: { [name]: 7 }, maxSavedOn: {} };
+        file.maxHistory = { version: 1, maxHistory: { [name]: [{ savedOn: null, reps: 5 }] } };
+      }));
+
+      expect(result.ok).toBe(true);
+    }
+
+    const constructorResult = parseImport(fileText((file) => {
+      file.settings = { version: 2, startDate: "2026-11-02", maxReps: { constructor: 7 }, maxSavedOn: {} };
+      delete file.maxHistory;
+    }));
+    expect(constructorResult.ok && constructorResult.data.settings.maxReps).toEqual({ constructor: 7 });
+    expect(constructorResult.ok && constructorResult.data.settings.maxHistory.constructor).toEqual([{ savedOn: null, reps: 7 }]);
+  });
+
+  it("keeps a max saved date for an exercise called constructor", () => {
     const result = parseImport(fileText((file) => {
-      file.maxHistory = { version: 9, maxHistory: {} };
-      file.settings = { version: 7 };
+      file.settings = { version: 2, startDate: "2026-11-02", maxReps: { constructor: 7 }, maxSavedOn: { constructor: "2026-11-03" } };
+      delete file.maxHistory;
     }));
 
-    expect(result.ok && result.problems).toEqual([
-      'settings: unknown version 7, so the start date and maxes are left empty',
-      "maxHistory: not a version 1 block, so it was ignored",
-    ]);
-    expect(result.ok && result.data.settings).toEqual({ startDate: null, maxReps: {}, maxSavedOn: {}, maxHistory: {} });
+    expect(result.ok && result.data.settings.maxHistory.constructor).toEqual([{ savedOn: "2026-11-03", reps: 7 }]);
+  });
+
+  it("never throws, whatever the text is", () => {
+    const texts = ["", "\u0000", "[[[[", '{"format":"explosive-endurance-export","version":1,"settings":{"version":2,"maxReps":{"constructor":7}},"log":{"version":1,"sessions":[{"date":"2026-11-02","sets":[{"exerciseId":"constructor"}]}]},"fatigueChecks":{"version":1,"checks":[null,7,{"date":"x"}]}}'];
+    for (const text of texts) {
+      expect(() => parseImport(text)).not.toThrow();
+    }
   });
 
   it("keeps readable sets and lists the unreadable ones as problems", () => {

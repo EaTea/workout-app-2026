@@ -219,3 +219,13 @@ describe("loadSettings / saveSettings", () => {
     expect(loadSettings(storage).maxHistory).toEqual({ pull_up: [{ savedOn: "2026-11-02", reps: 12 }] });
   });
 });
+
+describe("exercise ids that are Object.prototype member names", () => {
+  it("reads a max for an exercise called constructor or toString, with and without a saved date", () => {
+    const settings = settingsFromWire({ version: 2, startDate: null, maxReps: { constructor: 7, toString: 5 }, maxSavedOn: { constructor: "2026-11-03" } });
+
+    expect(settings.maxReps).toEqual({ constructor: 7, toString: 5 });
+    expect(settings.maxHistory.constructor).toEqual([{ savedOn: "2026-11-03", reps: 7 }]);
+    expect(settings.maxHistory.toString).toEqual([{ savedOn: null, reps: 5 }]);
+  });
+});
