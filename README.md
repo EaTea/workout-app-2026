@@ -10,7 +10,8 @@ that opens a full-screen timer with a beep and vibration each minute and a
 silent switch; older iOS versions may still mute them, and iOS Safari has no
 vibration). The heavy bag row has a "Start timer" interval timer and rows
 with a prescribed rest (and superset blocks) have a "Rest 30s" button, all with
-adjustable numbers before Start. The screen stays awake while a timer is open,
+adjustable numbers before Start. The Back button or gesture closes an open timer
+(and stays on the same screen). The screen stays awake while a timer is open,
 and on Today and the log screen while a session is in progress (from its first
 logged set until every set is logged, or until midnight; needs a browser with the Screen Wake Lock API, e.g. iOS Safari 16.4+), and
 Today shows an "It's a new day" banner (with a button to switch) if left open past midnight.

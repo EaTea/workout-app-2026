@@ -391,7 +391,7 @@ the PR 2 review.
    no longer plays a tone that was already scheduled, so nothing beeps
    twice. Vibration stays tick-driven (it can't be scheduled) and the
    display still catches up after the page was hidden, as now.
-3. [ ] **Back closes the timer.** Opening a timer (EMOM, interval or rest)
+3. [x] **Back closes the timer.** Opening a timer (EMOM, interval or rest)
    pushes a history entry with the same URL; the Back gesture or button
    then closes the timer instead of leaving the screen or the app. Closing
    with the timer's own button pops that entry, so Back afterwards behaves

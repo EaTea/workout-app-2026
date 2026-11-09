@@ -4,6 +4,7 @@ import {
 } from "../timer/engine";
 import type { CuePlayer } from "../timer/cues";
 import { createScreenWakeLock } from "../timer/wakeLock";
+import { closeOnBack } from "./backToClose";
 import { element } from "./dom";
 
 /**
@@ -16,7 +17,9 @@ import { element } from "./dom";
  *        buttons ──start/pause/resume/skip(now)──▶ new state ──render()
  *        engine events (one batch per update) ──▶ options.onEvents (beeps and buzzes)
  *        every tap inside the overlay ──▶ options.onUserTap (unlock/resume audio)
- *   Escape / Close / hashchange ──▶ close() ──▶ loop stopped, page restored
+ *   Escape / Close / hashchange / Back (popstate) ──▶ close() ──▶ loop stopped, page restored
+ *   Opening pushes a same-URL history entry (backToClose.ts) so Back closes the overlay;
+ *   closing any other way pops that entry again.
  *
  * Optional setup row (`options.setup`): before Start, numeric steppers let the
  * user adjust the plan (e.g. rounds); each change asks the caller to rebuild
@@ -361,6 +364,9 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   }
   document.body.style.overflow = "hidden";
 
+  /** Lets the Back button close the overlay; released in close(). Declared before close() runs, so close() may use it. */
+  const backToClose = closeOnBack(window.history, window, () => close());
+
   const refreshLoopId = window.setInterval(refreshFromClock, REFRESH_INTERVAL_MS);
 
   /** Stops the loop, removes listeners and the overlay, restores the page, returns focus, then tells the caller. */
@@ -374,6 +380,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     document.removeEventListener("keydown", handleKeydown);
     document.removeEventListener("visibilitychange", refreshFromClock);
     window.removeEventListener("hashchange", close);
+    backToClose.release();
     for (const region of backgroundRegions) {
       region.inert = false;
     }
