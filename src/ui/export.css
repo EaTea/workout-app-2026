@@ -85,3 +85,14 @@
   font-size: 17px;
   cursor: pointer;
 }
+
+.import-secondary-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* "Undo last import" sits directly under the file button. */
+.import-section > .import-secondary-button {
+  width: 100%;
+  margin-top: 12px;
+}

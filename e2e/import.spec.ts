@@ -54,12 +54,14 @@ test("export, clear the browser data, import: the log, checks and settings come 
   await expect(page.getByText("1 weekly check", { exact: true })).toBeVisible();
   await expect(page.getByText("Dates: 2026-11-02 to 2026-11-04")).toBeVisible();
   await expect(page.getByText("Start date: 2026-11-02")).toBeVisible();
+  await expect(page.getByText(/^Exported 20\d\d-\d\d-\d\d$/)).toBeVisible();
+  await expect(page.getByText("You have 0 sessions now.")).toBeVisible();
 
   await page.getByRole("button", { name: "Replace my data" }).click();
   await expect(page.getByText("This replaces the log")).toBeVisible();
   await page.getByRole("button", { name: "Yes, replace my data" }).click();
 
-  await expect(page.locator(".toast")).toContainText("Imported");
+  await expect(page.locator(".toast")).toContainText("Imported. You can undo it in Settings.");
   await expect(page).toHaveURL(/#\/today$/);
   await expect(page.getByText("Set your program start date")).toHaveCount(0);
 
@@ -129,13 +131,13 @@ test("a file that is not an export is refused with a message and nothing changes
   writeFileSync(futureVersion, JSON.stringify({ format: "explosive-endurance-export", version: 2 }));
 
   await page.getByLabel("Import from JSON").setInputFiles(notJson);
-  await expect(page.getByRole("alert")).toContainText("could not be read as JSON");
+  await expect(page.locator(".import-error")).toContainText("could not be read as JSON");
 
   await page.getByLabel("Import from JSON").setInputFiles(wrongFormat);
-  await expect(page.getByRole("alert")).toContainText("not an Explosive Endurance export");
+  await expect(page.locator(".import-error")).toContainText("not an Explosive Endurance export");
 
   await page.getByLabel("Import from JSON").setInputFiles(futureVersion);
-  await expect(page.getByRole("alert")).toContainText("version 2");
+  await expect(page.locator(".import-error")).toContainText("version 2");
 
   await expect(page.getByRole("button", { name: "Replace my data" })).toHaveCount(0);
   const logText = await page.evaluate(() => window.localStorage.getItem("explosive-endurance.log"));
@@ -167,4 +169,62 @@ test("the import button is at least 48px tall and disabled while previewing anot
   await page.goto("/?date=2026-11-09#/settings");
   await expect(page.getByLabel("Import from JSON")).toBeDisabled();
   await expect(page.getByText("Import is turned off while previewing")).toBeVisible();
+});
+
+test("Undo last import restores the previous data, and can be confirmed or cancelled", async ({ page }, testInfo) => {
+  await seedData(page);
+  const file = testInfo.outputPath("export.json");
+  await exportTo(page, file);
+  const other = JSON.parse(readFileSync(file, "utf-8"));
+  other.log.sessions = [];
+  const otherFile = testInfo.outputPath("other.json");
+  writeFileSync(otherFile, JSON.stringify(other));
+
+  await expect(page.getByRole("button", { name: "Undo last import" })).toHaveCount(0);
+
+  await page.getByLabel("Import from JSON").setInputFiles(otherFile);
+  await expect(page.getByText("You have 2 sessions now.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Replace my data" })).toBeFocused();
+  await page.getByRole("button", { name: "Replace my data" }).click();
+  await expect(page.getByRole("button", { name: "Yes, replace my data" })).toBeFocused();
+  await page.getByRole("button", { name: "Yes, replace my data" }).click();
+  await expect(page.locator(".toast")).toContainText("You can undo it in Settings");
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "Undo last import" }).click();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByLabel("Import from JSON")).toBeFocused();
+  const sessionsAfterCancel = await page.evaluate(() => JSON.parse(window.localStorage.getItem("explosive-endurance.log") ?? "{}").sessions.length);
+  expect(sessionsAfterCancel).toBe(0);
+
+  await page.getByRole("button", { name: "Undo last import" }).click();
+  await page.getByRole("button", { name: "Yes, undo the import" }).click();
+  await expect(page.locator(".toast").last()).toContainText("Imported");
+  await expect(page).toHaveURL(/#\/today$/);
+
+  const restored = await page.evaluate(() => ({
+    log: JSON.parse(window.localStorage.getItem("explosive-endurance.log") ?? "null"),
+    history: JSON.parse(window.localStorage.getItem("explosive-endurance.max-history") ?? "null"),
+  }));
+  expect(restored.log.sessions).toHaveLength(2);
+  expect(restored.history.maxHistory.pull_up).toHaveLength(2);
+});
+
+test("a file with an unknown settings version is refused and nothing changes", async ({ page }, testInfo) => {
+  await seedData(page);
+  const file = testInfo.outputPath("export.json");
+  await exportTo(page, file);
+  const future = JSON.parse(readFileSync(file, "utf-8"));
+  future.settings = { version: 9 };
+  const futureFile = testInfo.outputPath("future-settings.json");
+  writeFileSync(futureFile, JSON.stringify(future));
+
+  await page.getByLabel("Import from JSON").setInputFiles(futureFile);
+
+  await expect(page.locator(".import-error")).toContainText("version 9");
+  await expect(page.locator(".import-error")).toContainText("Nothing was changed");
+  await expect(page.getByRole("button", { name: "Replace my data" })).toHaveCount(0);
+  const keys = await page.evaluate(() => Object.keys(window.localStorage).filter((key) => key.includes("import-backup")));
+  expect(keys).toEqual([]);
 });

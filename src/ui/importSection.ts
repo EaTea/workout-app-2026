@@ -1,6 +1,8 @@
 import "./export.css";
-import { parseImport, type ImportSummary } from "../export/import";
-import { applyImport } from "../export/importApply";
+import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, type ImportSummary } from "../export/import";
+import { applyImport, undoLastImport } from "../export/importApply";
+import { listImportBackups } from "../export/importBackup";
+import { todayLocalDate } from "../program/calendar";
 import { element } from "./dom";
 
 /**
@@ -22,10 +24,19 @@ import { element } from "./dom";
  *                                          ▼
  *                      onImported() ─▶ app.ts reloads its state and re-renders
  *
+ *   [Undo last import] (only when an import backup exists)
+ *                      "This puts back ..." [Yes, undo the import] [Cancel]
+ *                                          │ Yes
+ *                                          ▼
+ *                      undoLastImport(storage) ─▶ onImported() as above
+ *
  * Built by `renderSettingsScreen`. The pure steps live in `export/import.ts`
  * (reading) and `export/importApply.ts` (writing); this file is only the
  * screen. The state lives in the DOM below: one `status` area is rewritten
- * at each step.
+ * at each step. That area is the card's only live region (`aria-live`, no
+ * `role=alert` inside it, so a message is announced once). Focus follows the
+ * steps: a new step with buttons focuses its first button, Cancel returns
+ * to the file button.
  */
 
 /** What the card needs from the app shell. */
@@ -36,7 +47,10 @@ export interface ImportSectionOptions {
   /** Where the data lives; `localStorage` in the app. */
   storage: Storage;
 
-  /** Called after a successful import (the backup key is passed on) so app.ts can reload its in-memory data and redraw. */
+  /** How many sessions are logged right now, for the preview's "You have N sessions now". */
+  currentSessionCount: () => number;
+
+  /** Called after a successful import or undo (the backup key is passed on) so app.ts can reload its in-memory data and redraw. */
   onImported: (backupKey: string) => void;
 }
 
@@ -51,6 +65,7 @@ function countLabel(count: number, singular: string): string {
 /** The preview's bullet lines for a file's summary. Exported for tests. */
 export function summaryLines(summary: ImportSummary): string[] {
   const lines = [
+    ...(summary.exportedAt === undefined ? [] : [`Exported ${todayLocalDate(new Date(summary.exportedAt))}`]),
     countLabel(summary.sessionCount, "session"),
     countLabel(summary.setCount, "set"),
     countLabel(summary.checkCount, "weekly check"),
@@ -100,57 +115,93 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
   const status = element("div", "import-status");
   status.setAttribute("aria-live", "polite");
 
-  /** Shows a message for the athlete in the status area; `isError` styles it as one. */
+  /** Shows a message for the athlete in the status area; `isError` styles it as one. Focus stays where it is. */
   function showMessage(text: string, isError: boolean): void {
-    const message = element("p", isError ? "import-message import-error" : "import-message", text);
-    if (isError) message.setAttribute("role", "alert");
-    status.replaceChildren(message);
+    status.replaceChildren(element("p", isError ? "import-message import-error" : "import-message", text));
   }
 
-  /** Clears the status area (Cancel). */
-  function clearStatus(): void {
+  /** Shows a new step (with buttons) in the status area and moves focus to its first button, so keyboard and screen reader users land on it. */
+  function showStep(...children: HTMLElement[]): void {
+    status.replaceChildren(...children);
+    status.querySelector("button")?.focus();
+  }
+
+  /** Clears the status area (Cancel) and returns focus to the file button, which the step being cancelled had replaced focus from. */
+  function cancelStep(): void {
     status.replaceChildren();
+    fileInput.focus();
   }
 
-  /** The second step: a plain-words warning and the confirming tap. */
+  /** The second step of an import: a plain-words warning and the confirming tap. */
   function showConfirmation(importedText: string, apply: () => void): void {
-    status.replaceChildren(
+    showStep(
       element(
         "p",
         "import-message",
-        `This replaces the log, weekly checks, settings and max history on this phone with the ones in the file (${importedText}). Your current data is first kept as a backup, which the next JSON export includes.`,
+        `This replaces the log, weekly checks, settings and max history on this phone with the ones in the file (${importedText}). Your current data is first kept as a backup, so you can undo this in Settings.`,
       ),
       actionButton("primary-button", "Yes, replace my data", apply),
-      actionButton("import-secondary-button", "Cancel", clearStatus),
+      actionButton("import-secondary-button", "Cancel", cancelStep),
     );
   }
 
-  /** Reads the chosen file and shows the preview or the refusal. */
-  async function handleFileChosen(): Promise<void> {
-    const file = fileInput.files?.[0];
-    if (file === undefined) return;
+  /** The second step of an undo: says what comes back and that the undo itself can be undone. */
+  function showUndoConfirmation(): void {
+    showStep(
+      element(
+        "p",
+        "import-message",
+        "This puts back the data you had before your last import. Your current data is first kept as a backup, so you can undo this too.",
+      ),
+      actionButton("primary-button", "Yes, undo the import", () => {
+        const outcome = undoLastImport(options.storage);
+        if (outcome.ok) {
+          options.onImported(outcome.backupKey);
+        } else {
+          showMessage(outcome.error, true);
+        }
+      }),
+      actionButton("import-secondary-button", "Cancel", cancelStep),
+    );
+  }
 
-    let fileText: string;
+  /**
+   * Reads the chosen file and shows the preview or the refusal. Never throws:
+   * anything unexpected is shown as "could not be read" (the caller only
+   * ignores the returned promise).
+   */
+  async function handleFileChosen(): Promise<void> {
     try {
-      fileText = await file.text();
+      const file = fileInput.files?.[0];
+      if (file === undefined) return;
+
+      if (file.size > MAX_IMPORT_FILE_BYTES) {
+        showMessage(FILE_TOO_LARGE_MESSAGE, true);
+        return;
+      }
+
+      const result = parseImport(await file.text());
+      if (!result.ok) {
+        showMessage(result.error, true);
+        return;
+      }
+
+      showPreview(file.name, result);
     } catch {
       showMessage("This file could not be read. Nothing was changed.", true);
-      return;
     }
+  }
 
-    const result = parseImport(fileText);
-    if (!result.ok) {
-      showMessage(result.error, true);
-      return;
-    }
-
+  /** Shows what a readable file holds, what was left out, and the first confirming button. */
+  function showPreview(fileName: string, result: Extract<ReturnType<typeof parseImport>, { ok: true }>): void {
     const preview = element("div", "import-preview");
-    preview.append(element("p", "import-message", `${file.name} holds:`));
+    preview.append(element("p", "import-message", `${fileName} holds:`));
     const list = element("ul", "import-summary");
     for (const line of summaryLines(result.summary)) {
       list.append(element("li", undefined, line));
     }
     preview.append(list);
+    preview.append(element("p", "import-message", `You have ${countLabel(options.currentSessionCount(), "session")} now.`));
 
     if (result.problems.length > 0) {
       const shown = result.problems.slice(0, MAX_PROBLEMS_SHOWN);
@@ -178,9 +229,9 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
           }
         });
       }),
-      actionButton("import-secondary-button", "Cancel", clearStatus),
+      actionButton("import-secondary-button", "Cancel", cancelStep),
     );
-    status.replaceChildren(preview);
+    showStep(preview);
   }
 
   fileInput.addEventListener("change", () => {
@@ -191,10 +242,15 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
   });
 
   section.append(fileButton);
+  if (listImportBackups(options.storage).length > 0) {
+    const undoButton = actionButton("import-secondary-button", "Undo last import", showUndoConfirmation);
+    undoButton.disabled = options.isPreview;
+    section.append(undoButton);
+  }
   if (options.isPreview) {
     section.append(element("p", "export-note", "Import is turned off while previewing another date with ?date=."));
   }
   section.append(status);
-  section.append(element("p", "export-note", "Importing replaces your data with the file's. Your current data is kept as a backup first."));
+  section.append(element("p", "export-note", "Importing replaces your data with the file's. Your current data is kept as a backup first (the 3 newest backups are kept)."));
   return section;
 }

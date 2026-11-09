@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in review as #11, stacked on the plan PR #10. PR 8 in progress, stacked on PR 7; PR 9 to follow.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in review as #11, stacked on the plan PR #10. PR 8 in review, stacked on PR 7; PR 9 in progress.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -503,7 +503,7 @@ corrupt-log backups, so an import can be undone from the next export.
 Unit tests for the parser and mapping; E2E for export → clear → import.
 1. [x] Export writes the max history and lists import backups.
 2. [x] Import: parser, apply with backup and rollback, Settings card.
-3. [ ] **Fixes from the challenger review.** Decisions taken (the undo
+3. [x] **Fixes from the challenger review.** Decisions taken (the undo
    and retention ones are on a card for Ed; built as recommended):
    - A failed import whose rollback succeeds removes its backup; backups
      are written compactly, and only the 3 newest import backups are kept.

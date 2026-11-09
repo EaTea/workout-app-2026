@@ -14,4 +14,10 @@ describe("summaryLines", () => {
     ]);
     expect(summaryLines({ sessionCount: 0, setCount: 0, checkCount: 0, startDate: null })[3]).toBe("No logged dates");
   });
+
+  it("starts with the local export date when the file has one", () => {
+    const lines = summaryLines({ exportedAt: "2026-11-09T12:00:00.000Z", sessionCount: 0, setCount: 0, checkCount: 0, startDate: null });
+
+    expect(lines[0]).toMatch(/^Exported 2026-11-(09|10)$/); // the local date depends on the machine's time zone
+  });
 });

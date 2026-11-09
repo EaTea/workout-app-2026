@@ -322,10 +322,14 @@ export function startApp(
   }
 
   /**
-   * Called by the Import card after `applyImport` replaced the stored data.
-   * Reloads the in-memory settings, log and check-ins from storage (so what is
-   * shown is what was stored, not what was parsed), forgets drafts that
-   * belonged to the old data, goes to Today and says where the backup is.
+   * Called by the Import card after `applyImport` or `undoLastImport`
+   * replaced the stored data. Reloads the in-memory settings, log and
+   * check-ins from storage (so what is shown is what was stored, not what was
+   * parsed), forgets every draft (check-in, retest maxes, broad jump) because
+   * they belonged to the old data, goes to Today, moves focus to the main
+   * heading (the Import card's button is gone) and says the import can be
+   * undone in Settings. Dismissal flags (retest, rotation, snooze) are left
+   * as they were.
    */
   function handleImported(): void {
     settings = loadSettings();
@@ -336,10 +340,18 @@ export function startApp(
     logWarningDismissed = false;
     fatigueLoadWarningDismissed = false;
     checkInDraft = undefined;
+    for (const exerciseId of Object.keys(retestDrafts)) delete retestDrafts[exerciseId];
+    delete retestJumpDraft.metres;
 
-    navigateTo("today");
-    render(); // the hash may already be #/today, which fires no hashchange
-    showToast("Imported. Your previous data was kept as a backup.");
+    if (routeFromHash(window.location.hash) === "today") {
+      render(); // already on #/today: changing the hash fires no hashchange
+      focusMainHeading();
+    } else {
+      // The hashchange listener that renders was added first, so this runs after the new screen is drawn.
+      window.addEventListener("hashchange", focusMainHeading, { once: true });
+      navigateTo("today");
+    }
+    showToast("Imported. You can undo it in Settings.");
   }
 
   /**
@@ -636,6 +648,7 @@ export function startApp(
         main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage), {
           isPreview: previewDateFromSearch(window.location.search) !== undefined,
           storage: localStorage,
+          currentSessionCount: () => Object.keys(log.sessions).length,
           onImported: handleImported,
         }));
       } else if (route === "log" && logTarget !== undefined) {

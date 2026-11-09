@@ -165,19 +165,31 @@ replace my data"); "Cancel" leaves everything as it was.
 
 - A file that is not an export, is not valid JSON, is a version other than 1,
   or has no readable log, check-ins or settings section is refused with a
-  message. A file with a few unreadable sets or checks is accepted the way the
+  message. The preview also shows when the file was exported and how many
+  sessions you have now. A file with a few unreadable sets or checks is accepted the way the
   stored data is: the readable ones are kept and the preview lists what was
   left out. Files exported before the max history was added (no `maxHistory`)
   and files with older settings versions still import.
 - Importing replaces the log, weekly checks, settings and max history. Before
   anything is written, the current data is saved as a backup in the browser
   (key `explosive-endurance.import-backup-<time>`), itself a complete export
-  file. The next "Export everything as JSON" carries these under
-  `importBackups`; to undo an import, import the `text` of that entry saved as
-  a `.json` file. Backups are never deleted automatically.
+  file (written compactly, with the exact stored text of each key inside). The
+  next "Export everything as JSON" carries these under `importBackups`.
+- **Undo:** while a backup exists, the Import card has "Undo last import". It
+  puts back the newest backup (after the same two-step confirm) and keeps the
+  data it replaces as a new backup first, so an undo can be undone. Only the
+  3 newest backups are kept; older ones are deleted after a successful import
+  or undo. (To restore from an older export instead, import its file.)
 - If saving the imported data fails (for example storage is full), the app
   puts the previous data back and says so, so you never end up with half old
-  and half new data.
+  and half new data. When everything was put back, that attempt's backup is
+  removed again, so failed attempts do not fill the storage.
+- A file with an unknown settings or max history version, or over 10 MB, is
+  refused with "Nothing was changed".
+- After an import or undo the in-progress check-in and retest entries are
+  cleared and the app goes to Today. Known limit: if the app is open in
+  another browser tab, saving Settings there can overwrite the imported
+  settings; reload other tabs after an import.
 - Import is turned off while previewing another date with `?date=`.
 
 ## Install on a phone and use offline
