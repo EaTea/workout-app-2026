@@ -203,8 +203,8 @@ function firstBasis(item: ItemView): MaxBasis | undefined {
 
 /**
  * Explains a percent-of-max target: "40% of max 12 · +1 this week",
- * "40–50% of max 15". The increase part is left out when nothing was added
- * this week (week 1 of a phase, or a deload).
+ * "40% of max 12 · +2, held for deload", "40–50% of max 15". The increase
+ * part is left out when nothing was added (week 1 of a phase).
  */
 export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined {
   if (!basis) return undefined;
@@ -216,7 +216,9 @@ export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined 
       : `${toPercent(basis.percentMin)}${EN_DASH}${toPercent(basis.percentMax)}%`;
 
   const parts = [`${percent} of max ${basis.max}`];
-  if (basis.weeklyIncrease > 0) parts.push(`+${basis.weeklyIncrease} this week`);
+  if (basis.weeklyIncrease > 0) {
+    parts.push(basis.heldForDeload ? `+${basis.weeklyIncrease}, held for deload` : `+${basis.weeklyIncrease} this week`);
+  }
   return parts.join(DOT);
 }
 

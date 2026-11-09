@@ -49,10 +49,9 @@ test("deload week shows the note and halved doses", async ({ page }) => {
   await expect(page.getByText("Deload week: sets halved")).toBeVisible();
   await expect(page.getByText("Week 4 · Day 1")).toBeVisible();
   await expect(row(page, "Med ball slams").locator(".item-dose-main")).toHaveText("3 × 6");
-  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("4 / min");
+  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("6 / min");
   await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("5 min");
-  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12");
-  await expect(row(page, "Pull-ups").locator(".item-details")).not.toContainText("+1");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12 · +2, held for deload");
 
   await page.locator(".phase-summary").click();
   await expect(page.getByRole("listitem").filter({ hasText: "Keep intensity" })).toBeVisible();

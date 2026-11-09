@@ -143,7 +143,7 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
 1. [x] Count program days from the start date instead of calendar
    weekdays. Add a "Start today" button to the first-run card; show
    "Day N" instead of a weekday name.
-2. [ ] Deload weeks keep the previous week's EMOM reps.
+2. [x] Deload weeks keep the previous week's EMOM reps.
 3. [ ] Unknown `program.json` fields warn and still load.
 - **Merge point:** the three rules work as agreed, with tests.
 

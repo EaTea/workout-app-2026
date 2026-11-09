@@ -80,7 +80,7 @@ describe("worked examples from PLAN.md section 6", () => {
     });
   });
 
-  it("Mon 23 Nov: W4 Deload, slams 3 x 6, pull-up EMOM 5 min x 4, dip 1 x 7, warm-up unchanged", () => {
+  it("Mon 23 Nov: W4 Deload, slams 3 x 6, pull-up EMOM 5 min x 6 (week 3 held), dip 1 x 7, warm-up unchanged", () => {
     const session = trainingOn("2026-11-23");
     expect(session).toMatchObject({ week: 4, phase: "Deload", isDeload: true });
 
@@ -90,7 +90,7 @@ describe("worked examples from PLAN.md section 6", () => {
 
     const pullUps = item(session.blocks, "pull_up");
     expect(pullUps.minutes).toBe(5);
-    expect(pullUps.target).toMatchObject({ kind: "fixed", count: 4 });
+    expect(pullUps.target).toMatchObject({ kind: "fixed", count: 6 });
 
     expect(item(session.blocks, "dip").sets).toHaveLength(1);
     expect(item(session.blocks, "dip").sets[0]?.target).toMatchObject({ kind: "fixed", count: 7 });
@@ -118,6 +118,22 @@ describe("further schedule rules", () => {
     const session = trainingOn("2026-12-07");
     expect(session.week).toBe(6);
     expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 5 });
+  });
+
+  it("holds the previous week's EMOM reps in both deloads (W8 Mon 21 Dec: 5 min x 6), W5 restarts at 4", () => {
+    const week8 = item(trainingOn("2026-12-21").blocks, "pull_up");
+    expect(week8.minutes).toBe(5);
+    expect(week8.target).toMatchObject({ kind: "fixed", count: 6 });
+
+    expect(item(trainingOn("2026-11-30").blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 4 });
+  });
+
+  it("holds week 3's dip EMOM in the W4 deload (Wed 25 Nov: 6-7 + 2 = 8-9) while the mini-dose stays 1 x 7", () => {
+    const session = trainingOn("2026-11-25");
+    expect(session.week).toBe(4);
+    expect(item(session.blocks, "dip").target).toMatchObject({ kind: "range", min: 8, max: 9 });
+
+    expect(item(trainingOn("2026-11-23").blocks, "dip").sets[0]?.target).toMatchObject({ kind: "fixed", count: 7 });
   });
 
   it("does not raise mini-dose reps week to week", () => {
@@ -183,7 +199,7 @@ describe("edge cases", () => {
 });
 
 describe("percent-of-max basis", () => {
-  const basis = (weeklyIncrease: number, max = 12) => ({ percentMin: 0.4, percentMax: 0.4, max, weeklyIncrease });
+  const basis = (weeklyIncrease: number, max = 12) => ({ percentMin: 0.4, percentMax: 0.4, max, weeklyIncrease, heldForDeload: false });
 
   it("records the max and this week's increase (W2 Mon pull-ups: 40% of 12, +1)", () => {
     expect(item(trainingOn("2026-11-09").blocks, "pull_up").target).toEqual({ kind: "fixed", count: 5, basis: basis(1) });
@@ -193,8 +209,10 @@ describe("percent-of-max basis", () => {
     expect(item(trainingOn("2026-11-02").blocks, "pull_up").target).toMatchObject({ basis: basis(0) });
   });
 
-  it("shows no increase in a deload (W4 Mon pull-ups: 40% of 12, +0)", () => {
-    expect(item(trainingOn("2026-11-23").blocks, "pull_up").target).toEqual({ kind: "fixed", count: 4, basis: basis(0) });
+  it("shows last week's increase, flagged as held, in a deload (W4 Mon pull-ups: 40% of 12, +2)", () => {
+    expect(item(trainingOn("2026-11-23").blocks, "pull_up").target).toEqual({
+      kind: "fixed", count: 6, basis: { ...basis(2), heldForDeload: true },
+    });
   });
 
   it("keeps the percentage range for dips (Wed W1: 40-50% of 15)", () => {
@@ -202,7 +220,7 @@ describe("percent-of-max basis", () => {
       kind: "range",
       min: 6,
       max: 7,
-      basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0 },
+      basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0, heldForDeload: false },
     });
   });
 

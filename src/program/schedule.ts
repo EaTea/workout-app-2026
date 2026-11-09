@@ -39,13 +39,17 @@ export type RepTarget =
  *  - percentMin / percentMax: fractions (0.4 = 40%)
  *  - max: the athlete's tested max the percentage was applied to
  *  - weeklyIncrease: reps already added to the figure this week
- *    (0 in week 1 of a phase, for items that don't progress, and in a deload)
+ *    (0 in week 1 of a phase and for items that don't progress). In a deload
+ *    it is the increase of the previous week, held rather than dropped.
+ *  - heldForDeload: true when this is a deload week and `weeklyIncrease`
+ *    is last week's figure carried over (the UI says so).
  */
 export interface MaxBasis {
   percentMin: number;
   percentMax: number;
   max: number;
   weeklyIncrease: number;
+  heldForDeload: boolean;
 }
 
 /** One set of an item, with its computed rep target. */
@@ -139,7 +143,7 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     return { kind: "rest", week, dayNumber, programDay, phase: phase.phase };
   }
 
-  const weeklyIncreaseOffset = isDeload ? 0 : phase.weeks.indexOf(week);
+  const weeklyIncreaseOffset = weeklyIncreaseOffsetForWeek(program, week);
 
   return {
     kind: "training",
@@ -164,6 +168,27 @@ function phaseForWeek(program: Program, week: number): ProgressionPhase {
 }
 
 /**
+ * How many weekly increases have accumulated by `week`.
+ *  - normal week: the week's 0-based position within its phase
+ *  - deload week: the previous week's offset, so the EMOM reps are held
+ *    rather than dropped (W4 holds W3's, W8 holds W7's)
+ *  - no previous week (week 1), or the previous week is also a deload: 0
+ */
+function weeklyIncreaseOffsetForWeek(program: Program, week: number): number {
+  const phase = phaseForWeek(program, week);
+  if (!isDeloadPhase(phase)) {
+    return phase.weeks.indexOf(week);
+  }
+
+  const previousWeek = week - 1;
+  const previousPhase = program.progression.find((entry) => entry.weeks.includes(previousWeek));
+  if (!previousPhase || isDeloadPhase(previousPhase)) {
+    return 0;
+  }
+  return previousPhase.weeks.indexOf(previousWeek);
+}
+
+/**
  * Deload is detected from the phase name ("Deload", "Deload + retest") so
  * that the schedule follows the data rather than hard-coding weeks 4 and 8.
  */
@@ -185,7 +210,7 @@ function buildBlock(block: Block, settings: TrainingSettings, isDeload: boolean,
     rounds: block.rounds && (halve ? halveRange(block.rounds) : block.rounds),
     minutes: block.minutes === undefined ? undefined : halve ? halveRoundingUp(block.minutes) : block.minutes,
     restSecBetweenPairs: block.restSecBetweenPairs,
-    items: block.items.map((item) => buildItem(item, settings, halve, offset)),
+    items: block.items.map((item) => buildItem(item, settings, halve, offset, isDeload)),
   };
 }
 
@@ -194,10 +219,11 @@ function buildBlock(block: Block, settings: TrainingSettings, isDeload: boolean,
  * against the athlete's maxes, and applies the weekly increase to items that
  * declare one.
  */
-function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, offset: number): ItemView {
+function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, offset: number, isDeload: boolean): ItemView {
   // Only items with a `weeklyIncrease` (the EMOMs) grow week to week. The
   // field is descriptive text and is not parsed: its presence means "+1 rep
-  // per week", and `offset` is the number of weeks since the phase began.
+  // per week", and `offset` is the number of weekly increases accumulated
+  // (in a deload, last week's: the reps are held, not reset).
   const increase = item.weeklyIncrease === undefined ? 0 : offset;
 
   const keptSets = halve ? item.sets.slice(0, Math.ceil(item.sets.length / 2)) : item.sets;
@@ -206,10 +232,10 @@ function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, 
     exercise: item.exercise,
     format: item.format,
     sets: keptSets.map((set) => ({
-      target: set.reps && resolveReps(set.reps, item.exerciseId, settings, increase),
+      target: set.reps && resolveReps(set.reps, item.exerciseId, settings, increase, isDeload),
       load: set.load,
     })),
-    target: item.reps && resolveReps(item.reps, item.exerciseId, settings, increase),
+    target: item.reps && resolveReps(item.reps, item.exerciseId, settings, increase, isDeload),
     restSec: item.restSec,
     minutes: item.minutes === undefined ? undefined : halve ? halveRoundingUp(item.minutes) : item.minutes,
     // Deload intervals use the low end of the range, halved (4-5 -> 2).
@@ -240,7 +266,7 @@ function halveRange(range: Range): Range {
  * floor(max x pct), at least 1; the weekly `increase` is added after that.
  * Percent-of-max targets also carry a `basis` so the UI can explain them.
  */
-function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings, increase: number): RepTarget {
+function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings, increase: number, isDeload: boolean): RepTarget {
   switch (reps.kind) {
     case "text":
       return { kind: "text", text: reps.text };
@@ -258,7 +284,7 @@ function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings,
       }
       const low = Math.max(1, floorPercentOfMax(max, reps.min));
       const high = Math.max(1, floorPercentOfMax(max, reps.max));
-      const basis: MaxBasis = { percentMin: reps.min, percentMax: reps.max, max, weeklyIncrease: increase };
+      const basis: MaxBasis = { percentMin: reps.min, percentMax: reps.max, max, weeklyIncrease: increase, heldForDeload: isDeload && increase > 0 };
       return rangeTarget(low + increase, high + increase, basis);
     }
   }

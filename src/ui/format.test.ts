@@ -88,15 +88,15 @@ describe("formatItemDetails", () => {
     expect(formatItemDetails(item({ load: "hold a plate", weeklyIncrease: "+1 rep per minute" }))).toEqual(["Hold a plate"]);
   });
 
-  it("explains percent-of-max targets, omitting a zero increase", () => {
-    const week2 = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 1 } } as RepTarget;
+  it("explains percent-of-max targets, omitting a zero increase and labelling a held one", () => {
+    const week2 = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 1, heldForDeload: false } } as RepTarget;
     expect(formatItemDetails(item({ format: "emom", minutes: 9, target: week2 }))).toEqual(["40% of max 12 · +1 this week"]);
 
-    const range = { kind: "range", min: 6, max: 7, basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0 } } as RepTarget;
+    const range = { kind: "range", min: 6, max: 7, basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0, heldForDeload: false } } as RepTarget;
     expect(formatItemDetails(item({ format: "emom", minutes: 9, target: range }))).toEqual(["40–50% of max 15"]);
 
-    const deload = { kind: "fixed", count: 4, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 0 } } as RepTarget;
-    expect(formatItemDetails(item({ sets: sets(2, deload) }))).toEqual(["40% of max 12"]);
+    const deload = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 2, heldForDeload: true } } as RepTarget;
+    expect(formatItemDetails(item({ format: "emom", minutes: 5, target: deload }))).toEqual(["40% of max 12 · +2, held for deload"]);
   });
 
   it("builds a one-line prescription summary", () => {
