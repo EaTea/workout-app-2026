@@ -69,10 +69,15 @@ internal types.
 These are my readings of the brief and `program.json`, agreed with Ed as
 the starting point. Revisit them if the app shows they're wrong.
 
-1. **Current week and day.** Week 1 starts on the Monday of the week that
-   contains Ed's start date. The day is the calendar weekday. Sunday, and any
-   date before the start or after week 8, shows a rest/"not started"/"program
-   complete" card.
+1. **Current week and day.** Day 1 of week 1 is the day Ed starts the
+   program (a "Start today" button sets it; Settings can correct it). The
+   weekday names in `program.json` are shorthand for the order of the
+   7-day cycle: day 1 runs the "Mon" session, day 2 "Tue", and so on, with
+   day 7 the "Sun" rest day, whatever the calendar weekday is. Week =
+   floor(days since start / 7) + 1. Dates before the start show "not
+   started", and dates after week 8 show "program complete". *(Changed
+   after the PR 1 review: week 1 used to start on the calendar Monday, so a
+   late-week start lost days.)*
 2. **Deload (weeks 4 and 8).** Halve the sets and **round up**, so 5 sets
    become 3, 3 become 2, 2 become 1. EMOM minutes are halved the same way
    (9 → 5, 8 → 4) and heavy-bag rounds use the low end, halved (4 → 2).
@@ -81,7 +86,11 @@ the starting point. Revisit them if the app shows they're wrong.
    `repsPctOfMax` is a range (Wednesday dips, 40–50%), show the range, e.g.
    "4–5 reps". The EMOM's "+1 rep per minute each week" adds `week − 1` in
    weeks 1–3, and `week − 5` in weeks 5–7 (the second block restarts from the
-   base after the deload). Mini-dose reps don't increase weekly.
+   base after the deload). A deload week keeps the previous week's EMOM reps
+   (week 4 = week 3's, week 8 = week 7's) with the minutes halved, because
+   the program says "keep intensity". Mini-dose reps don't increase weekly.
+   *(Deload reps changed after the PR 1 review; they used to drop back to
+   week 1's.)*
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
@@ -91,6 +100,12 @@ the starting point. Revisit them if the app shows they're wrong.
    the week) for broad jump and max pull-ups. "Best recent result" means the
    best of the previous 3 checks. A drop of more than 10% on either shows the
    `fatigueCheck.rule` text as a warning.
+7. **Editing `program.json`.** Wrong types, missing fields, unknown
+   exercise ids and gaps in the progression block the app with an error
+   card, because the session would be wrong. Unknown fields (a typo or a
+   note Ed adds) only show a warning banner listing their paths, and the
+   session still loads. *(Changed after the PR 1 review; unknown fields
+   used to block.)*
 
 ## 5. Milestones and PR merge points
 
@@ -123,13 +138,14 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 - **Merge point:** Ed can open the mockup on his phone and see the correct
   session for any date.
 
-Pending owner decisions raised by the PR 1 review (they may change rules
-in section 4 before or after PR 1 merges):
-- Week 1 should start on the Monday on or after the start date, so a
-  Sunday start doesn't lose a week.
-- Deload EMOM reps: keep week 3's reps in week 4, or drop back as now.
-- Unknown fields in `program.json`: warn and still load, instead of
-  blocking the app.
+### PR 1b — Rule changes from the PR 1 review *(behavior change)*
+Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
+1. [ ] Count program days from the start date instead of calendar
+   weekdays. Add a "Start today" button to the first-run card; show
+   "Day N" instead of a weekday name.
+2. [ ] Deload weeks keep the previous week's EMOM reps.
+3. [ ] Unknown `program.json` fields warn and still load.
+- **Merge point:** the three rules work as agreed, with tests.
 
 ### PR 2 — Timers *(behavior change)*
 1. Shared full-screen timer view: huge digits, round counter, start/pause/
@@ -162,16 +178,18 @@ in section 4 before or after PR 1 merges):
 
 ## 6. Worked examples (used as unit-test fixtures)
 
-Start date Mon 2 Nov 2026, max pull-ups 12, max dips 15.
+Start date Mon 2 Nov 2026 (so day N lines up with the weekday names), max
+pull-ups 12, max dips 15.
 
 | Date | Week / day | Phase | Example figures |
 | --- | --- | --- | --- |
 | Mon 2 Nov | W1 Mon | Base | Pull-up EMOM 9 min × floor(12 × 0.40) = 4 reps; dip mini-dose 2 × floor(15 × 0.50) = 7 |
 | Mon 16 Nov | W3 Mon | Base | Pull-up EMOM 4 + 2 = 6 reps/min |
 | Wed 4 Nov | W1 Wed | Base | Dip EMOM floor(15×0.40)–floor(15×0.50) = 6–7 reps; plyo push-ups 5 × 5 |
-| Mon 23 Nov | W4 Mon | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 4; dip mini-dose 1 × 7 |
+| Mon 23 Nov | W4 Mon | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 6 (week 3's reps); dip mini-dose 1 × 7 |
 | Sun 8 Nov | — | Rest | Rest-day card |
 | Sat 26 Dec | W8 Sat | Deload + retest | Skater bounds 3 × 6 per side (retest prompt comes in PR 4) |
+| Wed 4 Nov, starting that day | W1 day 1 | Base | "Mon" session (Upper: pull); Tue 10 Nov is day 7 (rest); Wed 11 Nov is W2 day 1 |
 
 ## 7. Open questions
 
