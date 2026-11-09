@@ -425,7 +425,7 @@ the PR 2 review.
      frozen-audio-clock test, Back for the interval timer, and the week 5
      rest figures; the timer E2E's due times are normalised so a −0 can't
      fail them.
-5. [ ] **Fixes from the Android Chrome pass** (Ed asked for a pass on an
+5. [x] **Fixes from the Android Chrome pass** (Ed asked for a pass on an
    Android phone in Chrome). Back (the Android button or gesture) closes
    the exercise details sheet instead of leaving the log screen, using the
    same helper as the timers. Tap targets that were 44px tall (the

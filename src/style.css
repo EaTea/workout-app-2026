@@ -1116,7 +1116,7 @@ body {
 
 /* The kg value is a button (tap to type) with a text field that replaces it while typing */
 .log-stepper-value-button {
-  min-height: 44px; /* comfortable tap target for "tap to type" */
+  min-height: 48px; /* comfortable tap target for "tap to type" */
   min-width: 56px;
   border: 0;
   background: none;
@@ -1391,8 +1391,8 @@ body {
 }
 
 .checkin-clear {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 0 12px;
   border: 0;
   border-radius: 10px;
