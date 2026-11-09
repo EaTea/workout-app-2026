@@ -425,7 +425,12 @@ function readDayNumber(record: UnknownRecord, key: string, path: string): DayNum
   const value = record[key];
   if (value === undefined) fail(child(path, key), "field is missing");
   if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > DAYS_PER_WEEK) {
-    fail(child(path, key), `expected a whole number from 1 to ${DAYS_PER_WEEK} but found ${JSON.stringify(value)}`);
+    // A weekday name is the likely mistake (an old program.json used "Mon"), so explain the numbering.
+    const hint =
+      typeof value === "string"
+        ? `. Days are numbered 1–${DAYS_PER_WEEK} from your start date (Day 1 is the first session).`
+        : "";
+    fail(child(path, key), `expected a whole number from 1 to ${DAYS_PER_WEEK} but found ${describe(value)}${hint}`);
   }
   return value;
 }

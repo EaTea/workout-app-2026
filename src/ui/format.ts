@@ -200,9 +200,17 @@ function firstBasis(item: ItemView): MaxBasis | undefined {
 }
 
 /**
+ * True when the item's target is a retest-week figure based on the current
+ * saved max, so Today can offer an "Update max" link to Settings.
+ */
+export function usesRetestedMax(item: ItemView): boolean {
+  return firstBasis(item)?.usesRetestedMax === true;
+}
+
+/**
  * Explains a percent-of-max target: "40% of max 12 · +1 this week",
- * "40% of max 12 · +2, held for deload", "40% of max 12 · from your
- * retested max" (retest week), "40–50% of max 15". The increase
+ * "40% of max 12 · +2, held for deload", "40% of current max 12 ·
+ * retest week: update your max in Settings", "40–50% of max 15". The increase
  * part is left out when nothing was added (week 1 of a phase).
  */
 export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined {
@@ -216,8 +224,9 @@ export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined 
 
   const parts = [`${percent} of max ${basis.max}`];
   if (basis.usesRetestedMax) {
-    // The max is whatever is currently saved: Ed's retest result once he has entered it.
-    parts.push("from your retested max");
+    // The max is whatever is currently saved; nothing prompts a retest yet, so tell Ed to update it.
+    parts[0] = `${percent} of your current max ${basis.max}`;
+    parts.push("retest week: update your max in Settings");
   } else if (basis.weeklyIncrease > 0) {
     parts.push(basis.heldForDeload ? `+${basis.weeklyIncrease}, held for deload` : `+${basis.weeklyIncrease} this week`);
   }

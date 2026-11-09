@@ -180,7 +180,7 @@ describe("parseProgram errors", () => {
       "exercises.ytwi.evidence: expected a URL",
     );
     expect(errorMessageAfter((json) => (json.days[1].day = "Wed"))).toBe(
-      'days[1].day: expected a whole number from 1 to 7 but found "Wed"',
+      'days[1].day: expected a whole number from 1 to 7 but found "Wed". Days are numbered 1–7 from your start date (Day 1 is the first session).',
     );
     expect(errorMessageAfter((json) => delete json.days[3].focus)).toBe(
       "days[3].focus: expected text but found nothing (field is missing)",
@@ -198,7 +198,7 @@ describe("parseProgram errors", () => {
 
   it("rejects a restDay that is not a day number", () => {
     expect(errorMessageAfter((json) => (json.program.restDay = "Sun"))).toBe(
-      'program.restDay: expected a whole number from 1 to 7 but found "Sun"',
+      'program.restDay: expected a whole number from 1 to 7 but found "Sun". Days are numbered 1–7 from your start date (Day 1 is the first session).',
     );
     expect(errorMessageAfter((json) => (json.program.restDay = 8))).toBe(
       "program.restDay: expected a whole number from 1 to 7 but found 8",

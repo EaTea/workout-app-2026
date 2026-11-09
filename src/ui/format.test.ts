@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatSessionKicker, formatSetBreakdown, formatShortDate,
+  formatSessionKicker, formatSetBreakdown, formatShortDate, usesRetestedMax,
 } from "./format";
 
 /** Builds an ItemView with sensible defaults; tests override what they care about. */
@@ -99,9 +99,10 @@ describe("formatItemDetails", () => {
     expect(formatItemDetails(item({ format: "emom", minutes: 5, target: deload }))).toEqual(["40% of max 12 · +2, held for deload"]);
   });
 
-  it("says a retest-week target comes from the retested max, without an increase", () => {
+  it("says a retest-week target uses the current max and tells Ed to update it", () => {
     const retest = { kind: "fixed", count: 4, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true } } as RepTarget;
-    expect(formatItemDetails(item({ format: "emom", minutes: 5, target: retest }))).toEqual(["40% of max 12 · from your retested max"]);
+    expect(formatItemDetails(item({ format: "emom", minutes: 5, target: retest }))).toEqual(["40% of your current max 12 · retest week: update your max in Settings"]);
+    expect(usesRetestedMax(item({ format: "emom", minutes: 5, target: retest }))).toBe(true);
   });
 
   it("builds a one-line prescription summary", () => {

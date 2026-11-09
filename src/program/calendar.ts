@@ -11,10 +11,12 @@
  *
  * Program days count from the start date:
  *
- *   start date = day 1 of week 1; every 7 days begins a new week
+ *   start date = day 1 of week 1; every DAYS_PER_WEEK (7) days begins a new week
  *   day 1..7 of a week run the program days numbered 1..7 in program.json
- *   (day 7 is the rest day)
+ *   (the rest day is program.restDay)
  */
+
+import { DAYS_PER_WEEK } from "./model";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -55,7 +57,7 @@ export function toDayNumber(calendarDate: string): number {
  * week (1-based) and day of that week (1-7), or after the last week.
  *
  * The start date is day 1 of week 1. Day number N runs the program day
- * numbered N in program.json (day 7 is the rest day).
+ * numbered N in program.json (the rest day is program.restDay).
  *
  * Note: a start date saved by an earlier version of the app (when week 1
  * began at the start of the start date's calendar week) is now simply read as
@@ -72,13 +74,13 @@ export function programStatus(startDate: string | null, lengthWeeks: number, tod
     return { kind: "notStarted", startsOn: startDate };
   }
 
-  const week = Math.floor(daysSinceStart / 7) + 1;
+  const week = Math.floor(daysSinceStart / DAYS_PER_WEEK) + 1;
 
   if (week > lengthWeeks) {
     return { kind: "complete" };
   }
 
-  const dayNumber = (daysSinceStart % 7) + 1;
+  const dayNumber = (daysSinceStart % DAYS_PER_WEEK) + 1;
   return { kind: "active", week, dayNumber };
 }
 

@@ -45,7 +45,8 @@ export type RepTarget =
  *    is last week's figure carried over (the UI says so).
  *  - usesRetestedMax: true in a retest week (week 8): the target is
  *    floor(max x pct) from the current saved max, with no increase and no
- *    hold. The UI says the figure comes from the retested max.
+ *    hold. Set only on EMOM items (those with a weeklyIncrease), not mini-doses.
+ *    The UI says it is the current max and prompts the athlete to update it.
  */
 export interface MaxBasis {
   percentMin: number;
@@ -236,16 +237,20 @@ function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, 
   // week, 0).
   const increase = item.weeklyIncrease === undefined ? 0 : offset;
 
+  // Only EMOM items (those with a weeklyIncrease) are re-based on a retested
+  // max in a retest week; mini-doses just use the saved max like any other week.
+  const usesRetestedMax = isRetest && item.weeklyIncrease !== undefined;
+
   const keptSets = halve ? item.sets.slice(0, Math.ceil(item.sets.length / 2)) : item.sets;
 
   return {
     exercise: item.exercise,
     format: item.format,
     sets: keptSets.map((set) => ({
-      target: set.reps && resolveReps(set.reps, item.exerciseId, settings, increase, isDeload, isRetest),
+      target: set.reps && resolveReps(set.reps, item.exerciseId, settings, increase, isDeload, usesRetestedMax),
       load: set.load,
     })),
-    target: item.reps && resolveReps(item.reps, item.exerciseId, settings, increase, isDeload, isRetest),
+    target: item.reps && resolveReps(item.reps, item.exerciseId, settings, increase, isDeload, usesRetestedMax),
     restSec: item.restSec,
     minutes: item.minutes === undefined ? undefined : halve ? halveRoundingUp(item.minutes) : item.minutes,
     // Deload intervals use the low end of the range, halved (4-5 -> 2).
@@ -275,7 +280,7 @@ function halveRange(range: Range): Range {
  * Converts program reps into a displayable target. Percent-of-max becomes
  * floor(max x pct), at least 1; the weekly `increase` is added after that.
  * Percent-of-max targets also carry a `basis` so the UI can explain them;
- * `isRetest` marks the basis as coming from the retested max.
+ * `isRetest` marks the basis as a retest-week EMOM target (current max, no increase).
  */
 function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings, increase: number, isDeload: boolean, isRetest: boolean): RepTarget {
   switch (reps.kind) {

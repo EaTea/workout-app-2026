@@ -139,6 +139,7 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
    mockups and the project-files copies of `program.json` and the program
    doc are updated to match.
 5. [x] Week 8 (`"retest": true`) EMOMs use the current max with no hold.
+   Only EMOMs follow the retest rule; mini-doses keep their usual numbers.
 - **Merge point:** the rules work as agreed, with tests. Steps 4–5 get
   their own challenger review before PR #4 is updated.
 
@@ -191,7 +192,12 @@ W2 D1, and 3 Nov is "not started".
 
 ## 7. Open questions
 
-None right now.
+1. **Week 8 before the retest is saved.** Week 8 EMOMs use whatever max is
+   saved, so until Ed enters a retested max they drop to week 1's numbers.
+   The row says "retest week: update your max in Settings" with a link.
+   Should week 8 instead hold week 7's reps until a new max is saved? That
+   needs a "max updated on" date, so it would land with the retest prompt
+   in PR 4.
 
 Resolved:
 

@@ -270,5 +270,18 @@ test("week 8 retest day shows EMOM from the current max with no hold", async ({ 
   await expect(page.getByText("Week 8 of 8 · Day 1")).toBeVisible();
   await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("4 / min");
   await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("5 min");
-  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12 · from your retested max");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of your current max 12 · retest week: update your max in Settings");
+
+  // The retest-week EMOM offers a direct route to the max setting...
+  await row(page, "Pull-ups").getByRole("link", { name: "Update max" }).click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.getByLabel("Max reps: Pull-ups")).toBeVisible();
+});
+
+test("week 8 mini-dose rows have no retest wording or Update max link", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-12-21");
+
+  await expect(row(page, "Dips").locator(".item-details")).not.toContainText("retest");
+  await expect(row(page, "Dips").getByRole("link", { name: "Update max" })).toHaveCount(0);
 });

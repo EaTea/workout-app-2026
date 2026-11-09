@@ -159,6 +159,18 @@ describe("further schedule rules", () => {
     expect(item(trainingOn("2026-11-23").blocks, "dip").sets[0]?.target).toMatchObject({ kind: "fixed", count: 7 });
   });
 
+  it("does not mark W8 mini-doses as retested-max targets (21 Dec dips 1 x 7, 25 Dec pull-ups 1 x 6)", () => {
+    const dips = item([block(trainingOn("2026-12-21").blocks, "miniDose")], "dip");
+    expect(dips.sets).toHaveLength(1);
+    expect(dips.sets[0]?.target).toMatchObject({ kind: "fixed", count: 7 });
+    expect(dips.sets[0]?.target).not.toMatchObject({ basis: { usesRetestedMax: true } });
+
+    const pullUps = item([block(trainingOn("2026-12-25").blocks, "miniDose")], "pull_up");
+    expect(pullUps.sets).toHaveLength(1);
+    expect(pullUps.sets[0]?.target).toMatchObject({ kind: "fixed", count: 6 });
+    expect(pullUps.sets[0]?.target).not.toMatchObject({ basis: { usesRetestedMax: true } });
+  });
+
   it("does not raise mini-dose reps week to week", () => {
     const session = trainingOn("2026-11-16");
     expect(item(session.blocks, "dip").sets[0]?.target).toMatchObject({ kind: "fixed", count: 7 });

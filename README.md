@@ -54,6 +54,11 @@ still loads, and an amber banner on Today lists each one. A misspelt field name
 the banner suggests the fix ("did you mean "weeklyIncrease"?") and opens its
 list straight away when it spots a likely typo.
 
+`days[].day` and `restDay` are whole numbers from 1 to 7: Day 1 is the session
+on your start date, and Day 7 is the rest day in the shipped program (not
+weekday names). A progression phase can set `"retest": true`; EMOMs in that
+week use the current max with no weekly increase.
+
 ## Deployment (GitHub Pages)
 
 `.github/workflows/pages.yml` ("CI and Pages deploy") runs `npm ci`, the unit
