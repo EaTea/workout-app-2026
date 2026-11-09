@@ -1,0 +1,288 @@
+{
+  "program": {
+    "name": "Explosive Endurance Program",
+    "goal": "Build explosiveness and muscular endurance, not hypertrophy",
+    "lengthWeeks": 8,
+    "restDay": "Sun",
+    "sessionOrder": ["warmup", "explosive", "mainStrength", "miniDose", "core", "finisher"],
+    "rules": [
+      "Explosive work always comes before strength work. Never superset explosive and strength exercises.",
+      "Explosive sets end as soon as rep speed drops.",
+      "Strength work stays short of failure. Mini-dose sets are easy practice at ~50% of max reps.",
+      "Every 4th week is a deload: halve all sets, keep intensity, keep explosive reps fast."
+    ]
+  },
+
+  "exercises": {
+    "ytwi": { "name": "YTWI raises", "category": "warmup", "evidence": "coaching practice" },
+    "pallof_press": { "name": "Pallof press", "category": "warmup", "evidence": "coaching practice" },
+    "lateral_raise": { "name": "Lateral raise", "category": "warmup", "evidence": "coaching practice" },
+    "plate_halo": {
+      "name": "Plate halo",
+      "category": "warmup",
+      "cues": ["Keep the plate close to your head", "Ribs down; the movement comes from the shoulders"],
+      "evidence": "coaching practice"
+    },
+    "cossack_squat": { "name": "Cossack squat", "category": "warmup", "evidence": "coaching practice" },
+    "hip_abduction_adduction": { "name": "Hip abduction / adduction", "category": "warmup", "evidence": "coaching practice" },
+    "single_leg_hip_thrust": { "name": "Single-leg hip thrust", "category": "warmup", "evidence": "coaching practice" },
+
+    "med_ball_slam": {
+      "name": "Med ball slams",
+      "category": "explosive",
+      "alternative": "Explosive chest-to-bar pull-ups, 5 x 3",
+      "evidence": "coaching practice"
+    },
+    "split_squat_jump": {
+      "name": "Split-squat jumps",
+      "category": "explosive",
+      "evidence": "https://doi.org/10.1186/s13102-025-01113-6"
+    },
+    "plyo_push_up": { "name": "Plyo push-ups", "category": "explosive", "evidence": "coaching practice" },
+    "kettlebell_swing": {
+      "name": "Kettlebell swings",
+      "category": "explosive",
+      "evidence": "https://www.bisp-surf.de/Record/PU201301000174"
+    },
+    "db_push_press": { "name": "Dumbbell push press", "category": "explosive", "evidence": "coaching practice" },
+    "lateral_skater_bound": {
+      "name": "Lateral skater bounds",
+      "category": "explosive",
+      "cues": ["Hold each landing for a moment"],
+      "alternative": "Pogo hops, 4 x 20s",
+      "evidence": "https://doi.org/10.1186/s13102-025-01113-6"
+    },
+
+    "pull_up": {
+      "name": "Pull-ups",
+      "category": "strength",
+      "maxTested": true,
+      "evidence": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7927075/"
+    },
+    "dip": {
+      "name": "Dips",
+      "category": "strength",
+      "maxTested": true,
+      "evidence": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7927075/"
+    },
+    "overhead_press": {
+      "name": "Overhead press / pike push-up",
+      "category": "strength",
+      "evidence": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7927075/"
+    },
+    "zercher_bulgarian_split_squat": {
+      "name": "Zercher Bulgarian split squat",
+      "category": "strength",
+      "cues": ["Bar in the crook of the elbows", "Torso upright", "Start lighter than a dumbbell or back-squat version"],
+      "evidence": "https://www.frontiersin.org/articles/10.3389/fphys.2023.1128250/full"
+    },
+    "single_leg_rdl": {
+      "name": "Single-leg RDL",
+      "category": "strength",
+      "evidence": "https://www.frontiersin.org/articles/10.3389/fphys.2023.1128250/full"
+    },
+    "single_leg_calf_raise": {
+      "name": "Single-leg calf raise",
+      "category": "strength",
+      "evidence": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7893283/"
+    },
+
+    "back_extension": {
+      "name": "Back extension with thoracic finish",
+      "category": "core",
+      "cues": ["Hinge up to a straight line", "Then lift the chest so the extra range comes from the upper back, not the lower back", "2s hold at the top"],
+      "evidence": "https://pmc.ncbi.nlm.nih.gov/articles/PMC233181"
+    },
+    "hanging_leg_raise": {
+      "name": "Hanging leg raise",
+      "category": "core",
+      "progression": ["Bent-knee raise", "Straight legs to hip height", "Straight legs above hip height", "Toes-to-bar"],
+      "evidence": "coaching practice"
+    },
+    "side_plank": { "name": "Side plank", "category": "core", "evidence": "coaching practice" },
+    "hollow_hold": { "name": "Hollow body hold", "category": "core", "evidence": "coaching practice" },
+    "heavy_bag": {
+      "name": "Heavy bag finisher",
+      "category": "finisher",
+      "cues": ["Snap every punch", "Wear hand wraps and bag gloves"],
+      "evidence": "coaching practice"
+    }
+  },
+
+  "days": [
+    {
+      "day": "Mon",
+      "focus": "Upper: pull",
+      "targetMinutes": 50,
+      "blocks": [
+        { "type": "warmup", "format": "superset", "rounds": 2, "items": [
+          { "exercise": "ytwi", "reps": "12-15" },
+          { "exercise": "pallof_press", "reps": "12-15" }
+        ]},
+        { "type": "explosive", "items": [
+          { "exercise": "med_ball_slam", "sets": 6, "reps": 6, "restSec": [30, 45] }
+        ]},
+        { "type": "mainStrength", "minutes": 9, "items": [
+          { "exercise": "pull_up", "format": "emom", "minutes": 9, "repsPctOfMax": 0.40, "weeklyIncrease": "+1 rep per minute" }
+        ]},
+        { "type": "miniDose", "items": [
+          { "exercise": "dip", "sets": 2, "repsPctOfMax": 0.50 }
+        ]},
+        { "type": "core", "format": "superset", "restSecBetweenPairs": [45, 60], "items": [
+          { "exercise": "back_extension", "sets": 4, "reps": "12-15", "load": "hold a plate" },
+          { "exercise": "hanging_leg_raise", "sets": 3, "reps": "6-10", "note": "Wrist straps are fine" },
+          { "exercise": "side_plank", "sets": 2, "durationSec": 30, "perSide": true, "optional": true }
+        ]},
+        { "type": "finisher", "items": [
+          { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "note": "Hard combinations" }
+        ]}
+      ]
+    },
+    {
+      "day": "Tue",
+      "focus": "Lower: knee",
+      "targetMinutes": 30,
+      "blocks": [
+        { "type": "warmup", "format": "superset", "rounds": 2, "items": [
+          { "exercise": "cossack_squat", "reps": "12-15" },
+          { "exercise": "hip_abduction_adduction", "reps": "12-15" }
+        ]},
+        { "type": "explosive", "items": [
+          { "exercise": "split_squat_jump", "sets": 5, "reps": 6, "perSide": true, "restSec": 45 }
+        ]},
+        { "type": "mainStrength", "minutes": 9, "items": [
+          { "exercise": "zercher_bulgarian_split_squat", "sets": 3, "reps": "12-15", "perSide": true, "restSec": 45, "note": "Switch legs without rest; rest between rounds" }
+        ]},
+        { "type": "miniDose", "items": [
+          { "exercise": "single_leg_rdl", "sets": 2, "reps": "easy, ~50% effort", "perSide": true }
+        ]}
+      ]
+    },
+    {
+      "day": "Wed",
+      "focus": "Upper: push",
+      "targetMinutes": 32,
+      "blocks": [
+        { "type": "warmup", "format": "superset", "rounds": 2, "items": [
+          { "exercise": "pallof_press", "reps": "12-15" },
+          { "exercise": "lateral_raise", "reps": "12-15" },
+          { "exercise": "plate_halo", "reps": "8 each direction", "load": "5-10 kg plate" }
+        ]},
+        { "type": "explosive", "items": [
+          { "exercise": "plyo_push_up", "sets": 5, "reps": 5, "restSec": 45 }
+        ]},
+        { "type": "mainStrength", "minutes": 9, "items": [
+          { "exercise": "dip", "format": "emom", "minutes": 9, "repsPctOfMax": [0.40, 0.50], "weeklyIncrease": "+1 rep per minute" }
+        ]},
+        { "type": "miniDose", "items": [
+          { "exercise": "overhead_press", "sets": 2, "reps": "easy, ~50% effort" }
+        ]}
+      ]
+    },
+    {
+      "day": "Thu",
+      "focus": "Lower: hinge",
+      "targetMinutes": 30,
+      "blocks": [
+        { "type": "warmup", "format": "superset", "rounds": 2, "items": [
+          { "exercise": "single_leg_hip_thrust", "reps": "12-15" },
+          { "exercise": "hip_abduction_adduction", "reps": "12-15" }
+        ]},
+        { "type": "explosive", "items": [
+          { "exercise": "kettlebell_swing", "format": "emom", "minutes": 8, "reps": "12-15" }
+        ]},
+        { "type": "mainStrength", "minutes": 9, "items": [
+          { "exercise": "single_leg_rdl", "sets": 3, "reps": "10-12", "perSide": true, "tempo": "3s lowering" }
+        ]},
+        { "type": "miniDose", "items": [
+          { "exercise": "single_leg_calf_raise", "sets": 2, "reps": "easy, ~50% effort", "perSide": true }
+        ]}
+      ]
+    },
+    {
+      "day": "Fri",
+      "focus": "Upper: overhead",
+      "targetMinutes": 50,
+      "blocks": [
+        { "type": "warmup", "format": "superset", "rounds": 2, "items": [
+          { "exercise": "ytwi", "reps": "12-15" },
+          { "exercise": "lateral_raise", "reps": "12-15" }
+        ]},
+        { "type": "explosive", "items": [
+          { "exercise": "db_push_press", "sets": 5, "reps": 5, "load": "moderate", "restSec": 45 }
+        ]},
+        { "type": "mainStrength", "minutes": 9, "items": [
+          { "exercise": "overhead_press", "sets": 3, "reps": "10-15", "restSec": 60, "tempo": "2s lowering" }
+        ]},
+        { "type": "miniDose", "items": [
+          { "exercise": "pull_up", "sets": 2, "repsPctOfMax": 0.50 }
+        ]},
+        { "type": "core", "format": "superset", "restSecBetweenPairs": 45, "items": [
+          { "exercise": "hanging_leg_raise", "sets": 4, "reps": "8-12", "note": "No swinging, 2-3s lowering" },
+          { "exercise": "back_extension", "sets": 3, "reps": 20, "load": "bodyweight", "note": "Slow; stays bodyweight because Thursday loads the lower back" },
+          { "exercise": "hollow_hold", "sets": 2, "durationSec": 30, "optional": true }
+        ]},
+        { "type": "finisher", "items": [
+          { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "note": "Mostly hooks and uppercuts" }
+        ]}
+      ]
+    },
+    {
+      "day": "Sat",
+      "focus": "Lower: ankle",
+      "targetMinutes": 30,
+      "blocks": [
+        { "type": "warmup", "format": "superset", "rounds": 2, "items": [
+          { "exercise": "cossack_squat", "reps": "12-15" },
+          { "exercise": "single_leg_hip_thrust", "reps": "12-15" }
+        ]},
+        { "type": "explosive", "items": [
+          { "exercise": "lateral_skater_bound", "sets": 5, "reps": 6, "perSide": true, "restSec": 45 }
+        ]},
+        { "type": "mainStrength", "minutes": 9, "items": [
+          { "exercise": "single_leg_calf_raise", "perSide": true, "sets": [
+            { "reps": "8-10", "load": "heavy" },
+            { "reps": "15-25", "load": "moderate" },
+            { "reps": "15-25", "load": "moderate" }
+          ], "tempo": "2s pause at the bottom" }
+        ]},
+        { "type": "miniDose", "items": [
+          { "exercise": "zercher_bulgarian_split_squat", "sets": 2, "reps": "easy, ~50% effort", "perSide": true }
+        ]}
+      ]
+    }
+  ],
+
+  "progression": [
+    { "weeks": [1, 2, 3], "phase": "Base", "changes": ["Add 1 rep per set or per EMOM minute each week"] },
+    { "weeks": [4], "phase": "Deload", "changes": ["Halve all sets", "Keep intensity", "Keep explosive reps fast"] },
+    { "weeks": [5, 6, 7], "phase": "Power endurance", "changes": [
+      "Cut explosive rest by 15s, or add 1-2 reps per set, only while every rep stays fast",
+      "Cut core-block rest by 15s",
+      "Lengthen heavy bag rounds by 5-10s"
+    ]},
+    { "weeks": [8], "phase": "Deload + retest", "changes": ["Halve all sets", "Retest max pull-ups and dips", "Reset EMOM targets from the new maxes"] }
+  ],
+
+  "coreProgressions": {
+    "back_extension": "Build to 20 reps, then add load on Mondays only",
+    "hanging_leg_raise": "Move through the progression list; add 1 rep per set each week"
+  },
+
+  "warmupRotation": {
+    "everyWeeks": 4,
+    "swaps": [
+      { "out": "single_leg_hip_thrust", "in": "Kickbacks" },
+      { "out": "ytwi", "in": "Reverse fly" },
+      { "out": "pallof_press", "in": "Ab raises" }
+    ],
+    "alsoAvailable": ["Tricep pushdown"]
+  },
+
+  "fatigueCheck": {
+    "frequency": "weekly",
+    "tests": ["Best broad jump", "Max pull-ups"],
+    "rule": "If either drops more than ~10% and stays down, or you feel flat for several days, add a rest day or start the deload early",
+    "lowerBackRule": "If the lower back feels tight on Friday, cut back extensions to 2 sets"
+  }
+}

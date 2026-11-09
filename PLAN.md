@@ -1,7 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **in review.** Stack, milestones and assumptions agreed; awaiting
-mockup feedback and merge. No app code exists yet.
+Status: **plan agreed and merged (PR #2). PR 1 in progress.**
 
 ## 1. What I understand the request to be
 
@@ -50,14 +49,14 @@ startup, so Ed can edit it without touching code.
                                program/model.ts   (Program: internal types)
                                      │
         settings (start date, maxes) │
-        storage/settings.ts ─────────┤
+        settings/storage.ts ─────────┤
                                      ▼
-                               program/schedule.ts  todaySession(program, settings, date)
+                               program/schedule.ts  buildSession(program, settings, date)
                                      │   week, day, phase, deload, rep targets
                                      ▼
                                ui/today.ts ──▶ ui/timer.ts, ui/log.ts
                                                      │
-                                     storage/log.ts ◀┘ (LogWire ⇄ LogEntry)
+                                     log/storage.ts ◀┘ (LogWire ⇄ LogEntry)
 ```
 
 Per CLAUDE.md section 6, every boundary gets its own wire type and explicit
@@ -100,27 +99,37 @@ reviewable. Each implementation PR is built step by step by a lower-cost
 subagent, reviewed and committed by me, and challenged by a separate
 higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 
-### PR 0 — this plan *(design)*
-- [x] Write `PLAN.md`.
-- **Merge point:** Ed approves or edits the plan.
+### PR 0 — this plan *(design)* — merged as PR #2
 
 ### PR 1 — Skeleton and "Today's workout" *(behavior change)*
-1. Skeleton: Vite + TypeScript, `index.html` with "Hello", Vitest and
+1. [x] Skeleton: Vite + TypeScript, `index.html` with a placeholder, Vitest and
    Playwright wired up with one trivial test each, `README.md` with
    install/build/run/test commands, and a GitHub Actions workflow that
    deploys `main` to GitHub Pages so it can be opened on a phone. Verify it
-   builds and runs.
-2. Program wire and internal types, `parseProgram`, unit tests against the
-   real `program.json`.
-3. Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
+   builds and runs. Playwright uses the iPhone 13 viewport on Chromium
+   (the only browser installed here); CI runs unit tests and the build but
+   not Playwright yet.
+2. [x] Program wire and internal types, `parseProgram`, unit tests against the
+   real `program.json`. The parser also rejects unknown fields, so a typo
+   in `program.json` (e.g. `restSecs`) shows an error instead of being
+   silently ignored; a genuinely new field needs a small parser change.
+3. [x] Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
    weekly increase. Unit tests built from worked examples (below).
-4. Settings screen: start date, max pull-ups, max dips (stored locally).
-5. Today screen: header (week N of 8, phase, day focus), blocks in session
+4. [x] Settings screen: start date, max pull-ups, max dips (stored locally).
+5. [x] Today screen: header (week N of 8, phase, day focus), blocks in session
    order as cards, tap an exercise to open cues/alternative/evidence. Phase
    changes from `progression` shown in a collapsible strip. Rest-day card.
    E2E test: set a start date and maxes, see the right session.
 - **Merge point:** Ed can open the mockup on his phone and see the correct
   session for any date.
+
+Pending owner decisions raised by the PR 1 review (they may change rules
+in section 4 before or after PR 1 merges):
+- Week 1 should start on the Monday on or after the start date, so a
+  Sunday start doesn't lose a week.
+- Deload EMOM reps: keep week 3's reps in week 4, or drop back as now.
+- Unknown fields in `program.json`: warn and still load, instead of
+  blocking the app.
 
 ### PR 2 — Timers *(behavior change)*
 1. Shared full-screen timer view: huge digits, round counter, start/pause/
@@ -162,7 +171,7 @@ Start date Mon 2 Nov 2026, max pull-ups 12, max dips 15.
 | Wed 4 Nov | W1 Wed | Base | Dip EMOM floor(15×0.40)–floor(15×0.50) = 6–7 reps; plyo push-ups 5 × 5 |
 | Mon 23 Nov | W4 Mon | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 4; dip mini-dose 1 × 7 |
 | Sun 8 Nov | — | Rest | Rest-day card |
-| Sat 26 Dec | W8 Sat | Deload + retest | Retest prompt; skater bounds 3 × 6 per side |
+| Sat 26 Dec | W8 Sat | Deload + retest | Skater bounds 3 × 6 per side (retest prompt comes in PR 4) |
 
 ## 7. Open questions
 

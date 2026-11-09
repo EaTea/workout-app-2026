@@ -1,0 +1,129 @@
+/**
+ * Wire types: the exact JSON shape of `public/program.json`, unions and all.
+ *
+ * These types exist only so `parse.ts` can describe what it expects to read.
+ * No other module may import them (CLAUDE.md section 6); the rest of the app
+ * uses the normalised types in `model.ts`.
+ *
+ *   program.json --(fetch)--> ProgramWire --parseProgram()--> Program
+ */
+
+/** A single number, or a `[min, max]` tuple (e.g. `restSec: [30, 45]`). */
+export type NumberOrRangeWire = number | [number, number];
+
+/** Reps are a number (6), or free text ("12-15", "easy, ~50% effort", "8 each direction"). */
+export type RepsWire = number | string;
+
+/** One entry of a per-set `sets` array (Saturday's calf raise). */
+export interface SetWire {
+  reps: RepsWire;
+  load?: string;
+}
+
+/** `sets` is either a count (3) or an explicit list of per-set prescriptions. */
+export type SetsWire = number | SetWire[];
+
+/** Either a URL to a study, or the literal text "coaching practice". */
+export type EvidenceWire = string;
+
+/** The block-level and item-level `format` values that appear in the file. */
+export type FormatWire = "superset" | "emom" | "interval";
+
+/** One entry of the top-level `exercises` object (keyed by exercise id). */
+export interface ExerciseWire {
+  name: string;
+  category: string;
+  cues?: string[];
+  alternative?: string;
+  evidence: EvidenceWire;
+  progression?: string[];
+  maxTested?: boolean;
+}
+
+/** One exercise inside a block. `exercise` is a key of `exercises`. */
+export interface ItemWire {
+  exercise: string;
+  format?: FormatWire;
+  sets?: SetsWire;
+  reps?: RepsWire;
+  /** Fraction of the athlete's tested max, e.g. 0.40 or [0.40, 0.50]. */
+  repsPctOfMax?: NumberOrRangeWire;
+  restSec?: NumberOrRangeWire;
+  minutes?: number;
+  rounds?: NumberOrRangeWire;
+  workSec?: NumberOrRangeWire;
+  durationSec?: number;
+  perSide?: boolean;
+  optional?: boolean;
+  load?: string;
+  note?: string;
+  tempo?: string;
+  weeklyIncrease?: string;
+}
+
+/** One block of a day (warmup, explosive, mainStrength, miniDose, core, finisher). */
+export interface BlockWire {
+  type: string;
+  format?: FormatWire;
+  rounds?: NumberOrRangeWire;
+  minutes?: number;
+  restSecBetweenPairs?: NumberOrRangeWire;
+  items: ItemWire[];
+}
+
+/** One training day. */
+export interface DayWire {
+  day: string;
+  focus: string;
+  targetMinutes: number;
+  blocks: BlockWire[];
+}
+
+/** One phase of the 8-week progression. */
+export interface ProgressionPhaseWire {
+  weeks: number[];
+  phase: string;
+  changes: string[];
+}
+
+/** The `program` object: name, length and session-wide rules. */
+export interface ProgramInfoWire {
+  name: string;
+  goal: string;
+  lengthWeeks: number;
+  restDay: string;
+  sessionOrder: string[];
+  rules: string[];
+}
+
+/** One warm-up swap: replace exercise id `out` with free text `in`. */
+export interface WarmupSwapWire {
+  out: string;
+  in: string;
+}
+
+/** Warm-up rotation reminder data. */
+export interface WarmupRotationWire {
+  everyWeeks: number;
+  swaps: WarmupSwapWire[];
+  alsoAvailable: string[];
+}
+
+/** Weekly fatigue check data. */
+export interface FatigueCheckWire {
+  frequency: string;
+  tests: string[];
+  rule: string;
+  lowerBackRule: string;
+}
+
+/** The whole `program.json` document. */
+export interface ProgramWire {
+  program: ProgramInfoWire;
+  exercises: Record<string, ExerciseWire>;
+  days: DayWire[];
+  progression: ProgressionPhaseWire[];
+  coreProgressions: Record<string, string>;
+  warmupRotation: WarmupRotationWire;
+  fatigueCheck: FatigueCheckWire;
+}
