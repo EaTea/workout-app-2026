@@ -250,13 +250,7 @@ Follow-ups from the step 6 review:
    - E2E for Skip and for catching up after the page was hidden.
 - **Merge point:** a full session can be run with timers.
 
-Follow-ups from the PR 2 review (later PRs):
-- Schedule upcoming beeps on the audio clock so they stay on time while the
-  browser throttles a hidden page.
-- Let the phone's Back gesture close the timer instead of leaving the app.
-- Power-endurance weeks (5–7): Ed chose that the heavy bag work default
-  gets +5s and the core rest between pairs −15s. Explosive rest stays as
-  written, since the program allows adding reps instead. Not built yet.
+Follow-ups from the PR 2 review are planned as PR 6.
 
 ### PR 3 — Logging and "last time" *(behavior change)*
 Rule 8 in section 4.
@@ -373,9 +367,40 @@ brief's remaining nice-to-haves.
    - Stale doc comments fixed.
 - **Merge point:** every nice-to-have in the brief is in.
 
-### Later (not planned in detail yet)
-- PR 6 (planned when PR 5 is up): Ed's weeks 5–7 timer defaults and the
-  PR 2 timer follow-ups.
+### PR 6 — Power-endurance timer defaults and timer follow-ups *(behavior change)*
+Stacked on PR 5. Ed's choice for weeks 5–7 plus the two follow-ups from
+the PR 2 review.
+1. [ ] **Power-endurance adjustments in program.json.** A progression phase
+   may carry an optional `"timerAdjustments": {"intervalWorkSec": 5,
+   "coreRestBetweenPairsSec": -15}` (validated like every other field:
+   whole numbers, unknown keys warned about). The shipped program sets it on
+   the weeks 5–7 phase. `buildSession` applies it: every interval item's
+   `workSec` range moves by the amount (Day 1 heavy bag 20–30s becomes
+   25–35s, so the timer starts at 35s), and every `core` block's
+   `restSecBetweenPairs` moves by its amount (45–60s becomes 30–45s, and
+   Day 5's 45s becomes 30s), never below the timer's 5s floor. Today's
+   rows show the adjusted numbers with a short "Power endurance: +5s work"
+   / "−15s rest" line, so the text and the timer agree. Explosive rest is
+   unchanged (Ed's decision: the program also allows adding reps instead).
+   Steppers still let Ed change any number before Start.
+2. [ ] **Beeps on the audio clock.** When a segment starts, the cue player
+   schedules that segment's 3-2-1 countdown and its end beep on the
+   AudioContext timeline (`osc.start(at)`), instead of waiting for the
+   page's ticks, which a hidden or throttled page delays. Scheduled tones
+   are cancelled on pause, Skip, a stepper change and close; the tick path
+   no longer plays a tone that was already scheduled, so nothing beeps
+   twice. Vibration stays tick-driven (it can't be scheduled) and the
+   display still catches up after the page was hidden, as now.
+3. [ ] **Back closes the timer.** Opening a timer (EMOM, interval or rest)
+   pushes a history entry with the same URL; the Back gesture or button
+   then closes the timer instead of leaving the screen or the app. Closing
+   with the timer's own button pops that entry, so Back afterwards behaves
+   as before. Pushing the entry must not fire the hash router.
+   Unit tests for the adjustments, the parsing, and the cue scheduling with
+   a fake AudioContext; E2E for the week 5 defaults and Back closing each
+   timer.
+- **Merge point:** the program's weeks 5–7 changes are reflected in the
+  timers, and the PR 2 follow-ups are done.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
