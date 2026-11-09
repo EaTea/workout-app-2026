@@ -253,7 +253,7 @@ Rule 8 in section 4.
 5. [x] Keep the screen awake while a session is in progress (rule 8).
    Unit tests for the log mapping, set edits and "last time"; E2E test that
    logs sets, reloads, and sees them on Today, the log screen and History.
-6. [ ] Fixes from the challenger review (rule 8 as now written):
+6. [x] Fixes from the challenger review (rule 8 as now written):
    - Pin the shown session's date, carry it in the log screen's address,
      and drop the wake lock when the date changes.
    - Re-read before each save; keep readable sets of a damaged log.

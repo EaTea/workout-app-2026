@@ -16,13 +16,16 @@ logged set until every set is logged, or until midnight; needs a browser with th
 Today shows an "It's a new day" banner (with a button to switch) if left open past midnight.
 
 Tapping an exercise on Today opens its log screen: tick sets off one at a time
-with reps and kg steppers (pre-filled from the previous set or the plan), an
-optional note, Skip, and "Log all as planned" (handy after an EMOM). Logging a
-set that has a prescribed rest starts the rest timer. Logged sets can be
-tapped to edit or delete, and Today rows show progress such as "2/6". The log
+with reps and kg steppers (pre-filled from the previous set or the plan; kg
+moves in 2.5 kg steps and the number can be tapped to type, e.g. 22.5), an
+optional note, Skip, and "Log all as planned" (handy after an EMOM; it keeps
+the edits made to the current set). Logging a set that has a prescribed rest
+opens the rest timer already running. Logged sets can be
+tapped to edit or delete (delete asks for a second tap), and Today rows show progress such as "2/6". The log
 is kept in this browser's local storage (nothing is sent anywhere); the
 exercise details sheet is behind the ⓘ button on the log screen. "Last time"
-hints show on Today rows and the log screen. The History tab lists every logged
+hints (last week's same day and block type, else the same kind of block on
+another day) show on Today rows and the log screen. The History tab lists every logged
 session, newest first, with a summary per exercise; tap an exercise to see its
 sets and tap a set to edit or delete it. It is a static site
 (Vite + TypeScript, no UI framework).
@@ -44,7 +47,9 @@ npm run dev
 To preview another day, add `?date=YYYY-MM-DD` to the URL (e.g.
 `http://localhost:5173/?date=2026-11-09`); it previews that day on the Today
 screen and also sets the start date when you tap Start today, but never changes
-when maxes count as saved. E2E tests use it too.
+when maxes count as saved. A "Previewing 16 Nov · back to today" strip shows on
+Today and the log screen while it is in use; past dates can be logged to
+(backfilling), future ones cannot. E2E tests use it too.
 
 ## Build and preview
 

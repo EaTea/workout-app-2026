@@ -94,15 +94,24 @@ test("edit a set's reps, delete a set, and delete the last set of a session", as
   await exerciseRow(page, "4 Nov", "Plyo push-ups").locator(".history-exercise-row").click();
   await page.getByRole("button", { name: /^Set 2 · 5 reps/ }).click();
   await page.getByRole("button", { name: "Delete set" }).click();
+  await page.getByRole("button", { name: "Tap again to delete" }).click();
   await expect(exerciseRow(page, "4 Nov", "Plyo push-ups")).toContainText("1 × 5");
+
+  // The card is still there, so focus goes to its heading, not the page.
+  await expect(card(page, "4 Nov").locator(".history-session-header")).toBeFocused();
 
   // Delete the remaining sets of 4 Nov: the card goes with the last one.
   await page.getByRole("button", { name: /^Set 1 · 5 reps/ }).click();
   await page.getByRole("button", { name: "Delete set" }).click();
+  await page.getByRole("button", { name: "Tap again to delete" }).click();
   await exerciseRow(page, "4 Nov", "Dips").locator(".history-exercise-row").click();
   await page.getByRole("button", { name: /^Min 1 · 7 reps/ }).click();
   await page.getByRole("button", { name: "Delete set" }).click();
+  await page.getByRole("button", { name: "Tap again to delete" }).click();
   await expect(card(page, "4 Nov")).toHaveCount(0);
+
+  // The card is gone, so focus goes to the page heading rather than the page.
+  await expect(page.getByRole("heading", { name: "History" })).toBeFocused();
   await expect(page.locator(".history-session")).toHaveCount(1);
 
   // Reload: still gone.
@@ -148,4 +157,40 @@ test("a log with one bad set shows a warning and keeps the good set", async ({ p
   // The original text was copied aside before anything could be saved over it.
   const backupCount = await page.evaluate(() => Object.keys(window.localStorage).filter((key) => key.startsWith("explosive-endurance.log.corrupt-")).length);
   expect(backupCount).toBe(1);
+});
+
+test("focus follows each History action, and reps can be added to a set logged without them", async ({ page }) => {
+  await seedSettings(page);
+  const log = {
+    version: 1,
+    sessions: [
+      {
+        date: "2026-11-02", programWeek: 1, day: 1,
+        // A pull-up minute logged with no reps (the plan could not give a number).
+        sets: [{ exerciseId: "pull_up", blockPosition: 3, setNumber: 1, loggedAt: "2026-11-02T18:00:00.000Z" }],
+      },
+    ],
+  };
+  await page.addInitScript((seed) => {
+    if (window.localStorage.getItem("explosive-endurance.log") === null) {
+      window.localStorage.setItem("explosive-endurance.log", JSON.stringify(seed));
+    }
+  }, log);
+  await page.goto("/?date=2026-11-09#/history");
+
+  // Expanding keeps focus on the exercise row.
+  await exerciseRow(page, "2 Nov", "Pull-ups").locator(".history-exercise-row").click();
+  await expect(exerciseRow(page, "2 Nov", "Pull-ups").locator(".history-exercise-row")).toBeFocused();
+
+  // Opening the set puts focus in the edit panel, which offers reps even though none were stored.
+  await page.getByRole("button", { name: /^Min 1 · Done/ }).click();
+  await expect(page.getByRole("button", { name: "Increase reps" })).toBeVisible();
+  await expect(page.locator(".history-editor .log-stepper-button").first()).toBeFocused();
+
+  await page.getByRole("button", { name: "Increase reps" }).click();
+  await page.getByRole("button", { name: "✓ Save changes" }).click();
+  await expect(page.getByRole("button", { name: /^Min 1 · 1 rep/ })).toBeFocused();
+
+  await page.reload();
+  await expect(exerciseRow(page, "2 Nov", "Pull-ups")).toContainText("1 × 1");
 });

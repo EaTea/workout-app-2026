@@ -13,6 +13,7 @@ import { isSessionInProgress } from "../log/sessionProgress";
 import { buildSession } from "../program/schedule";
 import { createScreenWakeLock } from "../timer/wakeLock";
 import { renderNewDayBanner } from "./newDayBanner";
+import { renderPreviewStrip } from "./previewStrip";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
 import { focusMainHeading, renderWarningBanner } from "./warningBanner";
@@ -27,7 +28,10 @@ import { focusMainHeading, renderWarningBanner } from "./warningBanner";
  *
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
  * tests, and by Ed to preview another day). The preview affects Today and
- * "Start today" only; max save dates always use the real local date.
+ * "Start today" only; max save dates always use the real local date. While
+ * one is in the address, Today and the log screen show a "Previewing 16 Nov ·
+ * back to today" strip, and the log screen refuses to log to a date after the
+ * real today (past dates can be backfilled).
  *
  * The shown date (pinned session): `startApp` keeps ONE "shown date", set from
  * `resolveToday` at startup. Today renders for it, and every log screen
@@ -93,6 +97,23 @@ export function resolveToday(search: string, now: Date = new Date()): string {
     }
   }
   return todayLocalDate(now);
+}
+
+/**
+ * The `?date=` preview date in `search` (a `location.search` string), or
+ * undefined when there is none or it is not a valid date. Decides whether
+ * the "Previewing" strip is shown (`render` in `startApp`).
+ */
+export function previewDateFromSearch(search: string): string | undefined {
+  const override = new URLSearchParams(search).get("date");
+  if (override === null) return undefined;
+
+  try {
+    toDayNumber(override);
+    return override;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -309,6 +330,10 @@ export function startApp(
     try {
       const route = routeFromHash(window.location.hash);
       const main = element("main", "app-main");
+      const previewDate = previewDateFromSearch(window.location.search);
+      if (previewDate !== undefined && (route === "today" || route === "log")) {
+        main.append(renderPreviewStrip(previewDate));
+      }
       if (route === "today" && warnings.length > 0 && !warningsDismissed) {
         main.append(renderWarningBanner(warnings, handleDismissWarnings));
       }
@@ -319,7 +344,7 @@ export function startApp(
       if (route === "settings") {
         main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave));
       } else if (route === "log" && logTarget !== undefined) {
-        main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog));
+        main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
       } else {

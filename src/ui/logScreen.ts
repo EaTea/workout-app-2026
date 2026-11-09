@@ -1,17 +1,18 @@
 import { buildSession, type BlockView, type ItemView } from "../program/schedule";
+import { todayLocalDate } from "../program/calendar";
 import type { Program } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
-import { countSetsForItem, formatLoggedSet, itemTracksReps, nextSetNumber, prefillForSet, setNeedsMax, setWord } from "../log/itemSets";
-import { findLastTime } from "../log/lastTime";
+import { countSetsForItem, formatLoggedSet, itemTracksReps, nextSetNumber, prefillForSet, setNeedsMax, setNounFor, setWord } from "../log/itemSets";
 import type { LoggedSet, WorkoutLog } from "../log/model";
 import { deleteSet, editSet, logSet, setsForItem } from "../log/operations";
 import { formatClock } from "../timer/engine";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
-import { blockLabel, formatPrescriptionSummary, formatRepTarget } from "./format";
+import { blockLabel, formatLastTime, formatPrescriptionSummary, formatRepTarget } from "./format";
 import type { ChangeLog } from "./logChange";
-import { lastTimeHint } from "./lastTimeHint";
-import { renderActionButton, renderNoteInput, renderStepper, KILOGRAM_STEP, MINIMUM_REPS } from "./setEditor";
+import { lastTimeForItem } from "./lastTimeHint";
+import { KILOGRAM_STEP } from "./kilograms";
+import { renderActionButton, renderDeleteButton, renderNoteInput, renderStepper, MINIMUM_REPS } from "./setEditor";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 
@@ -34,17 +35,30 @@ import { currentRestSeconds, openRestTimer } from "./restTimer";
  *   ✓ Log set ─▶ changeLog(fresh => logSet(fresh, ...)) re-reads and saves ─▶ next set becomes current
  *                                   │ save failed: inline error, change kept in memory (refused: not applied)
  *                                   └─ item has a rest (not a superset or interval, and a
- *                                      set is still to come) ─▶ openRestTimer
+ *                                      set is still to come) ─▶ openRestTimer, already running
  *   Skip ─▶ next unlogged set becomes current (nothing logged)
- *   Log all as planned ─▶ every unlogged set logged with its own pre-fill, one save
- *   tap logged set ─▶ edit mode ─▶ Save changes (editSet) / Delete set (deleteSet)
+ *   Log all as planned ─▶ the current set with the draft's values, every other unlogged
+ *                         set with its own pre-fill, one save
+ *   tap logged set ─▶ edit mode ─▶ Save changes (editSet) / Delete set (deleteSet, asks for a second tap)
  *
  * Reps and kg are shown only for items that count reps. Heavy-bag rounds and
  * timed holds are just ticked. A kg of 0 means "no load": it is stored as no
- * load at all (bodyweight), never as 0 kg. Reps and kg start from the item's
- * previous set this session, else last time's same set, else the plan (see
- * `choosePrefill`). A "Last time (2 Nov): 6 × 6 at 6 kg" line sits under the set
- * list (not on warm-ups).
+ * load at all (bodyweight), never as 0 kg. Reps and kg are pre-filled by
+ * `choosePrefill` (rule 8): the item's previous set this session; otherwise
+ * reps from the plan's target (it already carries this week's increase) or,
+ * when the plan has no number, from last time's same set; and the load from
+ * last time's same set. Where the plan's target changes between sets (the calf
+ * raise), the previous set is ignored and the same plan-then-last-time order
+ * applies. "Last time" means the same day and block type, else the same block
+ * type on any day (`findLastTime`). A "Last time (2 Nov): 6 × 6 at 6 kg" line
+ * sits under the set list (not on warm-ups).
+ *
+ * A date after the real today (a `?date=` preview of the future) can be looked
+ * at but not logged to: the Log buttons are disabled and a message says why.
+ *
+ * After every action the screen puts keyboard/screen-reader focus somewhere
+ * sensible (`drawAndFocus`), since redrawing replaces the button that was
+ * pressed: the new current set's first stepper, or the "All sets logged" message.
  *
  * The screen keeps its own copy of the log, but never saves it. Every change is
  * handed to app.ts through `changeLog` as one operation, which app.ts applies
@@ -55,6 +69,9 @@ import { currentRestSeconds, openRestTimer } from "./restTimer";
 
 /** Shown when a set that needs a rep count (max-based, no saved max) has none. */
 export const REPS_REQUIRED_MESSAGE = "Enter the reps you did. (The target needs your max: set it in Settings.)";
+
+/** Shown, and the Log buttons disabled, when the screen's date is after the real today. */
+export const FUTURE_DATE_MESSAGE = "This date is in the future, so nothing can be logged to it yet. Preview only.";
 
 /** The reps, load and note in the steppers before the set is logged. */
 interface SetDraft {
@@ -70,8 +87,9 @@ interface SetDraft {
  * the session on `date` (taken from the route). `initialLog` is app.ts's
  * current log; `changeLog(operation)` applies one change to the stored log
  * (see logChange.ts) and returns the log to show plus a message to show
- * inline when saving failed or was refused. Unknown block/exercise, or a day with no training,
- * gives a "Nothing to log here" card.
+ * inline when saving failed or was refused. `realToday` is the real local date
+ * (never a `?date=` preview); a `date` after it cannot be logged to. Unknown
+ * block/exercise, or a day with no training, gives a "Nothing to log here" card.
  */
 export function renderLogScreen(
   program: Program,
@@ -81,6 +99,7 @@ export function renderLogScreen(
   exerciseId: string,
   initialLog: WorkoutLog,
   changeLog: ChangeLog,
+  realToday: string = todayLocalDate(),
 ): HTMLElement {
   const screen = element("section", "screen log-screen");
   const session = buildSession(program, settings, date);
@@ -98,6 +117,7 @@ export function renderLogScreen(
   const trackedItem: ItemView = item;
   const trackedBlock: BlockView = block;
   const week = session.week;
+  const isFutureDate = date > realToday;
 
   const sessionContext = { programWeek: week, day: session.dayNumber };
   const totalSets = countSetsForItem(trackedItem, trackedBlock);
@@ -110,8 +130,9 @@ export function renderLogScreen(
   const restRange = trackedItem.format !== "interval" && trackedBlock.format !== "superset" ? trackedItem.restSec : undefined;
 
   // Last time is looked up once: it only reads dates before this one, which edits here never touch.
-  const lastTime = findLastTime(initialLog, trackedItem.exercise.id, date);
-  const lastTimeText = lastTimeHint(initialLog, trackedItem, trackedBlock, date);
+  // The hint and the pre-fill share this one result, so they cannot disagree.
+  const lastTime = lastTimeForItem(initialLog, program, trackedItem, trackedBlock, session.dayNumber, date);
+  const lastTimeText = lastTime === undefined ? undefined : formatLastTime(lastTime, setNounFor(trackedItem));
 
   let log = initialLog;
   let currentSetNumber: number | undefined;
@@ -139,8 +160,9 @@ export function renderLogScreen(
   }
 
   /**
-   * The values the steppers start at for an unlogged set: the item's earlier
-   * set this session, else last time's, else the plan (`prefillForSet`, rule 8).
+   * The values the steppers start at for an unlogged set (`prefillForSet`,
+   * rule 8): reps from the item's earlier set this session, else the plan, else
+   * last time's; load from the earlier set, else last time's.
    */
   function prefillFor(setNumber: number): { reps?: number; loadKg: number } {
     return prefillForSet(trackedItem, setNumber, loggedSets(), lastTime);
@@ -180,10 +202,10 @@ export function renderLogScreen(
 
   /** "✓ Log set" tapped: logs the current set, moves on, and starts the rest if the item has one. */
   function handleLogSet(): void {
-    if (currentSetNumber === undefined) return;
+    if (currentSetNumber === undefined || isFutureDate) return;
     if (tracksReps && draft.reps === undefined && setNeedsMax(trackedItem, currentSetNumber)) {
       message = REPS_REQUIRED_MESSAGE;
-      draw();
+      drawAndFocus();
       return;
     }
 
@@ -193,16 +215,19 @@ export function renderLogScreen(
 
     // A refused save leaves the set unlogged: stay on it, with the message showing, and no rest timer over it.
     if (!loggedNumbers().includes(loggedNumber)) {
-      draw();
+      drawAndFocus();
       return;
     }
 
     const upNext = nextSetNumber(loggedNumber, totalSets, loggedNumbers());
     focusSet(upNext);
-    draw();
+    drawAndFocus();
 
+    // The rest opens already running (this tap is the user gesture that lets it make sound). When
+    // it closes, the screen is redrawn (the label shows the remembered seconds) and focus goes
+    // back to the current set, since the button that opened it no longer exists.
     if (restRange !== undefined && upNext !== undefined) {
-      openRestTimer(restRange, trackedItem.exercise.name, restMemory, draw);
+      openRestTimer(restRange, trackedItem.exercise.name, restMemory, { startImmediately: true, onClose: drawAndFocus });
     }
   }
 
@@ -211,40 +236,55 @@ export function renderLogScreen(
     if (currentSetNumber === undefined) return;
     focusSet(nextSetNumber(currentSetNumber, totalSets, loggedNumbers()));
     message = undefined;
-    draw();
+    drawAndFocus();
   }
 
   /**
-   * "Log all as planned": logs every unlogged set with its own pre-fill (each
-   * set follows the one before it, like tapping Log set repeatedly) in one
-   * save. Refuses, with a message, if a set needs a max the app doesn't have.
+   * "Log all as planned": logs every unlogged set in one save. The current set
+   * is logged with the draft's values (what the steppers and note show, so
+   * edits made before tapping are kept); every other set gets its own pre-fill
+   * and follows the one before it, like tapping Log set repeatedly. Refuses,
+   * with a message, if a set would have no reps although it needs a max the
+   * app doesn't have.
+   *
+   * The sets are worked out from this screen's copy of the log, then applied to
+   * the freshly re-read stored log; a set another open copy of the app has
+   * already logged is left alone.
    */
   function handleLogAll(): void {
-    const remaining: number[] = [];
+    if (isFutureDate) return;
+
+    const setsToLog: LoggedSet[] = [];
+    const simulatedSets = [...loggedSets()];
+
     for (let setNumber = 1; setNumber <= totalSets; setNumber++) {
-      if (!loggedNumbers().includes(setNumber)) remaining.push(setNumber);
+      if (loggedNumbers().includes(setNumber)) continue;
+
+      const values: SetDraft = setNumber === currentSetNumber
+        ? draft
+        : { ...prefillForSet(trackedItem, setNumber, simulatedSets, lastTime), note: "" };
+
+      if (tracksReps && values.reps === undefined && setNeedsMax(trackedItem, setNumber)) {
+        message = REPS_REQUIRED_MESSAGE;
+        drawAndFocus();
+        return;
+      }
+
+      const setToLog = buildLoggedSet(setNumber, values);
+      setsToLog.push(setToLog);
+      simulatedSets.push(setToLog);
     }
 
-    if (tracksReps && remaining.some((setNumber) => setNeedsMax(trackedItem, setNumber))) {
-      message = REPS_REQUIRED_MESSAGE;
-      draw();
-      return;
-    }
-
-    // Applied to the fresh stored log, which may already hold some of these sets from another open copy: those are left alone.
     commit((freshLog) => {
       let updatedLog = freshLog;
-      for (const setNumber of remaining) {
-        const itemSets = setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id);
-        if (itemSets.some((set) => set.setNumber === setNumber)) continue;
-
-        const prefill = prefillForSet(trackedItem, setNumber, itemSets, lastTime);
-        updatedLog = logSet(updatedLog, date, buildLoggedSet(setNumber, { ...prefill, note: "" }), sessionContext);
+      for (const setToLog of setsToLog) {
+        const alreadyLogged = setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id).some((set) => set.setNumber === setToLog.setNumber);
+        if (!alreadyLogged) updatedLog = logSet(updatedLog, date, setToLog, sessionContext);
       }
       return updatedLog;
     });
     focusSet(firstUnloggedSetNumber());
-    draw();
+    drawAndFocus();
   }
 
   /** "Save changes" tapped while editing a logged set. */
@@ -252,7 +292,7 @@ export function renderLogScreen(
     if (currentSetNumber === undefined) return;
     if (tracksReps && draft.reps === undefined && setNeedsMax(trackedItem, currentSetNumber)) {
       message = REPS_REQUIRED_MESSAGE;
-      draw();
+      drawAndFocus();
       return;
     }
 
@@ -261,7 +301,7 @@ export function renderLogScreen(
     // A key with value undefined clears that field in the stored set.
     commit((freshLog) => editSet(freshLog, date, key, { reps: changed.reps, loadKg: changed.loadKg, note: changed.note }));
     focusSet(firstUnloggedSetNumber());
-    draw();
+    drawAndFocus();
   }
 
   /** "Delete set" tapped while editing a logged set. */
@@ -270,7 +310,7 @@ export function renderLogScreen(
     const key = { exerciseId: trackedItem.exercise.id, blockPosition, setNumber: currentSetNumber };
     commit((freshLog) => deleteSet(freshLog, date, key));
     focusSet(firstUnloggedSetNumber());
-    draw();
+    drawAndFocus();
   }
 
   /** Rebuilds the whole screen from the state above. Called after every state change. */
@@ -289,6 +329,12 @@ export function renderLogScreen(
       children.push(element("p", "log-last-time", lastTimeText));
     }
 
+    if (isFutureDate) {
+      const futureNote = element("p", "field-error", FUTURE_DATE_MESSAGE);
+      futureNote.setAttribute("role", "status");
+      children.push(futureNote);
+    }
+
     if (message !== undefined) {
       const alert = element("p", "field-error", message);
       alert.setAttribute("role", "alert");
@@ -296,12 +342,31 @@ export function renderLogScreen(
     }
 
     if (currentSetNumber === undefined) {
-      children.push(element("p", "log-done", unloggedCount === 0 ? "All sets logged." : "No set selected. Tap a set above."));
+      const done = element("p", "log-done", unloggedCount === 0 ? "All sets logged." : "No set selected. Tap a set above.");
+      // Not a tab stop, but focusable by script so `drawAndFocus` can land here.
+      done.tabIndex = -1;
+      children.push(done);
     } else {
       children.push(renderActions(isEditing, unloggedCount));
     }
 
     screen.replaceChildren(...children);
+  }
+
+  /**
+   * Redraws, then moves focus to where the athlete works next. Redrawing
+   * replaces the button that was just pressed, which would drop focus to the
+   * page; this puts it on the current set's first stepper (or, for a set with
+   * no steppers, its main button), or on the "All sets logged" message when
+   * no set is current. Used after every action instead of `draw` alone.
+   */
+  function drawAndFocus(): void {
+    draw();
+
+    const target = currentSetNumber === undefined
+      ? screen.querySelector<HTMLElement>(".log-done")
+      : screen.querySelector<HTMLElement>(".log-set-current .log-stepper-button") ?? screen.querySelector<HTMLElement>(".log-actions .log-primary");
+    target?.focus();
   }
 
   /** Title row: back link, kicker + exercise name, and the ⓘ button that opens the details sheet. */
@@ -366,7 +431,7 @@ export function renderLogScreen(
     row.addEventListener("click", () => {
       message = undefined;
       focusSet(setNumber);
-      draw();
+      drawAndFocus();
     });
     return row;
   }
@@ -390,7 +455,7 @@ export function renderLogScreen(
     if (tracksReps) {
       panel.append(
         renderStepper("reps", "reps", () => draft.reps, (value) => { draft.reps = value; }, MINIMUM_REPS, 1, false),
-        renderStepper("kg", "kg", () => (draft.loadKg > 0 ? draft.loadKg : undefined), (value) => { draft.loadKg = value ?? 0; }, 0, KILOGRAM_STEP, true),
+        renderStepper("kg", "kg", () => (draft.loadKg > 0 ? draft.loadKg : undefined), (value) => { draft.loadKg = value ?? 0; }, 0, KILOGRAM_STEP, true, true),
       );
     } else if (!isLogged) {
       panel.append(element("p", "log-set-hint", "Tick it when done."));
@@ -425,15 +490,17 @@ export function renderLogScreen(
       const cancel = renderActionButton("log-secondary", "Cancel", () => {
         message = undefined;
         focusSet(firstUnloggedSetNumber());
-        draw();
+        drawAndFocus();
       });
-      const remove = renderActionButton("log-secondary log-danger", "Delete set", handleDelete);
+      const remove = renderDeleteButton(handleDelete);
       bar.append(save, cancel, remove);
       return bar;
     }
 
     if (unloggedCount >= 2) {
-      bar.append(renderActionButton("log-all", "Log all as planned", handleLogAll));
+      const logAll = renderActionButton("log-all", "Log all as planned", handleLogAll);
+      logAll.disabled = isFutureDate;
+      bar.append(logAll);
     }
 
     const skip = renderActionButton("log-secondary", "Skip", handleSkip);
@@ -442,7 +509,9 @@ export function renderLogScreen(
     // Label shows the rest only when logging will actually start it (a set is still to come).
     const startsRest = restRange !== undefined && nextSetNumber(currentSetNumber ?? 0, totalSets, loggedNumbers()) !== undefined;
     const logLabel = startsRest ? `✓ Log set · rest ${formatClock(currentRestSeconds(restRange, restMemory))}` : "✓ Log set";
-    bar.append(skip, renderActionButton("log-primary", logLabel, handleLogSet));
+    const logButton = renderActionButton("log-primary", logLabel, handleLogSet);
+    logButton.disabled = isFutureDate;
+    bar.append(skip, logButton);
     return bar;
   }
 

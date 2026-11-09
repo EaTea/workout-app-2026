@@ -1,6 +1,6 @@
 import type { Program } from "../program/model";
-import type { LoggedSession } from "../log/model";
-import { setNounFor, setWord } from "../log/itemSets";
+import type { LoggedSession, LoggedSet } from "../log/model";
+import { itemTracksReps, setNounFor, setWord } from "../log/itemSets";
 import { formatShortDate } from "./format";
 
 /**
@@ -65,4 +65,19 @@ export function loggedSetNoun(program: Program, session: LoggedSession, blockPos
 export function loggedSetLabel(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string): string {
   const item = findProgramItem(program, session, blockPosition, exerciseId);
   return item === undefined ? "Set" : setWord(item);
+}
+
+/**
+ * Whether History's edit panel should offer reps and kg steppers for a logged
+ * set. When the program still describes the item (same day, block and
+ * exercise), the item decides (`itemTracksReps`), so a set that was logged
+ * without reps (the max was missing, or free text) can get them added later.
+ * When it cannot be resolved, fall back to what was stored: steppers only if
+ * the set has reps or a load.
+ */
+export function loggedSetShowsRepsAndLoad(program: Program, session: LoggedSession, set: LoggedSet): boolean {
+  const item = findProgramItem(program, session, set.blockPosition, set.exerciseId);
+  if (item !== undefined) return itemTracksReps(item);
+
+  return set.reps !== undefined || set.loadKg !== undefined;
 }

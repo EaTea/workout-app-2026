@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasTodayChanged, shouldShowNewDayBanner, persistSettings, resolveToday, SAVE_FAILED_MESSAGE } from "./app";
+import { hasTodayChanged, previewDateFromSearch, shouldShowNewDayBanner, persistSettings, resolveToday, SAVE_FAILED_MESSAGE } from "./app";
 
 describe("resolveToday", () => {
   const now = new Date(2026, 10, 9, 12, 0);
@@ -15,6 +15,19 @@ describe("resolveToday", () => {
   it("ignores an invalid override", () => {
     expect(resolveToday("?date=banana", now)).toBe("2026-11-09");
     expect(resolveToday("?date=2026-02-30", now)).toBe("2026-11-09");
+  });
+});
+
+describe("previewDateFromSearch", () => {
+  it("gives a valid ?date= value", () => {
+    expect(previewDateFromSearch("?date=2026-11-16")).toBe("2026-11-16");
+  });
+
+  it("is undefined without one, or with an invalid one", () => {
+    expect(previewDateFromSearch("")).toBeUndefined();
+    expect(previewDateFromSearch("?other=1")).toBeUndefined();
+    expect(previewDateFromSearch("?date=banana")).toBeUndefined();
+    expect(previewDateFromSearch("?date=2026-02-30")).toBeUndefined();
   });
 });
 

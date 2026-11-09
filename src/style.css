@@ -1094,6 +1094,59 @@ body {
   color: var(--danger);
 }
 
+/* "Tap again to delete": the armed state of a delete button */
+.log-danger-armed {
+  background: var(--danger);
+  color: #2a0d0a;
+}
+
+.log-primary:disabled,
+.log-all:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The kg value is a button (tap to type) with a text field that replaces it while typing */
+.log-stepper-value-button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: text;
+}
+
+.log-stepper-input {
+  width: 96px;
+  min-height: 48px;
+  border: 1px solid var(--accent-text);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* "Previewing 16 Nov · back to today" strip */
+.preview-strip {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #7a5b12;
+  border-radius: 10px;
+  background: #2a2312;
+  color: #f5c451;
+  font-size: 14px;
+  text-align: center;
+}
+
+.preview-strip-link {
+  color: inherit;
+  font-weight: 700;
+}
+
 .log-all {
   flex-basis: 100%;
   min-height: 48px;

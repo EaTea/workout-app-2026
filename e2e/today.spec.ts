@@ -240,7 +240,7 @@ test("an unknown program.json field shows a dismissible warning but the session 
   await banner.getByRole("button", { name: "Dismiss" }).click();
   await expect(banner).toHaveCount(0);
   await page.getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("link", { name: "Today" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Today" }).click();
   await expect(page.locator(".warning-banner")).toHaveCount(0);
 });
 

@@ -1,11 +1,14 @@
 import { element } from "./dom";
+import { KILOGRAM_STEP, parseKilogramInput, roundToOneDecimal } from "./kilograms";
 
 /**
  * Editing widgets for one logged set, shared by the log screen (editing a set
  * it just logged) and the History screen (editing any past set), so both look
  * and behave the same.
  *
- *   renderStepper         big − / value / + control with a unit label
+ *   renderStepper         big − / value / + control with a unit label; the
+ *                         kg value can be tapped to type a number instead
+ *   renderDeleteButton    "Delete set" that needs a second tap to confirm
  *   renderNoteInput       the optional free-text note field
  *   renderSetEditor       a ready-made panel for History: steppers + note +
  *                         Cancel / Delete / Save buttons
@@ -17,14 +20,22 @@ import { element } from "./dom";
 /** Smallest reps value the stepper can reach; a set with 0 reps is a skip, not a log. */
 export const MINIMUM_REPS = 1;
 
-/** Kg step. Whole kilograms keep the stepper quick; 0 means no load. */
-export const KILOGRAM_STEP = 1;
+/** How long a delete button stays armed ("Tap again to delete") before it goes back to its normal label. */
+export const DELETE_CONFIRMATION_MILLISECONDS = 4000;
+
+/** Label of the delete button once armed. */
+export const DELETE_CONFIRM_LABEL = "Tap again to delete";
 
 /**
  * A big − / value / + stepper with a unit label beside it. `read` and `write`
  * connect it to the caller's draft; an undefined value shows "—" (reps not
  * known yet, or no load; with `zeroMeansNone`, stepping down to 0 clears the
  * value). The value text is updated in place, so focus stays on the pressed button.
+ *
+ * With `allowTyping` (the kg stepper) the value is a button: tapping it swaps
+ * in a decimal text field (`inputmode="decimal"`). Enter or leaving the field
+ * commits it through `parseKilogramInput`; Escape or an invalid entry puts
+ * the previous value back. A typed 0 means "no load", like stepping down to 0.
  */
 export function renderStepper(
   name: string,
@@ -34,11 +45,16 @@ export function renderStepper(
   minimum: number,
   step: number,
   zeroMeansNone: boolean,
+  allowTyping = false,
 ): HTMLElement {
   const row = element("div", "log-stepper-row");
   const stepper = element("div", "log-stepper");
-  const value = element("output", "log-stepper-value");
+  const value: HTMLElement = allowTyping ? element("button", "log-stepper-value log-stepper-value-button") : element("output", "log-stepper-value");
   value.setAttribute("aria-label", name);
+  if (value instanceof HTMLButtonElement) {
+    value.type = "button";
+    value.title = `Tap to type ${unit}`;
+  }
 
   /** Shows the current draft value (or "—" when none). */
   function showValue(): void {
@@ -51,7 +67,7 @@ export function renderStepper(
     if (current === undefined) {
       if (direction === 1) write(Math.max(minimum, step));
     } else {
-      const next = current + direction * step;
+      const next = roundToOneDecimal(current + direction * step);
       if (zeroMeansNone) {
         write(next <= 0 ? undefined : next);
       } else {
@@ -60,6 +76,52 @@ export function renderStepper(
     }
     showValue();
   }
+
+  /**
+   * Swaps the value for a decimal text field (kg only). Commits on Enter or
+   * when the field loses focus; Escape cancels. Called by tapping the value.
+   */
+  function startTyping(): void {
+    const input = element("input", "log-stepper-input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.value = read() === undefined ? "" : String(read());
+    input.setAttribute("aria-label", name);
+
+    /** True once the field has been committed or cancelled, so the blur caused by removing it does nothing. */
+    let isFinished = false;
+
+    /** Closes the field; a valid entry is written to the draft, anything else reverts. */
+    function finish(shouldCommit: boolean, returnFocusToValue: boolean): void {
+      if (isFinished) return;
+      isFinished = true;
+
+      const parsed = parseKilogramInput(input.value);
+      if (shouldCommit && parsed.isValid && parsed.kilograms !== undefined) {
+        write(zeroMeansNone && parsed.kilograms <= 0 ? undefined : parsed.kilograms);
+      }
+
+      input.replaceWith(value);
+      showValue();
+      if (returnFocusToValue) value.focus();
+    }
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        finish(true, true);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        finish(false, true);
+      }
+    });
+    input.addEventListener("blur", () => finish(true, false));
+
+    value.replaceWith(input);
+    input.focus();
+    input.select();
+  }
+  if (allowTyping) value.addEventListener("click", startTyping);
 
   const decrease = element("button", "log-stepper-button", "−");
   decrease.type = "button";
@@ -87,6 +149,36 @@ export function renderNoteInput(initialValue: string, onInput: (value: string) =
   input.maxLength = 500;
   input.addEventListener("input", () => onInput(input.value));
   return input;
+}
+
+/**
+ * A "Delete set" button that asks for a second tap. The first tap changes it
+ * to "Tap again to delete" (danger style) for `DELETE_CONFIRMATION_MILLISECONDS`,
+ * then it reverts; a second tap inside that time calls `onConfirmedDelete`.
+ * Shared by the log screen and History so a stray tap never deletes a set.
+ */
+export function renderDeleteButton(onConfirmedDelete: () => void): HTMLButtonElement {
+  const label = "Delete set";
+  const button = renderActionButton("log-secondary log-danger", label, () => undefined);
+  let revertTimeoutId: number | undefined;
+
+  button.addEventListener("click", () => {
+    if (revertTimeoutId !== undefined) {
+      window.clearTimeout(revertTimeoutId);
+      revertTimeoutId = undefined;
+      onConfirmedDelete();
+      return;
+    }
+
+    button.textContent = DELETE_CONFIRM_LABEL;
+    button.classList.add("log-danger-armed");
+    revertTimeoutId = window.setTimeout(() => {
+      revertTimeoutId = undefined;
+      button.textContent = label;
+      button.classList.remove("log-danger-armed");
+    }, DELETE_CONFIRMATION_MILLISECONDS);
+  });
+  return button;
 }
 
 /** A big button for an action bar (same look as the log screen's). */
@@ -137,7 +229,7 @@ export function renderSetEditor(
   if (showsRepsAndLoad) {
     panel.append(
       renderStepper("reps", "reps", () => draft.reps, (value) => { draft.reps = value; }, MINIMUM_REPS, 1, false),
-      renderStepper("kg", "kg", () => (draft.loadKg > 0 ? draft.loadKg : undefined), (value) => { draft.loadKg = value ?? 0; }, 0, KILOGRAM_STEP, true),
+      renderStepper("kg", "kg", () => (draft.loadKg > 0 ? draft.loadKg : undefined), (value) => { draft.loadKg = value ?? 0; }, 0, KILOGRAM_STEP, true, true),
     );
   }
 
@@ -147,7 +239,7 @@ export function renderSetEditor(
   buttons.append(
     renderActionButton("log-primary", "✓ Save changes", () => actions.onSave({ ...draft })),
     renderActionButton("log-secondary", "Cancel", actions.onCancel),
-    renderActionButton("log-secondary log-danger", "Delete set", actions.onDelete),
+    renderDeleteButton(actions.onDelete),
   );
   panel.append(buttons);
 

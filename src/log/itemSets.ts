@@ -49,9 +49,10 @@ export function countSetsForItem(item: ItemView, block: BlockView): number {
 /**
  * False for items whose sets are just ticked: heavy-bag rounds and timed
  * holds (side plank, hollow hold: `durationSec`). True for everything with
- * reps, where the log screen shows reps and kg steppers.
+ * reps, where the log screen shows reps and kg steppers. Takes only the two
+ * fields it reads, so History can ask it about a program item too.
  */
-export function itemTracksReps(item: ItemView): boolean {
+export function itemTracksReps(item: Pick<ItemView, "format" | "durationSec">): boolean {
   return item.format !== "interval" && item.durationSec === undefined;
 }
 

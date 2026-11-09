@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseProgram } from "../program/parse";
-import type { LoggedSession } from "../log/model";
-import { exerciseDisplayName, formatSessionHeader, loggedSetLabel, loggedSetNoun } from "./historyText";
+import type { LoggedSession, LoggedSet } from "../log/model";
+import { exerciseDisplayName, formatSessionHeader, loggedSetLabel, loggedSetNoun, loggedSetShowsRepsAndLoad } from "./historyText";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 
@@ -46,5 +46,29 @@ describe("loggedSetNoun and loggedSetLabel", () => {
     // Day 1 block 2 is med ball slams (straight sets).
     expect(loggedSetNoun(program, session, 2, "med_ball_slam")).toBe("set");
     expect(loggedSetLabel(program, session, 2, "med_ball_slam")).toBe("Set");
+  });
+});
+
+describe("loggedSetShowsRepsAndLoad", () => {
+  const session = sessionWith({ programWeek: 1, day: 1 });
+
+  /** A logged set that carries no reps or load. */
+  function bareSet(exerciseId: string, blockPosition: number): LoggedSet {
+    return { exerciseId, blockPosition, setNumber: 1, loggedAt: new Date("2026-11-02T10:00:00Z") };
+  }
+
+  it("offers reps and kg for a rep item even when the set was logged without reps", () => {
+    expect(loggedSetShowsRepsAndLoad(program, session, bareSet("pull_up", 3))).toBe(true);
+  });
+
+  it("offers none for heavy-bag rounds and timed holds", () => {
+    expect(loggedSetShowsRepsAndLoad(program, session, bareSet("heavy_bag", 6))).toBe(false);
+    expect(loggedSetShowsRepsAndLoad(program, session, bareSet("side_plank", 5))).toBe(false);
+  });
+
+  it("falls back to the stored values when the item cannot be found", () => {
+    expect(loggedSetShowsRepsAndLoad(program, session, bareSet("removed_exercise", 99))).toBe(false);
+    expect(loggedSetShowsRepsAndLoad(program, session, { ...bareSet("removed_exercise", 99), reps: 5 })).toBe(true);
+    expect(loggedSetShowsRepsAndLoad(program, sessionWith({}), { ...bareSet("pull_up", 3), loadKg: 5 })).toBe(true);
   });
 });
