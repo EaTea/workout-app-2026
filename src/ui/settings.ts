@@ -4,6 +4,7 @@ import type { MaxHistoryEntry, TrainingSettings } from "../settings/model";
 import { recordMax } from "../settings/maxHistory";
 import { element } from "./dom";
 import { renderExportSection, type ExportSource } from "./exportSection";
+import { renderImportSection, type ImportSectionOptions } from "./importSection";
 
 /**
  * The Settings screen: start date plus one tested-max input per exercise the
@@ -141,6 +142,7 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
  * is full or blocked), in which case the user stays on this screen.
  * `getExportSource`, when given, adds the Export card below the form; it is
  * called when an export button is pressed so the file holds the latest data.
+ * `importOptions`, when given, adds the Import card under it.
  */
 export function renderSettingsScreen(
   program: Program,
@@ -148,6 +150,7 @@ export function renderSettingsScreen(
   today: string,
   onSave: (settings: TrainingSettings) => string | null,
   getExportSource?: () => ExportSource,
+  importOptions?: ImportSectionOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   screen.append(element("h1", "screen-title", "Settings"));
@@ -234,6 +237,9 @@ export function renderSettingsScreen(
   screen.append(form);
   if (getExportSource !== undefined) {
     screen.append(renderExportSection(program, getExportSource));
+  }
+  if (importOptions !== undefined) {
+    screen.append(renderImportSection(importOptions));
   }
   return screen;
 }

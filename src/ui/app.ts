@@ -9,7 +9,7 @@ import { ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire, rotationDism
 import { focusRemainingRetestStepper, focusRetestJumpStepper } from "./retestCard";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
-import { applyLogChange, type LoadLogResult } from "../log/storage";
+import { applyLogChange, loadLog, type LoadLogResult } from "../log/storage";
 import type { WorkoutLog } from "../log/model";
 import type { LogChangeOutcome } from "./logChange";
 import { renderLogScreen } from "./logScreen";
@@ -21,7 +21,7 @@ import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
-import { applyFatigueChange, type LoadFatigueHistoryResult } from "../fatigue/storage";
+import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
 import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
 import type { FatigueCheck } from "../fatigue/model";
 import {
@@ -322,6 +322,27 @@ export function startApp(
   }
 
   /**
+   * Called by the Import card after `applyImport` replaced the stored data.
+   * Reloads the in-memory settings, log and check-ins from storage (so what is
+   * shown is what was stored, not what was parsed), forgets drafts that
+   * belonged to the old data, goes to Today and says where the backup is.
+   */
+  function handleImported(): void {
+    settings = loadSettings();
+    loadedLog = loadLog(localStorage);
+    log = loadedLog.log;
+    loadedFatigue = loadFatigueHistory(localStorage);
+    fatigueHistory = loadedFatigue.history;
+    logWarningDismissed = false;
+    fatigueLoadWarningDismissed = false;
+    checkInDraft = undefined;
+
+    navigateTo("today");
+    render(); // the hash may already be #/today, which fires no hashchange
+    showToast("Imported. Your previous data was kept as a backup.");
+  }
+
+  /**
    * Handler for the first-run "Start today" button: saves `today` (which
    * honours the `?date=` override) as the start date, keeping any maxes, and
    * re-renders Today. A storage failure is shown inline on the welcome card
@@ -612,7 +633,11 @@ export function startApp(
       }
       const logTarget = parseLogRoute(window.location.hash);
       if (route === "settings") {
-        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage)));
+        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage), {
+          isPreview: previewDateFromSearch(window.location.search) !== undefined,
+          storage: localStorage,
+          onImported: handleImported,
+        }));
       } else if (route === "log" && logTarget !== undefined) {
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {

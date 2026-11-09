@@ -146,12 +146,39 @@ kg, note) for any spreadsheet; `exercise_name` is the program's name and
 `performed_as` the rotated-in warm-up name, if any. The file starts with a
 UTF-8 byte order mark so Excel reads it correctly. The export reads what is
 stored at the moment you tap the button.
-"Export everything as JSON" gives the log, the weekly checks and your
-settings in a versioned file (`"format": "explosive-endurance-export"`,
-`"version": 1`), plus `corruptLogBackups` if the app ever had to set aside
-unreadable log text. Files are named `explosive-endurance-YYYY-MM-DD.csv` or
-`.json`; they download, or on iPhone open the share sheet so you can save
-them to Files. Nothing is sent anywhere, and there is no import yet.
+"Export everything as JSON" gives the log, the weekly checks, your
+settings and the max history (every max you saved, under `maxHistory`) in a
+versioned file (`"format": "explosive-endurance-export"`, `"version": 1`),
+plus `corruptLogBackups` if the app ever had to set aside unreadable log text,
+and `importBackups` if an import ever replaced data (see below). Files are
+named `explosive-endurance-YYYY-MM-DD.csv` or `.json`; they download, or on
+iPhone open the share sheet so you can save them to Files. Nothing is sent
+anywhere.
+
+### Importing a JSON export
+
+Settings also has "Import from JSON", for a new phone or a cleared browser.
+Choose a file made by "Export everything as JSON" and the app shows what it
+holds (sessions, sets, weekly checks, the dates logged and the start date)
+before changing anything. "Replace my data" then asks once more ("Yes,
+replace my data"); "Cancel" leaves everything as it was.
+
+- A file that is not an export, is not valid JSON, is a version other than 1,
+  or has no readable log, check-ins or settings section is refused with a
+  message. A file with a few unreadable sets or checks is accepted the way the
+  stored data is: the readable ones are kept and the preview lists what was
+  left out. Files exported before the max history was added (no `maxHistory`)
+  and files with older settings versions still import.
+- Importing replaces the log, weekly checks, settings and max history. Before
+  anything is written, the current data is saved as a backup in the browser
+  (key `explosive-endurance.import-backup-<time>`), itself a complete export
+  file. The next "Export everything as JSON" carries these under
+  `importBackups`; to undo an import, import the `text` of that entry saved as
+  a `.json` file. Backups are never deleted automatically.
+- If saving the imported data fails (for example storage is full), the app
+  puts the previous data back and says so, so you never end up with half old
+  and half new data.
+- Import is turned off while previewing another date with `?date=`.
 
 ## Install on a phone and use offline
 
