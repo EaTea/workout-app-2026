@@ -14,12 +14,12 @@ import "./progressChart.css";
  *
  *   renderProgressSection(program, log)
  *     ┌ Progress ─────────────────────────┐
- *     │ [ Pull-ups                     ▾ ]│  native <select>, remembered per visit
+ *     │ [ Pull-ups — Main strength     ▾ ]│  native <select>, remembered per visit
  *     │  reps                              │
  *     │  8┤        ·deload·                │  inline SVG, role="img" + aria-label
  *     │  4┤  ●──●──●  ░░░                  │
  *     │  0┴──W1─W2─W3─W4─W5─W6─W7─W8       │
- *     │ Week  Date   Best reps  Heaviest kg│  table
+ *     │ Week Date Best reps Heaviest load│  table
  *     └────────────────────────────────────┘
  *
  * Data comes from `log/progress.ts`; this file only draws. Text is set through
@@ -33,8 +33,8 @@ const CHART_WIDTH = 340;
 const CHART_HEIGHT = 190;
 const MARGIN = { left: 34, right: 8, top: 14, bottom: 26 };
 
-/** The exercise picked in the picker, kept in memory for the page visit (not stored). */
-let rememberedExerciseId: string | undefined;
+/** The exercise and block type picked in the picker (its key), kept in memory for the page visit (not stored). */
+let rememberedKey: string | undefined;
 
 /** A vertical axis scale with evenly spaced "nice" gridlines starting at 0. */
 export interface NiceAxis {
@@ -84,12 +84,12 @@ export function describeTrend(name: string, quantity: string, unit: string, valu
 }
 
 /**
- * Where on the exercise to start: the remembered pick if it is still
+ * Where on the exercise and block type to start: the remembered pick if it is still
  * chartable, else the most recently logged exercise (ties: first by name).
  * Undefined when nothing is chartable.
  */
-export function chooseExercise(exercises: ChartableExercise[], rememberedId: string | undefined): ChartableExercise | undefined {
-  const remembered = exercises.find((exercise) => exercise.exerciseId === rememberedId);
+export function chooseExercise(exercises: ChartableExercise[], rememberedKey: string | undefined): ChartableExercise | undefined {
+  const remembered = exercises.find((exercise) => exercise.key === rememberedKey);
   if (remembered !== undefined) return remembered;
 
   let mostRecent: ChartableExercise | undefined;
@@ -113,7 +113,7 @@ export function renderProgressSection(program: Program, log: WorkoutLog): HTMLEl
   card.append(heading);
 
   const exercises = chartableExercises(log, program);
-  const chosenOrNothing = chooseExercise(exercises, rememberedExerciseId);
+  const chosenOrNothing = chooseExercise(exercises, rememberedKey);
   if (chosenOrNothing === undefined) {
     card.append(element("p", "history-empty", "Log a strength exercise to see progress here."));
     return card;
@@ -125,32 +125,32 @@ export function renderProgressSection(program: Program, log: WorkoutLog): HTMLEl
   picker.id = "progress-exercise";
   label.htmlFor = picker.id;
   for (const exercise of exercises) {
-    const option = element("option", undefined, exercise.name);
-    option.value = exercise.exerciseId;
-    option.selected = exercise.exerciseId === chosen.exerciseId;
+    const option = element("option", undefined, exercise.label);
+    option.value = exercise.key;
+    option.selected = exercise.key === chosen.key;
     picker.append(option);
   }
 
   const details = element("div", "progress-details");
-  /** Redraws the charts and table for the picked exercise. */
-  function showExercise(exerciseId: string): void {
-    const exercise = exercises.find((candidate) => candidate.exerciseId === exerciseId) ?? chosen;
-    details.replaceChildren(...renderExerciseProgress(program, exercise, progressSeries(log, program, exerciseId)));
+  /** Redraws the charts and table for the picked exercise and block type (by key). */
+  function showExercise(key: string): void {
+    const exercise = exercises.find((candidate) => candidate.key === key) ?? chosen;
+    details.replaceChildren(...renderExerciseProgress(program, exercise, progressSeries(log, program, exercise.exerciseId, exercise.blockType)));
   }
   picker.addEventListener("change", () => {
-    rememberedExerciseId = picker.value;
+    rememberedKey = picker.value;
     showExercise(picker.value);
   });
 
   card.append(label, picker, details);
-  showExercise(chosen.exerciseId);
+  showExercise(chosen.key);
   return card;
 }
 
 /** The charts and table for one exercise's series, or a note when no session has a stored week. */
 function renderExerciseProgress(program: Program, exercise: ChartableExercise, points: ProgressPoint[]): Element[] {
   if (points.length === 0) {
-    return [element("p", "history-empty", `No ${exercise.name} sessions with a program week to chart yet.`)];
+    return [element("p", "history-empty", `No ${exercise.label} sessions with a program week to chart yet.`)];
   }
 
   const deloads = deloadWeeks(program);
@@ -158,16 +158,16 @@ function renderExerciseProgress(program: Program, exercise: ChartableExercise, p
   const loadValues = points.flatMap((point) => (point.heaviestKg === undefined ? [] : [{ week: point.week, day: point.day, value: point.heaviestKg }]));
 
   const elements: Element[] = [
-    element("h3", "progress-chart-title", "Best reps per session"),
-    renderLineChart(repsValues, program.lengthWeeks, deloads, describeTrend(exercise.name, "best reps", "", repsValues)),
+    element("h3", "progress-chart-title", "Best reps per session (any set)"),
+    renderLineChart(repsValues, program.lengthWeeks, deloads, describeTrend(exercise.label, "best reps", "", repsValues)),
   ];
   if (loadValues.length > 0) {
     elements.push(
-      element("h3", "progress-chart-title", "Heaviest load per session (kg)"),
-      renderLineChart(loadValues, program.lengthWeeks, deloads, describeTrend(exercise.name, "heaviest load", " kg", loadValues)),
+      element("h3", "progress-chart-title", "Heaviest load per session (kg, any set)"),
+      renderLineChart(loadValues, program.lengthWeeks, deloads, describeTrend(exercise.label, "heaviest load", " kg", loadValues)),
     );
   }
-  elements.push(renderProgressTable(exercise.name, points));
+  elements.push(renderProgressTable(exercise.label, points));
   return elements;
 }
 
@@ -228,13 +228,17 @@ function renderLineChart(values: { week: number; day?: number; value: number }[]
   return svg;
 }
 
-/** The compact table of the same numbers (Week, Date, Best reps, Heaviest kg), one row per session. */
+/**
+ * The compact table of the same numbers, one row per session. "Best reps" and
+ * "Heaviest load" are separate bests and can come from different sets, so the
+ * headers say so and a note under the table explains it.
+ */
 function renderProgressTable(name: string, points: ProgressPoint[]): HTMLTableElement {
   const table = element("table", "progress-table");
-  table.append(element("caption", undefined, `${name}: best set per session`));
+  table.append(element("caption", undefined, `${name}: best reps and heaviest load per session (separate bests, they can come from different sets)`));
 
   const headerRow = element("tr");
-  for (const title of ["Week", "Date", "Best reps", "Heaviest kg"]) {
+  for (const title of ["Week", "Date", "Best reps", "Heaviest load (any set, kg)"]) {
     const cell = element("th", undefined, title);
     cell.scope = "col";
     headerRow.append(cell);

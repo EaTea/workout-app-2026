@@ -30,9 +30,9 @@ describe("chartableExercises", () => {
     );
 
     expect(chartableExercises(log, program)).toEqual([
-      { exerciseId: "dip", name: "Dips", lastLoggedDate: "2026-11-02" },
-      { exerciseId: "med_ball_slam", name: "Med ball slams", lastLoggedDate: "2026-11-02" },
-      { exerciseId: "pull_up", name: "Pull-ups", lastLoggedDate: "2026-11-09" },
+      { exerciseId: "dip", blockType: "miniDose", key: "dip|miniDose", name: "Dips", label: "Dips — Mini-dose", lastLoggedDate: "2026-11-02" },
+      { exerciseId: "med_ball_slam", blockType: "explosive", key: "med_ball_slam|explosive", name: "Med ball slams", label: "Med ball slams — Explosive", lastLoggedDate: "2026-11-02" },
+      { exerciseId: "pull_up", blockType: "mainStrength", key: "pull_up|mainStrength", name: "Pull-ups", label: "Pull-ups — Main strength", lastLoggedDate: "2026-11-09" },
     ]);
   });
 
@@ -46,6 +46,27 @@ describe("chartableExercises", () => {
   });
 });
 
+describe("progress for the same exercise in two block types", () => {
+  /** Day 1 has pull-ups in main strength (block 3); find the day and block where pull-ups are a mini-dose. */
+  const miniDoseDay = Object.values(program.days).find((day) => day?.blocks.some((block) => block.type === "miniDose" && block.items.some((item) => item.exerciseId === "pull_up")));
+  const miniDosePosition = (miniDoseDay?.blocks.findIndex((block) => block.type === "miniDose" && block.items.some((item) => item.exerciseId === "pull_up")) ?? -1) + 1;
+
+  const log = makeLog(
+    makeSession("2026-11-02", 1, 1, [makeSet("pull_up", 3, 1, 5, 8), makeSet("pull_up", 3, 2, 7, 10)]),
+    makeSession("2026-11-06", 1, miniDoseDay?.day, [makeSet("pull_up", miniDosePosition, 1, 3), makeSet("pull_up", miniDosePosition, 2, 4, 5)]),
+  );
+
+  it("lists one picker entry per block type", () => {
+    expect(chartableExercises(log, program).map((entry) => entry.label)).toEqual(["Pull-ups — Main strength", "Pull-ups — Mini-dose"]);
+  });
+
+  it("builds two separate series with their own values", () => {
+    expect(miniDoseDay).toBeDefined();
+    expect(progressSeries(log, program, "pull_up", "mainStrength")).toEqual([{ date: "2026-11-02", week: 1, day: 1, bestReps: 7, heaviestKg: 10 }]);
+    expect(progressSeries(log, program, "pull_up", "miniDose")).toEqual([{ date: "2026-11-06", week: 1, day: miniDoseDay?.day, bestReps: 4, heaviestKg: 5 }]);
+  });
+});
+
 describe("progressSeries", () => {
   it("gives the best reps and heaviest load per session, oldest first", () => {
     const log = makeLog(
@@ -53,7 +74,7 @@ describe("progressSeries", () => {
       makeSession("2026-11-02", 1, 1, [makeSet("pull_up", 3, 1, 5, 8), makeSet("pull_up", 3, 2, 7, 10), makeSet("pull_up", 3, 3, 4, 8)]),
     );
 
-    expect(progressSeries(log, program, "pull_up")).toEqual([
+    expect(progressSeries(log, program, "pull_up", "mainStrength")).toEqual([
       { date: "2026-11-02", week: 1, day: 1, bestReps: 7, heaviestKg: 10 },
       { date: "2026-11-09", week: 2, day: 1, bestReps: 6, heaviestKg: undefined },
     ]);
@@ -66,13 +87,13 @@ describe("progressSeries", () => {
       makeSession("2026-11-16", 3, 1, [makeSet("dip", 4, 1, 5), makeSet("pull_up", 1, 1, 5)]),
     );
 
-    expect(progressSeries(log, program, "pull_up")).toEqual([]);
+    expect(progressSeries(log, program, "pull_up", "mainStrength")).toEqual([]);
   });
 
   it("treats a zero load as no load", () => {
     const log = makeLog(makeSession("2026-11-02", 1, 1, [makeSet("dip", 4, 1, 7, 0)]));
 
-    expect(progressSeries(log, program, "dip")[0]?.heaviestKg).toBeUndefined();
+    expect(progressSeries(log, program, "dip", "miniDose")[0]?.heaviestKg).toBeUndefined();
   });
 });
 

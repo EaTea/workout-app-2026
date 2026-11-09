@@ -27,17 +27,17 @@ describe("describeTrend", () => {
 
 describe("chooseExercise", () => {
   const exercises: ChartableExercise[] = [
-    { exerciseId: "dip", name: "Dips", lastLoggedDate: "2026-11-04" },
-    { exerciseId: "pull_up", name: "Pull-ups", lastLoggedDate: "2026-11-09" },
+    { exerciseId: "dip", blockType: "miniDose", key: "dip|miniDose", name: "Dips", label: "Dips — Mini-dose", lastLoggedDate: "2026-11-04" },
+    { exerciseId: "pull_up", blockType: "mainStrength", key: "pull_up|mainStrength", name: "Pull-ups", label: "Pull-ups — Main strength", lastLoggedDate: "2026-11-09" },
   ];
 
   it("defaults to the most recently logged exercise", () => {
-    expect(chooseExercise(exercises, undefined)?.exerciseId).toBe("pull_up");
+    expect(chooseExercise(exercises, undefined)?.key).toBe("pull_up|mainStrength");
   });
 
   it("keeps a remembered pick that is still available, and falls back otherwise", () => {
-    expect(chooseExercise(exercises, "dip")?.exerciseId).toBe("dip");
-    expect(chooseExercise(exercises, "gone")?.exerciseId).toBe("pull_up");
+    expect(chooseExercise(exercises, "dip|miniDose")?.key).toBe("dip|miniDose");
+    expect(chooseExercise(exercises, "gone")?.key).toBe("pull_up|mainStrength");
     expect(chooseExercise([], "dip")).toBeUndefined();
   });
 });
