@@ -31,6 +31,12 @@ describe("buildEmomPlan", () => {
     expect(plan.segments.every((segment) => segment.totalRounds === 9)).toBe(true);
   });
 
+  it("titles the plan with the rotated-in name when the item is rotated in", () => {
+    const item = { ...emomItem("2026-11-02", "pull_up"), rotatedIn: { displayName: "Chin-ups", originalName: "Pull-ups" } };
+
+    expect(buildEmomPlan(item).title).toBe("Chin-ups EMOM · 9 min");
+  });
+
   it("W4 D1 (deload): minutes are already halved, 5 segments", () => {
     const plan = buildEmomPlan(emomItem("2026-11-23", "pull_up"));
 

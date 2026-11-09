@@ -1,10 +1,11 @@
 import "./rotation.css";
 import type { WarmupRotation } from "../program/model";
+import { PREVIEW_SAVING_OFF_MESSAGE } from "./checkin";
 import { element } from "./dom";
 
 /**
- * The "Warm-up rotation" card on Today, shown on the first training day of a
- * swapped block of weeks (rotation.ts `isFirstRotationDay`) until "Got it".
+ * The "Warm-up rotation" card on Today, shown on every training day of a
+ * swapped block of weeks (rotation.ts `rotationBlockStartWeek`) until "Got it".
  *
  *   ┌ Warm-up rotation                                   ┐
  *   │ From this week, swap: Single-leg hip thrust →      │
@@ -13,37 +14,53 @@ import { element } from "./dom";
  *   │ [Got it]                                           │
  *   └────────────────────────────────────────────────────┘
  *
+ * In a `?date=` preview (`canDismiss` false) "Got it" is disabled and a line
+ * says saving is off, like the other cards: a preview changes nothing stored.
  * app.ts owns the dismissal; this file builds the DOM and maps the stored
  * dismissal.
  */
 
-/** localStorage key holding the week number the card was dismissed for. */
+/** localStorage key holding the rotation blocks whose card was dismissed. */
 export const ROTATION_DISMISSED_STORAGE_KEY = "explosive-endurance.rotation-dismissed";
 
-/** Wire type for the dismissal: the stored text is just the week number. */
+/**
+ * Wire type for the dismissal: stored text. Written as a JSON array of the
+ * dismissed blocks' first weeks (for example "[5]"); an older build wrote just
+ * the week number ("5"), which is still read.
+ */
 export type RotationDismissedWire = string;
 
 /**
- * Converts stored text (untrusted, possibly null or corrupt) into the week
- * the card was dismissed for, or undefined when nothing valid is stored.
- * Called once at startup by app.ts.
+ * Converts stored text (untrusted, possibly null or corrupt) into the list of
+ * block first-weeks whose card was dismissed; empty when nothing valid is
+ * stored. Reads both the current "[5]" shape and the older bare "5". Called
+ * once at startup by app.ts.
  */
-export function rotationDismissedFromWire(wire: RotationDismissedWire | null): number | undefined {
-  if (wire === null || !/^[1-9][0-9]*$/.test(wire)) return undefined;
-  return Number(wire);
+export function rotationDismissedFromWire(wire: RotationDismissedWire | null): number[] {
+  if (wire === null) return [];
+  if (/^[1-9][0-9]*$/.test(wire)) return [Number(wire)];
+
+  try {
+    const parsed: unknown = JSON.parse(wire);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry): entry is number => Number.isInteger(entry) && entry >= 1);
+  } catch {
+    return [];
+  }
 }
 
-/** Converts the dismissed week to its stored text. Called by app.ts when "Got it" is tapped. */
-export function rotationDismissedToWire(dismissedWeek: number): RotationDismissedWire {
-  return String(dismissedWeek);
+/** Converts the dismissed block first-weeks to their stored text. Called by app.ts when "Got it" is tapped. */
+export function rotationDismissedToWire(dismissedBlockWeeks: number[]): RotationDismissedWire {
+  return JSON.stringify(dismissedBlockWeeks);
 }
 
 /**
  * Builds the card. `swapDescriptions` are "<original name> → <new name>"
  * pairs (today.ts resolves the original names from the exercise library);
- * `onDismiss` is called by the "Got it" button.
+ * `onDismiss` is called by the "Got it" button, which is disabled when
+ * `canDismiss` is false.
  */
-export function renderRotationCard(swapDescriptions: string[], rotation: WarmupRotation, onDismiss: () => void): HTMLElement {
+export function renderRotationCard(swapDescriptions: string[], rotation: WarmupRotation, onDismiss: () => void, canDismiss = true): HTMLElement {
   const card = element("section", "card rotation-card");
   card.append(
     element("h2", "card-title", "Warm-up rotation"),
@@ -56,8 +73,13 @@ export function renderRotationCard(swapDescriptions: string[], rotation: WarmupR
 
   const dismissButton = element("button", "rotation-dismiss", "Got it");
   dismissButton.type = "button";
+  dismissButton.disabled = !canDismiss;
   dismissButton.addEventListener("click", onDismiss);
   card.append(dismissButton);
+
+  if (!canDismiss) {
+    card.append(element("p", "preview-note", PREVIEW_SAVING_OFF_MESSAGE));
+  }
 
   return card;
 }

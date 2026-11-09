@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseProgram } from "./parse";
-import { applyRotationToBlocks, isFirstRotationDay, isRotatedWeek, itemDisplayName, rotatedName } from "./rotation";
+import { applyRotationToBlocks, isRotatedWeek, itemDisplayName, performedAsName, rotatedName, rotationBlockStartWeek } from "./rotation";
 import { buildSession } from "./schedule";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
@@ -27,7 +27,7 @@ describe("rotatedName", () => {
   });
 });
 
-describe("isFirstRotationDay", () => {
+describe("rotationBlockStartWeek", () => {
   /** Session for week `week`, day `day` of the 2 Nov start. */
   function session(week: number, day: number) {
     const offset = (week - 1) * 7 + (day - 1);
@@ -35,12 +35,18 @@ describe("isFirstRotationDay", () => {
     return buildSession(program, settings, date);
   }
 
-  it("is true only on week 5's first training day", () => {
-    expect(isFirstRotationDay(program, session(5, 1))).toBe(true);
-    expect(isFirstRotationDay(program, session(5, 2))).toBe(false);
-    expect(isFirstRotationDay(program, session(6, 1))).toBe(false);
-    expect(isFirstRotationDay(program, session(1, 1))).toBe(false);
-    expect(isFirstRotationDay(program, { kind: "complete" })).toBe(false);
+  it("is the block's first week on every training day of weeks 5-8", () => {
+    expect(rotationBlockStartWeek(program, session(5, 1))).toBe(5);
+    expect(rotationBlockStartWeek(program, session(5, 2))).toBe(5);
+    expect(rotationBlockStartWeek(program, session(6, 1))).toBe(5);
+    expect(rotationBlockStartWeek(program, session(8, 3))).toBe(5);
+  });
+
+  it("is undefined in unrotated weeks, on rest days and when there is no training session", () => {
+    expect(rotationBlockStartWeek(program, session(1, 1))).toBeUndefined();
+    expect(rotationBlockStartWeek(program, session(4, 1))).toBeUndefined();
+    expect(rotationBlockStartWeek(program, session(5, 7))).toBeUndefined();
+    expect(rotationBlockStartWeek(program, { kind: "complete" })).toBeUndefined();
   });
 });
 
@@ -67,5 +73,19 @@ describe("applyRotationToBlocks via buildSession", () => {
 
   it("returns the same blocks in an unrotated week", () => {
     expect(applyRotationToBlocks([], 1, program.warmupRotation)).toEqual([]);
+  });
+});
+
+describe("performedAsName", () => {
+  it("is the rotated-in name for a warm-up in a swapped week", () => {
+    expect(performedAsName(program, "ytwi", 5, "warmup")).toBe("Reverse fly");
+  });
+
+  it("is the library name otherwise, or the id when the exercise is gone", () => {
+    expect(performedAsName(program, "ytwi", 2, "warmup")).toBe("YTWI raises");
+    expect(performedAsName(program, "ytwi", 5, "emom")).toBe("YTWI raises");
+    expect(performedAsName(program, "ytwi", undefined, "warmup")).toBe("YTWI raises");
+    expect(performedAsName(program, "lateral_raise", 5, "warmup")).toBe(program.exercises["lateral_raise"]!.name);
+    expect(performedAsName(program, "gone", 5, "warmup")).toBe("gone");
   });
 });

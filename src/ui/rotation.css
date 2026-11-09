@@ -35,3 +35,8 @@
   color: var(--muted);
   font-size: 14px;
 }
+
+.rotation-dismiss:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

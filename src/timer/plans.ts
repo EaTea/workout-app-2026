@@ -1,5 +1,6 @@
 import type { Range } from "../program/model";
 import type { ItemView } from "../program/schedule";
+import { itemDisplayName } from "../program/rotation";
 import { formatRepTarget } from "../ui/format";
 import { createTimerPlan, type TimerPlan, type TimerSegment } from "./engine";
 
@@ -42,7 +43,7 @@ export function buildEmomPlan(item: ItemView): TimerPlan {
     segments.push({ phase: "minute", durationSec: EMOM_MINUTE_SECONDS, round, totalRounds: minutes, label });
   }
 
-  return createTimerPlan(`${item.exercise.name} EMOM · ${minutes} min`, segments);
+  return createTimerPlan(`${itemDisplayName(item)} EMOM · ${minutes} min`, segments);
 }
 
 /** The per-minute instruction: "Target 6–7 reps", or a prompt to set a max when the target needs one. */
@@ -110,7 +111,7 @@ export function buildIntervalPlan(item: ItemView, settings: IntervalSettings): T
   }
 
   const roundsText = rounds === 1 ? "1 round" : `${rounds} rounds`;
-  return createTimerPlan(`${shortExerciseName(item.exercise.name)} · ${roundsText}`, segments);
+  return createTimerPlan(`${shortExerciseName(itemDisplayName(item))} · ${roundsText}`, segments);
 }
 
 /** "Heavy bag finisher" -> "Heavy bag": the title drops the word "finisher". */

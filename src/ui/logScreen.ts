@@ -229,7 +229,7 @@ export function renderLogScreen(
     // it closes, the screen is redrawn (the label shows the remembered seconds) and focus goes
     // back to the current set, since the button that opened it no longer exists.
     if (restRange !== undefined && upNext !== undefined) {
-      openRestTimer(restRange, trackedItem.exercise.name, restMemory, { startImmediately: true, onClose: drawAndFocus });
+      openRestTimer(restRange, itemDisplayName(trackedItem), restMemory, { startImmediately: true, onClose: drawAndFocus });
     }
   }
 

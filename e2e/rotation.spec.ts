@@ -52,8 +52,29 @@ test("week 5 day 1: swapped names, the rotation card, and Got it stays dismissed
   await expect(page.locator(".rotation-card")).toHaveCount(0);
 });
 
-test("week 5 day 2 does not show the rotation card", async ({ page }) => {
+test("week 5 day 2 still shows the rotation card if it was not dismissed, with Got it disabled in a preview", async ({ page }) => {
   await seedApp(page);
+  await page.goto(`/?date=${WEEK_5_DAY_2}`);
+
+  const card = page.locator(".rotation-card");
+  await expect(card).toBeVisible();
+  await expect(card.getByRole("button", { name: "Got it" })).toBeDisabled();
+  await expect(card).toContainText("saving is off");
+});
+
+test("dismissing on day 1 keeps the card away on day 2 of the same block", async ({ page }) => {
+  await seedApp(page);
+  await page.goto(`/?date=${WEEK_5_DAY_1}`);
+  await page.locator(".rotation-card").getByRole("button", { name: "Got it" }).click();
+
+  await page.goto(`/?date=${WEEK_5_DAY_2}`);
+
+  await expect(page.locator(".rotation-card")).toHaveCount(0);
+});
+
+test("the older stored dismissal (a bare week number) still counts", async ({ page }) => {
+  await seedApp(page);
+  await page.addInitScript(() => window.localStorage.setItem("explosive-endurance.rotation-dismissed", "5"));
   await page.goto(`/?date=${WEEK_5_DAY_2}`);
 
   await expect(page.locator(".rotation-card")).toHaveCount(0);

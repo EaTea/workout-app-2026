@@ -5,7 +5,7 @@ import type { LoggedSession, LoggedSet, WorkoutLog } from "../log/model";
 import { deleteSet, editSet, sessionDates, type SetKey } from "../log/operations";
 import { element } from "./dom";
 import { formatSetsSummary } from "./format";
-import { exerciseDisplayName, formatSessionHeader, loggedSetLabel, loggedSetNoun, loggedSetShowsRepsAndLoad } from "./historyText";
+import { formatSessionHeader, loggedSetLabel, loggedSetNoun, loggedSetShowsRepsAndLoad, performedExerciseName } from "./historyText";
 import type { ChangeLog } from "./logChange";
 import { renderProgressSection } from "./progressChart";
 import { renderSetEditor, type SetEditorValues } from "./setEditor";
@@ -168,7 +168,7 @@ export function renderHistoryScreen(
   function renderExerciseRow(session: LoggedSession, group: ExerciseGroup): HTMLElement {
     const wrapper = element("div", "history-exercise");
     const isExpanded = expandedGroups.has(groupKey(session.date, group));
-    const name = exerciseDisplayName(program, group.exerciseId);
+    const name = performedExerciseName(program, session, group.blockPosition, group.exerciseId);
     const noun = loggedSetNoun(program, session, group.blockPosition, group.exerciseId);
     const summary = formatSetsSummary(group.sets, noun);
 
