@@ -218,7 +218,7 @@ Follow-ups from the PR 2 review (later PRs):
 
 ### PR 3 — Logging and "last time" *(behavior change)*
 Rule 8 in section 4.
-1. [ ] Log model and storage: internal `WorkoutLog` and `LogWire` (v1)
+1. [x] Log model and storage: internal `WorkoutLog` and `LogWire` (v1)
    with `logFromWire`/`logToWire`, load/save under its own key, and pure
    functions to add, edit and delete a set and to read a day's sets. A
    corrupt log is kept aside (not overwritten) and the app starts empty
