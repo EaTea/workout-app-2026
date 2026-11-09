@@ -110,13 +110,15 @@ Open the deployed site once while online, then add it to the home screen
 (iPhone Safari: Share, then Add to Home Screen; Android Chrome: menu, then
 Install app). After that first visit the app opens with no signal.
 
-Pages and `program.json` are fetched network-first, so a new deploy or an
-edited `program.json` shows up whenever you are online; everything else is
-served from the cache. A new version of the worker takes over the next time
-the app is opened, never in the middle of a session. The worker is only
-registered in production builds (`npm run build` then `npm run preview`),
-not by `npm run dev`. The E2E suite blocks service workers except in
-`e2e/offline.spec.ts`, which tests them.
+The app shell and its files come from the cache that the installed worker
+version precached; page loads never overwrite it, so a patchy connection
+can't leave a half-updated app behind. `program.json` is fetched
+network-first, so an edited program shows up whenever you are online. A
+new deploy is downloaded in the background and applied the next time the
+app is opened (with one quick reload), never in the middle of a session.
+The worker is only registered in production builds (`npm run build` then
+`npm run preview`), not by `npm run dev`. The E2E suite blocks service
+workers except in `e2e/offline.spec.ts`, which tests them.
 
 ## Deployment (GitHub Pages)
 

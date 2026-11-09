@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { chooseStrategy } from "./strategy";
+import { chooseStrategy } from "./strategy.ts";
 
 const origin = "https://eatea.github.io";
 const base = "https://eatea.github.io/workout-app-2026";
 
 describe("chooseStrategy", () => {
-  it("serves page loads network-first", () => {
-    expect(chooseStrategy({ method: "GET", mode: "navigate", url: `${base}/?date=2026-11-02` }, origin)).toBe("network-first");
+  it("serves every page load from the precached shell", () => {
+    expect(chooseStrategy({ method: "GET", mode: "navigate", url: `${base}/?date=2026-11-02` }, origin)).toBe("shell");
+    expect(chooseStrategy({ method: "GET", mode: "navigate", url: `${base}/manifest.webmanifest` }, origin)).toBe("shell");
+    // Even a navigation to program.json must never be cached as itself or replace the shell.
+    expect(chooseStrategy({ method: "GET", mode: "navigate", url: `${base}/program.json` }, origin)).toBe("shell");
   });
 
   it("serves program.json network-first so edits show up", () => {

@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in progress, stacked on PR 3.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review, stacked on PR 3.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -311,7 +311,7 @@ Stacked on PR 3. Rules 5 and 6 in section 4.
    Unit tests for the fatigue maths and storage mapping; E2E for the retest
    card, the check-in and its warning, and the app loading offline after a
    first visit.
-5. [ ] Fixes from the challenger review (rules 3, 5, 6 and the step 4 text
+5. [x] Fixes from the challenger review (rules 3, 5, 6 and the step 4 text
    as now written): blank check-in fields; no saving from a preview; re-read
    settings and checks before saving; the shell-safe service worker; the
    iPhone status bar safe area; focus after each card action; the 10% pill;

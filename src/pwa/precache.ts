@@ -26,16 +26,31 @@ export function buildPrecacheList(emittedFileNames: string[]): string[] {
   return [...new Set(urls)].sort();
 }
 
+/** One precached file: its relative URL (as in the precache list) and its exact bytes. */
+export interface PrecachedFile {
+  url: string;
+  contents: Uint8Array;
+}
+
 /**
- * Derives a cache name from the precache list. Hashed assets change name
- * when their content changes, so a new build gets a new cache name and the
- * old cache is deleted on activate. program.json and the icons have stable
- * names, but they are refreshed by network-first / the next precache, so
- * the name only needs to track the hashed assets.
+ * Derives a cache name from the precached files' contents. Hashing the bytes
+ * (not just the names) means that a change to a file with a stable name
+ * (index.html, program.json, an icon, the manifest) still produces a new
+ * cache name, so the new worker installs into a fresh cache and the old one
+ * is deleted on activate. Files are sorted by URL so the order they were read
+ * in doesn't matter; each URL and length is hashed too so that moving bytes
+ * between files changes the name.
  *
- * @param precacheUrls the list from `buildPrecacheList`
+ * @param files every precached file with its bytes
  */
-export function buildCacheName(precacheUrls: string[]): string {
-  const digest = createHash("sha256").update(precacheUrls.join("\n")).digest("hex").slice(0, 10);
-  return `explosive-endurance-${digest}`;
+export function buildCacheName(files: PrecachedFile[]): string {
+  const hash = createHash("sha256");
+  const sortedFiles = [...files].sort((first, second) => (first.url < second.url ? -1 : first.url > second.url ? 1 : 0));
+
+  for (const file of sortedFiles) {
+    hash.update(`${file.url}\n${file.contents.length}\n`);
+    hash.update(file.contents);
+  }
+
+  return `explosive-endurance-${hash.digest("hex").slice(0, 10)}`;
 }

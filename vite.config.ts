@@ -1,8 +1,8 @@
-import { readdirSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { defineConfig, type Plugin } from "vitest/config";
-import { buildCacheName, buildPrecacheList } from "./src/pwa/precache";
-import { renderServiceWorker } from "./src/pwa/serviceWorkerSource";
+import { buildCacheName, buildPrecacheList } from "./src/pwa/precache.ts";
+import { renderServiceWorker } from "./src/pwa/serviceWorkerSource.ts";
 
 /** Lists every file under a directory as paths relative to it, using "/" separators. */
 function listFilesRecursively(directory: string, prefix = ""): string[] {
@@ -28,7 +28,16 @@ function serviceWorkerPlugin(): Plugin {
     },
     writeBundle() {
       const precacheUrls = buildPrecacheList(listFilesRecursively(outputDirectory));
-      writeFileSync(join(outputDirectory, "sw.js"), renderServiceWorker(buildCacheName(precacheUrls), precacheUrls));
+
+      // The cache name comes from the files' bytes, so any content change
+      // (even to a stable file name like program.json) makes a new cache.
+      // "./" is the app shell, which lives on disk as index.html.
+      const precachedFiles = precacheUrls.map((url) => ({
+        url,
+        contents: readFileSync(join(outputDirectory, url === "./" ? "index.html" : url)),
+      }));
+
+      writeFileSync(join(outputDirectory, "sw.js"), renderServiceWorker(buildCacheName(precachedFiles), precacheUrls));
     },
   };
 }
