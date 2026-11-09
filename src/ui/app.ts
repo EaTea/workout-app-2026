@@ -39,6 +39,23 @@ export function resolveToday(search: string, now: Date = new Date()): string {
   return todayLocalDate(now);
 }
 
+/** Inline message shown when settings cannot be written to this device. */
+export const SAVE_FAILED_MESSAGE = "Couldn't save on this device";
+
+/**
+ * Writes settings to `storage`, returning null on success or
+ * `SAVE_FAILED_MESSAGE` if the browser refuses (storage full or blocked).
+ * Used by `handleSave` in `startApp`; split out so it can be unit tested.
+ */
+export function persistSettings(newSettings: TrainingSettings, storage: Storage = localStorage): string | null {
+  try {
+    saveSettings(newSettings, storage);
+    return null;
+  } catch {
+    return SAVE_FAILED_MESSAGE;
+  }
+}
+
 /**
  * Shows the app inside `root`. Re-renders on every hash change; settings
  * edits go through `saveSettings`, update the in-memory copy and return to Today.
@@ -46,13 +63,27 @@ export function resolveToday(search: string, now: Date = new Date()): string {
 export function startApp(root: HTMLElement, program: Program, initialSettings: TrainingSettings): void {
   let settings = initialSettings;
 
-  function handleSave(newSettings: TrainingSettings): void {
-    saveSettings(newSettings);
+  /**
+   * Save handler passed to the Settings screen. Persists the settings; on
+   * success updates the in-memory copy, goes to Today and shows "Saved".
+   * On failure returns a message for the screen to show inline and stays put.
+   */
+  function handleSave(newSettings: TrainingSettings): string | null {
+    const failureMessage = persistSettings(newSettings);
+    if (failureMessage !== null) {
+      return failureMessage;
+    }
+
     settings = newSettings;
     navigateTo("today");
     showSavedToast();
+    return null;
   }
 
+  /**
+   * Draws the screen for the current hash route plus the nav bar into `root`.
+   * Runs once at start and again on every `hashchange` (see `startApp`).
+   */
   function render(): void {
     const route = routeFromHash(window.location.hash);
     const main = element("main", "app-main");

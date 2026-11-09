@@ -91,6 +91,29 @@ test("tapping an exercise opens the details sheet; Escape closes it", async ({ p
   await expect(opener).toBeFocused();
 });
 
+test("the sheet traps focus, freezes the page behind it, and restores both on close", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-11-09");
+
+  await row(page, "Pull-ups").getByRole("button").click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("button", { name: "Close" })).toBeFocused();
+  await expect(page.locator("nav.bottom-nav")).toHaveJSProperty("inert", true);
+  await expect(page.locator("main.app-main")).toHaveJSProperty("inert", true);
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+  for (let presses = 0; presses < 4; presses++) {
+    await page.keyboard.press("Shift+Tab");
+    expect(await page.evaluate(() => document.activeElement?.closest("[role=dialog]") !== null)).toBe(true);
+  }
+
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(page.locator("nav.bottom-nav")).toHaveJSProperty("inert", false);
+  await expect(page.locator("main.app-main")).toHaveJSProperty("inert", false);
+  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+});
+
 test("backdrop and close button also close the sheet", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");

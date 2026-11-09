@@ -17,12 +17,17 @@ describe("validateSettingsForm", () => {
   });
 
   it("rejects zero, negative, decimal and non-numeric maxes", () => {
-    for (const bad of ["0", "-3", "2.5", "abc"]) {
+    for (const bad of ["0", "-3", "2.5", "abc", "1e", "12.5", "1 2"]) {
       const result = validateSettingsForm({ startDate: "2026-11-02", maxReps: { dip: bad } });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.errors.maxReps.dip).toBeDefined();
       }
     }
+  });
+
+  it("trims surrounding whitespace and treats blank as not tested", () => {
+    const result = validateSettingsForm({ startDate: "2026-11-02", maxReps: { pull_up: " 12 ", dip: "" } });
+    expect(result).toEqual({ ok: true, settings: { startDate: "2026-11-02", maxReps: { pull_up: 12 } } });
   });
 });

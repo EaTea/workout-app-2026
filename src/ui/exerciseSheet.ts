@@ -55,8 +55,21 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   }
   sheet.append(sectionHeading("Evidence"), renderEvidence(item));
 
-  /** Removes the sheet and listeners, then returns focus to the row. */
+  // Everything behind the sheet: made inert so Tab, screen readers and taps
+  // cannot reach it, and the body is frozen so the page does not scroll.
+  const backgroundRegions = Array.from(document.querySelectorAll<HTMLElement>("#app > main, #app > nav"));
+  const previousBodyOverflow = document.body.style.overflow;
+  for (const region of backgroundRegions) {
+    region.inert = true;
+  }
+  document.body.style.overflow = "hidden";
+
+  /** Removes the sheet and listeners, restores the page behind it, then returns focus to the row. */
   function closeSheet(): void {
+    for (const region of backgroundRegions) {
+      region.inert = false;
+    }
+    document.body.style.overflow = previousBodyOverflow;
     document.removeEventListener("keydown", handleKeydown);
     window.removeEventListener("hashchange", closeSheet);
     backdrop.remove();
@@ -93,7 +106,8 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   window.addEventListener("hashchange", closeSheet);
 
   document.body.append(backdrop, sheet);
-  sheet.focus();
+  // Start on Close so Shift+Tab/Tab always begin inside the first/last handling.
+  closeButton.focus();
 }
 
 /** The evidence link (new tab, no opener) or the coaching-practice text. */

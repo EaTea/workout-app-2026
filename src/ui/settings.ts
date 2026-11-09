@@ -65,11 +65,13 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
 /**
  * Builds the Settings screen. `onSave` is called with validated settings when
  * the user presses Save; `app.ts` persists them, shows "Saved" and navigates.
+ * `onSave` returns null on success or a message to show inline (e.g. storage
+ * is full or blocked), in which case the user stays on this screen.
  */
 export function renderSettingsScreen(
   program: Program,
   current: TrainingSettings,
-  onSave: (settings: TrainingSettings) => void,
+  onSave: (settings: TrainingSettings) => string | null,
 ): HTMLElement {
   const screen = element("section", "screen");
   screen.append(element("h1", "screen-title", "Settings"));
@@ -96,12 +98,15 @@ export function renderSettingsScreen(
       continue;
     }
     const input = element("input");
-    input.type = "number";
+    // Deliberately type="text": a type="number" input reports "" for junk like
+    // "1e", which would silently read as "not tested" and wipe the stored max.
+    // Text lets `validateSettingsForm` see exactly what was typed.
+    input.type = "text";
     input.id = `max-${exercise.id}`;
     input.name = `max-${exercise.id}`;
     input.inputMode = "numeric";
-    input.min = "1";
-    input.step = "1";
+    input.pattern = "[0-9]*";
+    input.autocomplete = "off";
     input.value = current.maxReps[exercise.id]?.toString() ?? "";
     const error = element("p", "field-error");
     maxInputs[exercise.id] = input;
@@ -109,9 +114,12 @@ export function renderSettingsScreen(
     form.append(buildField(`Max reps: ${exercise.name}`, input, error));
   }
 
+  const saveError = element("p", "field-error");
+  saveError.setAttribute("role", "alert");
+
   const saveButton = element("button", "primary-button", "Save");
   saveButton.type = "submit";
-  form.append(saveButton);
+  form.append(saveError, saveButton);
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -124,6 +132,7 @@ export function renderSettingsScreen(
 
     // Clear old messages, then show new ones.
     startDateError.textContent = "";
+    saveError.textContent = "";
     for (const error of Object.values(maxErrors)) {
       error.textContent = "";
     }
@@ -138,7 +147,7 @@ export function renderSettingsScreen(
       return;
     }
 
-    onSave(result.settings);
+    saveError.textContent = onSave(result.settings) ?? "";
   });
 
   screen.append(form);

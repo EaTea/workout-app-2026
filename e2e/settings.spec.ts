@@ -34,6 +34,26 @@ test("invalid max reps show an inline error and do not save", async ({ page }) =
   await expect(page).toHaveURL(/#\/settings$/);
 });
 
+test("a mistyped max shows an error and keeps the stored max", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!window.localStorage.getItem("explosive-endurance.settings")) {
+      window.localStorage.setItem(
+        "explosive-endurance.settings",
+        JSON.stringify({ version: 1, startDate: "2026-11-02", maxReps: { pull_up: 12 } }),
+      );
+    }
+  });
+  await page.goto("/#/settings");
+
+  await page.getByLabel("Max reps: Pull-ups").fill("1e");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Enter a whole number of reps")).toBeVisible();
+  await expect(page).toHaveURL(/#\/settings$/);
+
+  const stored = await page.evaluate(() => window.localStorage.getItem("explosive-endurance.settings"));
+  expect(JSON.parse(stored ?? "{}").maxReps.pull_up).toBe(12);
+});
+
 test("a broken program.json shows the error card", async ({ page }) => {
   await page.route("**/program.json", (route) =>
     route.fulfill({ contentType: "application/json", body: '{"name": "broken"}' }),
