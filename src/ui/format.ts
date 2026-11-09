@@ -66,17 +66,18 @@ export function formatShortDate(calendarDate: string): string {
 }
 
 /**
- * Small header line, e.g. "Mon 9 Nov · Week 2 · Day 1": the real calendar
- * date, then the program week and day number (counted from the start date;
- * the program's own day name is deliberately not shown).
+ * Small header line, e.g. "Mon 9 Nov · Week 2 of 8 · Day 1": the real
+ * calendar date, then the program week (out of `lengthWeeks`) and day number
+ * (counted from the start date; the program's own day name is deliberately
+ * not shown). Used by the training header and the rest-day card.
  */
-export function formatSessionKicker(calendarDate: string, week: number, dayNumber: number): string {
-  return `${formatShortDate(calendarDate)}${DOT}${formatWeekAndDay(week, dayNumber)}`;
+export function formatSessionKicker(calendarDate: string, week: number, lengthWeeks: number, dayNumber: number): string {
+  return `${formatShortDate(calendarDate)}${DOT}${formatWeekAndDay(week, lengthWeeks, dayNumber)}`;
 }
 
-/** "Week 1 · Day 7". Used by the header kicker and the rest card. */
-export function formatWeekAndDay(week: number, dayNumber: number): string {
-  return `Week ${week}${DOT}Day ${dayNumber}`;
+/** "Week 1 of 8 · Day 7". Only used by `formatSessionKicker`. */
+function formatWeekAndDay(week: number, lengthWeeks: number, dayNumber: number): string {
+  return `Week ${week} of ${lengthWeeks}${DOT}Day ${dayNumber}`;
 }
 
 /** Friendly label for a block type id; unknown ids fall back to the raw id. */

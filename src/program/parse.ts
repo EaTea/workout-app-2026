@@ -9,9 +9,11 @@
  *
  * Errors versus warnings: anything that would make a session wrong (wrong
  * type, missing field, unknown exercise id, progression gap) throws. A field
- * the app doesn't recognise (a typo, or a note Ed added) is harmless, so it is
- * recorded as a `ProgramWarning` and parsing carries on; the app shows the
- * warnings in a dismissible banner.
+ * the app doesn't recognise (a note Ed added, or a misspelt optional field) is
+ * recorded as a `ProgramWarning` and parsing carries on, ignoring that field.
+ * A misspelt optional field DOES change the session (the app falls back to
+ * its default), so a warning carries a "did you mean" suggestion when the
+ * name is close to a known one, and the banner shows it prominently.
  *
  *   unknown ──parseProgram──▶ { program: Program, warnings: ProgramWarning[] }
  *               ├─ parseExercise  (per library entry)
@@ -127,16 +129,71 @@ function expectArray(value: unknown, path: string): unknown[] {
 }
 
 /**
+ * Edit distance between two strings (the number of single-character inserts,
+ * deletes or substitutions to turn one into the other). Used only to spot
+ * misspelt field names; the names are short so the simple version is fine.
+ */
+function levenshteinDistance(first: string, second: string): number {
+  let previousRow = Array.from({ length: second.length + 1 }, (_, index) => index);
+
+  for (let row = 1; row <= first.length; row++) {
+    const currentRow = [row];
+    for (let column = 1; column <= second.length; column++) {
+      const substitutionCost = first[row - 1] === second[column - 1] ? 0 : 1;
+      currentRow[column] = Math.min(
+        previousRow[column]! + 1, // delete
+        currentRow[column - 1]! + 1, // insert
+        previousRow[column - 1]! + substitutionCost, // substitute
+      );
+    }
+    previousRow = currentRow;
+  }
+
+  return previousRow[second.length]!;
+}
+
+/** How many edits away from a known field name still counts as "probably a typo". */
+const MAX_TYPO_DISTANCE = 2;
+
+/**
+ * Returns the known field `unknownKey` most likely meant (same letters in
+ * another case, or within `MAX_TYPO_DISTANCE` edits), or undefined if nothing
+ * is close. Used by `collectUnknownFields` to build the "did you mean" hint.
+ */
+function suggestKnownKey(unknownKey: string, allowedKeys: readonly string[]): string | undefined {
+  const caseInsensitiveMatch = allowedKeys.find((known) => known.toLowerCase() === unknownKey.toLowerCase());
+  if (caseInsensitiveMatch !== undefined) return caseInsensitiveMatch;
+
+  let closestKey: string | undefined;
+  let closestDistance = MAX_TYPO_DISTANCE + 1;
+  for (const known of allowedKeys) {
+    const distance = levenshteinDistance(unknownKey, known);
+    if (distance < closestDistance) {
+      closestKey = known;
+      closestDistance = distance;
+    }
+  }
+  return closestKey;
+}
+
+/**
  * Records a warning for each field not in `allowedKeys` (e.g. a typo like
  * "restSecs", or a note Ed added) and lets parsing continue; the field is
- * simply never read. Called at the top of every record-parsing function with
- * the shared `warnings` list that `parseProgram` returns to its caller.
+ * simply never read. When the name is close to a known field the warning
+ * carries a `suggestion`, because a misspelt optional field silently changes
+ * the session. Called at the top of every record-parsing function with the
+ * shared `warnings` list that `parseProgram` returns to its caller.
  */
 function collectUnknownFields(record: UnknownRecord, allowedKeys: readonly string[], path: string, warnings: ProgramWarning[]): void {
   for (const key of Object.keys(record)) {
-    if (!allowedKeys.includes(key)) {
-      warnings.push({ path: child(path, key), message: `unknown field, ignored (known fields: ${allowedKeys.join(", ")})` });
-    }
+    if (allowedKeys.includes(key)) continue;
+
+    const suggestion = suggestKnownKey(key, allowedKeys);
+    const message =
+      suggestion === undefined
+        ? `unknown field, ignored (known fields: ${allowedKeys.join(", ")})`
+        : `unknown field, ignored — did you mean ${JSON.stringify(suggestion)}?`;
+    warnings.push({ path: child(path, key), message, suggestion });
   }
 }
 

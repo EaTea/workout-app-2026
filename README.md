@@ -48,9 +48,11 @@ It needs a Playwright Chromium browser installed (`npx playwright install chromi
 `public/program.json` is the training program. If you break something that would
 make a session wrong (wrong type, missing field, unknown exercise id, a week
 with no progression phase) the app shows an error card naming the path; a field
-the app doesn't recognise (a typo, or a note you added) is only a warning: an
-amber banner on Today lists the paths, the field is ignored, and the session
-still loads.
+the app doesn't recognise is only a warning: the field is ignored, the session
+still loads, and an amber banner on Today lists each one. A misspelt field name
+(say `weeklyIncreese`) is ignored too, so that part of the session is missing;
+the banner suggests the fix ("did you mean "weeklyIncrease"?") and opens its
+list straight away when it spots a likely typo.
 
 ## Deployment (GitHub Pages)
 

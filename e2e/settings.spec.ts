@@ -15,7 +15,7 @@ test("first run prompts for a start date; settings save, drive Today and persist
 
   // Preview Monday of week 2 via the ?date= override.
   await page.goto("/?date=2026-11-09");
-  await expect(page.getByText("Week 2 · Day 1")).toBeVisible();
+  await expect(page.getByText("Week 2 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
 
   await page.goto("/#/settings");
@@ -29,12 +29,26 @@ test("Start today on first run saves today as day 1 and survives a reload", asyn
   await page.goto("/?date=2026-11-04");
   await page.getByRole("button", { name: "Start today" }).click();
 
-  await expect(page.getByText("Week 1 · Day 1")).toBeVisible();
+  await expect(page.getByText("Week 1 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText("Week 1 · Day 1")).toBeVisible();
+  await expect(page.getByText("Week 1 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+});
+
+test("Start today shows an inline alert and keeps the nav when saving fails", async ({ page }) => {
+  await page.goto("/?date=2026-11-04");
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => {
+      throw new Error("storage is full");
+    };
+  });
+  await page.getByRole("button", { name: "Start today" }).click();
+
+  await expect(page.getByRole("alert")).toHaveText("Couldn't save on this device, so the start date won't be remembered.");
+  await expect(page.getByRole("button", { name: "Start today" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
 });
 
 test("invalid max reps show an inline error and do not save", async ({ page }) => {

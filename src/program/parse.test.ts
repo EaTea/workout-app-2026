@@ -257,4 +257,18 @@ describe("unknown fields warn instead of blocking", () => {
       }),
     ).toBe("days[0].focus: expected text but found 5");
   });
+
+  it.each([
+    ["a per-set entry in sets", (json: any) => (json.days[5].blocks[2].items[0].sets[0].extraNote = "x"), "days[5].blocks[2].items[0].sets[0].extraNote"],
+    ["a block", (json: any) => (json.days[0].blocks[0].extraNote = "x"), "days[0].blocks[0].extraNote"],
+    ["a progression phase", (json: any) => (json.progression[0].extraNote = "x"), "progression[0].extraNote"],
+    ["a warm-up rotation swap", (json: any) => (json.warmupRotation.swaps[0].extraNote = "x"), "warmupRotation.swaps[0].extraNote"],
+    ["the warm-up rotation", (json: any) => (json.warmupRotation.extraNote = "x"), "warmupRotation.extraNote"],
+    ["the fatigue check", (json: any) => (json.fatigueCheck.extraNote = "x"), "fatigueCheck.extraNote"],
+    ["the program info", (json: any) => (json.program.extraNote = "x"), "program.extraNote"],
+  ])("warns with the full path about an unknown field in %s", (_where, mutate, expectedPath) => {
+    const result = resultAfter(mutate);
+    expect(result.warnings.map((warning) => warning.path)).toEqual([expectedPath]);
+    expect(result.program).toEqual(program);
+  });
 });

@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **plan agreed and merged (PR #2). PR 1 in progress.**
+Status: **PR 1 merged (#3). PR 1b in progress; PR 2 (timers) next.**
 
 ## 1. What I understand the request to be
 
@@ -116,27 +116,9 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 
 ### PR 0 — this plan *(design)* — merged as PR #2
 
-### PR 1 — Skeleton and "Today's workout" *(behavior change)*
-1. [x] Skeleton: Vite + TypeScript, `index.html` with a placeholder, Vitest and
-   Playwright wired up with one trivial test each, `README.md` with
-   install/build/run/test commands, and a GitHub Actions workflow that
-   deploys `main` to GitHub Pages so it can be opened on a phone. Verify it
-   builds and runs. Playwright uses the iPhone 13 viewport on Chromium
-   (the only browser installed here); CI runs unit tests and the build but
-   not Playwright yet.
-2. [x] Program wire and internal types, `parseProgram`, unit tests against the
-   real `program.json`. The parser also rejects unknown fields, so a typo
-   in `program.json` (e.g. `restSecs`) shows an error instead of being
-   silently ignored; a genuinely new field needs a small parser change.
-3. [x] Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
-   weekly increase. Unit tests built from worked examples (below).
-4. [x] Settings screen: start date, max pull-ups, max dips (stored locally).
-5. [x] Today screen: header (week N of 8, phase, day focus), blocks in session
-   order as cards, tap an exercise to open cues/alternative/evidence. Phase
-   changes from `progression` shown in a collapsible strip. Rest-day card.
-   E2E test: set a start date and maxes, see the right session.
-- **Merge point:** Ed can open the mockup on his phone and see the correct
-  session for any date.
+### PR 1 — Skeleton and "Today's workout" *(behavior change)* — merged as PR #3
+Follow-ups not yet done: Today doesn't refresh after midnight if left open
+(revisit with timers in PR 2).
 
 ### PR 1b — Rule changes from the PR 1 review *(behavior change)*
 Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
@@ -146,6 +128,10 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
 2. [x] Deload weeks keep the previous week's EMOM reps.
 3. [x] Unknown `program.json` fields warn and still load.
 - **Merge point:** the three rules work as agreed, with tests.
+- Review fixes: unknown fields close to a known name get a "did you mean"
+  hint and the list opens automatically; a failed "Start today" save
+  shows inline; consecutive deload weeks keep holding reps; the header
+  keeps "Week N of 8".
 
 ### PR 2 — Timers *(behavior change)*
 1. Shared full-screen timer view: huge digits, round counter, start/pause/
@@ -193,7 +179,9 @@ pull-ups 12, max dips 15.
 
 ## 7. Open questions
 
-1. **Mockup feedback.** Anything in the screens below to change before PR 1.
+1. **Program day names on screen.** Session notes in `program.json` refer
+   to weekdays ("Thursday loads the lower back"), but the app now shows
+   "Day N". Show the session's shorthand name too, or reword the notes?
 
 Resolved:
 

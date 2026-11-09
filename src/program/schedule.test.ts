@@ -248,3 +248,49 @@ describe("percent-of-max rounding survives floating point", () => {
     expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: expected });
   });
 });
+
+describe("deload weeks hold the last normal week's weekly increase", () => {
+  /** Rebuilds the real program with a different 8-week progression layout. */
+  function programWithPhases(phases: { weeks: number[]; phase: string }[]) {
+    const json = JSON.parse(readFileSync("public/program.json", "utf-8"));
+    json.progression = phases.map((entry) => ({ ...entry, changes: ["x"] }));
+    return parseProgram(json).program;
+  }
+
+  /** The Monday pull-up basis for program week `week` (start date 2026-11-02, so week 1 Monday is that date). */
+  function pullUpBasisInWeek(modified: ReturnType<typeof programWithPhases>, week: number) {
+    const mondayDate = new Date(Date.UTC(2026, 10, 2 + 7 * (week - 1))).toISOString().slice(0, 10);
+    const session = buildSession(modified, settings, mondayDate);
+    if (session.kind !== "training") throw new Error("expected a training day");
+    const target = item(session.blocks, "pull_up").target;
+    if (target?.kind !== "fixed" || !target.basis) throw new Error("expected a percent-of-max target");
+    return target.basis;
+  }
+
+  it("uses an offset of 0 for a deload in week 1", () => {
+    const modified = programWithPhases([
+      { weeks: [1], phase: "Deload" },
+      { weeks: [2, 3, 4, 5, 6, 7, 8], phase: "Base" },
+    ]);
+    expect(pullUpBasisInWeek(modified, 1)).toMatchObject({ weeklyIncrease: 0 });
+  });
+
+  it("holds week 3's offset through two consecutive deload weeks (4 and 5)", () => {
+    const modified = programWithPhases([
+      { weeks: [1, 2, 3], phase: "Base" },
+      { weeks: [4, 5], phase: "Deload" },
+      { weeks: [6, 7, 8], phase: "Power endurance" },
+    ]);
+    expect(pullUpBasisInWeek(modified, 3)).toMatchObject({ weeklyIncrease: 2, heldForDeload: false });
+    expect(pullUpBasisInWeek(modified, 4)).toMatchObject({ weeklyIncrease: 2, heldForDeload: true });
+    expect(pullUpBasisInWeek(modified, 5)).toMatchObject({ weeklyIncrease: 2, heldForDeload: true });
+  });
+
+  it("does not flag heldForDeload when the held increase is 0", () => {
+    const modified = programWithPhases([
+      { weeks: [1], phase: "Deload" },
+      { weeks: [2, 3, 4, 5, 6, 7, 8], phase: "Base" },
+    ]);
+    expect(pullUpBasisInWeek(modified, 1)).toMatchObject({ weeklyIncrease: 0, heldForDeload: false });
+  });
+});

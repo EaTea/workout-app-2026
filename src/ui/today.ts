@@ -19,13 +19,15 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). `onStartToday` is called
  * when Ed taps "Start today" on the first-run card; app.ts saves `date` as the
- * start date and re-renders.
+ * start date and re-renders. `startTodayFailureMessage`, if given, is shown
+ * as an inline alert on that card (the save failed).
  */
 export function renderTodayScreen(
   program: Program,
   settings: TrainingSettings,
   date: string,
   onStartToday: () => void = () => undefined,
+  startTodayFailureMessage?: string,
 ): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
@@ -35,7 +37,7 @@ export function renderTodayScreen(
       screen.append(...renderTrainingDay(program, session, date));
       break;
     default:
-      screen.append(renderMessageCard(session, date, onStartToday));
+      screen.append(renderMessageCard(session, program.lengthWeeks, date, onStartToday, startTodayFailureMessage));
   }
 
   return screen;
@@ -44,8 +46,10 @@ export function renderTodayScreen(
 /** A single card for sessions with nothing to train: first run, not started, rest day, finished. */
 function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
+  lengthWeeks: number,
   date: string,
   onStartToday: () => void,
+  startTodayFailureMessage?: string,
 ): HTMLElement {
   const card = element("div", "card message-card");
 
@@ -55,8 +59,13 @@ function renderMessageCard(
         element("h2", "card-title", "Welcome"),
         element("p", undefined, "Set your program start date to see today's session."),
         startTodayButton(onStartToday),
-        settingsLink("Or set a different date in Settings"),
       );
+      if (startTodayFailureMessage !== undefined) {
+        const alert = element("p", "field-error", startTodayFailureMessage);
+        alert.setAttribute("role", "alert");
+        card.append(alert);
+      }
+      card.append(settingsLink("Or set a different date in Settings"));
       break;
 
     case "notStarted":
@@ -68,7 +77,7 @@ function renderMessageCard(
 
     case "rest":
       card.append(
-        element("div", "kicker", formatSessionKicker(date, session.week, session.dayNumber)),
+        element("div", "kicker", formatSessionKicker(date, session.week, lengthWeeks, session.dayNumber)),
         element("h2", "card-title", "Rest day"),
         element("p", undefined, `Week ${session.week} · ${session.phase}. Recover today; no training is planned.`),
       );
@@ -116,7 +125,7 @@ function renderTrainingDay(
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
-    element("div", "kicker", formatSessionKicker(date, session.week, session.dayNumber)),
+    element("div", "kicker", formatSessionKicker(date, session.week, program.lengthWeeks, session.dayNumber)),
     element("h1", "today-title", session.focus),
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
   );

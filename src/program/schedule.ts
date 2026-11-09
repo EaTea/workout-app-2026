@@ -170,9 +170,11 @@ function phaseForWeek(program: Program, week: number): ProgressionPhase {
 /**
  * How many weekly increases have accumulated by `week`.
  *  - normal week: the week's 0-based position within its phase
- *  - deload week: the previous week's offset, so the EMOM reps are held
- *    rather than dropped (W4 holds W3's, W8 holds W7's)
- *  - no previous week (week 1), or the previous week is also a deload: 0
+ *  - deload week: the previous week's EFFECTIVE offset, so the EMOM reps are
+ *    held rather than dropped (W4 holds W3's, W8 holds W7's). If the previous
+ *    week is itself a deload, its held offset is used in turn, so consecutive
+ *    deload weeks all hold the last normal week's figure.
+ *  - a deload with no previous week (week 1): 0
  */
 function weeklyIncreaseOffsetForWeek(program: Program, week: number): number {
   const phase = phaseForWeek(program, week);
@@ -180,12 +182,10 @@ function weeklyIncreaseOffsetForWeek(program: Program, week: number): number {
     return phase.weeks.indexOf(week);
   }
 
-  const previousWeek = week - 1;
-  const previousPhase = program.progression.find((entry) => entry.weeks.includes(previousWeek));
-  if (!previousPhase || isDeloadPhase(previousPhase)) {
+  if (week <= 1) {
     return 0;
   }
-  return previousPhase.weeks.indexOf(previousWeek);
+  return weeklyIncreaseOffsetForWeek(program, week - 1);
 }
 
 /**

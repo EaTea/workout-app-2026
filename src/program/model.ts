@@ -6,10 +6,14 @@
  * to handle "number or tuple" or "number or array" unions themselves.
  */
 
-/** Days of the week, as spelled in program.json. */
+/** A day-slot name as spelled in program.json (see `WEEKDAYS`; not a calendar weekday). */
 export type Weekday = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 
-/** Every weekday, in calendar order starting on Monday. */
+/**
+ * The seven day names in program.json, in the order the program cycles
+ * through them (Mon = program day 1 ... Sun = day 7). They are shorthand slot
+ * names, not calendar weekdays: the app counts days from the start date.
+ */
 export const WEEKDAYS: readonly Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** An inclusive numeric range. A single value `n` is represented as min === max === n. */
@@ -145,7 +149,7 @@ export interface Program {
   sessionOrder: string[];
   rules: string[];
   exercises: Record<string, Exercise>;
-  /** Training days keyed by weekday; the rest day has no entry. */
+  /** Training days keyed by day-slot name ("Mon" = program day 1 ... "Sun" = day 7); the rest day has no entry. */
   days: Partial<Record<Weekday, Day>>;
   progression: ProgressionPhase[];
   coreProgressions: Record<string, string>;
@@ -161,4 +165,6 @@ export interface Program {
 export interface ProgramWarning {
   path: string;
   message: string;
+  /** The known field this one is probably a misspelling of, e.g. "weeklyIncrease" for "weeklyIncreese". */
+  suggestion?: string;
 }

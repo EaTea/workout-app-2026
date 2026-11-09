@@ -40,6 +40,9 @@ export function resolveToday(search: string, now: Date = new Date()): string {
   return todayLocalDate(now);
 }
 
+/** Inline message on the welcome card when "Start today" cannot be saved. */
+export const START_TODAY_SAVE_FAILED_MESSAGE = "Couldn't save on this device, so the start date won't be remembered.";
+
 /** Inline message shown when settings cannot be written to this device. */
 export const SAVE_FAILED_MESSAGE = "Couldn't save on this device";
 
@@ -71,6 +74,8 @@ export function startApp(
 ): void {
   let settings = initialSettings;
   let warningsDismissed = false;
+  /** Set when "Start today" could not be saved; shown on the welcome card. */
+  let startTodayFailureMessage: string | undefined;
 
   /** Dismiss handler for the warning banner: remembers it for this page load and re-renders. */
   function handleDismissWarnings(): void {
@@ -98,16 +103,19 @@ export function startApp(
   /**
    * Handler for the first-run "Start today" button: saves `today` (which
    * honours the `?date=` override) as the start date, keeping any maxes, and
-   * re-renders Today. A storage failure is shown as the usual error card.
+   * re-renders Today. A storage failure is shown inline on the welcome card
+   * (the nav stays, and Ed can still pick a date in Settings).
    */
   function handleStartToday(): void {
     const today = resolveToday(window.location.search);
     const failureMessage = persistSettings({ ...settings, startDate: today });
     if (failureMessage !== null) {
-      showStartupError(root, new Error(failureMessage));
+      startTodayFailureMessage = START_TODAY_SAVE_FAILED_MESSAGE;
+      render();
       return;
     }
 
+    startTodayFailureMessage = undefined;
     settings = { ...settings, startDate: today };
     render();
   }
@@ -126,7 +134,7 @@ export function startApp(
       main.append(
         route === "settings"
           ? renderSettingsScreen(program, settings, handleSave)
-          : renderTodayScreen(program, settings, resolveToday(window.location.search), handleStartToday),
+          : renderTodayScreen(program, settings, resolveToday(window.location.search), handleStartToday, startTodayFailureMessage),
       );
       root.replaceChildren(main, renderNavigationBar(route));
     } catch (error) {

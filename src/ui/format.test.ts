@@ -25,7 +25,7 @@ function sets(count: number, target?: RepTarget, load?: string): SetView[] {
 describe("dates and titles", () => {
   it("formats short dates and the kicker", () => {
     expect(formatShortDate("2026-11-09")).toBe("Mon 9 Nov");
-    expect(formatSessionKicker("2026-11-09", 2, 1)).toBe("Mon 9 Nov · Week 2 · Day 1");
+    expect(formatSessionKicker("2026-11-09", 2, 8, 1)).toBe("Mon 9 Nov · Week 2 of 8 · Day 1");
   });
 
   it("maps block labels and titles", () => {
