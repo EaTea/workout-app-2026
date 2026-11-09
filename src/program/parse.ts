@@ -29,9 +29,55 @@ import type {
   WarmupRotation,
 } from "./model";
 import { WEEKDAYS } from "./model";
-import type { EvidenceWire, NumberOrRangeWire, RepsWire, SetWire, SetsWire } from "./wire";
+import type {
+  BlockWire,
+  DayWire,
+  EvidenceWire,
+  ExerciseWire,
+  FatigueCheckWire,
+  ItemWire,
+  NumberOrRangeWire,
+  ProgramInfoWire,
+  ProgramWire,
+  ProgressionPhaseWire,
+  RepsWire,
+  SetWire,
+  SetsWire,
+  WarmupRotationWire,
+  WarmupSwapWire,
+} from "./wire";
 
 type UnknownRecord = Record<string, unknown>;
+
+/**
+ * Compile-time tie between the allowed-key lists below and the wire types.
+ *
+ * `allowedKeysOf<SomeWire>()(["a", "b"])` only compiles if every entry is a
+ * key of `SomeWire` (a typo or a removed field is an error) AND every key of
+ * `SomeWire` is listed (a newly added field is an error until it is added
+ * here). So `npm run build` fails whenever wire.ts and these lists drift.
+ * It is a curried call so `T` is given explicitly while the list's literal
+ * types are still inferred.
+ */
+function allowedKeysOf<WireType>() {
+  return <const Listed extends readonly (keyof WireType & string)[]>(
+    keys: Listed & ([Exclude<keyof WireType, Listed[number]>] extends [never] ? unknown : { unlistedWireKeys: Exclude<keyof WireType, Listed[number]> }),
+  ): readonly string[] => keys;
+}
+
+const ROOT_KEYS = allowedKeysOf<ProgramWire>()(["program", "exercises", "days", "progression", "coreProgressions", "warmupRotation", "fatigueCheck"]);
+const PROGRAM_INFO_KEYS = allowedKeysOf<ProgramInfoWire>()(["name", "goal", "lengthWeeks", "restDay", "sessionOrder", "rules"]);
+const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues", "alternative", "evidence", "progression", "maxTested"]);
+const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
+const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"]);
+const ITEM_KEYS = allowedKeysOf<ItemWire>()([
+  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "load", "note", "tempo", "weeklyIncrease",
+]);
+const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
+const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes"]);
+const WARMUP_ROTATION_KEYS = allowedKeysOf<WarmupRotationWire>()(["everyWeeks", "swaps", "alsoAvailable"]);
+const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in"]);
+const FATIGUE_CHECK_KEYS = allowedKeysOf<FatigueCheckWire>()(["frequency", "tests", "rule", "lowerBackRule"]);
 
 /** Builds the error every parser failure goes through, so all messages share the "path: problem" shape. */
 function fail(path: string, problem: string): never {
@@ -66,7 +112,7 @@ function expectArray(value: unknown, path: string): unknown[] {
 }
 
 /** Fails on any field not in `allowedKeys`, so a typo like "restSecs" is caught instead of silently ignored. */
-function rejectUnknownFields(record: UnknownRecord, allowedKeys: string[], path: string): void {
+function rejectUnknownFields(record: UnknownRecord, allowedKeys: readonly string[], path: string): void {
   for (const key of Object.keys(record)) {
     if (!allowedKeys.includes(key)) {
       fail(child(path, key), `unknown field (allowed: ${allowedKeys.join(", ")})`);
@@ -187,7 +233,7 @@ function parseSets(value: unknown, itemReps: Reps | undefined, itemLoad: string 
   return entries.map((entry, index) => {
     const setPath = `${path}[${index}]`;
     const record = expectRecord(entry, setPath);
-    rejectUnknownFields(record, ["reps", "load"], setPath);
+    rejectUnknownFields(record, SET_KEYS, setPath);
     return {
       reps: parseReps(record.reps ?? fail(child(setPath, "reps"), "field is missing"), child(setPath, "reps")),
       load: readOptionalString(record, "load", setPath) ?? itemLoad,
@@ -215,7 +261,7 @@ function parseFormat(record: UnknownRecord, path: string): Format {
 /** Converts one entry of the exercise library. */
 function parseExercise(id: string, raw: unknown, path: string): Exercise {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ["name", "category", "cues", "alternative", "evidence", "progression", "maxTested"], path);
+  rejectUnknownFields(record, EXERCISE_KEYS, path);
 
   return {
     id,
@@ -232,11 +278,7 @@ function parseExercise(id: string, raw: unknown, path: string): Exercise {
 /** Converts one block item, looking its exercise id up in the library. */
 function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: string): BlockItem {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(
-    record,
-    ["exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "load", "note", "tempo", "weeklyIncrease"],
-    path,
-  );
+  rejectUnknownFields(record, ITEM_KEYS, path);
 
   const exerciseId = readString(record, "exercise", path);
   const exercise = Object.hasOwn(exercises, exerciseId) ? exercises[exerciseId] : undefined;
@@ -282,7 +324,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
 /** Converts one block and all of its items. */
 function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: string): Block {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"], path);
+  rejectUnknownFields(record, BLOCK_KEYS, path);
 
   const itemsPath = child(path, "items");
   const items = expectArray(record.items ?? fail(itemsPath, "field is missing"), itemsPath);
@@ -307,7 +349,7 @@ function parseWeekday(value: string, path: string): Weekday {
 /** Converts one training day and its blocks. */
 function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: string): Day {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ["day", "focus", "targetMinutes", "blocks"], path);
+  rejectUnknownFields(record, DAY_KEYS, path);
 
   const blocksPath = child(path, "blocks");
   const blocks = expectArray(record.blocks ?? fail(blocksPath, "field is missing"), blocksPath);
@@ -323,7 +365,7 @@ function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: strin
 /** Converts one progression phase. */
 function parseProgressionPhase(raw: unknown, path: string): ProgressionPhase {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ["weeks", "phase", "changes"], path);
+  rejectUnknownFields(record, PROGRESSION_PHASE_KEYS, path);
 
   const weeksPath = child(path, "weeks");
   const weeks = expectArray(record.weeks ?? fail(weeksPath, "field is missing"), weeksPath).map((week, index) => {
@@ -337,13 +379,13 @@ function parseProgressionPhase(raw: unknown, path: string): ProgressionPhase {
 /** Converts the warm-up rotation section. */
 function parseWarmupRotation(raw: unknown, path: string): WarmupRotation {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ["everyWeeks", "swaps", "alsoAvailable"], path);
+  rejectUnknownFields(record, WARMUP_ROTATION_KEYS, path);
 
   const swapsPath = child(path, "swaps");
   const swaps = expectArray(record.swaps ?? fail(swapsPath, "field is missing"), swapsPath).map((swap, index) => {
     const swapPath = `${swapsPath}[${index}]`;
     const swapRecord = expectRecord(swap, swapPath);
-    rejectUnknownFields(swapRecord, ["out", "in"], swapPath);
+    rejectUnknownFields(swapRecord, WARMUP_SWAP_KEYS, swapPath);
     return { out: readString(swapRecord, "out", swapPath), in: readString(swapRecord, "in", swapPath) };
   });
 
@@ -353,7 +395,7 @@ function parseWarmupRotation(raw: unknown, path: string): WarmupRotation {
 /** Converts the fatigue-check section. */
 function parseFatigueCheck(raw: unknown, path: string): FatigueCheck {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ["frequency", "tests", "rule", "lowerBackRule"], path);
+  rejectUnknownFields(record, FATIGUE_CHECK_KEYS, path);
 
   return {
     frequency: readString(record, "frequency", path),
@@ -406,10 +448,10 @@ function requireSection(root: UnknownRecord, key: string): unknown {
  */
 export function parseProgram(json: unknown): Program {
   const root = expectRecord(json, "program.json");
-  rejectUnknownFields(root, ["program", "exercises", "days", "progression", "coreProgressions", "warmupRotation", "fatigueCheck"], "");
+  rejectUnknownFields(root, ROOT_KEYS, "");
 
   const info = expectRecord(requireSection(root, "program"), "program");
-  rejectUnknownFields(info, ["name", "goal", "lengthWeeks", "restDay", "sessionOrder", "rules"], "program");
+  rejectUnknownFields(info, PROGRAM_INFO_KEYS, "program");
 
   const exerciseRecords = expectRecord(requireSection(root, "exercises"), "exercises");
   const exercises: Record<string, Exercise> = {};
