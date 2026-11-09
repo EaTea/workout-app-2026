@@ -157,11 +157,11 @@ test("evidence shows a link for URLs and plain text for coaching practice", asyn
   await seedSettings(page);
 
   await page.goto("/?date=2026-11-03");
-  await row(page, "Split-squat jumps").getByRole("button").click();
+  await row(page, "Split-squat jumps").locator(".item-open").click();
   await expect(page.getByRole("dialog").getByRole("link", { name: /Read the evidence/ })).toBeVisible();
 
   await page.goto("/?date=2026-11-04");
-  await row(page, "Plyo push-ups").getByRole("button").click();
+  await row(page, "Plyo push-ups").locator(".item-open").click();
   await expect(page.getByRole("dialog").getByText("Based on coaching practice")).toBeVisible();
   await expect(page.getByRole("dialog").getByRole("link", { name: /Read the evidence/ })).toHaveCount(0);
 });

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseProgram } from "../program/parse";
 import { buildSession, type ItemView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
-import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings } from "./plans";
+import { buildEmomPlan, buildIntervalPlan, buildRestPlan, defaultIntervalSettings, defaultRestSeconds } from "./plans";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
@@ -126,5 +126,27 @@ describe("interval plans", () => {
     if (session.kind !== "training") throw new Error("expected training");
     const other = session.blocks.flatMap((block) => block.items).find((candidate) => candidate.format !== "interval");
     expect(() => defaultIntervalSettings(other as ItemView)).toThrow();
+  });
+});
+
+describe("rest plans", () => {
+  it("defaults to the low end of a range, or the single value", () => {
+    expect(defaultRestSeconds({ min: 30, max: 45 })).toBe(30);
+    expect(defaultRestSeconds({ min: 45, max: 45 })).toBe(45);
+  });
+
+  it("builds one rest segment titled with the exercise", () => {
+    const plan = buildRestPlan(30, "Med ball slams");
+
+    expect(plan.title).toBe("Rest · Med ball slams");
+    expect(plan.segments).toEqual([
+      { phase: "rest", durationSec: 30, round: 1, totalRounds: 1, label: "Next set when it ends" },
+    ]);
+  });
+
+  it("rejects rests under 5 seconds", () => {
+    expect(() => buildRestPlan(4, "Dips")).toThrow();
+    expect(() => buildRestPlan(Number.NaN, "Dips")).toThrow();
+    expect(buildRestPlan(5, "Dips").segments[0]?.durationSec).toBe(5);
   });
 });

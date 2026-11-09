@@ -369,6 +369,13 @@ body {
   text-transform: uppercase;
 }
 
+/* Row under a superset block's title holding its between-pairs rest button. */
+.block-rest {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
 .item-row {
   display: flex;
   align-items: center;

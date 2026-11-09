@@ -185,7 +185,8 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     phaseWord.textContent = segment.phase === "work" ? "WORK" : segment.phase === "rest" ? "REST" : "";
     phaseWord.hidden = isMinuteStyle;
     ring.hidden = !isMinuteStyle;
-    roundCounter.hidden = isMinuteStyle;
+    // A single-segment plan (a plain rest) has no rounds worth counting.
+    roundCounter.hidden = isMinuteStyle || view.totalRounds === 1;
 
     ringNumber.replaceChildren(String(view.round), element("span", "timer-ring-total", `/${view.totalRounds}`));
     roundCounter.textContent = `Round ${view.round} of ${view.totalRounds}`;

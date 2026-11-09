@@ -7,7 +7,9 @@ tested maxes, shows exercise details (cues, alternative, evidence,
 progression) and has a settings screen. EMOM rows have a "Start EMOM" button
 that opens a full-screen timer with a beep and vibration each minute and a
 3-2-1 countdown (an iPhone's silent switch mutes the beeps, and iOS Safari has
-no vibration). Set logging and the interval/rest timers are planned but not
+no vibration). The heavy bag row has a "Start timer" interval timer and rows
+with a prescribed rest (and superset blocks) have a "Rest 30s" button, all with
+adjustable numbers before Start. Set logging is planned but not
 built yet (see [PLAN.md](PLAN.md)). It is a static site
 (Vite + TypeScript, no UI framework).
 

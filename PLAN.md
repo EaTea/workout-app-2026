@@ -168,7 +168,7 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
    digits, round counter, start/pause/skip, thumb-reachable controls.
 2. [x] EMOM timer (beep + vibrate each minute, round N of M).
 3. [x] Interval timer for the heavy bag (work/rest rounds).
-4. [ ] Rest timer launched from a set, using `restSec`.
+4. [x] Rest timer launched from a set, using `restSec`.
 5. [ ] Screen Wake Lock while a session or timer is active, and refresh
    Today after midnight (PR 1 follow-up).
    Unit tests for the timer state machine with a fake clock; E2E test that

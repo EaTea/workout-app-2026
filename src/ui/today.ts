@@ -1,8 +1,8 @@
-import type { Program } from "../program/model";
+import type { Program, Range } from "../program/model";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
-import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
+import { buildEmomPlan, buildIntervalPlan, buildRestPlan, defaultIntervalSettings, defaultRestSeconds, INTERVAL_LIMITS, REST_LIMITS } from "../timer/plans";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
 import { openTimer } from "./timerView";
@@ -178,6 +178,13 @@ function renderBlockCard(block: BlockView, position: number): HTMLElement {
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
+  // Supersets rest between pairs, so the rest button belongs to the block rather than to one row.
+  if (block.restSecBetweenPairs) {
+    const restRow = element("div", "block-rest");
+    restRow.append(renderStartRestButton(block.restSecBetweenPairs, "Between pairs", "Start rest timer between pairs"));
+    card.append(restRow);
+  }
+
   for (const item of block.items) {
     card.append(renderItemRow(item));
   }
@@ -232,6 +239,11 @@ function renderItemRow(item: ItemView): HTMLElement {
   // EMOM items get their own Start button, a sibling so the row button keeps opening the details sheet.
   if (item.format === "emom" && item.minutes !== undefined) {
     row.append(renderStartEmomButton(item));
+  }
+
+  // Straight-set items with a prescribed rest get a rest button, tapped after each set.
+  if (item.format !== "interval" && item.restSec) {
+    row.append(renderStartRestButton(item.restSec, item.exercise.name, `Start rest timer for ${item.exercise.name}`));
   }
 
   // Heavy bag intervals likewise.
@@ -291,6 +303,38 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
         ],
         rebuildPlan: (values) =>
           buildIntervalPlan(item, { rounds: values.rounds ?? defaults.rounds, workSec: values.workSec ?? defaults.workSec, restSec: values.restSec ?? defaults.restSec }),
+      },
+    });
+  });
+  return button;
+}
+
+/**
+ * "Rest 30s" button: opens a one-segment rest timer (timer/plans.ts) that
+ * starts at the low end of `range` and can be raised before Start. Used by
+ * item rows (`restSec`) and by superset blocks (`restSecBetweenPairs`). With
+ * no set logging yet, this button is how a rest begins; it can be tapped
+ * again after every set. The timer's finish cue tells Ed to begin the next set.
+ */
+function renderStartRestButton(range: Range, restName: string, accessibleName: string): HTMLButtonElement {
+  const defaultSeconds = defaultRestSeconds(range);
+  const button = element("button", "item-start", `Rest ${defaultSeconds}s`);
+  button.type = "button";
+  button.setAttribute("aria-label", accessibleName);
+
+  button.addEventListener("click", () => {
+    const cues = createCuePlayer();
+    const { minSeconds, maxSeconds, secondsStep } = REST_LIMITS;
+
+    openTimer(buildRestPlan(defaultSeconds, restName), {
+      onStart: () => cues.prime(),
+      onEvent: (event) => cues.handleEvent(event),
+      onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      setup: {
+        fields: [
+          { id: "seconds", label: "rest", value: defaultSeconds, min: minSeconds, max: maxSeconds, step: secondsStep, format: (value) => `Rest ${value}s` },
+        ],
+        rebuildPlan: (values) => buildRestPlan(values.seconds ?? defaultSeconds, restName),
       },
     });
   });

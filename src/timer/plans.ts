@@ -1,3 +1,4 @@
+import type { Range } from "../program/model";
 import type { ItemView } from "../program/schedule";
 import { formatRepTarget } from "../ui/format";
 import { createTimerPlan, type TimerPlan, type TimerSegment } from "./engine";
@@ -115,4 +116,46 @@ export function buildIntervalPlan(item: ItemView, settings: IntervalSettings): T
 /** "Heavy bag finisher" -> "Heavy bag": the title drops the word "finisher". */
 function shortExerciseName(name: string): string {
   return name.replace(/ finisher$/i, "");
+}
+
+// ---------------------------------------------------------------------------
+// Rest between sets
+// ---------------------------------------------------------------------------
+
+/** Sensible limits for the rest timer's seconds stepper; `buildRestPlan` enforces the minimum. */
+export const REST_LIMITS = {
+  minSeconds: 5,
+  maxSeconds: 300,
+  secondsStep: 5,
+} as const;
+
+/**
+ * The starting rest for a prescribed range (PLAN section 4, rule 4): the low
+ * end, so it can be lengthened if more is needed. A fixed rest (min equals max)
+ * gives that number. Called when Today opens a rest timer.
+ */
+export function defaultRestSeconds(range: Range): number {
+  return range.min;
+}
+
+/**
+ * Builds the plan for a rest between sets: one "rest" segment, titled e.g.
+ * "Rest · Med ball slams". Its finish cue (see timer/cues.ts) is the signal
+ * to start the next set. `exerciseName` may also be a phrase such as
+ * "Between pairs" for a superset block. Called first with the default and
+ * again each time Ed changes the seconds stepper. Throws below 5 seconds.
+ */
+export function buildRestPlan(seconds: number, exerciseName: string): TimerPlan {
+  if (!Number.isFinite(seconds) || seconds < REST_LIMITS.minSeconds) {
+    throw new Error(`Rest must be at least ${REST_LIMITS.minSeconds} seconds`);
+  }
+
+  const segment: TimerSegment = {
+    phase: "rest",
+    durationSec: seconds,
+    round: 1,
+    totalRounds: 1,
+    label: "Next set when it ends",
+  };
+  return createTimerPlan(`Rest · ${exerciseName}`, [segment]);
 }

@@ -154,3 +154,44 @@ test("a deload week heavy bag timer defaults to 2 rounds", async ({ page }) => {
 
   await expect(page.getByRole("dialog", { name: "Heavy bag · 2 rounds" })).toBeVisible();
 });
+
+test("a rest timer from a set: default 30s, raise to 35s, finish cue and buzz", async ({ page }) => {
+  await openToday(page);
+
+  const restButton = page.getByRole("button", { name: "Start rest timer for Med ball slams" });
+  await expect(restButton).toHaveText("Rest 30s");
+  await restButton.click();
+
+  // The dialog's name follows the plan title, so find the overlay by class.
+  const overlay = page.locator(".timer-view");
+  await expect(page.getByRole("dialog", { name: "Rest · Med ball slams" })).toBeVisible();
+  await expect(overlay.locator(".timer-digits")).toHaveText("0:30");
+  await expect(overlay.locator(".timer-stepper-value")).toHaveText("Rest 30s");
+
+  await overlay.getByRole("button", { name: "Increase rest" }).click();
+  await expect(overlay.locator(".timer-digits")).toHaveText("0:35");
+  await expect(overlay.locator(".timer-stepper-value")).toHaveText("Rest 35s");
+
+  await overlay.getByRole("button", { name: "Start" }).click();
+  await expect(overlay.locator(".timer-phase")).toHaveText("REST");
+  await expect(overlay.getByText("Next set when it ends")).toBeVisible();
+
+  await page.clock.runFor(36_000);
+  await expect(overlay.getByRole("button", { name: "Done" })).toBeVisible();
+  expect(await vibrations(page)).toContainEqual([300, 100, 300]);
+
+  await overlay.getByRole("button", { name: "Done" }).click();
+  await expect(overlay).toBeHidden();
+  await expect(restButton).toBeFocused();
+});
+
+test("the superset block has a between-pairs rest button defaulting to 45s", async ({ page }) => {
+  await openToday(page);
+
+  const betweenPairs = page.getByRole("button", { name: "Start rest timer between pairs" });
+  await expect(betweenPairs).toHaveText("Rest 45s");
+  await betweenPairs.click();
+
+  await expect(page.getByRole("dialog", { name: "Rest · Between pairs" })).toBeVisible();
+  await expect(page.locator(".timer-view .timer-digits")).toHaveText("0:45");
+});
