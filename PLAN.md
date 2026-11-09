@@ -1,6 +1,7 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **draft, awaiting Ed's approval.** No code exists yet.
+Status: **in review.** Stack, milestones and assumptions agreed; awaiting
+mockup feedback and merge. No app code exists yet.
 
 ## 1. What I understand the request to be
 
@@ -66,8 +67,8 @@ internal types.
 
 ## 4. Rules I'll implement, and the assumptions behind them
 
-These are my readings of the brief and `program.json`. Please correct any
-that are wrong.
+These are my readings of the brief and `program.json`, agreed with Ed as
+the starting point. Revisit them if the app shows they're wrong.
 
 1. **Current week and day.** Week 1 starts on the Monday of the week that
    contains Ed's start date. The day is the calendar weekday. Sunday, and any
@@ -165,12 +166,11 @@ Start date Mon 2 Nov 2026, max pull-ups 12, max dips 15.
 
 ## 7. Open questions
 
-1. **Assumptions in section 4**, especially deload rounding (round up) and
-   the EMOM reset after week 4.
-2. **Mockup feedback.** Anything in the screens below to change before PR 1.
+1. **Mockup feedback.** Anything in the screens below to change before PR 1.
 
 Resolved:
 
+- **Assumptions in section 4:** agreed as a starting point.
 - **Mockup fidelity:** "mockup" means static images, not a clickable app.
   They're in `docs/mockups/` (section 8).
 - **Previewing on your phone:** GitHub Pages. PR 1 adds a workflow that
