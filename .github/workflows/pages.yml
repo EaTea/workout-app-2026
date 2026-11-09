@@ -7,15 +7,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: the Pages permissions are granted only to the deploy job.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# One deployment at a time; don't cancel one that is mid-flight.
+# CI runs are grouped per ref: a newer push to a pull request cancels the
+# superseded run, while runs on main are never cancelled. Deployments are
+# serialised separately by the `concurrency` block on the deploy job.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -44,6 +45,7 @@ jobs:
   #                                      \-> on failure: upload report + traces
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -67,7 +69,9 @@ jobs:
       - if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
       - run: npm run test:e2e -- --trace retain-on-failure
-      - if: failure()
+      # failure() alone is false for a cancelled run (e.g. one stopped by the
+      # job timeout), so cancelled() is included to still upload the report.
+      - if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
@@ -80,6 +84,14 @@ jobs:
     needs: [build, e2e]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # One deployment at a time; don't cancel one that is mid-flight.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

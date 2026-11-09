@@ -223,10 +223,10 @@ installs the pinned Playwright's Chromium (cached by Playwright version) and
 runs `npm run test:e2e -- --trace retain-on-failure` with no retries. The
 `deploy` job needs both `build` and `e2e`, so a failing E2E run blocks
 publishing. When `e2e` fails, open the run's summary page, download the
-`playwright-report` artifact (kept 7 days), unzip it and run
-`npx playwright show-report <unzipped folder>` to see the HTML report; failed
-tests' traces are in its `test-results/` folder and open with
-`npx playwright show-trace <trace.zip>`.
+`playwright-report` artifact (kept 7 days) and unzip it. It contains two
+folders, `playwright-report/` and `test-results/`. Run
+`npx playwright show-report <unzipped folder>/playwright-report` to see the
+HTML report; the traces of failed tests open from that report.
 
 One-time repository setup: **Settings -> Pages -> Source: GitHub Actions**.
 
