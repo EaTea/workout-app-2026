@@ -12,8 +12,17 @@ vibration). The heavy bag row has a "Start timer" interval timer and rows
 with a prescribed rest (and superset blocks) have a "Rest 30s" button, all with
 adjustable numbers before Start. The screen stays awake while a timer is open
 (needs a browser with the Screen Wake Lock API, e.g. iOS Safari 16.4+), and
-Today shows an "It's a new day" banner (with a button to switch) if left open past midnight. Set logging is planned but not
-built yet (see [PLAN.md](PLAN.md)). It is a static site
+Today shows an "It's a new day" banner (with a button to switch) if left open past midnight.
+
+Tapping an exercise on Today opens its log screen: tick sets off one at a time
+with reps and kg steppers (pre-filled from the previous set or the plan), an
+optional note, Skip, and "Log all as planned" (handy after an EMOM). Logging a
+set that has a prescribed rest starts the rest timer. Logged sets can be
+tapped to edit or delete, and Today rows show progress such as "2/6". The log
+is kept in this browser's local storage (nothing is sent anywhere); the
+exercise details sheet is behind the ⓘ button on the log screen. "Last time"
+hints, a History screen and keeping the screen awake during a session are still
+to come (see [PLAN.md](PLAN.md)). It is a static site
 (Vite + TypeScript, no UI framework).
 
 ## Install

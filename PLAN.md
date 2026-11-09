@@ -223,7 +223,7 @@ Rule 8 in section 4.
    functions to add, edit and delete a set and to read a day's sets. A
    corrupt log is kept aside (not overwritten) and the app starts empty
    with a warning. No UI yet.
-2. [ ] Log screen (mockup 2): open it from an item row; set list with
+2. [x] Log screen (mockup 2): open it from an item row; set list with
    ticks, reps and kg steppers pre-filled per rule 8, optional note, "Log
    set" (starts the rest timer when the item has one) and Skip. Today rows
    show progress such as "2/6".

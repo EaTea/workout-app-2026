@@ -3,18 +3,21 @@ import { toDayNumber, todayLocalDate } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
 import { saveSettings } from "../settings/storage";
 import { element } from "./dom";
-import { navigateTo, routeFromHash, type Route } from "./router";
+import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
+import { saveLog, type LoadLogResult } from "../log/storage";
+import type { WorkoutLog } from "../log/model";
+import { LOG_SAVE_FAILED_MESSAGE, renderLogScreen } from "./logScreen";
 import { renderNewDayBanner } from "./newDayBanner";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
-import { renderWarningBanner } from "./warningBanner";
+import { focusMainHeading, renderWarningBanner } from "./warningBanner";
 
 /**
- * App shell: owns the in-memory settings, picks the screen for the current
- * hash route, and draws the bottom navigation bar.
+ * App shell: owns the in-memory settings and workout log, picks the screen
+ * for the current hash route, and draws the bottom navigation bar.
  *
  *   main.ts ──startApp──▶ render() ◀── hashchange
- *                           ├─ <main> Today | Settings screen
+ *                           ├─ <main> Today | Log screen | Settings screen
  *                           └─ <nav>  Today | History (disabled) | Settings
  *
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
@@ -87,6 +90,16 @@ export function shouldShowNewDayBanner(
 /** Inline message on the welcome card when "Start today" cannot be saved. */
 export const START_TODAY_SAVE_FAILED_MESSAGE = "Couldn't save on this device, so the start date won't be remembered.";
 
+/**
+ * Writes the log to `storage`, returning null on success or a message for the
+ * log screen to show inline (the change stays in memory either way). Used by
+ * `handleLogChanged` in `startApp`.
+ */
+export function persistLog(newLog: WorkoutLog, storage: Storage = localStorage): string | null {
+  const result = saveLog(storage, newLog);
+  return result.ok ? null : `${LOG_SAVE_FAILED_MESSAGE} (${result.error})`;
+}
+
 /** Inline message shown when settings cannot be written to this device. */
 export const SAVE_FAILED_MESSAGE = "Couldn't save on this device";
 
@@ -115,9 +128,12 @@ export function startApp(
   program: Program,
   initialSettings: TrainingSettings,
   warnings: ProgramWarning[] = [],
+  loadedLog: LoadLogResult = { log: { sessions: {} } },
 ): void {
   let settings = initialSettings;
+  let log = loadedLog.log;
   let warningsDismissed = false;
+  let logWarningDismissed = false;
   /** Set when "Start today" could not be saved; shown on the welcome card. */
   let startTodayFailureMessage: string | undefined;
   /** The date Today was last drawn for; compared against the clock by `refreshTodayAfterMidnight`. */
@@ -127,6 +143,22 @@ export function startApp(
   function handleDismissWarnings(): void {
     warningsDismissed = true;
     render();
+  }
+
+  /** Dismiss handler for the "log could not be read" banner. */
+  function handleDismissLogWarning(): void {
+    logWarningDismissed = true;
+    render();
+  }
+
+  /**
+   * Called by the log screen after every change: keeps the new log as the
+   * app's copy (Today reads it for "2/6") and saves it. Returns a message if
+   * saving failed; the in-memory change is kept regardless.
+   */
+  function handleLogChanged(newLog: WorkoutLog): string | null {
+    log = newLog;
+    return persistLog(newLog);
   }
 
   /**
@@ -194,12 +226,20 @@ export function startApp(
       if (route === "today" && warnings.length > 0 && !warningsDismissed) {
         main.append(renderWarningBanner(warnings, handleDismissWarnings));
       }
-      main.append(
-        route === "settings"
-          ? renderSettingsScreen(program, settings, todayLocalDate(), handleSave)
-          : renderTodayScreen(program, settings, resolveToday(window.location.search), handleStartToday, startTodayFailureMessage),
-      );
-      root.replaceChildren(main, renderNavigationBar(route));
+      if (route !== "settings" && loadedLog.warning !== undefined && !logWarningDismissed) {
+        main.append(renderLogWarningBanner(loadedLog.warning, handleDismissLogWarning));
+      }
+      const date = resolveToday(window.location.search);
+      const logTarget = parseLogRoute(window.location.hash);
+      if (route === "settings") {
+        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave));
+      } else if (route === "log" && logTarget !== undefined) {
+        main.append(renderLogScreen(program, settings, date, logTarget.blockPosition, logTarget.exerciseId, log, handleLogChanged));
+      } else {
+        main.append(renderTodayScreen(program, settings, date, handleStartToday, startTodayFailureMessage, log));
+      }
+      // The log screen belongs to Today, so Today stays highlighted in the nav.
+      root.replaceChildren(main, renderNavigationBar(route === "log" ? "today" : route));
     } catch (error) {
       // A throwing render (e.g. a program gap hit on one date) must not leave
       // a blank screen: show the same readable card as a startup failure.
@@ -213,6 +253,24 @@ export function startApp(
     if (document.visibilityState === "visible") refreshTodayAfterMidnight();
   });
   render();
+}
+
+/** Dismissible amber banner shown when the saved workout log could not be read (it was set aside, see log/storage.ts). */
+function renderLogWarningBanner(warningText: string, onDismiss: () => void): HTMLElement {
+  const banner = element("div", "card warning-banner");
+  banner.setAttribute("role", "status");
+
+  const dismissButton = element("button", "warning-dismiss", "Dismiss");
+  dismissButton.type = "button";
+  dismissButton.addEventListener("click", () => {
+    onDismiss();
+    focusMainHeading();
+  });
+
+  const header = element("div", "warning-banner-header");
+  header.append(element("p", "warning-banner-text", warningText), dismissButton);
+  banner.append(header);
+  return banner;
 }
 
 /** Bottom nav: Today, History (disabled placeholder) and Settings. */
