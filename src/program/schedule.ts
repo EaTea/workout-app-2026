@@ -1,5 +1,6 @@
 import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps } from "./model";
-import { programStatus } from "./calendar";
+import { DAYS_PER_WEEK } from "./model";
+import { addDaysToDate, programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
 
 /**
@@ -43,10 +44,14 @@ export type RepTarget =
  *    it is the increase of the previous week, held rather than dropped.
  *  - heldForDeload: true when this is a deload week and `weeklyIncrease`
  *    is last week's figure carried over (the UI says so).
- *  - usesRetestedMax: true in a retest week (week 8): the target is
- *    floor(max x pct) from the current saved max, with no increase and no
- *    hold. Set only on EMOM items (those with a weeklyIncrease), not mini-doses.
- *    The UI says it is the current max and prompts the athlete to update it.
+ *  - usesRetestedMax: true in a retest week (week 8) once the athlete has
+ *    saved a max for this exercise during that week: the target is
+ *    floor(max x pct) from the retested max, with no increase and no hold.
+ *    Set only on EMOM items (those with a weeklyIncrease), not mini-doses.
+ *  - awaitingRetest: true in a retest week while no max has been saved for
+ *    this exercise during the week. The previous week's increase is held
+ *    (`heldForDeload` is also true) and the UI asks the athlete to save a
+ *    retested max.
  */
 export interface MaxBasis {
   percentMin: number;
@@ -55,6 +60,32 @@ export interface MaxBasis {
   weeklyIncrease: number;
   heldForDeload: boolean;
   usesRetestedMax: boolean;
+  awaitingRetest: boolean;
+}
+
+/**
+ * What a week's items need to know to resolve their targets; computed once
+ * per session in `buildSession`.
+ *  - offset: weekly increases to add (see `weeklyIncreaseOffsetForWeek`)
+ *  - retestHeldOffset: in a retest week, the previous week's offset, which
+ *    EMOMs hold until a retested max is saved (0 outside retest weeks)
+ *  - weekStartDate: first calendar day of the program week; a max saved on
+ *    or after it counts as retested
+ */
+interface WeekContext {
+  isDeload: boolean;
+  isRetest: boolean;
+  offset: number;
+  retestHeldOffset: number;
+  weekStartDate: string;
+}
+
+/** The increase handling chosen for one item; carried into `resolveReps`. */
+interface IncreaseChoice {
+  increase: number;
+  heldForDeload: boolean;
+  usesRetestedMax: boolean;
+  awaitingRetest: boolean;
 }
 
 /** One set of an item, with its computed rep target. */
@@ -147,7 +178,14 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     return { kind: "rest", week, dayNumber, phase: phase.phase };
   }
 
-  const weeklyIncreaseOffset = weeklyIncreaseOffsetForWeek(program, week);
+  const weekContext: WeekContext = {
+    isDeload,
+    isRetest,
+    offset: weeklyIncreaseOffsetForWeek(program, week),
+    retestHeldOffset: isRetest && week > 1 ? weeklyIncreaseOffsetForWeek(program, week - 1) : 0,
+    // settings.startDate is non-null here: programStatus was "active".
+    weekStartDate: addDaysToDate(settings.startDate as string, (week - 1) * DAYS_PER_WEEK),
+  };
 
   return {
     kind: "training",
@@ -157,7 +195,7 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     isDeload,
     focus: day.focus,
     targetMinutes: day.targetMinutes,
-    blocks: day.blocks.map((block) => buildBlock(block, settings, isDeload, isRetest, weeklyIncreaseOffset)),
+    blocks: day.blocks.map((block) => buildBlock(block, settings, weekContext)),
   };
 }
 
@@ -173,8 +211,9 @@ function phaseForWeek(program: Program, week: number): ProgressionPhase {
 /**
  * How many weekly increases have accumulated by `week`.
  *  - normal week: the week's 0-based position within its phase
- *  - retest week: 0. No increase and no hold, so EMOM targets are
- *    floor(max x pct) from the current (retested) max (W8).
+ *  - retest week: 0. This is the offset for a retested max: floor(max x pct)
+ *    with no increase and no hold (W8). Until a max is saved in the week,
+ *    EMOMs instead hold the previous week's offset (see `chooseIncrease`).
  *  - plain deload week: the previous week's EFFECTIVE offset, so the EMOM
  *    reps are held rather than dropped (W4 holds W3's). If the previous
  *    week is itself a plain deload, its held offset is used in turn, so
@@ -211,8 +250,8 @@ function isDeloadPhase(phase: ProgressionPhase): boolean {
 // ---------------------------------------------------------------------------
 
 /** Builds one block; warm-ups are never halved in a deload. */
-function buildBlock(block: Block, settings: TrainingSettings, isDeload: boolean, isRetest: boolean, offset: number): BlockView {
-  const halve = isDeload && block.type !== "warmup";
+function buildBlock(block: Block, settings: TrainingSettings, week: WeekContext): BlockView {
+  const halve = week.isDeload && block.type !== "warmup";
 
   return {
     type: block.type,
@@ -220,7 +259,7 @@ function buildBlock(block: Block, settings: TrainingSettings, isDeload: boolean,
     rounds: block.rounds && (halve ? halveRange(block.rounds) : block.rounds),
     minutes: block.minutes === undefined ? undefined : halve ? halveRoundingUp(block.minutes) : block.minutes,
     restSecBetweenPairs: block.restSecBetweenPairs,
-    items: block.items.map((item) => buildItem(item, settings, halve, offset, isDeload, isRetest)),
+    items: block.items.map((item) => buildItem(item, settings, halve, week)),
   };
 }
 
@@ -229,17 +268,8 @@ function buildBlock(block: Block, settings: TrainingSettings, isDeload: boolean,
  * against the athlete's maxes, and applies the weekly increase to items that
  * declare one.
  */
-function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, offset: number, isDeload: boolean, isRetest: boolean): ItemView {
-  // Only items with a `weeklyIncrease` (the EMOMs) grow week to week. The
-  // field is descriptive text and is not parsed: its presence means "+1 rep
-  // per week", and `offset` is the number of weekly increases accumulated
-  // (in a deload, last week's: the reps are held, not reset; in a retest
-  // week, 0).
-  const increase = item.weeklyIncrease === undefined ? 0 : offset;
-
-  // Only EMOM items (those with a weeklyIncrease) are re-based on a retested
-  // max in a retest week; mini-doses just use the saved max like any other week.
-  const usesRetestedMax = isRetest && item.weeklyIncrease !== undefined;
+function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, week: WeekContext): ItemView {
+  const choice = chooseIncrease(item, settings, week);
 
   const keptSets = halve ? item.sets.slice(0, Math.ceil(item.sets.length / 2)) : item.sets;
 
@@ -247,10 +277,10 @@ function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, 
     exercise: item.exercise,
     format: item.format,
     sets: keptSets.map((set) => ({
-      target: set.reps && resolveReps(set.reps, item.exerciseId, settings, increase, isDeload, usesRetestedMax),
+      target: set.reps && resolveReps(set.reps, item.exerciseId, settings, choice),
       load: set.load,
     })),
-    target: item.reps && resolveReps(item.reps, item.exerciseId, settings, increase, isDeload, usesRetestedMax),
+    target: item.reps && resolveReps(item.reps, item.exerciseId, settings, choice),
     restSec: item.restSec,
     minutes: item.minutes === undefined ? undefined : halve ? halveRoundingUp(item.minutes) : item.minutes,
     // Deload intervals use the low end of the range, halved (4-5 -> 2).
@@ -264,6 +294,38 @@ function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, 
     tempo: item.tempo,
     weeklyIncrease: item.weeklyIncrease,
   };
+}
+
+/**
+ * Decides how an item's weekly increase is applied this week.
+ *
+ * Only items with a `weeklyIncrease` (the EMOMs) grow week to week. The field
+ * is descriptive text and is not parsed: its presence means "+1 rep per
+ * week", and `week.offset` is the number of weekly increases accumulated (in
+ * a plain deload, last week's: held, not reset).
+ *
+ *   not an EMOM            -> no increase (mini-doses just use the saved max)
+ *   retest week, EMOM:
+ *     max saved this week  -> offset 0, from the retested max
+ *     no max saved yet     -> hold last week's offset, awaiting a retest
+ *   other weeks            -> week.offset (held in a plain deload)
+ */
+function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekContext): IncreaseChoice {
+  if (item.weeklyIncrease === undefined) {
+    return { increase: 0, heldForDeload: false, usesRetestedMax: false, awaitingRetest: false };
+  }
+
+  if (week.isRetest) {
+    const savedOn = settings.maxSavedOn[item.exerciseId];
+    // ISO dates compare correctly as strings.
+    const retested = savedOn !== undefined && savedOn >= week.weekStartDate;
+
+    return retested
+      ? { increase: week.offset, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false }
+      : { increase: week.retestHeldOffset, heldForDeload: true, usesRetestedMax: false, awaitingRetest: true };
+  }
+
+  return { increase: week.offset, heldForDeload: week.isDeload && week.offset > 0, usesRetestedMax: false, awaitingRetest: false };
 }
 
 /** Halves a count, rounding up (5 -> 3, 2 -> 1). */
@@ -280,9 +342,11 @@ function halveRange(range: Range): Range {
  * Converts program reps into a displayable target. Percent-of-max becomes
  * floor(max x pct), at least 1; the weekly `increase` is added after that.
  * Percent-of-max targets also carry a `basis` so the UI can explain them;
- * `isRetest` marks the basis as a retest-week EMOM target (current max, no increase).
+ * `choice` says how the weekly increase applies (see `chooseIncrease`).
  */
-function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings, increase: number, isDeload: boolean, isRetest: boolean): RepTarget {
+function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings, choice: IncreaseChoice): RepTarget {
+  const { increase } = choice;
+
   switch (reps.kind) {
     case "text":
       return { kind: "text", text: reps.text };
@@ -300,7 +364,7 @@ function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings,
       }
       const low = Math.max(1, floorPercentOfMax(max, reps.min));
       const high = Math.max(1, floorPercentOfMax(max, reps.max));
-      const basis: MaxBasis = { percentMin: reps.min, percentMax: reps.max, max, weeklyIncrease: increase, heldForDeload: isDeload && increase > 0, usesRetestedMax: isRetest };
+      const basis: MaxBasis = { percentMin: reps.min, percentMax: reps.max, max, weeklyIncrease: increase, heldForDeload: choice.heldForDeload, usesRetestedMax: choice.usesRetestedMax, awaitingRetest: choice.awaitingRetest };
       return rangeTarget(low + increase, high + increase, basis);
     }
   }

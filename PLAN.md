@@ -146,7 +146,7 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
    doc are updated to match.
 5. [x] Week 8 (`"retest": true`) EMOMs use the current max with no hold.
    Only EMOMs follow the retest rule; mini-doses keep their usual numbers.
-6. [ ] Week 8 EMOMs hold week 7's reps until a new max is saved during
+6. [x] Week 8 EMOMs hold week 7's reps until a new max is saved during
    week 8. Settings records the date each max was saved (settings format
    v2; v1 data still loads, with no dates, so it counts as not retested).
 - **Merge point:** the rules work as agreed, with tests. Steps 4–5 get

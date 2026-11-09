@@ -199,18 +199,24 @@ function firstBasis(item: ItemView): MaxBasis | undefined {
   return undefined;
 }
 
-/**
- * True when the item's target is a retest-week figure based on the current
- * saved max, so Today can offer an "Update max" link to Settings.
- */
+/** True when the item's target is a retest-week figure based on a max saved this week. */
 export function usesRetestedMax(item: ItemView): boolean {
   return firstBasis(item)?.usesRetestedMax === true;
 }
 
 /**
+ * True when the item is a retest-week EMOM still holding last week's reps
+ * because no new max was saved this week, so Today can offer an "Update max"
+ * link to Settings.
+ */
+export function isAwaitingRetest(item: ItemView): boolean {
+  return firstBasis(item)?.awaitingRetest === true;
+}
+
+/**
  * Explains a percent-of-max target: "40% of max 12 · +1 this week",
- * "40% of max 12 · +2, held for deload", "40% of current max 12 ·
- * retest week: update your max in Settings", "40–50% of max 15". The increase
+ * "40% of max 12 · +2, held for deload", "40% of max 12 · +2 held until you
+ * save a retested max", "40% of your retested max 15", "40–50% of max 15". The increase
  * part is left out when nothing was added (week 1 of a phase).
  */
 export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined {
@@ -223,10 +229,11 @@ export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined 
       : `${toPercent(basis.percentMin)}${EN_DASH}${toPercent(basis.percentMax)}%`;
 
   const parts = [`${percent} of max ${basis.max}`];
-  if (basis.usesRetestedMax) {
-    // The max is whatever is currently saved; nothing prompts a retest yet, so tell Ed to update it.
-    parts[0] = `${percent} of your current max ${basis.max}`;
-    parts.push("retest week: update your max in Settings");
+  if (basis.awaitingRetest) {
+    // Retest week with no max saved yet: last week's reps are held.
+    parts.push(basis.weeklyIncrease > 0 ? `+${basis.weeklyIncrease} held until you save a retested max` : "held until you save a retested max");
+  } else if (basis.usesRetestedMax) {
+    parts[0] = `${percent} of your retested max ${basis.max}`;
   } else if (basis.weeklyIncrease > 0) {
     parts.push(basis.heldForDeload ? `+${basis.weeklyIncrease}, held for deload` : `+${basis.weeklyIncrease} this week`);
   }

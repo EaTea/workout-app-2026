@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { programStatus, toDayNumber, todayLocalDate } from "./calendar";
+import { addDaysToDate, programStatus, toDayNumber, todayLocalDate } from "./calendar";
 
 describe("toDayNumber", () => {
   it("counts whole days across a daylight-saving change", () => {
@@ -44,5 +44,14 @@ describe("todayLocalDate", () => {
     // Local-time constructor: month index 10 = November.
     expect(todayLocalDate(new Date(2026, 10, 9, 23, 59))).toBe("2026-11-09");
     expect(todayLocalDate(new Date(2026, 0, 5, 0, 1))).toBe("2026-01-05");
+  });
+});
+
+describe("addDaysToDate", () => {
+  it("moves forward and back across month and year ends", () => {
+    expect(addDaysToDate("2026-11-02", 49)).toBe("2026-12-21");
+    expect(addDaysToDate("2026-12-21", -49)).toBe("2026-11-02");
+    expect(addDaysToDate("2026-12-30", 3)).toBe("2027-01-02");
+    expect(addDaysToDate("2026-11-02", 0)).toBe("2026-11-02");
   });
 });

@@ -57,7 +57,8 @@ list straight away when it spots a likely typo.
 `days[].day` and `restDay` are whole numbers from 1 to 7: Day 1 is the session
 on your start date, and Day 7 is the rest day in the shipped program (not
 weekday names). A progression phase can set `"retest": true`; EMOMs in that
-week use the current max with no weekly increase.
+week hold the previous week's reps until you save a new max for that exercise
+in Settings during the week; then they use that max with no weekly increase.
 
 ## Deployment (GitHub Pages)
 

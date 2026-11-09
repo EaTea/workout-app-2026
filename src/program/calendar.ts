@@ -53,6 +53,19 @@ export function toDayNumber(calendarDate: string): number {
 }
 
 /**
+ * Returns the calendar date `days` after `calendarDate` (negative = before),
+ * as "YYYY-MM-DD". Whole-day UTC maths, so DST cannot shift the result.
+ * Used by the schedule to find the first day of a program week.
+ */
+export function addDaysToDate(calendarDate: string, days: number): string {
+  const shifted = new Date((toDayNumber(calendarDate) + days) * MILLISECONDS_PER_DAY);
+  const year = String(shifted.getUTCFullYear()).padStart(4, "0");
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Works out where `today` sits in the program: before it starts, in a given
  * week (1-based) and day of that week (1-7), or after the last week.
  *

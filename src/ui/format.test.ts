@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatSessionKicker, formatSetBreakdown, formatShortDate, usesRetestedMax,
+  formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest, usesRetestedMax,
 } from "./format";
 
 /** Builds an ItemView with sensible defaults; tests override what they care about. */
@@ -99,10 +99,20 @@ describe("formatItemDetails", () => {
     expect(formatItemDetails(item({ format: "emom", minutes: 5, target: deload }))).toEqual(["40% of max 12 · +2, held for deload"]);
   });
 
-  it("says a retest-week target uses the current max and tells Ed to update it", () => {
-    const retest = { kind: "fixed", count: 4, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true } } as RepTarget;
-    expect(formatItemDetails(item({ format: "emom", minutes: 5, target: retest }))).toEqual(["40% of your current max 12 · retest week: update your max in Settings"]);
-    expect(usesRetestedMax(item({ format: "emom", minutes: 5, target: retest }))).toBe(true);
+  it("says a retest-week target is held until a retested max is saved, and offers the update link", () => {
+    const awaiting = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 2, heldForDeload: true, usesRetestedMax: false, awaitingRetest: true } } as RepTarget;
+    const awaitingItem = item({ format: "emom", minutes: 5, target: awaiting });
+    expect(formatItemDetails(awaitingItem)).toEqual(["40% of max 12 · +2 held until you save a retested max"]);
+    expect(isAwaitingRetest(awaitingItem)).toBe(true);
+    expect(usesRetestedMax(awaitingItem)).toBe(false);
+  });
+
+  it("says a retest-week target uses the retested max, with no update link", () => {
+    const retest = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 15, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false } } as RepTarget;
+    const retestItem = item({ format: "emom", minutes: 5, target: retest });
+    expect(formatItemDetails(retestItem)).toEqual(["40% of your retested max 15"]);
+    expect(usesRetestedMax(retestItem)).toBe(true);
+    expect(isAwaitingRetest(retestItem)).toBe(false);
   });
 
   it("builds a one-line prescription summary", () => {

@@ -3,7 +3,7 @@ import { buildSession, type BlockView, type ItemView, type SessionView } from ".
 import type { TrainingSettings } from "../settings/model";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
-import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatShortDate, usesRetestedMax } from "./format";
+import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatShortDate, isAwaitingRetest } from "./format";
 
 /**
  * The Today screen. Rendered by app.ts for `#/today`.
@@ -216,9 +216,9 @@ function renderItemRow(item: ItemView): HTMLElement {
     openButton.append(doseBox);
   }
 
-  // Retest week: nothing prompts a retest yet, so offer a direct route to the
-  // max setting. A sibling link (not inside the button), like "Set max" above.
-  if (usesRetestedMax(item)) {
+  // Retest week, no max saved yet: offer a direct route to the max setting.
+  // A sibling link (not inside the button), like "Set max" above.
+  if (isAwaitingRetest(item)) {
     const updateLink = element("a", "item-dose item-dose-link", "Update max");
     updateLink.href = "#/settings";
     row.append(updateLink);
