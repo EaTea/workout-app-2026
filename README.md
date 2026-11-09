@@ -110,8 +110,11 @@ weekday names). A progression phase can set `"retest": true`; EMOMs in that
 week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
 too); then they use that max with no weekly increase. The held reps use the
-max that was in effect on the last week 7 day with that EMOM (settings keep a
-dated history of saved maxes), so a max raised later in week 7 doesn't change them.
+max that was in effect on the last week 7 day with that EMOM (every saved max is kept as a
+dated history in its own `localStorage` key, `explosive-endurance.max-history`,
+separate from `explosive-endurance.settings` so an older copy of the app can't
+wipe it; clearing a max keeps its history), so a max raised later in week 7
+doesn't change them.
 
 A progression phase can also set `"timerAdjustments"`, whole seconds (negative
 allowed, either key optional): `"intervalWorkSec"` is added to every interval

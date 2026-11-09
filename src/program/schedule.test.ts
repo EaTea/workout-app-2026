@@ -6,11 +6,28 @@ import type { BlockView, ItemView, SessionView } from "./schedule";
 import { buildSession } from "./schedule";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
-const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
+
+/**
+ * Gives every exercise that has a max but no history the one-entry history a
+ * real load would give it (loadSettings reconciles settings with the history,
+ * so settings with a max and no history entry never reach the schedule).
+ * Histories a test spells out are kept as they are.
+ */
+function withMatchingHistory(raw: TrainingSettings): TrainingSettings {
+  const maxHistory = { ...raw.maxHistory };
+  for (const [exerciseId, reps] of Object.entries(raw.maxReps)) {
+    maxHistory[exerciseId] ??= [{ savedOn: raw.maxSavedOn[exerciseId] ?? null, reps }];
+  }
+  return { ...raw, maxHistory };
+}
+
+const settings: TrainingSettings = withMatchingHistory({ startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} });
 
 /** Builds a session and asserts it is a training day, so tests can read its fields. */
 function trainingOn(date: string, overrides: Partial<TrainingSettings> = {}) {
-  const session: SessionView = buildSession(program, { ...settings, ...overrides }, date);
+  // An override that changes a max or its date must not keep the base history for that exercise.
+  const merged: TrainingSettings = { ...settings, ...overrides, maxHistory: overrides.maxHistory ?? {} };
+  const session: SessionView = buildSession(program, withMatchingHistory(merged), date);
   if (session.kind !== "training") throw new Error(`expected training on ${date}, got ${session.kind}`);
   return session;
 }
@@ -199,13 +216,13 @@ describe("further schedule rules", () => {
 
   it("does not turn an old save into a retest when the start date moves later (21 Dec is now before week 8)", () => {
     // Start 9 Nov: week 8 is 28 Dec - 3 Jan. A max saved on 21 Dec (week 7 now) is not a retest.
-    const moved = { startDate: "2026-11-09", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} };
+    const moved = withMatchingHistory({ startDate: "2026-11-09", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} });
     expect(item(trainingOn("2026-12-28", moved).blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
   });
 
   it("does not turn an old save into a retest when the start date moves earlier (21 Dec is now after week 8)", () => {
     // Start 26 Oct: week 8 is 14-20 Dec. A max saved on 21 Dec (after the program) is not a retest.
-    const moved = { startDate: "2026-10-26", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} };
+    const moved = withMatchingHistory({ startDate: "2026-10-26", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} });
     expect(item(trainingOn("2026-12-14", moved).blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
   });
 
@@ -299,7 +316,7 @@ describe("edge cases", () => {
   });
 
   it("reports notStarted before a mid-week start date, then week 2 seven days after the start", () => {
-    const midWeek = { startDate: "2026-11-04", maxReps: settings.maxReps, maxSavedOn: {}, maxHistory: {} };
+    const midWeek = withMatchingHistory({ startDate: "2026-11-04", maxReps: settings.maxReps, maxSavedOn: {}, maxHistory: {} });
     expect(buildSession(program, midWeek, "2026-11-02")).toEqual({ kind: "notStarted", startsOn: "2026-11-04" });
     expect(buildSession(program, midWeek, "2026-11-11")).toMatchObject({ kind: "training", week: 2 });
   });
@@ -369,7 +386,7 @@ describe("percent-of-max rounding survives floating point", () => {
         return json;
       })(),
     ).program;
-    const session = buildSession(custom, { startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 }, maxSavedOn: {}, maxHistory: {} }, "2026-11-02");
+    const session = buildSession(custom, withMatchingHistory({ startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 }, maxSavedOn: {}, maxHistory: {} }), "2026-11-02");
     if (session.kind !== "training") throw new Error("expected training");
     expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: expected });
   });

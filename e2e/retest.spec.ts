@@ -142,8 +142,15 @@ test("saving a max keeps a start date changed by another copy of the app", async
 
   const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem("explosive-endurance.settings") ?? "null"));
   expect(stored).toEqual({
-    version: 3,
+    version: 2,
     startDate: "2026-09-14",
+    maxReps: { pull_up: 12, dip: 20 },
+    maxSavedOn: { pull_up: "2026-11-02", dip: "2026-11-02" },
+  });
+
+  const history = await page.evaluate(() => JSON.parse(window.localStorage.getItem("explosive-endurance.max-history") ?? "null"));
+  expect(history).toEqual({
+    version: 1,
     maxHistory: {
       // The seeded pull-up max had no date, so it stays as the "unknown, earliest" entry.
       pull_up: [{ savedOn: null, reps: 12 }, { savedOn: "2026-11-02", reps: 12 }],
@@ -284,4 +291,32 @@ test("a preview shows the jump-only card with Skip jump disabled", async ({ page
   const card = page.locator(".retest-card");
   await expect(card.getByRole("button", { name: "Skip jump" })).toBeDisabled();
   await expect(card.getByRole("button", { name: "Not today" })).toHaveCount(0);
+});
+
+test("week 8 holds the reps week 7 showed when the pull-up max was raised late in week 7 (12, then 14 on 18 Dec -> 6 / min)", async ({ page }) => {
+  // Start 2 Nov: 14 Dec is W7 D1 (max 12 then), 18 Dec is W7 D5 (max raised to 14), 21 Dec is W8 D1.
+  await page.addInitScript(() => {
+    if (window.localStorage.getItem("explosive-endurance.settings") === null) {
+      window.localStorage.setItem(
+        "explosive-endurance.settings",
+        JSON.stringify({ version: 2, startDate: "2026-11-02", maxReps: { pull_up: 14, dip: 15 }, maxSavedOn: { pull_up: "2026-12-18", dip: "2026-11-02" } }),
+      );
+      window.localStorage.setItem(
+        "explosive-endurance.max-history",
+        JSON.stringify({
+          version: 1,
+          maxHistory: {
+            pull_up: [{ savedOn: "2026-11-02", reps: 12 }, { savedOn: "2026-12-18", reps: 14 }],
+            dip: [{ savedOn: "2026-11-02", reps: 15 }],
+          },
+        }),
+      );
+    }
+  });
+  await page.clock.setFixedTime(new Date("2026-12-21T09:00:00"));
+
+  // W7 D1 (14 Dec) showed floor(12 x 0.40) + 2 = 6 reps/min with the max of that day (12), so W8 D1 holds 6, not 7.
+  await page.goto("/?date=2026-12-21");
+  await expect(pullUpRow(page).locator(".item-dose-main")).toHaveText("6 / min");
+  await expect(page.locator(".retest-card")).toBeVisible();
 });

@@ -100,7 +100,7 @@ describe("updateMaxHistory", () => {
     });
   });
 
-  it("drops the history of a cleared max", () => {
-    expect(updateMaxHistory(previous, {}, new Set(["pull_up"]), "2026-12-18")).toEqual({});
+  it("keeps the history of a cleared max", () => {
+    expect(updateMaxHistory(previous, {}, new Set(["pull_up"]), "2026-12-18")).toEqual(previous.maxHistory);
   });
 });

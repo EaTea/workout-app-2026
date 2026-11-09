@@ -479,7 +479,7 @@ changed start date or a late max doesn't quietly give wrong numbers.
    pull-up EMOM was on 14 Dec (W7 D1) with max 12, so W8 D1 holds
    floor(12 × 0.40) + 2 = 6, not floor(14 × 0.40) + 2 = 7. A save inside
    week 8 is the retest and replaces the hold, as now.
-4. [ ] **Fixes from the challenger review.** Settings back to v2 with the
+4. [x] **Fixes from the challenger review.** Settings back to v2 with the
    history in its own key (above, pending Ed's confirmation); the stored
    `programWeek` of every check is re-derived on each save (and dropped
    outside the program) so older versions and the export see current

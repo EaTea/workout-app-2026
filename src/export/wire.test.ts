@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportToWire, serializeExport, type ExportBundle } from "./wire";
+import { exportToWire, serializeExport, type ExportBundle, type ExportWireV1 } from "./wire";
 
 const bundle: ExportBundle = {
   exportedAt: new Date("2026-11-09T08:00:00.000Z"),
@@ -22,7 +22,7 @@ describe("exportToWire", () => {
       format: "explosive-endurance-export",
       version: 1,
       exportedAt: "2026-11-09T08:00:00.000Z",
-      settings: { version: 3, startDate: "2026-11-02", maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] } },
+      settings: { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" } },
       log: {
         version: 1,
         sessions: [
@@ -34,6 +34,13 @@ describe("exportToWire", () => {
       },
       fatigueChecks: { version: 1, checks: [{ date: "2026-11-09", programWeek: 2, maxPullUps: 10, savedAt: "2026-11-09T07:30:00.000Z" }] },
     });
+  });
+
+  it("types the settings field as every settings version the reader accepts, and writes v2", () => {
+    // Compile-time check: older exports (v1 settings) must fit the same field type.
+    const olderFile: ExportWireV1["settings"] = { version: 1, startDate: null, maxReps: {} };
+    expect(olderFile.version).toBe(1);
+    expect(exportToWire(bundle).settings.version).toBe(2);
   });
 
   it("includes corrupt-log backups, mapped to their own wire shape, only when there are any", () => {

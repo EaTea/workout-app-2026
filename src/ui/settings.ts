@@ -67,7 +67,8 @@ export function stampMaxSavedDates(
  * rules: a max the user EDITED is recorded as an entry dated `today` (replacing
  * an entry already dated `today`); an untouched max keeps its history (or, if
  * it had none, gets one entry carrying its previous date, or "unknown" when
- * there was none); a cleared max loses its history. Called by the Save handler
+ * there was none); a cleared max KEEPS its history (the history is a record of
+ * what was saved, and week 8's held reps may still need it). Called by the Save handler
  * and `applyRetestMax`, so every way of saving a max keeps the history current.
  */
 export function updateMaxHistory(
@@ -76,7 +77,8 @@ export function updateMaxHistory(
   editedExerciseIds: ReadonlySet<string>,
   today: string,
 ): Record<string, MaxHistoryEntry[]> {
-  const maxHistory: Record<string, MaxHistoryEntry[]> = {};
+  // Start from everything already recorded, so a cleared max keeps its history.
+  const maxHistory: Record<string, MaxHistoryEntry[]> = { ...previous.maxHistory };
 
   for (const [exerciseId, reps] of Object.entries(newMaxReps)) {
     const previousEntries = previous.maxHistory[exerciseId] ?? [];
