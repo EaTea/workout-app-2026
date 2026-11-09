@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review, stacked on PR 3.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in progress, stacked on PR 4.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -324,10 +324,40 @@ Follow-ups from the PR 4 review (later):
   changed or restarted start date doesn't misfile old checks.
 - Week 8 records max pull-ups through the retest but no broad jump.
 
-### Later (nice-to-haves, not planned in detail yet)
-- Warm-up rotation reminder every 4 weeks.
-- History chart per strength exercise.
-- Export log as CSV or JSON.
+### PR 5 — Nice-to-haves: progress charts, export, warm-up rotation *(behavior change)*
+Stacked on PR 4. Ed asked for PR 5 and PR 6 after PR 4; these are the
+brief's remaining nice-to-haves.
+1. [ ] **Warm-up rotation** (`warmupRotation`). The rotation alternates
+   every `everyWeeks` weeks: weeks 1–4 use the warm-ups as written,
+   weeks 5–8 use the swaps. In a swapped block, a warm-up row whose
+   exercise is a swap's `out` shows the `in` name instead, with a small
+   "rotated in for <original>" line (the `in` names aren't in the
+   exercise library, so they have no details sheet; logging still files
+   them under the original exercise id). On the first training day of a
+   rotation (week 5), Today shows a dismissible card listing the swaps and
+   `alsoAvailable`.
+2. [ ] **Export** from Settings: "Export log as CSV" (one row per logged
+   set: date, week, day, block, exercise id, exercise name, set, reps,
+   kg, note; RFC 4180 quoting) and "Export as JSON" (an export wire type
+   holding the log, fatigue checks and settings, with its own version and
+   explicit mapping, never the internal types). Files are named
+   `explosive-endurance-YYYY-MM-DD.csv/.json` and downloaded, or shared
+   through the phone's share sheet where downloading isn't supported.
+   Import is out of scope.
+3. [ ] **Progress chart per strength exercise** in the History tab: pick
+   an exercise that has been logged in a main-strength, mini-dose or
+   explosive block; a simple line chart over the 8 program weeks of the
+   best set each session (most reps, and heaviest load when loads were
+   logged, as a second chart), with the deload weeks shaded, labelled
+   axes, and the numbers also listed in a table for screen readers. Drawn
+   as inline SVG, no chart library.
+   Unit tests for the rotation, CSV quoting and export mapping, and the
+   chart's data series; E2E for each feature.
+- **Merge point:** every nice-to-have in the brief is in.
+
+### Later (not planned in detail yet)
+- PR 6 (planned when PR 5 is up): Ed's weeks 5–7 timer defaults and the
+  PR 2 timer follow-ups.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
