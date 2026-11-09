@@ -15,7 +15,8 @@ test("first run prompts for a start date; settings save, drive Today and persist
 
   // Preview Monday of week 2 via the ?date= override.
   await page.goto("/?date=2026-11-09");
-  await expect(page.getByText("Week 2 · Mon")).toBeVisible();
+  await expect(page.getByText("Week 2 of 8")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
 
   await page.goto("/#/settings");
   await expect(page.getByLabel("Start date")).toHaveValue("2026-11-02");

@@ -1,11 +1,11 @@
 import type { Program } from "../program/model";
 import { toDayNumber, todayLocalDate } from "../program/calendar";
-import { buildSession, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { saveSettings } from "../settings/storage";
 import { element } from "./dom";
 import { navigateTo, routeFromHash, type Route } from "./router";
 import { renderSettingsScreen } from "./settings";
+import { renderTodayScreen } from "./today";
 
 /**
  * App shell: owns the in-memory settings, picks the screen for the current
@@ -40,25 +40,6 @@ export function resolveToday(search: string, now: Date = new Date()): string {
 }
 
 /**
- * One-line description of a session for the interim Today card (step 5
- * replaces this with the real screen), e.g. "Week 2 · Mon · Base".
- */
-export function describeSession(session: SessionView): string {
-  switch (session.kind) {
-    case "training":
-      return `Week ${session.week} · ${session.weekday} · ${session.phase}`;
-    case "rest":
-      return `Week ${session.week} · Rest day · ${session.phase}`;
-    case "notStarted":
-      return `Program starts on ${session.startsOn}`;
-    case "complete":
-      return "Program complete";
-    case "noStartDate":
-      return "No start date set";
-  }
-}
-
-/**
  * Shows the app inside `root`. Re-renders on every hash change; settings
  * edits go through `saveSettings`, update the in-memory copy and return to Today.
  */
@@ -78,36 +59,13 @@ export function startApp(root: HTMLElement, program: Program, initialSettings: T
     main.append(
       route === "settings"
         ? renderSettingsScreen(program, settings, handleSave)
-        : renderTodayScreen(program, settings),
+        : renderTodayScreen(program, settings, resolveToday(window.location.search)),
     );
     root.replaceChildren(main, renderNavigationBar(route));
   }
 
   window.addEventListener("hashchange", render);
   render();
-}
-
-/** Interim Today screen: a first-run prompt, or the session kind and week. */
-function renderTodayScreen(program: Program, settings: TrainingSettings): HTMLElement {
-  const screen = element("section", "screen");
-  screen.append(element("h1", "screen-title", "Today"));
-
-  const card = element("div", "card");
-  if (settings.startDate === null) {
-    card.append(
-      element("h2", "card-title", "Welcome"),
-      element("p", undefined, "Set your program start date to see today's session."),
-    );
-    const link = element("a", "primary-button", "Go to Settings");
-    link.href = "#/settings";
-    card.append(link);
-  } else {
-    const today = resolveToday(window.location.search);
-    card.append(element("p", "session-summary", describeSession(buildSession(program, settings, today))));
-  }
-
-  screen.append(card);
-  return screen;
 }
 
 /** Bottom nav: Today, History (disabled placeholder) and Settings. */

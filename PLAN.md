@@ -116,7 +116,7 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 3. [x] Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
    weekly increase. Unit tests built from worked examples (below).
 4. [x] Settings screen: start date, max pull-ups, max dips (stored locally).
-5. [ ] Today screen: header (week N of 8, phase, day focus), blocks in session
+5. [x] Today screen: header (week N of 8, phase, day focus), blocks in session
    order as cards, tap an exercise to open cues/alternative/evidence. Phase
    changes from `progression` shown in a collapsible strip. Rest-day card.
    E2E test: set a start date and maxes, see the right session.
