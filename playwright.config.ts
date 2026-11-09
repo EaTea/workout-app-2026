@@ -2,8 +2,20 @@ import { defineConfig, devices } from "@playwright/test";
 
 // End-to-end tests run against the production build served by `vite preview`,
 // emulating an iPhone 13 since this is a mobile-first app.
+//
+// On CI (the `CI` env var is set by GitHub Actions) the config is stricter:
+// a stray `test.only` fails the run, nothing is retried (so flaky tests show
+// up instead of being hidden), and an HTML report is written to
+// playwright-report/ for the workflow to upload when a run fails.
+const isCI = Boolean(process.env.CI);
+
 export default defineConfig({
   testDir: "./e2e",
+  forbidOnly: isCI,
+  retries: 0,
+  reporter: isCI
+    ? [["github"], ["html", { open: "never" }]]
+    : "list",
   use: {
     ...devices["iPhone 13"],
     // The iPhone profile defaults to WebKit; use Chromium (the only browser

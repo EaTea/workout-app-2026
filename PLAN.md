@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in review as #11, stacked on the plan PR #10. PR 8 in review, stacked on PR 7; PR 9 in progress.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in review as #11, stacked on the plan PR #10. PR 8 in review as #12, stacked on PR 7. PR 9 in review, stacked on PR 8.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -529,6 +529,10 @@ Unit tests for the parser and mapping; E2E for export → clear → import.
 CI runs only the unit tests and the build. The workflow gains a job that
 installs the pinned Playwright's Chromium and runs `npm run test:e2e`
 (traces only on failure, uploaded as an artifact). No app changes.
+1. [x] `e2e` job (browser cached per Playwright version), CI-only
+   Playwright settings (forbid `.only`, GitHub reporter), and deploy now
+   needs both `build` and `e2e`, so a main commit that fails E2E is never
+   published.
 - **Merge point:** every PR into main is checked end to end.
 
 ## 6. Worked examples (used as unit-test fixtures)

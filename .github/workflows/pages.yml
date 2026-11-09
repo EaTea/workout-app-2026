@@ -28,8 +28,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      # Playwright E2E tests are intentionally not run here yet: CI does not
-      # install a browser. Run `npm run test:e2e` locally.
       - run: npm run build
       # Only main builds are deployed; pull requests stop after the checks above.
       - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -37,8 +35,49 @@ jobs:
         with:
           path: dist
 
+  # End-to-end tests (Playwright, Chromium on an iPhone 13 profile). Runs in
+  # parallel with `build`; Playwright's webServer builds and serves the app
+  # itself. The deploy job needs this job too, so a main commit that fails
+  # E2E is never published.
+  #
+  #   checkout -> npm ci -> (cached) browser install -> test:e2e
+  #                                      \-> on failure: upload report + traces
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Read the exact installed @playwright/test version so the browser cache
+      # is invalidated whenever Playwright (and thus its Chromium) is bumped.
+      - id: playwright-version
+        run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      # On a cache hit the browser is already there, so only the OS libraries
+      # Chromium needs are installed; on a miss, the browser is downloaded too.
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npm run test:e2e -- --trace retain-on-failure
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   deploy:
-    needs: build
+    needs: [build, e2e]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
