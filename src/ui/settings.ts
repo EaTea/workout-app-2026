@@ -87,7 +87,7 @@ export function renderSettingsScreen(
   startDateInput.value = current.startDate ?? "";
   const startDateError = element("p", "field-error");
   form.append(
-    buildField("Start date", startDateInput, startDateError, "Week 1 begins on the Monday of the week containing this date."),
+    buildField("Start date", startDateInput, startDateError, "Day 1 of the program. Week 1 runs for 7 days from here."),
   );
 
   // Tested maxes, driven by the program data

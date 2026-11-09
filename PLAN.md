@@ -140,7 +140,7 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 
 ### PR 1b — Rule changes from the PR 1 review *(behavior change)*
 Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
-1. [ ] Count program days from the start date instead of calendar
+1. [x] Count program days from the start date instead of calendar
    weekdays. Add a "Start today" button to the first-run card; show
    "Day N" instead of a weekday name.
 2. [ ] Deload weeks keep the previous week's EMOM reps.

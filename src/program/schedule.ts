@@ -7,7 +7,7 @@ import type { TrainingSettings } from "../settings/model";
  * for one calendar date. Pure functions only: no UI, no storage.
  *
  *   Program + TrainingSettings + "YYYY-MM-DD"
- *        │  calendar.programStatus  -> week / weekday / not started / complete
+ *        │  calendar.programStatus  -> week / day number / not started / complete
  *        │  phase lookup            -> Base, Deload, ...
  *        ▼
  *   SessionView  (rest day, or blocks of items with final numbers)
@@ -100,11 +100,14 @@ export type SessionView =
   | { kind: "noStartDate" }
   | { kind: "notStarted"; startsOn: string }
   | { kind: "complete" }
-  | { kind: "rest"; week: number; phase: string }
+  | { kind: "rest"; week: number; dayNumber: number; programDay: Weekday; phase: string }
   | {
       kind: "training";
       week: number;
-      weekday: Weekday;
+      /** Day of the program week, 1-7, counted from the start date. */
+      dayNumber: number;
+      /** The program.json day key this slot runs ("Mon" = day 1 ... "Sun" = day 7). */
+      programDay: Weekday;
       phase: string;
       isDeload: boolean;
       focus: string;
@@ -127,13 +130,13 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     return status;
   }
 
-  const { week, weekday } = status;
+  const { week, dayNumber, programDay } = status;
   const phase = phaseForWeek(program, week);
   const isDeload = isDeloadPhase(phase);
-  const day = program.days[weekday];
+  const day = program.days[programDay];
 
   if (!day) {
-    return { kind: "rest", week, phase: phase.phase };
+    return { kind: "rest", week, dayNumber, programDay, phase: phase.phase };
   }
 
   const weeklyIncreaseOffset = isDeload ? 0 : phase.weeks.indexOf(week);
@@ -141,7 +144,8 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
   return {
     kind: "training",
     week,
-    weekday,
+    dayNumber,
+    programDay,
     phase: phase.phase,
     isDeload,
     focus: day.focus,

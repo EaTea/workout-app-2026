@@ -16,7 +16,7 @@ test("week 2 Monday shows header, six blocks in order and computed doses", async
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await expect(page.getByText("Mon 9 Nov · Week 2 of 8")).toBeVisible();
+  await expect(page.getByText("Mon 9 Nov · Week 2 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
   await expect(page.getByText("~50 min · 6 blocks")).toBeVisible();
 
@@ -47,7 +47,7 @@ test("deload week shows the note and halved doses", async ({ page }) => {
   await page.goto("/?date=2026-11-23");
 
   await expect(page.getByText("Deload week: sets halved")).toBeVisible();
-  await expect(page.getByText("Week 4 of 8")).toBeVisible();
+  await expect(page.getByText("Week 4 · Day 1")).toBeVisible();
   await expect(row(page, "Med ball slams").locator(".item-dose-main")).toHaveText("3 × 6");
   await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("4 / min");
   await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("5 min");
@@ -63,6 +63,7 @@ test("the rest day shows a rest card", async ({ page }) => {
   await page.goto("/?date=2026-11-08");
 
   await expect(page.getByRole("heading", { name: "Rest day" })).toBeVisible();
+  await expect(page.getByText("Sun 8 Nov · Week 1 · Day 7")).toBeVisible();
   await expect(page.locator(".block-card")).toHaveCount(0);
 });
 
@@ -73,6 +74,29 @@ test("before the start date and after the program show friendly cards", async ({
 
   await page.goto("/?date=2027-03-01");
   await expect(page.getByRole("heading", { name: "Program complete" })).toBeVisible();
+});
+
+test("a Wednesday start date makes Wed day 1 and Tue the rest day", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "explosive-endurance.settings",
+      JSON.stringify({ version: 1, startDate: "2026-11-04", maxReps: {} }),
+    );
+  });
+
+  await page.goto("/?date=2026-11-03");
+  await expect(page.getByRole("heading", { name: "Program starts Wed 4 Nov" })).toBeVisible();
+
+  await page.goto("/?date=2026-11-04");
+  await expect(page.getByText("Wed 4 Nov · Week 1 · Day 1")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+
+  await page.goto("/?date=2026-11-10");
+  await expect(page.getByRole("heading", { name: "Rest day" })).toBeVisible();
+  await expect(page.getByText("Tue 10 Nov · Week 1 · Day 7")).toBeVisible();
+
+  await page.goto("/?date=2026-11-11");
+  await expect(page.getByText("Wed 11 Nov · Week 2 · Day 1")).toBeVisible();
 });
 
 test("tapping an exercise opens the details sheet; Escape closes it", async ({ page }) => {

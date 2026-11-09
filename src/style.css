@@ -469,3 +469,11 @@ body {
   color: var(--accent-text);
   font-size: 16px;
 }
+
+/* Quiet secondary link under a primary button (e.g. "Or set a different date in Settings"). */
+.text-link {
+  display: block;
+  margin-top: 14px;
+  text-align: center;
+  color: var(--accent);
+}

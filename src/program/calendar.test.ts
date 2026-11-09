@@ -1,14 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { programStatus, toDayNumber, todayLocalDate, weekdayOf } from "./calendar";
-
-describe("weekdayOf", () => {
-  it("returns the calendar weekday", () => {
-    expect(weekdayOf("2026-11-02")).toBe("Mon");
-    expect(weekdayOf("2026-11-04")).toBe("Wed");
-    expect(weekdayOf("2026-11-08")).toBe("Sun");
-    expect(weekdayOf("1970-01-01")).toBe("Thu");
-  });
-});
+import { programStatus, toDayNumber, todayLocalDate } from "./calendar";
 
 describe("toDayNumber", () => {
   it("counts whole days across a daylight-saving change", () => {
@@ -26,21 +17,25 @@ describe("programStatus", () => {
     expect(programStatus(null, 8, "2026-11-02")).toEqual({ kind: "noStartDate" });
   });
 
-  it("starts week 1 on the Monday of the start date's week", () => {
-    expect(programStatus("2026-11-02", 8, "2026-11-02")).toEqual({ kind: "active", week: 1, weekday: "Mon" });
-    expect(programStatus("2026-11-02", 8, "2026-11-08")).toEqual({ kind: "active", week: 1, weekday: "Sun" });
-    expect(programStatus("2026-11-02", 8, "2026-11-09")).toEqual({ kind: "active", week: 2, weekday: "Mon" });
+  it("counts days from the start date (Mon 2 Nov start lines day numbers up with weekdays)", () => {
+    expect(programStatus("2026-11-02", 8, "2026-11-02")).toEqual({ kind: "active", week: 1, dayNumber: 1, programDay: "Mon" });
+    expect(programStatus("2026-11-02", 8, "2026-11-08")).toEqual({ kind: "active", week: 1, dayNumber: 7, programDay: "Sun" });
+    expect(programStatus("2026-11-02", 8, "2026-11-09")).toEqual({ kind: "active", week: 2, dayNumber: 1, programDay: "Mon" });
   });
 
-  it("treats a mid-week start as week 1 of that week but not started before the start date", () => {
-    expect(programStatus("2026-11-04", 8, "2026-11-02")).toEqual({ kind: "notStarted", startsOn: "2026-11-04" });
-    expect(programStatus("2026-11-04", 8, "2026-11-04")).toEqual({ kind: "active", week: 1, weekday: "Wed" });
-    expect(programStatus("2026-11-04", 8, "2026-11-09")).toEqual({ kind: "active", week: 2, weekday: "Mon" });
+  it("makes a mid-week start date day 1 of week 1 (Wed 4 Nov start)", () => {
+    expect(programStatus("2026-11-04", 8, "2026-11-03")).toEqual({ kind: "notStarted", startsOn: "2026-11-04" });
+    expect(programStatus("2026-11-04", 8, "2026-11-04")).toEqual({ kind: "active", week: 1, dayNumber: 1, programDay: "Mon" });
+    expect(programStatus("2026-11-04", 8, "2026-11-10")).toEqual({ kind: "active", week: 1, dayNumber: 7, programDay: "Sun" });
+    expect(programStatus("2026-11-04", 8, "2026-11-11")).toEqual({ kind: "active", week: 2, dayNumber: 1, programDay: "Mon" });
   });
 
   it("is complete after the last week", () => {
-    expect(programStatus("2026-11-02", 8, "2026-12-27")).toEqual({ kind: "active", week: 8, weekday: "Sun" });
+    expect(programStatus("2026-11-02", 8, "2026-12-27")).toEqual({ kind: "active", week: 8, dayNumber: 7, programDay: "Sun" });
     expect(programStatus("2026-11-02", 8, "2026-12-28")).toEqual({ kind: "complete" });
+    // The last day of a Wed 4 Nov start is Tue 29 Dec.
+    expect(programStatus("2026-11-04", 8, "2026-12-29")).toEqual({ kind: "active", week: 8, dayNumber: 7, programDay: "Sun" });
+    expect(programStatus("2026-11-04", 8, "2026-12-30")).toEqual({ kind: "complete" });
   });
 });
 

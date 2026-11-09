@@ -4,7 +4,7 @@ test("first run prompts for a start date; settings save, drive Today and persist
   await page.goto("/");
   await expect(page.getByText("Set your program start date")).toBeVisible();
 
-  await page.getByRole("link", { name: "Go to Settings" }).click();
+  await page.getByRole("link", { name: "Or set a different date in Settings" }).click();
   await page.getByLabel("Start date").fill("2026-11-02");
   await page.getByLabel("Max reps: Pull-ups").fill("12");
   await page.getByLabel("Max reps: Dips").fill("15");
@@ -15,13 +15,26 @@ test("first run prompts for a start date; settings save, drive Today and persist
 
   // Preview Monday of week 2 via the ?date= override.
   await page.goto("/?date=2026-11-09");
-  await expect(page.getByText("Week 2 of 8")).toBeVisible();
+  await expect(page.getByText("Week 2 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
 
   await page.goto("/#/settings");
   await expect(page.getByLabel("Start date")).toHaveValue("2026-11-02");
   await expect(page.getByLabel("Max reps: Pull-ups")).toHaveValue("12");
   await expect(page.getByLabel("Max reps: Dips")).toHaveValue("15");
+});
+
+test("Start today on first run saves today as day 1 and survives a reload", async ({ page }) => {
+  // Wed 4 Nov: a mid-week start is day 1 and shows the program's first session.
+  await page.goto("/?date=2026-11-04");
+  await page.getByRole("button", { name: "Start today" }).click();
+
+  await expect(page.getByText("Week 1 · Day 1")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("Week 1 · Day 1")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
 });
 
 test("invalid max reps show an inline error and do not save", async ({ page }) => {

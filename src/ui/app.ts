@@ -81,6 +81,23 @@ export function startApp(root: HTMLElement, program: Program, initialSettings: T
   }
 
   /**
+   * Handler for the first-run "Start today" button: saves `today` (which
+   * honours the `?date=` override) as the start date, keeping any maxes, and
+   * re-renders Today. A storage failure is shown as the usual error card.
+   */
+  function handleStartToday(): void {
+    const today = resolveToday(window.location.search);
+    const failureMessage = persistSettings({ ...settings, startDate: today });
+    if (failureMessage !== null) {
+      showStartupError(root, new Error(failureMessage));
+      return;
+    }
+
+    settings = { ...settings, startDate: today };
+    render();
+  }
+
+  /**
    * Draws the screen for the current hash route plus the nav bar into `root`.
    * Runs once at start and again on every `hashchange` (see `startApp`).
    */
@@ -91,7 +108,7 @@ export function startApp(root: HTMLElement, program: Program, initialSettings: T
       main.append(
         route === "settings"
           ? renderSettingsScreen(program, settings, handleSave)
-          : renderTodayScreen(program, settings, resolveToday(window.location.search)),
+          : renderTodayScreen(program, settings, resolveToday(window.location.search), handleStartToday),
       );
       root.replaceChildren(main, renderNavigationBar(route));
     } catch (error) {

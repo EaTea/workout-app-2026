@@ -34,7 +34,7 @@ function item(blocks: BlockView[], exerciseId: string): ItemView {
 describe("worked examples from PLAN.md section 6", () => {
   it("Mon 2 Nov: W1 Base, pull-up EMOM 9 min x 4, dip mini-dose 2 x 7", () => {
     const session = trainingOn("2026-11-02");
-    expect(session).toMatchObject({ week: 1, weekday: "Mon", phase: "Base", isDeload: false });
+    expect(session).toMatchObject({ week: 1, dayNumber: 1, programDay: "Mon", phase: "Base", isDeload: false });
 
     const pullUps = item(session.blocks, "pull_up");
     expect(pullUps.minutes).toBe(9);
@@ -53,12 +53,31 @@ describe("worked examples from PLAN.md section 6", () => {
 
   it("Wed 4 Nov: dip EMOM 6-7 reps, plyo push-ups 5 x 5", () => {
     const session = trainingOn("2026-11-04");
-    expect(session).toMatchObject({ week: 1, weekday: "Wed" });
+    expect(session).toMatchObject({ week: 1, dayNumber: 3, programDay: "Wed" });
     expect(item(session.blocks, "dip").target).toMatchObject({ kind: "range", min: 6, max: 7 });
 
     const plyo = item(session.blocks, "plyo_push_up");
     expect(plyo.sets).toHaveLength(5);
     expect(plyo.sets.every((set) => set.target?.kind === "fixed" && set.target.count === 5)).toBe(true);
+  });
+
+  it("start Wed 4 Nov: day numbers, not weekdays, pick the session", () => {
+    const startedWednesday: Partial<TrainingSettings> = { startDate: "2026-11-04" };
+
+    // Wed 4 Nov is day 1 and runs the program's first session ("Upper: pull").
+    const dayOne = trainingOn("2026-11-04", startedWednesday);
+    expect(dayOne).toMatchObject({ week: 1, dayNumber: 1, programDay: "Mon", focus: "Upper: pull" });
+
+    // Tue 10 Nov is day 7: rest. Wed 11 Nov begins week 2 at day 1.
+    expect(buildSession(program, { ...settings, ...startedWednesday }, "2026-11-10")).toEqual({
+      kind: "rest", week: 1, dayNumber: 7, programDay: "Sun", phase: "Base",
+    });
+    expect(trainingOn("2026-11-11", startedWednesday)).toMatchObject({ week: 2, dayNumber: 1 });
+
+    // Tue 3 Nov is before the start date.
+    expect(buildSession(program, { ...settings, ...startedWednesday }, "2026-11-03")).toEqual({
+      kind: "notStarted", startsOn: "2026-11-04",
+    });
   });
 
   it("Mon 23 Nov: W4 Deload, slams 3 x 6, pull-up EMOM 5 min x 4, dip 1 x 7, warm-up unchanged", () => {
@@ -80,12 +99,12 @@ describe("worked examples from PLAN.md section 6", () => {
   });
 
   it("Sun 8 Nov: rest day", () => {
-    expect(buildSession(program, settings, "2026-11-08")).toEqual({ kind: "rest", week: 1, phase: "Base" });
+    expect(buildSession(program, settings, "2026-11-08")).toEqual({ kind: "rest", week: 1, dayNumber: 7, programDay: "Sun", phase: "Base" });
   });
 
   it("Sat 26 Dec: W8 Deload + retest, skater bounds 3 x 6 per side", () => {
     const session = trainingOn("2026-12-26");
-    expect(session).toMatchObject({ week: 8, weekday: "Sat", phase: "Deload + retest", isDeload: true });
+    expect(session).toMatchObject({ week: 8, dayNumber: 6, programDay: "Sat", phase: "Deload + retest", isDeload: true });
 
     const bounds = item(session.blocks, "lateral_skater_bound");
     expect(bounds.sets).toHaveLength(3);
@@ -137,10 +156,10 @@ describe("edge cases", () => {
     expect(buildSession(program, { startDate: null, maxReps: {} }, "2026-11-02")).toEqual({ kind: "noStartDate" });
   });
 
-  it("reports notStarted before a mid-week start date, then week 2 the next Monday", () => {
+  it("reports notStarted before a mid-week start date, then week 2 seven days after the start", () => {
     const midWeek = { startDate: "2026-11-04", maxReps: settings.maxReps };
     expect(buildSession(program, midWeek, "2026-11-02")).toEqual({ kind: "notStarted", startsOn: "2026-11-04" });
-    expect(buildSession(program, midWeek, "2026-11-09")).toMatchObject({ kind: "training", week: 2 });
+    expect(buildSession(program, midWeek, "2026-11-11")).toMatchObject({ kind: "training", week: 2 });
   });
 
   it("reports complete after week 8", () => {

@@ -16,8 +16,17 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  * It renders exactly what `buildSession` returns; all numbers are final.
  */
 
-/** Builds the Today screen for `date` ("YYYY-MM-DD"). */
-export function renderTodayScreen(program: Program, settings: TrainingSettings, date: string): HTMLElement {
+/**
+ * Builds the Today screen for `date` ("YYYY-MM-DD"). `onStartToday` is called
+ * when Ed taps "Start today" on the first-run card; app.ts saves `date` as the
+ * start date and re-renders.
+ */
+export function renderTodayScreen(
+  program: Program,
+  settings: TrainingSettings,
+  date: string,
+  onStartToday: () => void = () => undefined,
+): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
 
@@ -26,14 +35,18 @@ export function renderTodayScreen(program: Program, settings: TrainingSettings, 
       screen.append(...renderTrainingDay(program, session, date));
       break;
     default:
-      screen.append(renderMessageCard(session, program, date));
+      screen.append(renderMessageCard(session, date, onStartToday));
   }
 
   return screen;
 }
 
 /** A single card for sessions with nothing to train: first run, not started, rest day, finished. */
-function renderMessageCard(session: Exclude<SessionView, { kind: "training" }>, program: Program, date: string): HTMLElement {
+function renderMessageCard(
+  session: Exclude<SessionView, { kind: "training" }>,
+  date: string,
+  onStartToday: () => void,
+): HTMLElement {
   const card = element("div", "card message-card");
 
   switch (session.kind) {
@@ -41,7 +54,8 @@ function renderMessageCard(session: Exclude<SessionView, { kind: "training" }>, 
       card.append(
         element("h2", "card-title", "Welcome"),
         element("p", undefined, "Set your program start date to see today's session."),
-        settingsButton("Go to Settings"),
+        startTodayButton(onStartToday),
+        settingsLink("Or set a different date in Settings"),
       );
       break;
 
@@ -54,7 +68,7 @@ function renderMessageCard(session: Exclude<SessionView, { kind: "training" }>, 
 
     case "rest":
       card.append(
-        element("div", "kicker", formatSessionKicker(date, session.week, program.lengthWeeks)),
+        element("div", "kicker", formatSessionKicker(date, session.week, session.dayNumber)),
         element("h2", "card-title", "Rest day"),
         element("p", undefined, `Week ${session.week} · ${session.phase}. Recover today; no training is planned.`),
       );
@@ -72,6 +86,21 @@ function renderMessageCard(session: Exclude<SessionView, { kind: "training" }>, 
   return card;
 }
 
+/** Big primary button on the first-run card: begin the program with today as day 1. */
+function startTodayButton(onStartToday: () => void): HTMLButtonElement {
+  const button = element("button", "primary-button", "Start today");
+  button.type = "button";
+  button.addEventListener("click", onStartToday);
+  return button;
+}
+
+/** Plain text link to Settings, used beside "Start today" for picking another date. */
+function settingsLink(label: string): HTMLAnchorElement {
+  const link = element("a", "text-link", label);
+  link.href = "#/settings";
+  return link;
+}
+
 /** Link styled as the big blue button, pointing at Settings. */
 function settingsButton(label: string): HTMLAnchorElement {
   const link = element("a", "primary-button", label);
@@ -87,7 +116,7 @@ function renderTrainingDay(
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
-    element("div", "kicker", formatSessionKicker(date, session.week, program.lengthWeeks)),
+    element("div", "kicker", formatSessionKicker(date, session.week, session.dayNumber)),
     element("h1", "today-title", session.focus),
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
   );
