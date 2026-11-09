@@ -133,19 +133,33 @@ the starting point. Revisit them if the app shows they're wrong.
    prescribes a different target for this set than for the previous one
    (the calf raise's heavy then moderate sets), the previous set is ignored
    and the same plan-then-last-time order applies. Loads are kg only for now.
-   - The log is stored by program date (the same date Today uses, so a
-     `?date=` preview logs to the previewed day) in local storage, with its
-     own wire type and version, separate from settings.
-   - **Last time** for an exercise is the most recent earlier date with
-     at least one logged set of it, shown as "Last time (2 Nov): 6 × 6 at
-     6 kg" (sets × reps when every set matched, else the reps listed, e.g.
-     "6, 6, 5"). Warm-ups don't show it.
-   - Logging a set that has a prescribed rest starts the rest timer (the
-     PR 2 follow-up). A session is "in progress" from its first logged set
-     until midnight or until every set is logged (optional items that were
-     never started don't count); while it is, the screen
-     is kept awake on Today and the log screen (the other PR 2 follow-up).
-   - Logged sets can be edited or deleted. Nothing is sent anywhere.
+   - The log is stored by program date in local storage, with its own
+     wire type and version, separate from settings. Each save re-reads the
+     stored log and applies just that change, so two open copies of the app
+     (a home-screen app and a Safari tab) can't wipe each other's sets.
+     A stored log with some unreadable sets keeps the readable ones, copies
+     the original aside, and says so; it never starts silently empty.
+   - The log screen's address carries its date. A Today screen left open
+     past midnight keeps logging to the session it shows until Ed taps the
+     new-day banner. A `?date=` preview shows a "Previewing" strip and can
+     log to past dates (backfilling) but not to future ones.
+   - **Last time** for an item is the most recent earlier session with the
+     same day number and block type (last week's same slot), else the most
+     recent earlier date with that exercise in the same kind of block. So
+     the easy calf-raise mini-dose never pre-fills the heavy main lift's
+     load, and a pull-up EMOM ignores pull-up mini-doses. Shown as "Last
+     time (2 Nov): 6 × 6 at 6 kg" (sets × reps when every set matched,
+     else the reps listed, e.g. "6, 6, 5"). Warm-ups don't show it.
+   - Logging a set that has a prescribed rest opens and starts the rest
+     timer (the Log tap counts as the tap that unlocks sound).
+   - A session is "in progress" from its first logged set until the date
+     changes, until every set is logged, or after 45 minutes with nothing
+     logged. Optional items never started and warm-ups don't count, and a
+     range of rounds is complete at its low end. While it is, the screen is
+     kept awake on Today and the log screen.
+   - Logged sets can be edited or deleted; deleting asks for a second tap.
+     Load is in kg, in 2.5 kg steps, and the number can also be typed.
+     Nothing is sent anywhere.
 
 ## 5. Milestones and PR merge points
 
@@ -239,6 +253,17 @@ Rule 8 in section 4.
 5. [x] Keep the screen awake while a session is in progress (rule 8).
    Unit tests for the log mapping, set edits and "last time"; E2E test that
    logs sets, reloads, and sees them on Today, the log screen and History.
+6. [ ] Fixes from the challenger review (rule 8 as now written):
+   - Pin the shown session's date, carry it in the log screen's address,
+     and drop the wake lock when the date changes.
+   - Re-read before each save; keep readable sets of a damaged log.
+   - "Last time" by session slot; rest timer starts on Log; session
+     completion and idle timeout; preview strip and no future logging.
+   - Focus after every log and History action; confirm delete; History can
+     add reps to a set logged without them; "Log all" keeps the current
+     set's edits; 2.5 kg steps and typed kg; a stale doc comment; a day
+     number check in the loader; E2E for a damaged log; fix the midnight
+     E2E race (the test could run its clock before the app had started).
 - **Merge point:** the must-haves for a gym session are usable.
 
 ### PR 4 — Retest, fatigue check, offline install *(behavior change)*
