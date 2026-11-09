@@ -87,7 +87,8 @@ export interface TimerViewOptions {
    * The cue player behind onEvents/onSecondTick. When given, the overlay also
    * asks it to schedule tones on the audio clock when the timer starts,
    * resumes or is skipped, and to cancel them on pause, Skip, a stepper
-   * change and close, so beeps stay on time on a throttled page.
+   * change and close, so beeps stay on time on a throttled page. It also
+   * re-queues them when the audio clock and the wall clock disagree.
    */
   cues?: CuePlayer;
   /** Adjustable numbers shown before Start; locked once the timer has started. */
@@ -330,9 +331,20 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     scheduleCues();
   }
 
-  /** Advances the clock; also run when the page becomes visible again so a sleeping phone catches up at once. */
+  /**
+   * Advances the clock; also run when the page becomes visible again and when
+   * the audio context changes state, so a sleeping or interrupted phone
+   * catches up at once. If the audio clock can't be trusted any more (context
+   * stopped, or drifted from the wall clock), the queued tones are cancelled
+   * first, so the catch-up plays the latest cue once through the tick path,
+   * and the rest of the plan is queued again afterwards.
+   */
   function refreshFromClock(): void {
+    const mustReschedule = state.status === "running" && options.cues?.isScheduleStale() === true;
+    if (mustReschedule) options.cues?.cancelScheduled();
+
     applyUpdate(tickTimer(state, Date.now()));
+    if (mustReschedule) scheduleCues();
   }
 
   /** Escape closes; Tab stays inside the overlay. */
@@ -368,6 +380,8 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   const backToClose = closeOnBack(window.history, window, () => close());
 
   const refreshLoopId = window.setInterval(refreshFromClock, REFRESH_INTERVAL_MS);
+  /** iOS suspends or interrupts the audio context on lock or a call; re-check the schedule when that changes. */
+  const stopWatchingAudioState = options.cues?.onAudioStateChange(refreshFromClock);
 
   /** Stops the loop, removes listeners and the overlay, restores the page, returns focus, then tells the caller. */
   function close(): void {
@@ -377,6 +391,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     window.clearInterval(refreshLoopId);
     screenWakeLock.dispose();
     options.cues?.cancelScheduled();
+    stopWatchingAudioState?.();
     document.removeEventListener("keydown", handleKeydown);
     document.removeEventListener("visibilitychange", refreshFromClock);
     window.removeEventListener("hashchange", close);

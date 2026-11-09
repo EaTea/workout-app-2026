@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in progress, stacked on PR 5.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -399,7 +399,7 @@ the PR 2 review.
    Unit tests for the adjustments, the parsing, and the cue scheduling with
    a fake AudioContext; E2E for the week 5 defaults and Back closing each
    timer.
-4. [ ] **Fixes from the challenger review.** Decisions taken:
+4. [x] **Fixes from the challenger review.** Decisions taken:
    - The audio-clock schedule is re-anchored whenever the audio clock and
      the wall clock disagree: when the page becomes visible again, when the
      AudioContext changes state (iOS suspends or interrupts it on lock, an

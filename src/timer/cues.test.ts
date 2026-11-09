@@ -217,7 +217,8 @@ describe("scheduling on the audio clock", () => {
     const quick: TimerSegment = { ...segment, durationSec: 2 };
     const state = startTimer(createTimerState(createTimerPlan("Quick", [quick])), 0).state;
 
-    expect(buildCueTimeline(state).map((entry) => entry.key)).toEqual(["tick:0:2", "tick:0:1", "finish"]);
+    // "2 s left" is shown the moment the timer starts, so the tick path plays that one; only what is still ahead is queued.
+    expect(buildCueTimeline(state).map((entry) => entry.key)).toEqual(["tick:0:1", "finish"]);
   });
 
   it("scheduleFrom queues tones at currentTime plus the time remaining", () => {
@@ -283,8 +284,8 @@ describe("scheduling on the audio clock", () => {
 
     player.scheduleFrom(resumeTimer(paused, 50_000).state);
 
-    // 2s left in the first segment: the 3 tick is in the past, ticks 2 and 1 are due now and at +1s.
-    expect(audio.started.slice(0, 3).map((tone) => [tone.frequencyHz, tone.at])).toEqual([[660, 10], [660, 11], [523, 12]]);
+    // 2s left in the first segment: the 3 and 2 ticks already played, so only the 1 tick (+1s) and the rest beep (+2s) are queued.
+    expect(audio.started.slice(0, 2).map((tone) => [tone.frequencyHz, tone.at])).toEqual([[660, 11], [523, 12]]);
   });
 
   it("scheduling again does not stack tones: the old ones are cancelled first", () => {
@@ -311,5 +312,138 @@ describe("scheduling on the audio clock", () => {
     player.prime();
     expect(() => player.scheduleFrom(runningPlanState())).not.toThrow();
     expect(() => player.cancelScheduled()).not.toThrow();
+  });
+});
+
+describe("pausing on a whole second", () => {
+  it("does not queue the tick that is due right now again after resume", () => {
+    const paused = pauseTimer(runningPlanState(), 7000).state; // exactly 3 s left in the first segment
+
+    const resumed = resumeTimer(paused, 90_000).state;
+
+    // The 3 tick already played at 7 s; 2 and 1 are still ahead.
+    expect(buildCueTimeline(resumed).slice(0, 2).map((entry) => entry.key)).toEqual(["tick:0:2", "tick:0:1"]);
+  });
+});
+
+describe("audio clock and wall clock disagree", () => {
+  /** A player on a fake context whose clock and state the test controls, plus a hand-moved wall clock. */
+  function frozenClockSetup() {
+    const audio = fakeAudio();
+    let wallMs = 0;
+    const player = createCuePlayer({ createAudioContext: () => audio.context, vibrate: () => true, now: () => wallMs });
+    player.prime();
+    return { audio, player, moveWall: (ms: number) => { wallMs += ms; } };
+  }
+
+  it("a frozen audio clock (iOS interruption) makes the schedule stale and the tick path takes over", () => {
+    const { audio, player, moveWall } = frozenClockSetup();
+    const state = runningPlanState();
+    player.scheduleFrom(state);
+    expect(player.isScheduleStale()).toBe(false);
+
+    // The context is interrupted: wall time moves on 45 s, audio time stays at 10.
+    audio.context.state = "interrupted";
+    moveWall(45_000);
+    expect(player.isScheduleStale()).toBe(true);
+
+    // The view cancels, so the cues come back to the tick path, then schedules again once the context runs.
+    player.cancelScheduled();
+    const toneCountBefore = audio.started.length;
+    player.handleSecond(3);
+    expect(audio.started).toHaveLength(toneCountBefore + 1);
+
+    audio.context.state = "running";
+    player.scheduleFrom(state);
+    expect(player.isScheduleStale()).toBe(false);
+  });
+
+  it("a running context whose clock stalls without a state change is detected by drift", () => {
+    const { player, moveWall } = frozenClockSetup();
+    player.scheduleFrom(runningPlanState());
+
+    moveWall(200);
+    expect(player.isScheduleStale()).toBe(false);
+    moveWall(300);
+    expect(player.isScheduleStale()).toBe(true);
+  });
+
+  it("queues nothing and records no keys while the context isn't running, so ticks still play", () => {
+    const audio = fakeAudio("suspended");
+    const player = createCuePlayer({ createAudioContext: () => audio.context, vibrate: () => true });
+    player.prime();
+
+    player.scheduleFrom(runningPlanState());
+    expect(audio.started).toEqual([]);
+    expect(player.isScheduleStale()).toBe(true);
+
+    player.handleSecond(3);
+    expect(audio.started).toHaveLength(1);
+  });
+
+  it("the unscheduled path still plays only the latest cue after a jump", () => {
+    const audio = fakeAudio("suspended");
+    const vibrations: number[][] = [];
+    const player = createCuePlayer({ createAudioContext: () => audio.context, vibrate: (pattern) => (vibrations.push(pattern), true) });
+    player.prime();
+    player.scheduleFrom(runningPlanState());
+
+    player.handleEvents([
+      { kind: "segmentStarted", segment: { ...segment, phase: "work" }, segmentIndex: 2 },
+      { kind: "segmentStarted", segment: { ...segment, phase: "rest" }, segmentIndex: 3 },
+    ]);
+
+    expect(audio.started.map((tone) => tone.frequencyHz)).toEqual([523]);
+    expect(vibrations).toEqual([[80, 60, 80]]);
+  });
+
+  it("is never stale without audio, or after a cancel", () => {
+    const silent = createCuePlayer({ createAudioContext: () => undefined });
+    silent.prime();
+    silent.scheduleFrom(runningPlanState());
+    expect(silent.isScheduleStale()).toBe(false);
+
+    const { audio, player } = frozenClockSetup();
+    player.scheduleFrom(runningPlanState());
+    audio.context.state = "suspended";
+    player.cancelScheduled();
+    expect(player.isScheduleStale()).toBe(false);
+  });
+
+  it("tells listeners when the context changes state, until unsubscribed", () => {
+    const audio = fakeAudio();
+    const listeners: Array<() => void> = [];
+    audio.context.addEventListener = (_type, listener) => { listeners.push(listener); };
+    const player = createCuePlayer({ createAudioContext: () => audio.context });
+    player.prime();
+    let notified = 0;
+    const unsubscribe = player.onAudioStateChange(() => { notified += 1; });
+
+    listeners.forEach((listener) => listener());
+    unsubscribe();
+    listeners.forEach((listener) => listener());
+
+    expect(notified).toBe(1);
+  });
+
+  it("cancelling still disconnects every tone when stop() throws", () => {
+    const audio = fakeAudio();
+    const createFakeOscillator = audio.context.createOscillator.bind(audio.context);
+    audio.context.createOscillator = () => {
+      const oscillator = createFakeOscillator();
+      oscillator.stop = (when: number) => {
+        // Like a real node, the scheduled end is accepted, but stop(0) afterwards throws.
+        if (when === 0) throw new Error("InvalidStateError");
+      };
+      return oscillator;
+    };
+    const player = createCuePlayer({ createAudioContext: () => audio.context });
+    player.prime();
+    player.scheduleFrom(runningPlanState());
+
+    expect(() => player.cancelScheduled()).not.toThrow();
+
+    expect(audio.started.length).toBeGreaterThan(0);
+    expect(audio.started.every((tone) => tone.disconnected)).toBe(true);
   });
 });

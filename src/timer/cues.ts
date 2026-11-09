@@ -34,6 +34,16 @@ import type { TimerEvent, TimerState } from "./engine";
  * "tick:<index>:<second>"). Pause, Skip, a stepper change and close call
  * `cancelScheduled()`, which stops and disconnects every queued tone.
  *
+ * The audio clock can stop while the wall clock keeps going (iOS suspends or
+ * interrupts the context on lock, an app switch or a call). Tones queued
+ * before that would all be late by the length of the gap, so the player
+ * remembers an anchor (audio time, wall time) when it schedules and reports
+ * `isScheduleStale()` when the context is no longer running or the two
+ * clocks disagree by more than `MAX_CLOCK_DRIFT_SEC`. The timer view then
+ * cancels, lets the catch-up play the latest cue through the tick path, and
+ * schedules again. Nothing is recorded as scheduled while the context isn't
+ * running, so the tick path plays the cues in the meantime.
+ *
  * After the page sleeps one update can carry many events; only the cue for
  * the latest one is played (see `cueForEventBatch`) so Ed hears one beep,
  * not a burst.
@@ -55,6 +65,9 @@ export interface Tone {
 
 /** Seconds before a segment ends at which a tick sounds (3, 2, 1). */
 const COUNTDOWN_TICK_SECONDS = [3, 2, 1];
+
+/** How far (seconds) the audio clock may drift from the wall clock before the schedule is rebuilt. */
+const MAX_CLOCK_DRIFT_SEC = 0.25;
 
 /** The beeps for each cue: short high beep, soft tick, long double beep. */
 const TONES: Record<CueName, Tone[]> = {
@@ -89,7 +102,8 @@ export function cueForEvent(event: TimerEvent): CueName {
  * cue for the LAST event, or undefined for an empty batch. After the page was
  * hidden, one update can jump several segments; replaying every start cue
  * would be a noisy burst about things that already happened. Used by
- * `CuePlayer.handleEvents`. (Countdown ticks for jumped-over seconds never
+ * `CuePlayer.handleEvents` (the path taken for cues that are not already
+ * scheduled on the audio clock, e.g. when the audio context isn't running). (Countdown ticks for jumped-over seconds never
  * play either: ticks are only reported for the second currently displayed.)
  */
 export function cueForEventBatch(events: TimerEvent[]): CueName | undefined {
@@ -143,7 +157,10 @@ export function buildCueTimeline(state: TimerState): ScheduledCue[] {
 
     for (const secondsLeft of COUNTDOWN_TICK_SECONDS) {
       const atSec = segmentEndSec - secondsLeft;
-      if (atSec >= segmentStartSec) {
+      // In the current segment a tick due exactly now already played (e.g. paused on a whole
+      // second), so it is excluded; in later segments the start of the segment is still ahead.
+      const isStillAhead = isCurrent ? atSec > segmentStartSec : atSec >= segmentStartSec;
+      if (isStillAhead) {
         cues.push({ atSec, cue: "countdownTick", key: `tick:${index}:${secondsLeft}` });
       }
     }
@@ -165,6 +182,9 @@ export interface AudioContextLike {
   state: string;
   destination: unknown;
   resume(): Promise<void> | void;
+  /** Optional: real contexts fire "statechange" when iOS suspends or interrupts them. */
+  addEventListener?(type: "statechange", listener: () => void): void;
+  removeEventListener?(type: "statechange", listener: () => void): void;
   createOscillator(): {
     frequency: { value: number };
     connect(destination: unknown): void;
@@ -179,15 +199,21 @@ export interface AudioContextLike {
 export interface CuePlayerDependencies {
   createAudioContext?: () => AudioContextLike | undefined;
   vibrate?: (pattern: number[]) => boolean;
+  /** Wall clock in ms; defaults to Date.now. Tests freeze or move it to simulate drift. */
+  now?: () => number;
 }
 
 /** What the timer screen calls. */
 export interface CuePlayer {
   /** Creates the shared audio context if needed and resumes it if suspended/interrupted. Call from every user tap. */
   prime(): void;
-  /** Plays the one cue for the latest of the events from a single engine update (and vibrates for it only). */
+  /**
+   * Plays the one cue for the latest of the events from a single engine update
+   * (and vibrates for it only). The tone is suppressed when it is already
+   * scheduled on the audio clock; vibration always happens.
+   */
   handleEvents(events: TimerEvent[]): void;
-  /** Plays a tick if this remaining-seconds value is one of the last three. */
+  /** Plays a tick if this remaining-seconds value is one of the last three, unless its tone is already scheduled. */
   handleSecond(remainingSec: number): void;
   /**
    * Replaces anything scheduled with every future tone of the running `state`'s
@@ -197,6 +223,15 @@ export interface CuePlayer {
   scheduleFrom(state: TimerState): void;
   /** Stops and disconnects every scheduled tone and forgets them. Call on pause, Skip, stepper change and close. */
   cancelScheduled(): void;
+  /**
+   * True when a schedule was wanted but can't be trusted: the context stopped
+   * running, never accepted the schedule, or its clock drifted from the wall
+   * clock. The timer view then cancels, catches up and calls `scheduleFrom`
+   * again. Always false without audio or when nothing is scheduled.
+   */
+  isScheduleStale(): boolean;
+  /** Calls `listener` when the audio context changes state (iOS suspend/interrupt/resume); returns an unsubscribe function. */
+  onAudioStateChange(listener: () => void): () => void;
 }
 
 /**
@@ -268,6 +303,16 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
   let scheduledKeys = new Set<string>();
   /** Segment the timer is in, learned from events and `scheduleFrom`; qualifies countdown tick keys. */
   let currentSegmentIndex: number | undefined;
+  /** Audio and wall time at the moment the schedule was queued; undefined when nothing is queued. */
+  let anchor: { audioTimeSec: number; wallTimeMs: number } | undefined;
+  /** True from a `scheduleFrom` of a running timer until the next cancel: the view expects tones to be queued. */
+  let isScheduleWanted = false;
+  const readWallClock = dependencies.now ?? Date.now;
+  const stateChangeListeners = new Set<() => void>();
+  /** Fires every `onAudioStateChange` listener; attached to the context when it is created. */
+  const notifyStateChange = (): void => {
+    for (const listener of [...stateChangeListeners]) listener();
+  };
 
   /**
    * Queues one beep on the shared context, `delaySec` from now, and returns
@@ -287,12 +332,22 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
 
     return {
       stop() {
+        // Disconnect first: it silences the tone even if stop() then throws.
+        // Separate blocks so one failure doesn't leave the other undone.
         try {
-          oscillator.stop(0);
           oscillator.disconnect();
+        } catch {
+          // Already disconnected.
+        }
+        try {
           volume.disconnect();
         } catch {
-          // Already ended or never started: nothing left to silence.
+          // Already disconnected.
+        }
+        try {
+          oscillator.stop(0);
+        } catch {
+          // Already ended or never started: nothing left to stop.
         }
       },
     };
@@ -324,12 +379,17 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
     for (const queued of queuedTones) queued.stop();
     queuedTones = [];
     scheduledKeys = new Set();
+    anchor = undefined;
+    isScheduleWanted = false;
   }
 
   return {
     prime() {
       try {
-        audio ??= createAudioContext();
+        if (!audio) {
+          audio = createAudioContext();
+          audio?.addEventListener?.("statechange", notifyStateChange);
+        }
         // iOS reports "interrupted" after a call or lock; both need a resume() from a tap.
         if (audio && (audio.state === "suspended" || audio.state === "interrupted")) {
           void Promise.resolve(audio.resume()).catch(() => undefined);
@@ -340,10 +400,11 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
     },
     handleEvents(events) {
       const lastEvent = events[events.length - 1];
-      if (!lastEvent) return;
+      const cue = cueForEventBatch(events);
+      if (!lastEvent || !cue) return;
 
       currentSegmentIndex = lastEvent.kind === "segmentStarted" ? lastEvent.segmentIndex : undefined;
-      play(cueForEvent(lastEvent), scheduledKeys.has(keyForEvent(lastEvent)));
+      play(cue, scheduledKeys.has(keyForEvent(lastEvent)));
     },
     handleSecond(remainingSec) {
       const cue = cueForRemainingSecond(remainingSec);
@@ -354,7 +415,13 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
       currentSegmentIndex = state.segmentIndex;
       if (!audio || state.status !== "running") return;
 
+      isScheduleWanted = true;
+      // A context that isn't running would hold the tones back and then play them late:
+      // queue nothing and leave the cues to the tick path until it runs again.
+      if (audio.state !== "running") return;
+
       try {
+        anchor = { audioTimeSec: audio.currentTime, wallTimeMs: readWallClock() };
         for (const scheduled of buildCueTimeline(state)) {
           for (const tone of TONES[scheduled.cue]) queuedTones.push(playTone(audio, tone, scheduled.atSec));
           scheduledKeys.add(scheduled.key);
@@ -365,5 +432,17 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
       }
     },
     cancelScheduled,
+    isScheduleStale() {
+      if (!audio || !isScheduleWanted) return false;
+      if (audio.state !== "running" || !anchor) return true;
+
+      const audioElapsedSec = audio.currentTime - anchor.audioTimeSec;
+      const wallElapsedSec = (readWallClock() - anchor.wallTimeMs) / 1000;
+      return Math.abs(wallElapsedSec - audioElapsedSec) > MAX_CLOCK_DRIFT_SEC;
+    },
+    onAudioStateChange(listener) {
+      stateChangeListeners.add(listener);
+      return () => stateChangeListeners.delete(listener);
+    },
   };
 }
