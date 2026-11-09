@@ -1,4 +1,4 @@
-import type { Program } from "../program/model";
+import type { Program, ProgramWarning } from "../program/model";
 import { toDayNumber, todayLocalDate } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
 import { saveSettings } from "../settings/storage";
@@ -6,6 +6,7 @@ import { element } from "./dom";
 import { navigateTo, routeFromHash, type Route } from "./router";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
+import { renderWarningBanner } from "./warningBanner";
 
 /**
  * App shell: owns the in-memory settings, picks the screen for the current
@@ -59,9 +60,23 @@ export function persistSettings(newSettings: TrainingSettings, storage: Storage 
 /**
  * Shows the app inside `root`. Re-renders on every hash change; settings
  * edits go through `saveSettings`, update the in-memory copy and return to Today.
+ * `warnings` (unknown program.json fields) appear as a dismissible banner on
+ * Today; dismissing hides it until the page is reloaded.
  */
-export function startApp(root: HTMLElement, program: Program, initialSettings: TrainingSettings): void {
+export function startApp(
+  root: HTMLElement,
+  program: Program,
+  initialSettings: TrainingSettings,
+  warnings: ProgramWarning[] = [],
+): void {
   let settings = initialSettings;
+  let warningsDismissed = false;
+
+  /** Dismiss handler for the warning banner: remembers it for this page load and re-renders. */
+  function handleDismissWarnings(): void {
+    warningsDismissed = true;
+    render();
+  }
 
   /**
    * Save handler passed to the Settings screen. Persists the settings; on
@@ -105,6 +120,9 @@ export function startApp(root: HTMLElement, program: Program, initialSettings: T
     try {
       const route = routeFromHash(window.location.hash);
       const main = element("main", "app-main");
+      if (route === "today" && warnings.length > 0 && !warningsDismissed) {
+        main.append(renderWarningBanner(warnings, handleDismissWarnings));
+      }
       main.append(
         route === "settings"
           ? renderSettingsScreen(program, settings, handleSave)

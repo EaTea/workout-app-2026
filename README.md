@@ -43,6 +43,15 @@ npm run test:e2e   # end-to-end tests (Playwright, iPhone 13 profile)
 The E2E run builds the app and serves it with `vite preview` automatically.
 It needs a Playwright Chromium browser installed (`npx playwright install chromium`).
 
+## Editing program.json
+
+`public/program.json` is the training program. If you break something that would
+make a session wrong (wrong type, missing field, unknown exercise id, a week
+with no progression phase) the app shows an error card naming the path; a field
+the app doesn't recognise (a typo, or a note you added) is only a warning: an
+amber banner on Today lists the paths, the field is ignored, and the session
+still loads.
+
 ## Deployment (GitHub Pages)
 
 `.github/workflows/pages.yml` ("CI and Pages deploy") runs `npm ci`, the unit

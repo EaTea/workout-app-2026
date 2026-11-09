@@ -5,7 +5,7 @@ import { parseProgram } from "./parse";
 import type { BlockView, ItemView, SessionView } from "./schedule";
 import { buildSession } from "./schedule";
 
-const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8")));
+const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 } };
 
 /** Builds a session and asserts it is a training day, so tests can read its fields. */
@@ -242,7 +242,7 @@ describe("percent-of-max rounding survives floating point", () => {
         json.days.find((day: any) => day.day === "Mon").blocks.find((b: any) => b.type === "mainStrength").items[0].repsPctOfMax = fraction;
         return json;
       })(),
-    );
+    ).program;
     const session = buildSession(custom, { startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 } }, "2026-11-02");
     if (session.kind !== "training") throw new Error("expected training");
     expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: expected });

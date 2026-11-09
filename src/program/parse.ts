@@ -7,10 +7,18 @@
  *   days[2].blocks[1].items[0].exercise: unknown exercise "foo"
  * because that message is what Ed sees if he breaks program.json while editing.
  *
- *   unknown ──parseProgram──▶ Program
+ * Errors versus warnings: anything that would make a session wrong (wrong
+ * type, missing field, unknown exercise id, progression gap) throws. A field
+ * the app doesn't recognise (a typo, or a note Ed added) is harmless, so it is
+ * recorded as a `ProgramWarning` and parsing carries on; the app shows the
+ * warnings in a dismissible banner.
+ *
+ *   unknown ──parseProgram──▶ { program: Program, warnings: ProgramWarning[] }
  *               ├─ parseExercise  (per library entry)
  *               ├─ parseDay ─ parseBlock ─ parseItem (resolves exercise ids)
  *               └─ progression / warmupRotation / fatigueCheck
+ *   every parse* function ──unknown key──▶ collectUnknownFields ──▶ warnings
+ *   every parse* function ──real problem─▶ fail() ──▶ throws
  */
 import type {
   Block,
@@ -22,6 +30,7 @@ import type {
   Format,
   ProgressionPhase,
   Program,
+  ProgramWarning,
   Range,
   Reps,
   SetPrescription,
@@ -48,6 +57,12 @@ import type {
 } from "./wire";
 
 type UnknownRecord = Record<string, unknown>;
+
+/** What `parseProgram` returns: the usable program plus any non-fatal notes about program.json. */
+export interface ParseResult {
+  program: Program;
+  warnings: ProgramWarning[];
+}
 
 /**
  * Compile-time tie between the allowed-key lists below and the wire types.
@@ -111,11 +126,16 @@ function expectArray(value: unknown, path: string): unknown[] {
   return value;
 }
 
-/** Fails on any field not in `allowedKeys`, so a typo like "restSecs" is caught instead of silently ignored. */
-function rejectUnknownFields(record: UnknownRecord, allowedKeys: readonly string[], path: string): void {
+/**
+ * Records a warning for each field not in `allowedKeys` (e.g. a typo like
+ * "restSecs", or a note Ed added) and lets parsing continue; the field is
+ * simply never read. Called at the top of every record-parsing function with
+ * the shared `warnings` list that `parseProgram` returns to its caller.
+ */
+function collectUnknownFields(record: UnknownRecord, allowedKeys: readonly string[], path: string, warnings: ProgramWarning[]): void {
   for (const key of Object.keys(record)) {
     if (!allowedKeys.includes(key)) {
-      fail(child(path, key), `unknown field (allowed: ${allowedKeys.join(", ")})`);
+      warnings.push({ path: child(path, key), message: `unknown field, ignored (known fields: ${allowedKeys.join(", ")})` });
     }
   }
 }
@@ -220,7 +240,7 @@ function parseReps(value: unknown, path: string): Reps {
 }
 
 /** Converts a `sets` value (count or per-set list) into one SetPrescription per set. */
-function parseSets(value: unknown, itemReps: Reps | undefined, itemLoad: string | undefined, path: string): SetPrescription[] {
+function parseSets(value: unknown, itemReps: Reps | undefined, itemLoad: string | undefined, path: string, warnings: ProgramWarning[]): SetPrescription[] {
   const isCount = (candidate: unknown): candidate is Exclude<SetsWire, SetWire[]> => typeof candidate === "number";
 
   if (isCount(value)) {
@@ -233,7 +253,7 @@ function parseSets(value: unknown, itemReps: Reps | undefined, itemLoad: string 
   return entries.map((entry, index) => {
     const setPath = `${path}[${index}]`;
     const record = expectRecord(entry, setPath);
-    rejectUnknownFields(record, SET_KEYS, setPath);
+    collectUnknownFields(record, SET_KEYS, setPath, warnings);
     return {
       reps: parseReps(record.reps ?? fail(child(setPath, "reps"), "field is missing"), child(setPath, "reps")),
       load: readOptionalString(record, "load", setPath) ?? itemLoad,
@@ -259,9 +279,9 @@ function parseFormat(record: UnknownRecord, path: string): Format {
 }
 
 /** Converts one entry of the exercise library. */
-function parseExercise(id: string, raw: unknown, path: string): Exercise {
+function parseExercise(id: string, raw: unknown, path: string, warnings: ProgramWarning[]): Exercise {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, EXERCISE_KEYS, path);
+  collectUnknownFields(record, EXERCISE_KEYS, path, warnings);
 
   return {
     id,
@@ -276,9 +296,9 @@ function parseExercise(id: string, raw: unknown, path: string): Exercise {
 }
 
 /** Converts one block item, looking its exercise id up in the library. */
-function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: string): BlockItem {
+function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): BlockItem {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ITEM_KEYS, path);
+  collectUnknownFields(record, ITEM_KEYS, path, warnings);
 
   const exerciseId = readString(record, "exercise", path);
   const exercise = Object.hasOwn(exercises, exerciseId) ? exercises[exerciseId] : undefined;
@@ -298,7 +318,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
   }
 
   const load = readOptionalString(record, "load", path);
-  const sets = record.sets === undefined ? [] : parseSets(record.sets, reps, load, child(path, "sets"));
+  const sets = record.sets === undefined ? [] : parseSets(record.sets, reps, load, child(path, "sets"), warnings);
 
   return {
     exerciseId,
@@ -322,9 +342,9 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
 }
 
 /** Converts one block and all of its items. */
-function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: string): Block {
+function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): Block {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, BLOCK_KEYS, path);
+  collectUnknownFields(record, BLOCK_KEYS, path, warnings);
 
   const itemsPath = child(path, "items");
   const items = expectArray(record.items ?? fail(itemsPath, "field is missing"), itemsPath);
@@ -335,7 +355,7 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: str
     rounds: readOptionalRange(record, "rounds", path),
     minutes: readOptionalNumber(record, "minutes", path),
     restSecBetweenPairs: readOptionalRange(record, "restSecBetweenPairs", path),
-    items: items.map((item, index) => parseItem(item, exercises, `${itemsPath}[${index}]`)),
+    items: items.map((item, index) => parseItem(item, exercises, `${itemsPath}[${index}]`, warnings)),
   };
 }
 
@@ -347,9 +367,9 @@ function parseWeekday(value: string, path: string): Weekday {
 }
 
 /** Converts one training day and its blocks. */
-function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: string): Day {
+function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): Day {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, DAY_KEYS, path);
+  collectUnknownFields(record, DAY_KEYS, path, warnings);
 
   const blocksPath = child(path, "blocks");
   const blocks = expectArray(record.blocks ?? fail(blocksPath, "field is missing"), blocksPath);
@@ -358,14 +378,14 @@ function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: strin
     day: parseWeekday(readString(record, "day", path), child(path, "day")),
     focus: readString(record, "focus", path),
     targetMinutes: readNumber(record, "targetMinutes", path),
-    blocks: blocks.map((block, index) => parseBlock(block, exercises, `${blocksPath}[${index}]`)),
+    blocks: blocks.map((block, index) => parseBlock(block, exercises, `${blocksPath}[${index}]`, warnings)),
   };
 }
 
 /** Converts one progression phase. */
-function parseProgressionPhase(raw: unknown, path: string): ProgressionPhase {
+function parseProgressionPhase(raw: unknown, path: string, warnings: ProgramWarning[]): ProgressionPhase {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, PROGRESSION_PHASE_KEYS, path);
+  collectUnknownFields(record, PROGRESSION_PHASE_KEYS, path, warnings);
 
   const weeksPath = child(path, "weeks");
   const weeks = expectArray(record.weeks ?? fail(weeksPath, "field is missing"), weeksPath).map((week, index) => {
@@ -377,15 +397,15 @@ function parseProgressionPhase(raw: unknown, path: string): ProgressionPhase {
 }
 
 /** Converts the warm-up rotation section. */
-function parseWarmupRotation(raw: unknown, path: string): WarmupRotation {
+function parseWarmupRotation(raw: unknown, path: string, warnings: ProgramWarning[]): WarmupRotation {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, WARMUP_ROTATION_KEYS, path);
+  collectUnknownFields(record, WARMUP_ROTATION_KEYS, path, warnings);
 
   const swapsPath = child(path, "swaps");
   const swaps = expectArray(record.swaps ?? fail(swapsPath, "field is missing"), swapsPath).map((swap, index) => {
     const swapPath = `${swapsPath}[${index}]`;
     const swapRecord = expectRecord(swap, swapPath);
-    rejectUnknownFields(swapRecord, WARMUP_SWAP_KEYS, swapPath);
+    collectUnknownFields(swapRecord, WARMUP_SWAP_KEYS, swapPath, warnings);
     return { out: readString(swapRecord, "out", swapPath), in: readString(swapRecord, "in", swapPath) };
   });
 
@@ -393,9 +413,9 @@ function parseWarmupRotation(raw: unknown, path: string): WarmupRotation {
 }
 
 /** Converts the fatigue-check section. */
-function parseFatigueCheck(raw: unknown, path: string): FatigueCheck {
+function parseFatigueCheck(raw: unknown, path: string, warnings: ProgramWarning[]): FatigueCheck {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, FATIGUE_CHECK_KEYS, path);
+  collectUnknownFields(record, FATIGUE_CHECK_KEYS, path, warnings);
 
   return {
     frequency: readString(record, "frequency", path),
@@ -443,25 +463,27 @@ function requireSection(root: UnknownRecord, key: string): unknown {
  * Validates parsed program.json contents and builds the internal `Program`.
  *
  * Called by `loadProgram` at startup and directly by tests. Throws an Error
- * with a path-style message (see the module comment) on the first problem.
+ * with a path-style message (see the module comment) on the first real
+ * problem; unknown fields don't throw but come back in `warnings`.
  * Exercises are parsed first so day items can resolve their exercise ids.
  */
-export function parseProgram(json: unknown): Program {
+export function parseProgram(json: unknown): ParseResult {
+  const warnings: ProgramWarning[] = [];
   const root = expectRecord(json, "program.json");
-  rejectUnknownFields(root, ROOT_KEYS, "");
+  collectUnknownFields(root, ROOT_KEYS, "", warnings);
 
   const info = expectRecord(requireSection(root, "program"), "program");
-  rejectUnknownFields(info, PROGRAM_INFO_KEYS, "program");
+  collectUnknownFields(info, PROGRAM_INFO_KEYS, "program", warnings);
 
   const exerciseRecords = expectRecord(requireSection(root, "exercises"), "exercises");
   const exercises: Record<string, Exercise> = {};
   for (const [id, rawExercise] of Object.entries(exerciseRecords)) {
-    exercises[id] = parseExercise(id, rawExercise, `exercises.${id}`);
+    exercises[id] = parseExercise(id, rawExercise, `exercises.${id}`, warnings);
   }
 
   const days: Partial<Record<Weekday, Day>> = {};
   expectArray(requireSection(root, "days"), "days").forEach((rawDay, index) => {
-    const day = parseDay(rawDay, exercises, `days[${index}]`);
+    const day = parseDay(rawDay, exercises, `days[${index}]`, warnings);
     if (days[day.day] !== undefined) fail(`days[${index}].day`, `${day.day} appears more than once`);
     days[day.day] = day;
   });
@@ -480,11 +502,11 @@ export function parseProgram(json: unknown): Program {
 
   const lengthWeeks = readPositiveInteger(info, "lengthWeeks", "program");
   const progression = expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
-    parseProgressionPhase(phase, `progression[${index}]`),
+    parseProgressionPhase(phase, `progression[${index}]`, warnings),
   );
   checkProgressionCoversEveryWeek(progression, lengthWeeks);
 
-  return {
+  const program: Program = {
     name: readString(info, "name", "program"),
     goal: readString(info, "goal", "program"),
     lengthWeeks,
@@ -495,7 +517,9 @@ export function parseProgram(json: unknown): Program {
     days,
     progression,
     coreProgressions,
-    warmupRotation: parseWarmupRotation(requireSection(root, "warmupRotation"), "warmupRotation"),
-    fatigueCheck: parseFatigueCheck(requireSection(root, "fatigueCheck"), "fatigueCheck"),
+    warmupRotation: parseWarmupRotation(requireSection(root, "warmupRotation"), "warmupRotation", warnings),
+    fatigueCheck: parseFatigueCheck(requireSection(root, "fatigueCheck"), "fatigueCheck", warnings),
   };
+
+  return { program, warnings };
 }

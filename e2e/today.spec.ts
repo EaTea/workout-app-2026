@@ -207,3 +207,39 @@ test("a render that throws after a navigation shows the error card, not a blank 
 
   await expect(page.getByRole("alert")).toContainText("boom");
 });
+
+test("an unknown program.json field shows a dismissible warning but the session still loads", async ({ page }) => {
+  await seedSettings(page);
+  await page.route("**/program.json", async (route) => {
+    const response = await route.fetch();
+    const program = await response.json();
+    program.exercises.pull_up.notes = "x";
+    await route.fulfill({ response, json: program });
+  });
+  await page.goto("/?date=2026-11-09");
+
+  // The session renders as normal...
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("5 / min");
+
+  // ...with a banner naming the ignored field.
+  const banner = page.locator(".warning-banner");
+  await expect(banner).toContainText("program.json has 1 field the app doesn't recognise, so it was ignored");
+  await expect(banner.getByText("exercises.pull_up.notes")).toBeHidden();
+  await banner.getByText("Show which fields").click();
+  await expect(banner.getByText("exercises.pull_up.notes")).toBeVisible();
+
+  // Dismissing hides it, and it stays hidden after navigating away and back.
+  await banner.getByRole("button", { name: "Dismiss" }).click();
+  await expect(banner).toHaveCount(0);
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.locator(".warning-banner")).toHaveCount(0);
+});
+
+test("no warning banner when program.json has no unknown fields", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-11-09");
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+  await expect(page.locator(".warning-banner")).toHaveCount(0);
+});

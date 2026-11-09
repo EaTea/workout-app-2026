@@ -8,7 +8,7 @@ function readRealProgramJson(): any {
   return JSON.parse(readFileSync("public/program.json", "utf-8"));
 }
 
-const program = parseProgram(readRealProgramJson());
+const program = parseProgram(readRealProgramJson()).program;
 
 /** Returns a training day or fails the test, so assertions don't need undefined checks. */
 function dayOf(weekday: Weekday): Day {
@@ -171,13 +171,6 @@ describe("parseProgram errors", () => {
     expect(message).toBe("days[0].blocks[5].items[0].workSec: range minimum 30 is larger than maximum 20");
   });
 
-  it("rejects misspelled fields instead of ignoring them", () => {
-    const message = errorMessageAfter((json) => {
-      json.days[0].blocks[1].items[0].restSecs = 30;
-    });
-    expect(message).toContain("days[0].blocks[1].items[0].restSecs: unknown field");
-  });
-
   it("reports bad evidence, weekday and a missing required field", () => {
     expect(errorMessageAfter((json) => (json.exercises.ytwi.evidence = "trust me"))).toContain(
       "exercises.ytwi.evidence: expected a URL",
@@ -216,5 +209,52 @@ describe("progression and rest day validation", () => {
     expect(errorMessageAfter((json) => (json.program.restDay = "Mon"))).toBe(
       "program.restDay: Mon is the rest day but days has an entry for it",
     );
+  });
+});
+
+describe("unknown fields warn instead of blocking", () => {
+  /** Parses a copy of the real JSON after `mutate` and returns the whole result. */
+  function resultAfter(mutate: (json: any) => void) {
+    const json = readRealProgramJson();
+    mutate(json);
+    return parseProgram(json);
+  }
+
+  it("gives no warnings for the real program.json", () => {
+    expect(parseProgram(readRealProgramJson()).warnings).toEqual([]);
+  });
+
+  it("warns about an unknown field on an exercise and still parses the same program", () => {
+    const result = resultAfter((json) => (json.exercises.pull_up.notes = "x"));
+    expect(result.warnings.map((warning) => warning.path)).toEqual(["exercises.pull_up.notes"]);
+    expect(result.warnings[0]?.message).toContain("unknown field, ignored");
+    expect(result.program).toEqual(program);
+  });
+
+  it("warns about a misspelled field on an item (typo is ignored, not applied)", () => {
+    const result = resultAfter((json) => (json.days[0].blocks[1].items[0].restSecs = 30));
+    expect(result.warnings.map((warning) => warning.path)).toEqual(["days[0].blocks[1].items[0].restSecs"]);
+    expect(result.program).toEqual(program);
+  });
+
+  it("warns about an unknown field at the root", () => {
+    const result = resultAfter((json) => (json.comment = "hi"));
+    expect(result.warnings.map((warning) => warning.path)).toEqual(["comment"]);
+    expect(result.program).toEqual(program);
+  });
+
+  it("reports every unknown field, and real errors still throw", () => {
+    const result = resultAfter((json) => {
+      json.comment = "hi";
+      json.days[1].mood = "good";
+    });
+    expect(result.warnings.map((warning) => warning.path)).toEqual(["comment", "days[1].mood"]);
+
+    expect(
+      errorMessageAfter((json) => {
+        json.comment = "hi";
+        json.days[0].focus = 5;
+      }),
+    ).toBe("days[0].focus: expected text but found 5");
   });
 });

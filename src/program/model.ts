@@ -152,3 +152,13 @@ export interface Program {
   warmupRotation: WarmupRotation;
   fatigueCheck: FatigueCheck;
 }
+
+/**
+ * A non-fatal problem found while parsing program.json (currently: a field the
+ * app doesn't recognise). `path` is the same style as parse errors, e.g.
+ * `exercises.pull_up.notes`. Shown to Ed in the Today screen's warning banner.
+ */
+export interface ProgramWarning {
+  path: string;
+  message: string;
+}
