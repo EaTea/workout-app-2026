@@ -49,14 +49,14 @@ startup, so Ed can edit it without touching code.
                                program/model.ts   (Program: internal types)
                                      │
         settings (start date, maxes) │
-        storage/settings.ts ─────────┤
+        settings/storage.ts ─────────┤
                                      ▼
-                               program/schedule.ts  todaySession(program, settings, date)
+                               program/schedule.ts  buildSession(program, settings, date)
                                      │   week, day, phase, deload, rep targets
                                      ▼
                                ui/today.ts ──▶ ui/timer.ts, ui/log.ts
                                                      │
-                                     storage/log.ts ◀┘ (LogWire ⇄ LogEntry)
+                                     log/storage.ts ◀┘ (LogWire ⇄ LogEntry)
 ```
 
 Per CLAUDE.md section 6, every boundary gets its own wire type and explicit
@@ -123,6 +123,14 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 - **Merge point:** Ed can open the mockup on his phone and see the correct
   session for any date.
 
+Pending owner decisions raised by the PR 1 review (they may change rules
+in section 4 before or after PR 1 merges):
+- Week 1 should start on the Monday on or after the start date, so a
+  Sunday start doesn't lose a week.
+- Deload EMOM reps: keep week 3's reps in week 4, or drop back as now.
+- Unknown fields in `program.json`: warn and still load, instead of
+  blocking the app.
+
 ### PR 2 — Timers *(behavior change)*
 1. Shared full-screen timer view: huge digits, round counter, start/pause/
    skip, thumb-reachable controls.
@@ -163,7 +171,7 @@ Start date Mon 2 Nov 2026, max pull-ups 12, max dips 15.
 | Wed 4 Nov | W1 Wed | Base | Dip EMOM floor(15×0.40)–floor(15×0.50) = 6–7 reps; plyo push-ups 5 × 5 |
 | Mon 23 Nov | W4 Mon | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 4; dip mini-dose 1 × 7 |
 | Sun 8 Nov | — | Rest | Rest-day card |
-| Sat 26 Dec | W8 Sat | Deload + retest | Retest prompt; skater bounds 3 × 6 per side |
+| Sat 26 Dec | W8 Sat | Deload + retest | Skater bounds 3 × 6 per side (retest prompt comes in PR 4) |
 
 ## 7. Open questions
 

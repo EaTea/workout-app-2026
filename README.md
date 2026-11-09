@@ -1,9 +1,12 @@
 # Explosive Endurance
 
 A mobile-first web app for following an 8-week "Explosive Endurance" training
-program: it shows today's session, lets you log sets, and provides EMOM and
-interval timers. It is a static site (Vite + TypeScript, no UI framework) with
-the program defined in `public/program.json`.
+program. Today it shows today's session from `public/program.json` (with
+deload weeks applied), turns max-based reps into concrete targets from your
+tested maxes, shows exercise details (cues, alternative, evidence,
+progression) and has a settings screen. Set logging and EMOM/interval timers
+are planned but not built yet (see [PLAN.md](PLAN.md)). It is a static site
+(Vite + TypeScript, no UI framework).
 
 ## Install
 
@@ -42,8 +45,11 @@ It needs a Playwright Chromium browser installed (`npx playwright install chromi
 
 ## Deployment (GitHub Pages)
 
-Pushes to `main` run `.github/workflows/pages.yml`, which tests, builds and
-deploys `dist/` to https://eatea.github.io/workout-app-2026/.
+`.github/workflows/pages.yml` ("CI and Pages deploy") runs `npm ci`, the unit
+tests and the build on every pull request to `main` and on every push to
+`main`. Only pushes to `main` (and manual runs on `main`) go on to deploy
+`dist/` to https://eatea.github.io/workout-app-2026/. E2E tests are not run in
+CI yet.
 
 One-time repository setup: **Settings -> Pages -> Source: GitHub Actions**.
 
