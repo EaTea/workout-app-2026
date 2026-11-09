@@ -100,3 +100,57 @@ test("the row button still opens the exercise details", async ({ page }) => {
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("dialog", { name: /EMOM/ })).toHaveCount(0);
 });
+
+test("the heavy bag timer: adjust rounds, run work and rest, finish after 3 rounds", async ({ page }) => {
+  await openToday(page);
+  await page.getByRole("button", { name: "Start interval timer for Heavy bag finisher" }).click();
+
+  // The dialog's name follows the plan title, which changes with the rounds, so find it by class.
+  const overlay = page.locator(".timer-view");
+  await expect(page.getByRole("dialog", { name: "Heavy bag · 5 rounds" })).toBeVisible();
+  await expect(overlay.locator(".timer-phase")).toHaveText("WORK");
+  await expect(overlay.locator(".timer-digits")).toHaveText("0:30");
+  await expect(overlay.getByText("Round 1 of 5")).toBeVisible();
+  await expect(overlay.getByText("5 rounds", { exact: true })).toBeVisible();
+
+  // Stepper buttons are thumb-sized.
+  const decrease = overlay.getByRole("button", { name: "Decrease rounds" });
+  const box = await decrease.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(48);
+  expect(box?.height).toBeGreaterThanOrEqual(48);
+
+  await decrease.click();
+  await decrease.click();
+  await expect(page.getByRole("dialog", { name: "Heavy bag · 3 rounds" })).toBeVisible();
+  await expect(overlay.getByText("Round 1 of 3")).toBeVisible();
+
+  await overlay.getByRole("button", { name: "Start" }).click();
+  // Once started the setup is locked: no steppers, just the summary.
+  await expect(overlay.getByRole("button", { name: "Decrease rounds" })).toBeHidden();
+  await expect(overlay.getByText("Work 30s · Rest 30s · 3 rounds")).toBeVisible();
+  expect(await vibrations(page)).toEqual([[150]]);
+
+  await page.clock.runFor(31_000);
+  await expect(overlay.locator(".timer-phase")).toHaveText("REST");
+  await expect(overlay.getByText("Round 1 of 3")).toBeVisible();
+  expect(await vibrations(page)).toContainEqual([80, 60, 80]);
+  const beeps = await page.evaluate(() => (window as unknown as { __beeps: number[] }).__beeps);
+  expect(beeps).toContain(1175);
+  expect(beeps).toContain(523);
+
+  await page.clock.runFor(120_000);
+  await expect(overlay.getByRole("button", { name: "Done" })).toBeVisible();
+  expect(await vibrations(page)).toContainEqual([300, 100, 300]);
+});
+
+test("a deload week heavy bag timer defaults to 2 rounds", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-11-23T09:00:00") });
+  await page.addInitScript((settings) => {
+    window.localStorage.setItem("explosive-endurance.settings", JSON.stringify(settings));
+  }, { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Start interval timer for Heavy bag finisher" }).click();
+
+  await expect(page.getByRole("dialog", { name: "Heavy bag · 2 rounds" })).toBeVisible();
+});

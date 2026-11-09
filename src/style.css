@@ -729,6 +729,59 @@ body {
   cursor: default;
 }
 
+/* Setup row (heavy bag, rest timer): steppers before Start, one summary line after. */
+.timer-setup {
+  margin-top: 28px;
+  color: #b9c0cb;
+}
+
+.timer-setup[hidden],
+.timer-setup-summary[hidden],
+.timer-setup-steppers[hidden] {
+  display: none;
+}
+
+.timer-setup-summary {
+  font-size: 16px;
+}
+
+.timer-setup-steppers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+}
+
+.timer-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-stepper-value {
+  min-width: 86px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.timer-stepper-button {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--timer-button);
+  color: var(--text);
+  font: inherit;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.timer-stepper-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 /* The ring jumps in whole steps with reduced motion (see timerView.ts); no CSS transitions are used otherwise. */
 
 /* Secondary button beside an EMOM row: starts the timer without opening the details sheet. */

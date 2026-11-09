@@ -15,8 +15,12 @@ import type { TimerEvent } from "./engine";
  * vibration is not available on iOS Safari at all.
  */
 
-/** The three cues timers use. */
-export type CueName = "segmentStart" | "countdownTick" | "finish";
+/**
+ * The cues timers use. segmentStart is the EMOM minute beep; workStart and
+ * restStart tell intervals apart by ear (high and long-buzz for work, lower
+ * and double-tap for rest) so Ed needn't look at the screen.
+ */
+export type CueName = "segmentStart" | "workStart" | "restStart" | "countdownTick" | "finish";
 
 /** One beep: pitch, when it starts relative to the cue, and how long it lasts. */
 export interface Tone {
@@ -31,6 +35,8 @@ const COUNTDOWN_TICK_SECONDS = [3, 2, 1];
 /** The beeps for each cue: short high beep, soft tick, long double beep. */
 const TONES: Record<CueName, Tone[]> = {
   segmentStart: [{ frequencyHz: 880, startOffsetSec: 0, durationSec: 0.15 }],
+  workStart: [{ frequencyHz: 1175, startOffsetSec: 0, durationSec: 0.2 }],
+  restStart: [{ frequencyHz: 523, startOffsetSec: 0, durationSec: 0.2 }],
   countdownTick: [{ frequencyHz: 660, startOffsetSec: 0, durationSec: 0.06 }],
   finish: [
     { frequencyHz: 1000, startOffsetSec: 0, durationSec: 0.25 },
@@ -41,12 +47,17 @@ const TONES: Record<CueName, Tone[]> = {
 /** Vibration patterns in ms; a cue without an entry does not vibrate. */
 const VIBRATION: Partial<Record<CueName, number[]>> = {
   segmentStart: [150],
+  workStart: [150],
+  restStart: [80, 60, 80],
   finish: [300, 100, 300],
 };
 
-/** Which cue an engine event should trigger. */
+/** Which cue an engine event should trigger: finish, or a start cue matching the new segment's phase. */
 export function cueForEvent(event: TimerEvent): CueName {
-  return event.kind === "finished" ? "finish" : "segmentStart";
+  if (event.kind === "finished") return "finish";
+  if (event.segment.phase === "work") return "workStart";
+  if (event.segment.phase === "rest") return "restStart";
+  return "segmentStart";
 }
 
 /** Which cue (if any) a newly displayed remaining-seconds value should trigger: ticks at 3, 2 and 1. */

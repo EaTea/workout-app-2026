@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseProgram } from "../program/parse";
 import { buildSession, type ItemView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
-import { buildEmomPlan } from "./plans";
+import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings } from "./plans";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
@@ -60,5 +60,71 @@ describe("buildEmomPlan", () => {
     if (session.kind !== "training") throw new Error("expected training");
     const straightSets = session.blocks.flatMap((block) => block.items).find((candidate) => candidate.format !== "emom");
     expect(() => buildEmomPlan(straightSets as ItemView)).toThrow();
+  });
+});
+
+/** Finds the heavy bag interval item on a date. */
+function heavyBagItem(date: string): ItemView {
+  const session = buildSession(program, settings, date);
+  if (session.kind !== "training") throw new Error(`expected training on ${date}`);
+  const found = session.blocks.flatMap((block) => block.items).find((candidate) => candidate.format === "interval");
+  if (!found) throw new Error(`no interval item on ${date}`);
+  return found;
+}
+
+describe("interval plans", () => {
+  it("W1 D1 defaults: 5 rounds, 30s work (top of 20-30), 30s rest", () => {
+    expect(defaultIntervalSettings(heavyBagItem("2026-11-02"))).toEqual({ rounds: 5, workSec: 30, restSec: 30 });
+  });
+
+  it("W1 D1 plan: 9 segments alternating work and rest, ending on work, 270s in total", () => {
+    const item = heavyBagItem("2026-11-02");
+    const plan = buildIntervalPlan(item, defaultIntervalSettings(item));
+
+    expect(plan.title).toBe("Heavy bag · 5 rounds");
+    expect(plan.segments.map((segment) => segment.phase)).toEqual(
+      ["work", "rest", "work", "rest", "work", "rest", "work", "rest", "work"],
+    );
+    expect(plan.segments.reduce((total, segment) => total + segment.durationSec, 0)).toBe(270);
+    expect(plan.segments[0]?.label).toBe("Hard combinations");
+    expect(plan.segments[1]?.label).toBe("Rest");
+    expect(plan.segments.map((segment) => segment.round)).toEqual([1, 1, 2, 2, 3, 3, 4, 4, 5]);
+    expect(plan.segments.every((segment) => segment.totalRounds === 5)).toBe(true);
+  });
+
+  it("W4 D1 (deload) defaults to 2 rounds", () => {
+    const item = heavyBagItem("2026-11-23");
+
+    expect(defaultIntervalSettings(item).rounds).toBe(2);
+    expect(buildIntervalPlan(item, defaultIntervalSettings(item)).segments).toHaveLength(3);
+  });
+
+  it("respects custom settings", () => {
+    const plan = buildIntervalPlan(heavyBagItem("2026-11-02"), { rounds: 3, workSec: 20, restSec: 45 });
+
+    expect(plan.title).toBe("Heavy bag · 3 rounds");
+    expect(plan.segments.map((segment) => segment.durationSec)).toEqual([20, 45, 20, 45, 20]);
+  });
+
+  it("a single round has no rest", () => {
+    const plan = buildIntervalPlan(heavyBagItem("2026-11-02"), { rounds: 1, workSec: 30, restSec: 30 });
+
+    expect(plan.title).toBe("Heavy bag · 1 round");
+    expect(plan.segments).toHaveLength(1);
+  });
+
+  it("rejects fewer than 1 round and under 5 seconds", () => {
+    const item = heavyBagItem("2026-11-02");
+
+    expect(() => buildIntervalPlan(item, { rounds: 0, workSec: 30, restSec: 30 })).toThrow();
+    expect(() => buildIntervalPlan(item, { rounds: 3, workSec: 4, restSec: 30 })).toThrow();
+    expect(() => buildIntervalPlan(item, { rounds: 3, workSec: 30, restSec: 4 })).toThrow();
+  });
+
+  it("rejects an item that is not an interval", () => {
+    const session = buildSession(program, settings, "2026-11-02");
+    if (session.kind !== "training") throw new Error("expected training");
+    const other = session.blocks.flatMap((block) => block.items).find((candidate) => candidate.format !== "interval");
+    expect(() => defaultIntervalSettings(other as ItemView)).toThrow();
   });
 });

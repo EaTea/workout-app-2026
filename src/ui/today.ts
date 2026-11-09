@@ -2,7 +2,7 @@ import type { Program } from "../program/model";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
-import { buildEmomPlan } from "../timer/plans";
+import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
 import { openTimer } from "./timerView";
@@ -234,6 +234,11 @@ function renderItemRow(item: ItemView): HTMLElement {
     row.append(renderStartEmomButton(item));
   }
 
+  // Heavy bag intervals likewise.
+  if (item.format === "interval" && item.rounds && item.workSec && item.restSec) {
+    row.append(renderStartIntervalButton(item));
+  }
+
   openButton.addEventListener("click", () => openExerciseSheet(item, openButton));
   return row;
 }
@@ -254,6 +259,39 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
       onStart: () => cues.prime(),
       onEvent: (event) => cues.handleEvent(event),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+    });
+  });
+  return button;
+}
+
+/**
+ * "Start timer" button for an interval row (the heavy bag finisher). Opens the
+ * timer with a setup row so Ed can change work, rest and rounds before
+ * starting; every change rebuilds the plan through buildIntervalPlan.
+ */
+function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
+  const button = element("button", "item-start", "Start timer");
+  button.type = "button";
+  button.setAttribute("aria-label", `Start interval timer for ${item.exercise.name}`);
+
+  button.addEventListener("click", () => {
+    const defaults = defaultIntervalSettings(item);
+    const cues = createCuePlayer();
+    const { minRounds, maxRounds, minSeconds, maxWorkSec, maxRestSec, secondsStep } = INTERVAL_LIMITS;
+
+    openTimer(buildIntervalPlan(item, defaults), {
+      onStart: () => cues.prime(),
+      onEvent: (event) => cues.handleEvent(event),
+      onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      setup: {
+        fields: [
+          { id: "workSec", label: "work", value: defaults.workSec, min: minSeconds, max: maxWorkSec, step: secondsStep, format: (value) => `Work ${value}s` },
+          { id: "restSec", label: "rest", value: defaults.restSec, min: minSeconds, max: maxRestSec, step: secondsStep, format: (value) => `Rest ${value}s` },
+          { id: "rounds", label: "rounds", value: defaults.rounds, min: minRounds, max: maxRounds, step: 1, format: (value) => (value === 1 ? "1 round" : `${value} rounds`) },
+        ],
+        rebuildPlan: (values) =>
+          buildIntervalPlan(item, { rounds: values.rounds ?? defaults.rounds, workSec: values.workSec ?? defaults.workSec, restSec: values.restSec ?? defaults.restSec }),
+      },
     });
   });
   return button;

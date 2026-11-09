@@ -33,6 +33,18 @@ describe("which cue fires when", () => {
     expect(cueForEvent({ kind: "finished" })).toBe("finish");
   });
 
+  it("work and rest segments get their own start cues", () => {
+    const work: TimerSegment = { ...segment, phase: "work" };
+    const rest: TimerSegment = { ...segment, phase: "rest" };
+
+    expect(cueForEvent({ kind: "segmentStarted", segment: work, segmentIndex: 0 })).toBe("workStart");
+    expect(cueForEvent({ kind: "segmentStarted", segment: rest, segmentIndex: 1 })).toBe("restStart");
+  });
+
+  it("the rest beep is lower than the work beep", () => {
+    expect(tonesForCue("restStart")[0]?.frequencyHz).toBeLessThan(tonesForCue("workStart")[0]?.frequencyHz ?? 0);
+  });
+
   it("ticks only at 3, 2 and 1 seconds remaining", () => {
     const ticks = [60, 30, 4, 3, 2, 1, 0].map(cueForRemainingSecond);
     expect(ticks).toEqual([undefined, undefined, undefined, "countdownTick", "countdownTick", "countdownTick", undefined]);
@@ -70,6 +82,19 @@ describe("createCuePlayer", () => {
     expect(audio.started.map((tone) => tone.frequencyHz)).toEqual([880, 660, 1000, 1000]);
     expect(audio.started[3]?.at).toBeCloseTo(10.35);
     expect(vibrations).toEqual([[150], [300, 100, 300]]);
+  });
+
+  it("work start vibrates [150] and rest start vibrates [80, 60, 80]", () => {
+    const audio = fakeAudio();
+    const vibrations: number[][] = [];
+    const player = createCuePlayer({ createAudioContext: () => audio.context, vibrate: (pattern) => (vibrations.push(pattern), true) });
+    player.prime();
+
+    player.handleEvent({ kind: "segmentStarted", segment: { ...segment, phase: "work" }, segmentIndex: 0 });
+    player.handleEvent({ kind: "segmentStarted", segment: { ...segment, phase: "rest" }, segmentIndex: 1 });
+
+    expect(vibrations).toEqual([[150], [80, 60, 80]]);
+    expect(audio.started.map((tone) => tone.frequencyHz)).toEqual([1175, 523]);
   });
 
   it("creates one context and resumes a suspended one", () => {
