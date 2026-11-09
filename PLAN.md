@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in progress, stacked on PR 3.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -106,14 +106,28 @@ the starting point. Revisit them if the app shows they're wrong.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
-5. **Week 8 retest** shows a prompt on the week 8 session to enter new max
-   pull-ups and dips; saving them updates the settings (with today's date),
-   and week 8's EMOM targets switch from the held week 7 reps to the new
-   maxes straight away (rule 3).
-6. **Weekly fatigue check** prompts once per program week (first session of
-   the week) for broad jump and max pull-ups. "Best recent result" means the
-   best of the previous 3 checks. A drop of more than 10% on either shows the
-   `fatigueCheck.rule` text as a warning.
+5. **Week 8 retest** (PR 4). On every week 8 training day, Today opens
+   with a "Retest week" card asking for new max pull-ups and dips (steppers
+   pre-filled with the current maxes). Saving either one updates settings
+   with today's real date, so week 8's EMOM targets switch from the held
+   week 7 reps to the new max at once (rule 3). The card stays until both
+   maxes have been saved during week 8; "Not today" hides it for that date.
+   Before week 8 the prompt never appears.
+6. **Weekly fatigue check** (PR 4, mockup 6). Once per program week, the
+   first time Today shows a training day that week, a "Weekly check-in"
+   card asks for best broad jump (metres, 2 decimals, 0.01 steps or typed)
+   and max pull-ups. Either may be left blank. "Save check-in" stores it;
+   "Remind me tomorrow" hides it until the next calendar day of the same
+   week, and after the week ends it's simply skipped. Each value is
+   compared with the best of the previous 3 checks that recorded it,
+   shown as "Best recent: 2.34 m" and a percentage; a drop of more than 10%
+   shows the `fatigueCheck.rule` text as a warning, both on the card and
+   as a dismissible banner on Today for the rest of that week. Checks live
+   in their own storage key with their own wire type and version, re-read
+   before each save like the log. Saving a check-in never changes the
+   EMOM maxes in settings (that's the week 8 retest's job). Week 8's
+   retest card replaces the check-in that week: saving the retest also
+   records the max pull-ups as that week's check.
 7. **Editing `program.json`.** Wrong types, missing fields, unknown
    exercise ids and gaps in the progression block the app with an error
    card, because the session would be wrong. Unknown fields (a typo or a
@@ -267,9 +281,26 @@ Rule 8 in section 4.
 - **Merge point:** the must-haves for a gym session are usable.
 
 ### PR 4 — Retest, fatigue check, offline install *(behavior change)*
-1. Week 8 retest prompt that saves new maxes.
-2. Weekly fatigue check with the 10% flag.
-3. PWA manifest and service worker so it installs and works offline.
+Stacked on PR 3. Rules 5 and 6 in section 4.
+1. [ ] Week 8 retest card on Today (rule 5), saving through the existing
+   settings storage and max-date stamping.
+2. [ ] Fatigue check storage: internal `FatigueCheck` and `FatigueCheckWire`
+   (v1) with explicit mapping, tolerant load with backup, re-read before
+   save, and the pure "best of previous 3" and 10% comparison.
+3. [ ] Weekly check-in card and the drop warning on Today (rule 6,
+   mockup 6), including "Remind me tomorrow".
+4. [ ] Installable, offline app: web manifest and icons (home screen on
+   iPhone and Android), and a hand-written service worker. Pages under
+   `/workout-app-2026/` is the scope. The app shell and its hashed assets
+   are precached at install (the list generated at build time), so the
+   app opens with no signal. `index.html` and `program.json` are fetched
+   network-first with a cache fallback, so edits to program.json show up
+   whenever there is a connection. A new version takes over on the next
+   launch, never mid-session.
+   Unit tests for the fatigue maths and storage mapping; E2E for the retest
+   card, the check-in and its warning, and the app loading offline after a
+   first visit.
+- **Merge point:** every must-have and constraint in the brief is met.
 
 ### Later (nice-to-haves, not planned in detail yet)
 - Warm-up rotation reminder every 4 weeks.
