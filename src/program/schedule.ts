@@ -200,7 +200,7 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
 }
 
 /** Finds the progression entry containing `week`; throws if the program has a gap. */
-function phaseForWeek(program: Program, week: number): ProgressionPhase {
+export function phaseForWeek(program: Program, week: number): ProgressionPhase {
   const phase = program.progression.find((entry) => entry.weeks.includes(week));
   if (!phase) {
     throw new Error(`program.json: no progression phase covers week ${week}`);

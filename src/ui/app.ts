@@ -17,6 +17,23 @@ import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
 import { renderSettingsScreen, stampMaxSavedDates } from "./settings";
 import { renderTodayScreen } from "./today";
+import { applyFatigueChange, type LoadFatigueHistoryResult } from "../fatigue/storage";
+import { checkForWeek, recordCheck } from "../fatigue/operations";
+import type { FatigueCheck } from "../fatigue/model";
+import {
+  CHECKIN_SNOOZED_STORAGE_KEY,
+  FATIGUE_WARNING_DISMISSED_STORAGE_KEY,
+  checkInSnoozedFromWire,
+  checkInSnoozedToWire,
+  checkInWeekToAsk,
+  createCheckInDraft,
+  dropWarningForShownDate,
+  fatigueWarningDismissedFromWire,
+  fatigueWarningDismissedToWire,
+  trainingWeekOf,
+  type CheckInDraft,
+} from "./checkin";
+import { renderDropBanner } from "./checkinCard";
 import { focusMainHeading, renderWarningBanner } from "./warningBanner";
 
 /**
@@ -63,6 +80,13 @@ import { focusMainHeading, renderWarningBanner } from "./warningBanner";
  * that fresh log, saves, and keeps the result as the app's copy (log/storage.ts
  * `applyLogChange`). If the stored log cannot be read safely, nothing is saved
  * and the screen shows why.
+ *
+ * Weekly check-in (PLAN.md rule 6): the app also owns the saved fatigue checks
+ * (loaded at startup like the log, saved only through `applyFatigueChange`,
+ * which re-reads storage first). Today shows the check-in card while
+ * `checkInWeekToAsk` says one is due for the shown date, and an amber drop
+ * banner for the rest of a week whose check has a drop over 10%; dismissals
+ * and snoozes are remembered in their own small localStorage keys.
  *
  * Screen stays awake while a session is in progress (PLAN.md rule 8): one
  * app-level ScreenWakeLock is wanted when the route is Today or the log
@@ -174,11 +198,20 @@ export function startApp(
   initialSettings: TrainingSettings,
   warnings: ProgramWarning[] = [],
   loadedLog: LoadLogResult = { log: { sessions: {} } },
+  loadedFatigue: LoadFatigueHistoryResult = { history: { checks: [] } },
 ): void {
   let settings = initialSettings;
   let log = loadedLog.log;
   let warningsDismissed = false;
   let logWarningDismissed = false;
+  let fatigueHistory = loadedFatigue.history;
+  let fatigueLoadWarningDismissed = false;
+  /** The date "Remind me tomorrow" was tapped on the check-in card (kept in localStorage too), or undefined. */
+  let checkInSnoozedDate = loadStoredValue(CHECKIN_SNOOZED_STORAGE_KEY, checkInSnoozedFromWire);
+  /** The program week whose drop banner was dismissed (kept in localStorage too), or undefined. */
+  let dropBannerDismissedWeek = loadStoredValue(FATIGUE_WARNING_DISMISSED_STORAGE_KEY, fatigueWarningDismissedFromWire);
+  /** Unsaved check-in stepper values, kept here so a re-render does not reset them. */
+  let checkInDraft: CheckInDraft | undefined;
   /** Set when "Start today" could not be saved; shown on the welcome card. */
   let startTodayFailureMessage: string | undefined;
   /** The date "Not today" was tapped on the retest card (kept in localStorage too), or undefined. */
@@ -233,6 +266,12 @@ export function startApp(
   /** Dismiss handler for the "log could not be read" banner. */
   function handleDismissLogWarning(): void {
     logWarningDismissed = true;
+    render();
+  }
+
+  /** Dismiss handler for the "check-ins could not be read" banner. */
+  function handleDismissFatigueLoadWarning(): void {
+    fatigueLoadWarningDismissed = true;
     render();
   }
 
@@ -309,12 +348,93 @@ export function startApp(
     }
     settings = newSettings;
 
-    // TODO(PR 4 step 3): rule 6 says saving the retest also records the max
-    // pull-ups as this week's fatigue check. Hook that in here once the
-    // fatigue check storage (PR 4 step 2) and the check-in card exist.
+    if (exerciseId === RETEST_PULL_UP_ID) {
+      recordRetestPullUpsAsCheck(newMax);
+    }
 
     render();
     return null;
+  }
+
+  /**
+   * Rule 6: week 8's retest replaces the weekly check-in, so saving the
+   * pull-up retest also records the max pull-ups as that week's check. Only
+   * the pull-up value is written; an existing check for the week (e.g. one
+   * with a broad jump) keeps its other values and its date. The settings were
+   * already saved, so a failure here only keeps the check in memory (the
+   * retest card has no spot for a second error); dips never touch this.
+   */
+  function recordRetestPullUpsAsCheck(maxPullUps: number): void {
+    const week = trainingWeekOf(program, settings, shownDate);
+    if (week === undefined) return;
+
+    const now = new Date();
+    const result = applyFatigueChange(localStorage, (freshHistory) => {
+      const existing = checkForWeek(freshHistory, week);
+      const merged: FatigueCheck = {
+        date: existing?.date ?? shownDate,
+        programWeek: week,
+        broadJumpMetres: existing?.broadJumpMetres,
+        maxPullUps,
+        savedAt: now,
+      };
+      return recordCheck(freshHistory, merged);
+    }, now);
+
+    if (result.history !== undefined) fatigueHistory = result.history;
+  }
+
+  /**
+   * Save handler for the check-in card. Stores one check for the shown date's
+   * program week: `date` is the SHOWN date (so a `?date=` preview files the
+   * check under the day on screen, like the log) and `savedAt` is the real
+   * clock. Blank fields are left out. On success the draft is cleared and
+   * Today re-renders (the card goes; a drop shows the banner). Returns null
+   * on success or the message to show inline; on a write failure the check
+   * is still kept in memory (and the card goes at the next render).
+   */
+  function handleSaveCheckIn(values: { broadJumpMetres?: number; maxPullUps?: number }): string | null {
+    const week = checkInWeekToAsk(program, settings, shownDate, fatigueHistory, undefined);
+    if (week === undefined) return "No check-in is due for this day";
+
+    const check: FatigueCheck = { date: shownDate, programWeek: week, savedAt: new Date(), ...values };
+    const result = applyFatigueChange(localStorage, (freshHistory) => recordCheck(freshHistory, check));
+    if (result.history !== undefined) fatigueHistory = result.history;
+    if (!result.saved) return result.error;
+
+    checkInDraft = undefined;
+    render();
+    return null;
+  }
+
+  /** "Remind me tomorrow": hides the card for the shown date, remembered across reloads, and re-renders. */
+  function handleSnoozeCheckIn(): void {
+    checkInSnoozedDate = shownDate;
+    try {
+      localStorage.setItem(CHECKIN_SNOOZED_STORAGE_KEY, checkInSnoozedToWire(shownDate));
+    } catch {
+      // Storage blocked: hidden until reload, which is fine for a snooze.
+    }
+    render();
+  }
+
+  /** Dismiss on the drop banner: hides it for that week, remembered across reloads, and re-renders. */
+  function handleDismissDropBanner(week: number): void {
+    dropBannerDismissedWeek = week;
+    try {
+      localStorage.setItem(FATIGUE_WARNING_DISMISSED_STORAGE_KEY, fatigueWarningDismissedToWire(week));
+    } catch {
+      // Storage blocked: stays dismissed until reload.
+    }
+    render();
+  }
+
+  /** The unsaved check-in values for `week`; a draft of another week is replaced by a fresh one pre-filled with best recent values. */
+  function draftForWeek(week: number): CheckInDraft {
+    if (checkInDraft === undefined || checkInDraft.week !== week) {
+      checkInDraft = createCheckInDraft(fatigueHistory, week);
+    }
+    return checkInDraft;
   }
 
   /** "Not today" on the retest card: hides it for the shown date, remembered across reloads, and re-renders. */
@@ -382,6 +502,15 @@ export function startApp(
       if (route !== "settings" && loadedLog.warning !== undefined && !logWarningDismissed) {
         main.append(renderLogWarningBanner(loadedLog.warning, handleDismissLogWarning));
       }
+      if (route !== "settings" && loadedFatigue.warning !== undefined && !fatigueLoadWarningDismissed) {
+        main.append(renderLogWarningBanner(loadedFatigue.warning, handleDismissFatigueLoadWarning));
+      }
+      if (route === "today") {
+        const drop = dropWarningForShownDate(program, settings, shownDate, fatigueHistory);
+        if (drop.warnings.length > 0 && dropBannerDismissedWeek !== drop.week) {
+          main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week)));
+        }
+      }
       const logTarget = parseLogRoute(window.location.hash);
       if (route === "settings") {
         main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave));
@@ -393,6 +522,13 @@ export function startApp(
         main.append(renderTodayScreen(program, settings, shownDate, handleStartToday, startTodayFailureMessage, log, {
           dismissedDate: retestDismissedDate,
           actions: { onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts },
+        }, {
+          history: fatigueHistory,
+          snoozedDate: checkInSnoozedDate,
+          ruleText: program.fatigueCheck.rule,
+          draftForWeek,
+          onSave: handleSaveCheckIn,
+          onSnooze: handleSnoozeCheckIn,
         }));
       }
       // The log screen belongs to Today, so Today stays highlighted in the nav.
@@ -427,7 +563,23 @@ function loadRetestDismissedDate(): string | undefined {
   }
 }
 
-/** Dismissible amber banner shown when the saved workout log could not be read (it was set aside, see log/storage.ts). */
+/**
+ * Reads one small stored value at startup (through its `fromWire` mapping);
+ * undefined if absent, corrupt or if storage cannot be read. Used for the
+ * check-in snooze and the drop banner dismissal.
+ */
+function loadStoredValue<Value>(key: string, fromWire: (text: string | null) => Value | undefined): Value | undefined {
+  try {
+    return fromWire(localStorage.getItem(key));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Id of the exercise whose retest also counts as the week 8 fatigue check (max pull-ups). */
+const RETEST_PULL_UP_ID = "pull_up";
+
+/** Dismissible amber banner shown when saved data (the workout log or the weekly check-ins) could not be read (it was set aside, see log/storage.ts). */
 function renderLogWarningBanner(warningText: string, onDismiss: () => void): HTMLElement {
   const banner = element("div", "card warning-banner");
   banner.setAttribute("role", "status");

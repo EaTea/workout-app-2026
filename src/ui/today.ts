@@ -6,6 +6,9 @@ import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIM
 import { element } from "./dom";
 import { retestExercisesToSave } from "./retest";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
+import { checkInWeekToAsk, type CheckInDraft } from "./checkin";
+import { renderCheckInCard } from "./checkinCard";
+import type { FatigueHistory } from "../fatigue/model";
 import { countSetsForItem, formatProgress } from "../log/itemSets";
 import type { WorkoutLog } from "../log/model";
 import { setsForItem } from "../log/operations";
@@ -26,7 +29,10 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *
  * It renders exactly what `buildSession` returns; all numbers are final. On
  * a retest-week training day a "Retest week" card (retestCard.ts) goes above
- * the header while a max is still to be saved and it was not dismissed.
+ * the header while a max is still to be saved and it was not dismissed. On
+ * any other training day, until that week's check is saved or snoozed for the
+ * day, a "Weekly check-in" card (checkinCard.ts) sits in the same place
+ * (below the retest card, though the two never show together).
  */
 
 /** What Today needs to show the retest card; supplied by app.ts, which owns the saving and dismissal. */
@@ -34,6 +40,24 @@ export interface RetestOptions {
   /** The date "Not today" was tapped for, or undefined. */
   dismissedDate: string | undefined;
   actions: RetestCardActions;
+}
+
+/** What Today needs to show the weekly check-in card; supplied by app.ts, which owns the saving and snoozing. */
+export interface CheckInOptions {
+  /** Saved checks, for "due this week?" and the "Best recent" values. */
+  history: FatigueHistory;
+
+  /** The date "Remind me tomorrow" was tapped on, or undefined. */
+  snoozedDate: string | undefined;
+
+  /** The program's `fatigueCheck.rule` text, shown in the drop warning. */
+  ruleText: string;
+
+  /** Returns the unsaved values for a week, creating a pre-filled draft the first time (app.ts keeps it across re-renders). */
+  draftForWeek: (week: number) => CheckInDraft;
+
+  onSave: (values: { broadJumpMetres?: number; maxPullUps?: number }) => string | null;
+  onSnooze: () => void;
 }
 
 /**
@@ -50,6 +74,7 @@ export function renderTodayScreen(
   startTodayFailureMessage?: string,
   log: WorkoutLog = { sessions: {} },
   retest?: RetestOptions,
+  checkIn?: CheckInOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
@@ -60,6 +85,16 @@ export function renderTodayScreen(
         const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
         if (exercisesToRetest.length > 0) {
           screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions));
+        }
+      }
+      if (checkIn !== undefined) {
+        const weekToAsk = checkInWeekToAsk(program, settings, date, checkIn.history, checkIn.snoozedDate);
+        if (weekToAsk !== undefined) {
+          screen.append(renderCheckInCard(weekToAsk, checkIn.history, checkIn.ruleText, {
+            draft: checkIn.draftForWeek(weekToAsk),
+            onSave: checkIn.onSave,
+            onSnooze: checkIn.onSnooze,
+          }));
         }
       }
       screen.append(...renderTrainingDay(program, session, date, log));

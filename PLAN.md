@@ -287,7 +287,7 @@ Stacked on PR 3. Rules 5 and 6 in section 4.
 2. [x] Fatigue check storage: internal `FatigueCheck` and `FatigueCheckWire`
    (v1) with explicit mapping, tolerant load with backup, re-read before
    save, and the pure "best of previous 3" and 10% comparison.
-3. [ ] Weekly check-in card and the drop warning on Today (rule 6,
+3. [x] Weekly check-in card and the drop warning on Today (rule 6,
    mockup 6), including "Remind me tomorrow".
 4. [x] Installable, offline app: web manifest and icons (home screen on
    iPhone and Android), and a hand-written service worker. Pages under

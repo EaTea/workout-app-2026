@@ -32,7 +32,16 @@ with a "Retest week" card: steppers (pre-filled with your current maxes) and a
 "Save max" button per exercise for pull-ups and dips. Saving stamps the max with
 today's real date and switches week 8's EMOM targets to the new max at once; the
 card stays until both are saved that week, and "Not today" hides it for that
-date only. It is a static site
+date only. On other training days (weeks 1-7), until the week's check is saved,
+Today opens with a "Weekly check-in" card: best broad jump (metres, 0.01 steps
+or tap the number to type it) and max pull-ups, either of which may be left
+blank. Each shows "Best recent" (the best of the previous 3 checks that
+recorded it) and a percentage pill; a drop of more than 10% shows the
+program's `fatigueCheck.rule` text as a warning on the card, and after saving
+as a dismissible banner on Today for the rest of that week. "Remind me
+tomorrow" hides the card for that date only. Saving the week 8 retest of
+pull-ups also records them as that week's check. Checks are stored in
+`localStorage` under `explosive-endurance.fatigue`. It is a static site
 (Vite + TypeScript, no UI framework).
 
 ## Install

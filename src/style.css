@@ -1279,3 +1279,91 @@ body {
   background: var(--field);
   color: var(--text);
 }
+
+/* Weekly check-in card on Today (mockup 6) */
+.checkin-kicker {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkin-intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.checkin-field-title {
+  margin: 16px 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkin-best {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* The percentage pill sits at the right end of the stepper row */
+.checkin-pill {
+  margin-left: auto;
+  font-size: 15px;
+}
+
+.checkin-pill[hidden] {
+  display: none;
+}
+
+.pill-ok {
+  background: #173d2b;
+  color: #5fd89a;
+}
+
+.checkin-warning {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #7a5b12;
+  border-radius: 14px;
+  background: #2a2312;
+  color: #f5c451;
+  line-height: 1.4;
+}
+
+.checkin-warning[hidden] {
+  display: none;
+}
+
+.checkin-save,
+.checkin-snooze {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.checkin-save {
+  margin-top: 16px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.checkin-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.checkin-snooze {
+  background: none;
+  color: var(--muted);
+  font-weight: 400;
+}
