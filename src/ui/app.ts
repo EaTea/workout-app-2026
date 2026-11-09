@@ -8,6 +8,9 @@ import { saveLog, type LoadLogResult } from "../log/storage";
 import type { WorkoutLog } from "../log/model";
 import { LOG_SAVE_FAILED_MESSAGE, renderLogScreen } from "./logScreen";
 import { renderHistoryScreen } from "./history";
+import { isSessionInProgress } from "../log/sessionProgress";
+import { buildSession } from "../program/schedule";
+import { createScreenWakeLock } from "../timer/wakeLock";
 import { renderNewDayBanner } from "./newDayBanner";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
@@ -38,6 +41,17 @@ import { focusMainHeading, renderWarningBanner } from "./warningBanner";
  * added: both mark `#app > main` inert, and inert applies to the whole
  * subtree, so a child inserted later is inert too (no focus, no taps) until
  * the overlay closes and removes inert from <main>. Nothing is replaced.
+ *
+ * Screen stays awake while a session is in progress (PLAN.md rule 8): one
+ * app-level ScreenWakeLock is wanted when the route is Today or the log
+ * screen AND `isSessionInProgress` for the shown date. It is re-evaluated after
+ * every render and every log change, so Settings/History release it and
+ * logging the last set releases it. "Until midnight" falls out of this: the
+ * shown date stays the same until the new-day banner's button re-renders for
+ * the new date, and that render re-evaluates against the new day's session.
+ * The timer overlay keeps its own lock (timerView.ts) while open; the two
+ * coexist as separate sentinels, so closing the overlay never drops the
+ * session lock and vice versa.
  */
 
 /** How often a left-open Today screen checks whether the local date has changed. */
@@ -139,6 +153,32 @@ export function startApp(
   let startTodayFailureMessage: string | undefined;
   /** The date Today was last drawn for; compared against the clock by `refreshTodayAfterMidnight`. */
   let renderedTodayDate = resolveToday(window.location.search);
+  /** The app-level lock for "session in progress"; separate from each timer overlay's own lock. Lives as long as the page. */
+  const sessionWakeLock = createScreenWakeLock();
+
+  /**
+   * Decides whether the screen should be kept awake right now and tells the
+   * session lock: wanted on Today and the log screen when the shown date's
+   * session is in progress. Called at the end of `render()` and from
+   * `handleLogChanged` (the log screen redraws itself without a full render).
+   * Never throws: a program gap on the shown date just means "not wanted".
+   */
+  function updateSessionWakeLock(): void {
+    const route = routeFromHash(window.location.hash);
+    const isSessionRoute = route === "today" || route === "log";
+    let isWanted = false;
+
+    if (isSessionRoute) {
+      try {
+        const date = resolveToday(window.location.search);
+        isWanted = isSessionInProgress(buildSession(program, settings, date), log, date);
+      } catch {
+        isWanted = false;
+      }
+    }
+
+    sessionWakeLock.setWanted(isWanted);
+  }
 
   /** Dismiss handler for the warning banner: remembers it for this page load and re-renders. */
   function handleDismissWarnings(): void {
@@ -154,11 +194,12 @@ export function startApp(
 
   /**
    * Called by the log screen and History after every change: keeps the new log as the
-   * app's copy (Today reads it for "2/6") and saves it. Returns a message if
+   * app's copy (Today reads it for "2/6") and saves it, and re-checks the screen wake lock. Returns a message if
    * saving failed; the in-memory change is kept regardless.
    */
   function handleLogChanged(newLog: WorkoutLog): string | null {
     log = newLog;
+    updateSessionWakeLock();
     return persistLog(newLog);
   }
 
@@ -243,6 +284,7 @@ export function startApp(
       }
       // The log screen belongs to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" ? "today" : route));
+      updateSessionWakeLock();
     } catch (error) {
       // A throwing render (e.g. a program gap hit on one date) must not leave
       // a blank screen: show the same readable card as a startup failure.

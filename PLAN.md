@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in progress.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -142,7 +142,8 @@ the starting point. Revisit them if the app shows they're wrong.
      "6, 6, 5"). Warm-ups don't show it.
    - Logging a set that has a prescribed rest starts the rest timer (the
      PR 2 follow-up). A session is "in progress" from its first logged set
-     until midnight or until every set is logged; while it is, the screen
+     until midnight or until every set is logged (optional items that were
+     never started don't count); while it is, the screen
      is kept awake on Today and the log screen (the other PR 2 follow-up).
    - Logged sets can be edited or deleted. Nothing is sent anywhere.
 
@@ -235,7 +236,7 @@ Rule 8 in section 4.
 3. [x] "Last time" lookup and hint on Today rows and the log screen.
 4. [x] History screen (the "History" tab): sessions by date, newest
    first, each listing what was logged; tap a set to edit or delete it.
-5. [ ] Keep the screen awake while a session is in progress (rule 8).
+5. [x] Keep the screen awake while a session is in progress (rule 8).
    Unit tests for the log mapping, set edits and "last time"; E2E test that
    logs sets, reloads, and sees them on Today, the log screen and History.
 - **Merge point:** the must-haves for a gym session are usable.
