@@ -74,6 +74,7 @@ export function openRestTimer(range: Range, restName: string, memoryKey: string,
     onUserTap: () => cues.prime(),
     onEvents: (events) => cues.handleEvents(events),
     onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+    cues,
     onStart: () => adjustedRests.set(memoryKey, chosenSeconds),
     onClose: options.onClose,
     setup: {

@@ -27,7 +27,9 @@ async function openToday(page: Page): Promise<void> {
     });
     scope.AudioContext = class {
       constructor() { (scope.__audioContextCount as number) += 1; }
-      currentTime = 0;
+      /** Seconds since this context was made, on the page's (fake) clock, like a real audio clock. */
+      private readonly madeAtMs = Date.now();
+      get currentTime() { return (Date.now() - this.madeAtMs) / 1000; }
       state = "running";
       destination = {};
       resume() {}
@@ -36,7 +38,10 @@ async function openToday(page: Page): Promise<void> {
         const oscillator = {
           frequency: { value: 0 },
           connect() {},
-          start() { (scope.__beeps as unknown[]).push(oscillator.frequency.value); },
+          start: (when: number) => {
+            // Record the pitch, the absolute audio time it is due, and how far ahead of "now" it was scheduled.
+            (scope.__beeps as unknown[]).push({ frequency: oscillator.frequency.value, whenSec: when, atSec: when - this.currentTime });
+          },
           stop() {},
         };
         return oscillator;
@@ -45,6 +50,29 @@ async function openToday(page: Page): Promise<void> {
   }, { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} });
 
   await page.goto("/");
+}
+
+/** One tone the page created: pitch, absolute audio time it is due, and that time relative to when it was scheduled. */
+interface RecordedBeep {
+  frequency: number;
+  whenSec: number;
+  atSec: number;
+}
+
+/** Every tone the page has created on the fake audio context, in creation order. */
+function recordedBeeps(page: Page): Promise<RecordedBeep[]> {
+  return page.evaluate(() => (window as unknown as { __beeps: RecordedBeep[] }).__beeps);
+}
+
+/** How far ahead of the moment it was scheduled (seconds, rounded to 0.1 s) every recorded tone of one pitch is due, in time order. Everything is scheduled at Start in these tests, so this is the offset into the run. */
+function dueTimes(beeps: RecordedBeep[], frequency: number): number[] {
+  return beeps.filter((beep) => beep.frequency === frequency).map((beep) => Math.round(beep.atSec * 10) / 10).sort((a, b) => a - b);
+}
+
+/** Fails if two tones of the same pitch are due at (nearly) the same moment: that would be a double beep. */
+function expectNoDoubleBeeps(beeps: RecordedBeep[]): void {
+  const keys = beeps.map((beep) => `${beep.frequency}@${beep.whenSec.toFixed(1)}`);
+  expect(new Set(keys).size).toBe(keys.length);
 }
 
 /** Everything the page recorded through the fake navigator.vibrate. */
@@ -72,10 +100,15 @@ test("an EMOM runs minute by minute, vibrates, finishes and returns focus to Tod
   await expect(overlay.locator(".timer-ring-number")).toHaveText("2/9");
   expect((await vibrations(page)).length).toBeGreaterThanOrEqual(2);
 
-  // Beeps were played through the (fake) audio context, including the 3-2-1 ticks.
-  const beeps = await page.evaluate(() => (window as unknown as { __beeps: number[] }).__beeps);
-  expect(beeps).toContain(880);
-  expect(beeps.filter((frequency) => frequency === 660)).toHaveLength(3);
+  // Tones are scheduled on the (fake) audio clock: Start beeps now, then each minute's 3-2-1 ticks
+  // at 57/58/59 s and the next minute's beep at 60 s, all queued up front.
+  const beeps = await recordedBeeps(page);
+  const ticks = dueTimes(beeps, 660);
+  expect(ticks.slice(0, 6)).toEqual([57, 58, 59, 117, 118, 119]);
+  expect(ticks).toHaveLength(27);
+  const minuteBeeps = dueTimes(beeps, 880);
+  expect(minuteBeeps.slice(0, 3)).toEqual([0, 60, 120]);
+  expectNoDoubleBeeps(beeps);
 
   await page.clock.runFor(8 * 60_000);
   await expect(overlay.getByRole("button", { name: "Done" })).toBeVisible();
@@ -152,9 +185,10 @@ test("the heavy bag timer: adjust rounds, run work and rest, finish after 3 roun
   await expect(overlay.locator(".timer-phase")).toHaveText("REST");
   await expect(overlay.getByText("Round 1 of 3")).toBeVisible();
   expect(await vibrations(page)).toContainEqual([80, 60, 80]);
-  const beeps = await page.evaluate(() => (window as unknown as { __beeps: number[] }).__beeps);
-  expect(beeps).toContain(1175);
-  expect(beeps).toContain(523);
+  const beeps = await recordedBeeps(page);
+  expect(dueTimes(beeps, 1175).slice(0, 2)).toEqual([0, 60]);
+  expect(dueTimes(beeps, 523).slice(0, 2)).toEqual([30, 90]);
+  expectNoDoubleBeeps(beeps);
 
   await page.clock.runFor(120_000);
   await expect(overlay.getByRole("button", { name: "Done" })).toBeVisible();
@@ -282,19 +316,19 @@ test("after the page sleeps, a catch-up plays only the latest cue", async ({ pag
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
   await overlay.getByRole("button", { name: "Start" }).click();
-  const beepsBefore = await page.evaluate(() => (window as unknown as { __beeps: number[] }).__beeps.length);
+  const beepsBefore = await recordedBeeps(page);
 
   // One big jump of 100s covers work(30) rest(30) work(30) rest(10): several segment starts in one update.
   await page.clock.fastForward(100_000);
   await expect(overlay.locator(".timer-phase")).toHaveText("REST");
 
-  const beepsAfter = await page.evaluate(
-    (skip) => (window as unknown as { __beeps: number[] }).__beeps.slice(skip),
-    beepsBefore,
-  );
-  // Only the latest segment's cue (a rest beep); no burst for the work/rest starts that were jumped over.
-  expect(beepsAfter.filter((frequency) => frequency === 523)).toHaveLength(1);
-  expect(beepsAfter.filter((frequency) => frequency === 1175)).toHaveLength(0);
+  // The audio clock already holds every boundary tone at its own time (rest beeps at 30 s and 90 s,
+  // the work beep at 60 s), so the jump creates no burst of extra tones and nothing is queued twice.
+  const beepsAfter = await recordedBeeps(page);
+  expect(beepsAfter).toHaveLength(beepsBefore.length);
+  expect(dueTimes(beepsAfter, 523).slice(0, 2)).toEqual([30, 90]);
+  expect(dueTimes(beepsAfter, 1175).slice(0, 2)).toEqual([0, 60]);
+  expectNoDoubleBeeps(beepsAfter);
 });
 
 test("focus moves to a working control when the focused one becomes disabled", async ({ page }) => {

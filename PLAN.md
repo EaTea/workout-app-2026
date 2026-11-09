@@ -383,10 +383,10 @@ the PR 2 review.
    / "−15s rest" line, so the text and the timer agree. Explosive rest is
    unchanged (Ed's decision: the program also allows adding reps instead).
    Steppers still let Ed change any number before Start.
-2. [ ] **Beeps on the audio clock.** When a segment starts, the cue player
-   schedules that segment's 3-2-1 countdown and its end beep on the
-   AudioContext timeline (`osc.start(at)`), instead of waiting for the
-   page's ticks, which a hidden or throttled page delays. Scheduled tones
+2. [x] **Beeps on the audio clock.** On Start, resume and Skip, the cue
+   player schedules every remaining 3-2-1 countdown and boundary beep of
+   the plan on the AudioContext timeline (`osc.start(at)`), instead of
+   waiting for the page's ticks, which a hidden or throttled page delays. Scheduled tones
    are cancelled on pause, Skip, a stepper change and close; the tick path
    no longer plays a tone that was already scheduled, so nothing beeps
    twice. Vibration stays tick-driven (it can't be scheduled) and the

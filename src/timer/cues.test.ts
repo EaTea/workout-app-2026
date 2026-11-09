@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createCuePlayer, cueForEvent, cueForEventBatch, shareAudioContext, cueForRemainingSecond, tonesForCue, type AudioContextLike } from "./cues";
-import type { TimerSegment } from "./engine";
+import { buildCueTimeline, createCuePlayer, cueForEvent, cueForEventBatch, shareAudioContext, cueForRemainingSecond, tonesForCue, type AudioContextLike } from "./cues";
+import { createTimerPlan, createTimerState, pauseTimer, resumeTimer, startTimer, type TimerSegment } from "./engine";
 
 const segment: TimerSegment = { phase: "minute", durationSec: 60, round: 1, totalRounds: 5, label: "Go" };
 
 /** A fake audio context that records each oscillator's pitch and start time. */
 function fakeAudio(state = "running") {
-  const started: Array<{ frequencyHz: number; at: number }> = [];
+  const started: Array<{ frequencyHz: number; at: number; stoppedAt?: number; disconnected: boolean }> = [];
   let resumed = 0;
   const context: AudioContextLike = {
     currentTime: 10,
@@ -14,15 +14,17 @@ function fakeAudio(state = "running") {
     destination: {},
     resume() { resumed += 1; },
     createOscillator() {
+      let record: (typeof started)[number] | undefined;
       const oscillator = {
         frequency: { value: 0 },
         connect() {},
-        start(at: number) { started.push({ frequencyHz: oscillator.frequency.value, at }); },
-        stop() {},
+        start(at: number) { record = { frequencyHz: oscillator.frequency.value, at, disconnected: false }; started.push(record); },
+        stop(at: number) { if (record) record.stoppedAt = at; },
+        disconnect() { if (record) record.disconnected = true; },
       };
       return oscillator;
     },
-    createGain() { return { gain: { value: 0 }, connect() {} }; },
+    createGain() { return { gain: { value: 0 }, connect() {}, disconnect() {} }; },
   };
   return { context, started, resumedCount: () => resumed };
 }
@@ -186,5 +188,128 @@ describe("createCuePlayer", () => {
       player.handleEvents([{ kind: "finished" }]);
       player.handleSecond(1);
     }).not.toThrow();
+  });
+});
+
+/** A work 10s / rest 5s / work 10s plan, started at time 0 (so `elapsedMs` is 0 and the state is running). */
+function runningPlanState() {
+  const work: TimerSegment = { phase: "work", durationSec: 10, round: 1, totalRounds: 2, label: "Work" };
+  const rest: TimerSegment = { phase: "rest", durationSec: 5, round: 1, totalRounds: 2, label: "Rest" };
+  const plan = createTimerPlan("Test", [work, rest, { ...work, round: 2 }]);
+  return startTimer(createTimerState(plan), 0).state;
+}
+
+describe("scheduling on the audio clock", () => {
+  it("the timeline lists ticks and boundary tones with their due times", () => {
+    const timeline = buildCueTimeline(runningPlanState()).map((entry) => [entry.atSec, entry.cue, entry.key]);
+
+    expect(timeline).toEqual([
+      [7, "countdownTick", "tick:0:3"], [8, "countdownTick", "tick:0:2"], [9, "countdownTick", "tick:0:1"],
+      [10, "restStart", "start:1"],
+      [12, "countdownTick", "tick:1:3"], [13, "countdownTick", "tick:1:2"], [14, "countdownTick", "tick:1:1"],
+      [15, "workStart", "start:2"],
+      [22, "countdownTick", "tick:2:3"], [23, "countdownTick", "tick:2:2"], [24, "countdownTick", "tick:2:1"],
+      [25, "finish", "finish"],
+    ]);
+  });
+
+  it("segments shorter than three seconds get only the ticks that fit", () => {
+    const quick: TimerSegment = { ...segment, durationSec: 2 };
+    const state = startTimer(createTimerState(createTimerPlan("Quick", [quick])), 0).state;
+
+    expect(buildCueTimeline(state).map((entry) => entry.key)).toEqual(["tick:0:2", "tick:0:1", "finish"]);
+  });
+
+  it("scheduleFrom queues tones at currentTime plus the time remaining", () => {
+    const audio = fakeAudio();
+    const player = createCuePlayer({ createAudioContext: () => audio.context });
+    player.prime();
+
+    player.scheduleFrom(runningPlanState());
+
+    // currentTime is 10 in the fake; the first tick is 7s into the segment, the rest beep at 10s.
+    expect(audio.started[0]).toMatchObject({ frequencyHz: 660, at: 17 });
+    expect(audio.started.find((tone) => tone.frequencyHz === 523)?.at).toBe(20);
+    const finishTones = audio.started.filter((tone) => tone.frequencyHz === 1000).map((tone) => tone.at);
+    expect(finishTones[0]).toBeCloseTo(35);
+    expect(finishTones[1]).toBeCloseTo(35.35);
+  });
+
+  it("the tick path does not replay a scheduled tone but still vibrates", () => {
+    const audio = fakeAudio();
+    const vibrations: number[][] = [];
+    const player = createCuePlayer({ createAudioContext: () => audio.context, vibrate: (pattern) => (vibrations.push(pattern), true) });
+    player.prime();
+    const state = runningPlanState();
+    player.handleEvents([{ kind: "segmentStarted", segment: state.plan.segments[0] as TimerSegment, segmentIndex: 0 }]);
+    player.scheduleFrom(state);
+    const toneCount = audio.started.length;
+
+    player.handleSecond(3);
+    player.handleEvents([{ kind: "segmentStarted", segment: state.plan.segments[1] as TimerSegment, segmentIndex: 1 }]);
+    player.handleEvents([{ kind: "finished" }]);
+
+    expect(audio.started).toHaveLength(toneCount + 0);
+    expect(vibrations).toEqual([[150], [80, 60, 80], [300, 100, 300]]);
+  });
+
+  it("cancelScheduled stops and disconnects every tone and hands cues back to the tick path", () => {
+    const audio = fakeAudio();
+    const player = createCuePlayer({ createAudioContext: () => audio.context });
+    player.prime();
+    const state = runningPlanState();
+    player.scheduleFrom(state);
+    const scheduledCount = audio.started.length;
+
+    player.cancelScheduled();
+    expect(audio.started.every((tone) => tone.stoppedAt === 0 && tone.disconnected)).toBe(true);
+
+    player.handleSecond(3);
+    expect(audio.started).toHaveLength(scheduledCount + 1);
+  });
+
+  it("resume after pause reschedules from the time left, not from the start", () => {
+    const audio = fakeAudio();
+    const player = createCuePlayer({ createAudioContext: () => audio.context });
+    player.prime();
+    const running = runningPlanState();
+    player.scheduleFrom(running);
+
+    const paused = pauseTimer(running, 8000).state;
+    player.cancelScheduled();
+    audio.started.length = 0;
+    player.scheduleFrom(paused);
+    expect(audio.started).toEqual([]);
+
+    player.scheduleFrom(resumeTimer(paused, 50_000).state);
+
+    // 2s left in the first segment: the 3 tick is in the past, ticks 2 and 1 are due now and at +1s.
+    expect(audio.started.slice(0, 3).map((tone) => [tone.frequencyHz, tone.at])).toEqual([[660, 10], [660, 11], [523, 12]]);
+  });
+
+  it("scheduling again does not stack tones: the old ones are cancelled first", () => {
+    const audio = fakeAudio();
+    const player = createCuePlayer({ createAudioContext: () => audio.context });
+    player.prime();
+    const state = runningPlanState();
+
+    player.scheduleFrom(state);
+    const firstBatch = audio.started.length;
+    player.scheduleFrom(state);
+
+    expect(audio.started.slice(0, firstBatch).every((tone) => tone.disconnected)).toBe(true);
+  });
+
+  it("does nothing audible before prime and never throws when audio fails", () => {
+    const silent = createCuePlayer({ createAudioContext: () => undefined });
+    silent.prime();
+    expect(() => silent.scheduleFrom(runningPlanState())).not.toThrow();
+
+    const broken = fakeAudio();
+    broken.context.createOscillator = () => { throw new Error("boom"); };
+    const player = createCuePlayer({ createAudioContext: () => broken.context });
+    player.prime();
+    expect(() => player.scheduleFrom(runningPlanState())).not.toThrow();
+    expect(() => player.cancelScheduled()).not.toThrow();
   });
 });

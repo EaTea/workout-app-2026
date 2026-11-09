@@ -404,6 +404,7 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      cues,
     });
   });
   return button;
@@ -429,6 +430,7 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      cues,
       setup: {
         fields: [
           {

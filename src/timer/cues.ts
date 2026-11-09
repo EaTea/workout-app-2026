@@ -1,4 +1,4 @@
-import type { TimerEvent } from "./engine";
+import type { TimerEvent, TimerState } from "./engine";
 
 /**
  * Sound and vibration cues for timers.
@@ -17,6 +17,22 @@ import type { TimerEvent } from "./engine";
  * `navigator.audioSession` exists the page asks for "playback" so beeps
  * play through the silent switch; older iOS may still mute them. Everything
  * fails silently where unsupported. Vibration is not available on iOS Safari.
+ *
+ * Scheduling on the audio clock: a hidden or throttled page runs its 250ms
+ * loop late, so tick-driven beeps would sound late. Instead, whenever a
+ * timer starts, resumes or is skipped, `scheduleFrom(state)` queues every
+ * FUTURE tone of the whole plan on the AudioContext timeline, at
+ * `context.currentTime + seconds until it is due`:
+ *
+ *   now                         end of seg 1                end of seg 2
+ *    |--- 3 2 1 ------------------|--- 3 2 1 ----------------|
+ *    ^ scheduleFrom()          ticks (660Hz)  boundary tone (start cue of seg 2 / finish)
+ *
+ * The page's ticks still run for the display and vibration, but a cue whose
+ * tone is already scheduled is not played again by `handleEvents` /
+ * `handleSecond` (tracked by key: "start:<index>", "finish",
+ * "tick:<index>:<second>"). Pause, Skip, a stepper change and close call
+ * `cancelScheduled()`, which stops and disconnects every queued tone.
  *
  * After the page sleeps one update can carry many events; only the cue for
  * the latest one is played (see `cueForEventBatch`) so Ed hears one beep,
@@ -91,6 +107,58 @@ export function tonesForCue(cue: CueName): Tone[] {
   return TONES[cue];
 }
 
+/** One tone-producing cue due `atSec` seconds after the schedule was made, with a key for de-duplication. */
+export interface ScheduledCue {
+  atSec: number;
+  cue: CueName;
+  /** "start:<segmentIndex>", "finish" or "tick:<segmentIndex>:<secondsRemaining>". */
+  key: string;
+}
+
+/** The de-duplication key for the cue an engine event triggers; matches the keys in `buildCueTimeline`. */
+export function keyForEvent(event: TimerEvent): string {
+  return event.kind === "finished" ? "finish" : `start:${event.segmentIndex}`;
+}
+
+/**
+ * Lists every tone still to come for a running timer, in time order, with
+ * times in seconds from the state's last update. For the current segment
+ * that is its 3-2-1 ticks still ahead; for every segment, the tick trio
+ * (if the segment is long enough to show them) and the tone for what
+ * follows it (next segment's start cue, or finish after the last). The
+ * current segment's own start cue is not included: it already sounded.
+ * Pure; used by `CuePlayer.scheduleFrom` and by tests.
+ */
+export function buildCueTimeline(state: TimerState): ScheduledCue[] {
+  const { segments } = state.plan;
+  const cues: ScheduledCue[] = [];
+  let segmentStartSec = 0;
+
+  for (let index = state.segmentIndex; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (!segment) break;
+
+    const isCurrent = index === state.segmentIndex;
+    const segmentEndSec = isCurrent ? Math.max(0, segment.durationSec - state.elapsedMs / 1000) : segmentStartSec + segment.durationSec;
+
+    for (const secondsLeft of COUNTDOWN_TICK_SECONDS) {
+      const atSec = segmentEndSec - secondsLeft;
+      if (atSec >= segmentStartSec) {
+        cues.push({ atSec, cue: "countdownTick", key: `tick:${index}:${secondsLeft}` });
+      }
+    }
+
+    const nextSegment = segments[index + 1];
+    const event: TimerEvent = nextSegment
+      ? { kind: "segmentStarted", segment: nextSegment, segmentIndex: index + 1 }
+      : { kind: "finished" };
+    cues.push({ atSec: segmentEndSec, cue: cueForEvent(event), key: keyForEvent(event) });
+
+    segmentStartSec = segmentEndSec;
+  }
+  return cues;
+}
+
 /** The slice of the Web Audio API the player uses, so tests can fake it. */
 export interface AudioContextLike {
   currentTime: number;
@@ -102,8 +170,9 @@ export interface AudioContextLike {
     connect(destination: unknown): void;
     start(when: number): void;
     stop(when: number): void;
+    disconnect(): void;
   };
-  createGain(): { gain: { value: number }; connect(destination: unknown): void };
+  createGain(): { gain: { value: number }; connect(destination: unknown): void; disconnect(): void };
 }
 
 /** Things the player needs from the browser; defaults are the real ones. */
@@ -120,6 +189,14 @@ export interface CuePlayer {
   handleEvents(events: TimerEvent[]): void;
   /** Plays a tick if this remaining-seconds value is one of the last three. */
   handleSecond(remainingSec: number): void;
+  /**
+   * Replaces anything scheduled with every future tone of the running `state`'s
+   * plan, on the audio clock (see the header). Call when a timer starts,
+   * resumes or is skipped, after the state is updated.
+   */
+  scheduleFrom(state: TimerState): void;
+  /** Stops and disconnects every scheduled tone and forgets them. Call on pause, Skip, stepper change and close. */
+  cancelScheduled(): void;
 }
 
 /**
@@ -182,8 +259,21 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
   const vibrate = dependencies.vibrate ?? vibrateWithBrowser;
   let audio: AudioContextLike | undefined;
 
-  /** Plays one beep on the shared context, scheduled `startOffsetSec` from now. */
-  function playTone(context: AudioContextLike, tone: Tone): void {
+  /** A tone queued on the audio clock, kept so it can be cancelled. */
+  interface QueuedTone {
+    stop(): void;
+  }
+  let queuedTones: QueuedTone[] = [];
+  /** Keys (see `ScheduledCue.key`) of cues whose tone is already queued; the tick path must not replay them. */
+  let scheduledKeys = new Set<string>();
+  /** Segment the timer is in, learned from events and `scheduleFrom`; qualifies countdown tick keys. */
+  let currentSegmentIndex: number | undefined;
+
+  /**
+   * Queues one beep on the shared context, `delaySec` from now, and returns
+   * a handle that silences and disconnects it (used by `cancelScheduled`).
+   */
+  function playTone(context: AudioContextLike, tone: Tone, delaySec = 0): QueuedTone {
     const oscillator = context.createOscillator();
     const volume = context.createGain();
     oscillator.frequency.value = tone.frequencyHz;
@@ -191,15 +281,31 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
     oscillator.connect(volume);
     volume.connect(context.destination);
 
-    const startAt = context.currentTime + tone.startOffsetSec;
+    const startAt = context.currentTime + delaySec + tone.startOffsetSec;
     oscillator.start(startAt);
     oscillator.stop(startAt + tone.durationSec);
+
+    return {
+      stop() {
+        try {
+          oscillator.stop(0);
+          oscillator.disconnect();
+          volume.disconnect();
+        } catch {
+          // Already ended or never started: nothing left to silence.
+        }
+      },
+    };
   }
 
-  /** Beeps and vibrates for a cue; any browser failure is swallowed so a timer never breaks over sound. */
-  function play(cue: CueName): void {
+  /**
+   * Vibrates for a cue and, unless its tone was already scheduled on the
+   * audio clock (`isAlreadyScheduled`), beeps now. Browser failures are
+   * swallowed so a timer never breaks over sound.
+   */
+  function play(cue: CueName, isAlreadyScheduled = false): void {
     try {
-      if (audio) {
+      if (audio && !isAlreadyScheduled) {
         for (const tone of TONES[cue]) playTone(audio, tone);
       }
     } catch {
@@ -211,6 +317,13 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
     } catch {
       // Vibration is a nicety too.
     }
+  }
+
+  /** Silences everything queued and forgets it, so the tick path takes over again. */
+  function cancelScheduled(): void {
+    for (const queued of queuedTones) queued.stop();
+    queuedTones = [];
+    scheduledKeys = new Set();
   }
 
   return {
@@ -226,12 +339,31 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
       }
     },
     handleEvents(events) {
-      const cue = cueForEventBatch(events);
-      if (cue) play(cue);
+      const lastEvent = events[events.length - 1];
+      if (!lastEvent) return;
+
+      currentSegmentIndex = lastEvent.kind === "segmentStarted" ? lastEvent.segmentIndex : undefined;
+      play(cueForEvent(lastEvent), scheduledKeys.has(keyForEvent(lastEvent)));
     },
     handleSecond(remainingSec) {
       const cue = cueForRemainingSecond(remainingSec);
-      if (cue) play(cue);
+      if (cue) play(cue, scheduledKeys.has(`tick:${currentSegmentIndex}:${remainingSec}`));
     },
+    scheduleFrom(state) {
+      cancelScheduled();
+      currentSegmentIndex = state.segmentIndex;
+      if (!audio || state.status !== "running") return;
+
+      try {
+        for (const scheduled of buildCueTimeline(state)) {
+          for (const tone of TONES[scheduled.cue]) queuedTones.push(playTone(audio, tone, scheduled.atSec));
+          scheduledKeys.add(scheduled.key);
+        }
+      } catch {
+        // Audio failed part-way: drop what was queued so the tick path beeps instead.
+        cancelScheduled();
+      }
+    },
+    cancelScheduled,
   };
 }
