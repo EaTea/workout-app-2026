@@ -13,15 +13,22 @@ import { element } from "./dom";
  *   Today (later steps) ──openTimer(plan)──▶ overlay appended to <body>
  *        loop every 250ms ──tickTimer(now)──▶ new state ──render()──▶ DOM
  *        buttons ──start/pause/resume/skip(now)──▶ new state ──render()
- *        engine events ──▶ options.onEvent (beeps and buzzes in step 2)
+ *        engine events (one batch per update) ──▶ options.onEvents (beeps and buzzes)
+ *        every tap inside the overlay ──▶ options.onUserTap (unlock/resume audio)
  *   Escape / Close / hashchange ──▶ close() ──▶ loop stopped, page restored
  *
  * Optional setup row (`options.setup`): before Start, numeric steppers let the
  * user adjust the plan (e.g. rounds); each change asks the caller to rebuild
  * the plan. Once started the steppers are replaced by a read-only summary.
  *
- * The screen is kept awake (timer/wakeLock.ts) exactly while the timer is
- * running: acquired on Start/Resume, released on pause, finish and close.
+ * The screen is kept awake (timer/wakeLock.ts) for as long as the overlay is
+ * open (ready, running, paused and finished alike): requested when it opens,
+ * released when it closes. A phone propped up between sets should not dim
+ * just because the timer is paused.
+ *
+ * The dialog's accessible name is stable (`options.dialogName`), while the
+ * visible title follows the plan as the steppers change it. After each
+ * render, focus is moved off any control that just became disabled.
  *
  * Like the exercise sheet it lives outside #app (re-renders of Today don't
  * remove it), makes the screens behind it inert and returns focus on close.
@@ -56,10 +63,20 @@ export interface TimerSetup {
 
 /** Optional hooks for whoever opens the timer. */
 export interface TimerViewOptions {
-  /** Called for every engine event (segment starts, finish), in order. Used to play sound and vibration. */
-  onEvent?: (event: TimerEvent) => void;
-  /** Called synchronously inside the Start tap, before the timer starts: the place to unlock audio (iOS needs a user gesture). */
-  onStart?: () => void;
+  /**
+   * Accessible name of the dialog, e.g. "Heavy bag timer". Unlike the visible
+   * title it never changes while the steppers rebuild the plan. Defaults to
+   * the plan's initial title.
+   */
+  dialogName?: string;
+  /**
+   * Called once per engine update that produced events (segment starts,
+   * finish), with all of them in order. A batch with several events means the
+   * page was asleep and caught up; the caller decides how to cue it.
+   */
+  onEvents?: (events: TimerEvent[]) => void;
+  /** Called synchronously on every tap inside the overlay (Start, Pause, Skip, steppers...): the place to unlock or resume audio, which iOS only allows from a user gesture. */
+  onUserTap?: () => void;
   /** Called each time the displayed remaining seconds change while running (for the 3-2-1 countdown ticks). */
   onSecondTick?: (remainingSec: number) => void;
   /** Adjustable numbers shown before Start; locked once the timer has started. */
@@ -91,7 +108,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   /** "segmentIndex:remainingSec" of the last second reported to onSecondTick, so each second is reported once. */
   let lastReportedSecond = "";
 
-  /** Keeps the phone from dimming mid-timer; told whether the timer is running after every render. */
+  /** Keeps the phone from dimming while the overlay is open; requested once below, disposed on close. */
   const screenWakeLock = createScreenWakeLock();
 
   const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -100,13 +117,12 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   const overlay = element("div", "timer-view");
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-labelledby", "timer-title");
+  overlay.setAttribute("aria-label", options.dialogName ?? plan.title);
   overlay.tabIndex = -1;
 
   const closeButton = element("button", "timer-close", "✕ Close");
   closeButton.type = "button";
   const title = element("h2", "timer-title", plan.title);
-  title.id = "timer-title";
   const topBar = element("div", "timer-top", undefined);
   topBar.append(closeButton, title);
 
@@ -161,9 +177,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   /** Stores the engine's new state, forwards its events to the caller, and redraws. */
   function applyUpdate(update: TimerUpdate): void {
     state = update.state;
-    for (const event of update.events) {
-      options.onEvent?.(event);
-    }
+    if (update.events.length > 0) options.onEvents?.(update.events);
     render();
   }
 
@@ -189,9 +203,12 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     overlay.dataset.phase = segment.phase;
     overlay.dataset.status = state.status;
 
-    phaseWord.textContent = segment.phase === "work" ? "WORK" : segment.phase === "rest" ? "REST" : "";
-    phaseWord.hidden = isMinuteStyle;
-    ring.hidden = !isMinuteStyle;
+    const isFinished = state.status === "finished";
+
+    // A finished timer says DONE in a neutral colour (CSS keys off data-status), not the last segment's WORK/REST.
+    phaseWord.textContent = isFinished ? "DONE" : segment.phase === "work" ? "WORK" : segment.phase === "rest" ? "REST" : "";
+    phaseWord.hidden = isMinuteStyle && !isFinished;
+    ring.hidden = !isMinuteStyle || isFinished;
     // A single-segment plan (a plain rest) has no rounds worth counting.
     roundCounter.hidden = isMinuteStyle || view.totalRounds === 1;
 
@@ -233,16 +250,32 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
       state.status === "ready" ? "Start" : state.status === "running" ? "❚❚ Pause" : state.status === "paused" ? "▶ Resume" : "Done";
     skipButton.disabled = state.status === "ready" || state.status === "finished";
 
-    // Every state change passes through here, so this one line covers
-    // start, pause, resume, skip-to-finish and the clock catching up.
-    screenWakeLock.setWanted(state.status === "running");
+    moveFocusOffDisabledControl();
+  }
+
+  /**
+   * If the focused control inside the overlay has just become disabled (the
+   * last round was reached, a stepper hit its limit, Skip lost its target),
+   * focus would be lost to the page. Move it to the opposite stepper of the
+   * same field when that is enabled, otherwise to the primary button.
+   * Called at the end of every render.
+   */
+  function moveFocusOffDisabledControl(): void {
+    const focused = document.activeElement;
+    if (!(focused instanceof HTMLButtonElement) || !focused.disabled || !overlay.contains(focused)) return;
+
+    const stepped = setupStepButtons.find((entry) => entry.button === focused);
+    const opposite = stepped
+      ? setupStepButtons.find((entry) => entry.field === stepped.field && entry.direction !== stepped.direction)
+      : undefined;
+
+    (opposite && !opposite.button.disabled ? opposite.button : toggleButton).focus();
   }
 
   /** The big button: start, pause, resume, or (when finished) close, depending on the state. */
   function handleToggle(): void {
     const now = Date.now();
     if (state.status === "ready") {
-      options.onStart?.();
       applyUpdate(startTimer(state, now));
     }
     else if (state.status === "running") applyUpdate(pauseTimer(state, now));
@@ -310,6 +343,8 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   for (const stepButton of setupStepButtons) {
     stepButton.button.addEventListener("click", () => changeSetupValue(stepButton.field, stepButton.direction));
   }
+  // Any tap in the overlay counts as the user gesture that keeps audio alive (resumed if the OS interrupted it).
+  overlay.addEventListener("click", () => options.onUserTap?.());
   closeButton.addEventListener("click", close);
   toggleButton.addEventListener("click", handleToggle);
   skipButton.addEventListener("click", () => applyUpdate(skipSegment(state, Date.now())));
@@ -318,6 +353,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   window.addEventListener("hashchange", close);
 
   render();
+  screenWakeLock.setWanted(true);
   document.body.append(overlay);
   toggleButton.focus();
 

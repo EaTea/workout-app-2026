@@ -593,6 +593,16 @@ body {
   --timer-button: #1c3a68;
 }
 
+/* Finished: neutral tint and a neutral DONE word, whatever the last segment was. The extra [data-phase] outranks the work/rest rules that come later. */
+.timer-view[data-status="finished"][data-phase] {
+  --timer-tint: #171b22;
+  --timer-button: #262b34;
+}
+
+.timer-view[data-status="finished"][data-phase] .timer-phase {
+  color: var(--text);
+}
+
 .timer-top {
   display: flex;
   align-items: center;

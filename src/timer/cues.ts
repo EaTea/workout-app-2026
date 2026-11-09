@@ -3,16 +3,24 @@ import type { TimerEvent } from "./engine";
 /**
  * Sound and vibration cues for timers.
  *
- *   timerView ──onEvent(segmentStarted | finished)──▶ player.handleEvent ─┐
- *   timerView ──onSecondTick(remainingSec)──────────▶ player.handleSecond ─┤
- *                                                                          ▼
- *                              cue name ──▶ beep tones (Web Audio) + vibration
+ *   timerView ──onEvents([segmentStarted | finished, ...])──▶ player.handleEvents ─┐
+ *   timerView ──onSecondTick(remainingSec)─────────────────────▶ player.handleSecond ─┤
+ *                                                                                      ▼
+ *                                          cue name ──▶ beep tones (Web Audio) + vibration
  *
  * Browsers (iOS especially) only allow audio after a user gesture, so
- * `prime()` must be called from the Start tap; it creates the one shared
- * AudioContext. Everything fails silently where unsupported. On iPhone the
- * ringer/silent switch mutes Web Audio, so beeps may be inaudible; the
- * vibration is not available on iOS Safari at all.
+ * `prime()` is called from every tap in the timer view. There is ONE
+ * AudioContext for the whole app (browsers cap how many may be alive, and
+ * beeps go silent past the cap), created lazily by the first prime() and
+ * shared by every player; prime() also resumes it if the browser suspended
+ * or interrupted it (iOS does after a call or a lock). Where Safari's
+ * `navigator.audioSession` exists the page asks for "playback" so beeps
+ * play through the silent switch; older iOS may still mute them. Everything
+ * fails silently where unsupported. Vibration is not available on iOS Safari.
+ *
+ * After the page sleeps one update can carry many events; only the cue for
+ * the latest one is played (see `cueForEventBatch`) so Ed hears one beep,
+ * not a burst.
  */
 
 /**
@@ -60,6 +68,19 @@ export function cueForEvent(event: TimerEvent): CueName {
   return "segmentStart";
 }
 
+/**
+ * Which single cue to play for a batch of events from one engine update: the
+ * cue for the LAST event, or undefined for an empty batch. After the page was
+ * hidden, one update can jump several segments; replaying every start cue
+ * would be a noisy burst about things that already happened. Used by
+ * `CuePlayer.handleEvents`. (Countdown ticks for jumped-over seconds never
+ * play either: ticks are only reported for the second currently displayed.)
+ */
+export function cueForEventBatch(events: TimerEvent[]): CueName | undefined {
+  const lastEvent = events[events.length - 1];
+  return lastEvent ? cueForEvent(lastEvent) : undefined;
+}
+
 /** Which cue (if any) a newly displayed remaining-seconds value should trigger: ticks at 3, 2 and 1. */
 export function cueForRemainingSecond(remainingSec: number): CueName | undefined {
   return COUNTDOWN_TICK_SECONDS.includes(remainingSec) ? "countdownTick" : undefined;
@@ -93,16 +114,31 @@ export interface CuePlayerDependencies {
 
 /** What the timer screen calls. */
 export interface CuePlayer {
-  /** Creates (or resumes) the audio context. Call from a user gesture such as the Start tap. */
+  /** Creates the shared audio context if needed and resumes it if suspended/interrupted. Call from every user tap. */
   prime(): void;
-  /** Plays the cue for an engine event. */
-  handleEvent(event: TimerEvent): void;
+  /** Plays the one cue for the latest of the events from a single engine update (and vibrates for it only). */
+  handleEvents(events: TimerEvent[]): void;
   /** Plays a tick if this remaining-seconds value is one of the last three. */
   handleSecond(remainingSec: number): void;
 }
 
+/**
+ * Asks Safari 16.4+ to treat the page's audio as "playback" so it ignores the
+ * silent switch. Feature-detected and best effort: other browsers lack
+ * `navigator.audioSession`, and any error is ignored.
+ */
+function requestPlaybackAudioSession(): void {
+  try {
+    const audioSession = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+    if (audioSession) audioSession.type = "playback";
+  } catch {
+    // Not supported: beeps may be muted by the silent switch, nothing else.
+  }
+}
+
 /** Makes a real AudioContext where the browser has one (older Safari names it webkitAudioContext). */
 function createBrowserAudioContext(): AudioContextLike | undefined {
+  requestPlaybackAudioSession();
   const scope = window as unknown as { AudioContext?: new () => AudioContextLike; webkitAudioContext?: new () => AudioContextLike };
   const AudioContextClass = scope.AudioContext ?? scope.webkitAudioContext;
   return AudioContextClass ? new AudioContextClass() : undefined;
@@ -114,11 +150,35 @@ function vibrateWithBrowser(pattern: number[]): boolean {
 }
 
 /**
- * Creates the player used by one timer run. The audio context is created
- * lazily in `prime()` and shared by every cue afterwards.
+ * Wraps a context factory so it runs at most once and every caller gets the
+ * same context (including "no context available", so an unsupported browser
+ * is not retried on every tap). Errors from the factory are not cached.
+ * Used for the app-wide context below; exported so tests can check sharing.
+ */
+export function shareAudioContext(create: () => AudioContextLike | undefined): () => AudioContextLike | undefined {
+  let hasCreated = false;
+  let shared: AudioContextLike | undefined;
+
+  return () => {
+    if (!hasCreated) {
+      shared = create();
+      hasCreated = true;
+    }
+    return shared;
+  };
+}
+
+/** The app-wide context: every timer's player uses this unless a test injects its own factory. */
+const getAppAudioContext = shareAudioContext(createBrowserAudioContext);
+
+/**
+ * Creates the player used by one timer run. The audio context comes from
+ * the app-wide shared getter (created on the first `prime()`, i.e. the first
+ * user tap) so opening many timers never creates more than one context.
+ * Called by the Start buttons on Today, once per opened timer.
  */
 export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePlayer {
-  const createAudioContext = dependencies.createAudioContext ?? createBrowserAudioContext;
+  const createAudioContext = dependencies.createAudioContext ?? getAppAudioContext;
   const vibrate = dependencies.vibrate ?? vibrateWithBrowser;
   let audio: AudioContextLike | undefined;
 
@@ -157,13 +217,17 @@ export function createCuePlayer(dependencies: CuePlayerDependencies = {}): CuePl
     prime() {
       try {
         audio ??= createAudioContext();
-        if (audio && audio.state === "suspended") void audio.resume();
+        // iOS reports "interrupted" after a call or lock; both need a resume() from a tap.
+        if (audio && (audio.state === "suspended" || audio.state === "interrupted")) {
+          void Promise.resolve(audio.resume()).catch(() => undefined);
+        }
       } catch {
         audio = undefined;
       }
     },
-    handleEvent(event) {
-      play(cueForEvent(event));
+    handleEvents(events) {
+      const cue = cueForEventBatch(events);
+      if (cue) play(cue);
     },
     handleSecond(remainingSec) {
       const cue = cueForRemainingSecond(remainingSec);

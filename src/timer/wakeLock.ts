@@ -1,5 +1,5 @@
 /**
- * Keeps the screen awake while a timer is running, using the Screen Wake Lock
+ * Keeps the screen awake while a timer overlay is open, using the Screen Wake Lock
  * API. A phone propped up during a set would otherwise dim and lock mid-timer.
  *
  *   timerView ──setWanted(true/false)──▶ ScreenWakeLock ──request("screen")──▶ browser
@@ -57,7 +57,7 @@ function browserEnvironment(): WakeLockEnvironment {
 
 /**
  * Creates a wake lock controller for one timer overlay. The overlay calls
- * `setWanted(true)` while its timer runs and `setWanted(false)` otherwise;
+ * `setWanted(true)` when it opens and `dispose()` when it closes;
  * this object takes care of requesting, releasing and re-requesting after the
  * browser drops the lock.
  */
@@ -87,7 +87,7 @@ export function createScreenWakeLock(environment: WakeLockEnvironment = browserE
       (sentinel) => {
         isRequestPending = false;
 
-        // The request resolved after the timer stopped (or the overlay closed):
+        // The request resolved after the lock was no longer wanted (e.g. the overlay closed):
         // give the lock straight back instead of leaking it.
         if (!isWanted) {
           sentinel.release().catch(() => undefined);
@@ -115,7 +115,7 @@ export function createScreenWakeLock(environment: WakeLockEnvironment = browserE
     sentinel?.release().catch(() => undefined);
   }
 
-  /** Re-requests the lock when the page comes back to the foreground while a timer is still running. */
+  /** Re-requests the lock when the page comes back to the foreground while the overlay is still open. */
   function handleVisibilityChange(): void {
     if (isWanted && visibilitySource?.visibilityState === "visible") acquire();
   }

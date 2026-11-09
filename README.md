@@ -6,10 +6,11 @@ deload weeks applied), turns max-based reps into concrete targets from your
 tested maxes, shows exercise details (cues, alternative, evidence,
 progression) and has a settings screen. EMOM rows have a "Start EMOM" button
 that opens a full-screen timer with a beep and vibration each minute and a
-3-2-1 countdown (an iPhone's silent switch mutes the beeps, and iOS Safari has
-no vibration). The heavy bag row has a "Start timer" interval timer and rows
+3-2-1 countdown (the beeps ask Safari 16.4+ to play through an iPhone's
+silent switch; older iOS versions may still mute them, and iOS Safari has no
+vibration). The heavy bag row has a "Start timer" interval timer and rows
 with a prescribed rest (and superset blocks) have a "Rest 30s" button, all with
-adjustable numbers before Start. The screen stays awake while a timer runs
+adjustable numbers before Start. The screen stays awake while a timer is open
 (needs a browser with the Screen Wake Lock API, e.g. iOS Safari 16.4+), and
 Today refreshes itself if left open past midnight. Set logging is planned but not
 built yet (see [PLAN.md](PLAN.md)). It is a static site

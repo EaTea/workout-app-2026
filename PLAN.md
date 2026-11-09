@@ -194,8 +194,9 @@ Follow-ups from the PR 2 review (later PRs):
 - Schedule upcoming beeps on the audio clock so they stay on time while the
   browser throttles a hidden page.
 - Let the phone's Back gesture close the timer instead of leaving the app.
-- Power-endurance weeks (5–7) say to lengthen bag rounds and cut some rests;
-  timer defaults don't follow that yet (waiting on Ed).
+- Power-endurance weeks (5–7): Ed chose that the heavy bag work default
+  gets +5s and the core rest between pairs −15s. Explosive rest stays as
+  written, since the program allows adding reps instead. Not built yet.
 
 ### PR 3 — Logging and "last time" *(behavior change)*
 1. Tick off sets; record reps, load and an optional note per set.

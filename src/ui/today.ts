@@ -181,7 +181,7 @@ function renderBlockCard(block: BlockView, position: number): HTMLElement {
   // Supersets rest between pairs, so the rest button belongs to the block rather than to one row.
   if (block.restSecBetweenPairs) {
     const restRow = element("div", "block-rest");
-    restRow.append(renderStartRestButton(block.restSecBetweenPairs, "Between pairs", "Start rest timer between pairs"));
+    restRow.append(renderStartRestButton(block.restSecBetweenPairs, "Between pairs", undefined, " between pairs"));
     card.append(restRow);
   }
 
@@ -243,7 +243,7 @@ function renderItemRow(item: ItemView): HTMLElement {
 
   // Straight-set items with a prescribed rest get a rest button, tapped after each set.
   if (item.format !== "interval" && item.restSec) {
-    row.append(renderStartRestButton(item.restSec, item.exercise.name, `Start rest timer for ${item.exercise.name}`));
+    row.append(renderStartRestButton(item.restSec, item.exercise.name, item.exercise.name));
   }
 
   // Heavy bag intervals likewise.
@@ -258,18 +258,20 @@ function renderItemRow(item: ItemView): HTMLElement {
 /**
  * "Start EMOM" button for an EMOM row. Opens the full-screen timer for the
  * item (timer/plans.ts) with beeps and vibration (timer/cues.ts) wired in;
- * the audio is unlocked inside the timer's own Start tap.
+ * the audio is unlocked/resumed on every tap inside the timer.
  */
 function renderStartEmomButton(item: ItemView): HTMLButtonElement {
   const button = element("button", "item-start", "Start EMOM");
   button.type = "button";
-  button.setAttribute("aria-label", `Start EMOM for ${item.exercise.name}`);
+  // The visible text comes first in the accessible name (WCAG 2.5.3 label in name).
+  button.setAttribute("aria-label", `Start EMOM, ${item.exercise.name}`);
 
   button.addEventListener("click", () => {
     const cues = createCuePlayer();
     openTimer(buildEmomPlan(item), {
-      onStart: () => cues.prime(),
-      onEvent: (event) => cues.handleEvent(event),
+      dialogName: `${item.exercise.name} EMOM timer`,
+      onUserTap: () => cues.prime(),
+      onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
     });
   });
@@ -284,7 +286,7 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
 function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
   const button = element("button", "item-start", "Start timer");
   button.type = "button";
-  button.setAttribute("aria-label", `Start interval timer for ${item.exercise.name}`);
+  button.setAttribute("aria-label", `Start timer, ${item.exercise.name}`);
 
   button.addEventListener("click", () => {
     const defaults = defaultIntervalSettings(item);
@@ -292,17 +294,34 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
     const { minRounds, maxRounds, minSeconds, maxWorkSec, maxRestSec, secondsStep } = INTERVAL_LIMITS;
 
     openTimer(buildIntervalPlan(item, defaults), {
-      onStart: () => cues.prime(),
-      onEvent: (event) => cues.handleEvent(event),
+      dialogName: "Heavy bag timer",
+      onUserTap: () => cues.prime(),
+      onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
       setup: {
         fields: [
-          { id: "workSec", label: "work", value: defaults.workSec, min: minSeconds, max: maxWorkSec, step: secondsStep, format: (value) => `Work ${value}s` },
-          { id: "restSec", label: "rest", value: defaults.restSec, min: minSeconds, max: maxRestSec, step: secondsStep, format: (value) => `Rest ${value}s` },
-          { id: "rounds", label: "rounds", value: defaults.rounds, min: minRounds, max: maxRounds, step: 1, format: (value) => (value === 1 ? "1 round" : `${value} rounds`) },
+          {
+            id: "workSec", label: "work", value: defaults.workSec,
+            min: minSeconds, max: maxWorkSec, step: secondsStep,
+            format: (value) => `Work ${value}s`,
+          },
+          {
+            id: "restSec", label: "rest", value: defaults.restSec,
+            min: minSeconds, max: maxRestSec, step: secondsStep,
+            format: (value) => `Rest ${value}s`,
+          },
+          {
+            id: "rounds", label: "rounds", value: defaults.rounds,
+            min: minRounds, max: maxRounds, step: 1,
+            format: (value) => (value === 1 ? "1 round" : `${value} rounds`),
+          },
         ],
         rebuildPlan: (values) =>
-          buildIntervalPlan(item, { rounds: values.rounds ?? defaults.rounds, workSec: values.workSec ?? defaults.workSec, restSec: values.restSec ?? defaults.restSec }),
+          buildIntervalPlan(item, {
+            rounds: values.rounds ?? defaults.rounds,
+            workSec: values.workSec ?? defaults.workSec,
+            restSec: values.restSec ?? defaults.restSec,
+          }),
       },
     });
   });
@@ -315,24 +334,42 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
  * item rows (`restSec`) and by superset blocks (`restSecBetweenPairs`). With
  * no set logging yet, this button is how a rest begins; it can be tapped
  * again after every set. The timer's finish cue tells Ed to begin the next set.
+ *
+ * The visible text is "Rest 30s" plus an optional `visibleSuffix` (the
+ * between-pairs button says "Rest 45s between pairs" since no exercise row
+ * names it). `accessibleContext`, when given, is appended to the visible text
+ * for the accessible name ("Rest 30s, Med ball slams"), so the visible label
+ * stays at the start of the name (WCAG 2.5.3); without it the visible text is
+ * the name.
  */
-function renderStartRestButton(range: Range, restName: string, accessibleName: string): HTMLButtonElement {
+function renderStartRestButton(
+  range: Range,
+  restName: string,
+  accessibleContext?: string,
+  visibleSuffix = "",
+): HTMLButtonElement {
   const defaultSeconds = defaultRestSeconds(range);
-  const button = element("button", "item-start", `Rest ${defaultSeconds}s`);
+  const visibleText = `Rest ${defaultSeconds}s${visibleSuffix}`;
+  const button = element("button", "item-start", visibleText);
   button.type = "button";
-  button.setAttribute("aria-label", accessibleName);
+  if (accessibleContext) button.setAttribute("aria-label", `${visibleText}, ${accessibleContext}`);
 
   button.addEventListener("click", () => {
     const cues = createCuePlayer();
     const { minSeconds, maxSeconds, secondsStep } = REST_LIMITS;
 
     openTimer(buildRestPlan(defaultSeconds, restName), {
-      onStart: () => cues.prime(),
-      onEvent: (event) => cues.handleEvent(event),
+      dialogName: "Rest timer",
+      onUserTap: () => cues.prime(),
+      onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
       setup: {
         fields: [
-          { id: "seconds", label: "rest", value: defaultSeconds, min: minSeconds, max: maxSeconds, step: secondsStep, format: (value) => `Rest ${value}s` },
+          {
+            id: "seconds", label: "rest", value: defaultSeconds,
+            min: minSeconds, max: maxSeconds, step: secondsStep,
+            format: (value) => `Rest ${value}s`,
+          },
         ],
         rebuildPlan: (values) => buildRestPlan(values.seconds ?? defaultSeconds, restName),
       },

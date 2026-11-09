@@ -10,6 +10,11 @@ function fakeWakeLock(mode: "immediate" | "manual" | "reject" = "immediate") {
   const pendingResolvers: Array<() => void> = [];
   let requestCount = 0;
 
+  /**
+   * Builds a fake WakeLockSentinel and records it in `sentinels`, so tests can
+   * check whether the controller released it. `dropByBrowser()` simulates the
+   * browser revoking the lock (e.g. the page was hidden), firing "release".
+   */
   function makeSentinel() {
     const releaseListeners: Array<() => void> = [];
     const sentinel = {
