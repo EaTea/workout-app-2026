@@ -370,7 +370,7 @@ brief's remaining nice-to-haves.
 ### PR 6 — Power-endurance timer defaults and timer follow-ups *(behavior change)*
 Stacked on PR 5. Ed's choice for weeks 5–7 plus the two follow-ups from
 the PR 2 review.
-1. [ ] **Power-endurance adjustments in program.json.** A progression phase
+1. [x] **Power-endurance adjustments in program.json.** A progression phase
    may carry an optional `"timerAdjustments": {"intervalWorkSec": 5,
    "coreRestBetweenPairsSec": -15}` (validated like every other field:
    whole numbers, unknown keys warned about). The shipped program sets it on

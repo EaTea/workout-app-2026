@@ -393,3 +393,48 @@ describe("deload weeks hold the last normal week's weekly increase", () => {
     expect(pullUpBasisInWeek(modified, 1)).toMatchObject({ weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: false });
   });
 });
+
+describe("power endurance timer adjustments (weeks 5-7)", () => {
+  it("30 Nov (W5 D1): heavy bag work is 25-35s (timer starts at 35s) and core rest is 30-45s", () => {
+    const session = trainingOn("2026-11-30");
+    expect(session.phase).toBe("Power endurance");
+
+    const bag = item(session.blocks, "heavy_bag");
+    expect(bag.workSec).toEqual({ min: 25, max: 35 });
+    expect(bag.workSecAdjustment).toBe(5);
+    expect(bag.rounds).toEqual({ min: 4, max: 5 });
+    expect(bag.restSec).toEqual({ min: 30, max: 30 });
+
+    const core = block(session.blocks, "core");
+    expect(core.restSecBetweenPairs).toEqual({ min: 30, max: 45 });
+    expect(core.restAdjustment).toBe(-15);
+  });
+
+  it("4 Dec (W5 D5): core rest 45s becomes 30s", () => {
+    const core = block(trainingOn("2026-12-04").blocks, "core");
+    expect(core.restSecBetweenPairs).toEqual({ min: 30, max: 30 });
+  });
+
+  it("leaves explosive rest unchanged", () => {
+    expect(item(trainingOn("2026-11-30").blocks, "med_ball_slam").restSec).toEqual({ min: 30, max: 45 });
+  });
+
+  it("leaves week 4 (23 Nov) and week 8 (21 Dec) unadjusted", () => {
+    for (const date of ["2026-11-23", "2026-12-21"]) {
+      const session = trainingOn(date);
+      expect(item(session.blocks, "heavy_bag").workSec).toEqual({ min: 20, max: 30 });
+      expect(item(session.blocks, "heavy_bag").workSecAdjustment).toBeUndefined();
+      expect(block(session.blocks, "core").restSecBetweenPairs).toEqual({ min: 45, max: 60 });
+      expect(block(session.blocks, "core").restAdjustment).toBeUndefined();
+    }
+  });
+
+  it("never goes below the timer's 5s floor", () => {
+    const strict = structuredClone(program);
+    strict.progression[2]!.timerAdjustments = { intervalWorkSec: -100, coreRestBetweenPairsSec: -100 };
+    const session = buildSession(strict, settings, "2026-11-30");
+    if (session.kind !== "training") throw new Error("expected training");
+    expect(item(session.blocks, "heavy_bag").workSec).toEqual({ min: 5, max: 5 });
+    expect(block(session.blocks, "core").restSecBetweenPairs).toEqual({ min: 5, max: 5 });
+  });
+});

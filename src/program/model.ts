@@ -120,6 +120,17 @@ export interface Day {
   blocks: Block[];
 }
 
+/**
+ * Timer changes a phase makes to the program's seconds, in whole seconds
+ * (negative shortens). A key left out of program.json is 0 here.
+ */
+export interface TimerAdjustments {
+  /** Added to both ends of every interval item's work range. */
+  intervalWorkSec: number;
+  /** Added to both ends of every core block's rest-between-pairs range. */
+  coreRestBetweenPairsSec: number;
+}
+
 /** One phase of the progression (Base, Deload, ...). */
 export interface ProgressionPhase {
   weeks: number[];
@@ -127,6 +138,8 @@ export interface ProgressionPhase {
   changes: string[];
   /** True in a retest week (week 8): EMOM targets use the current saved max, no weekly increase and no hold. Defaults to false. */
   retest: boolean;
+  /** Timer changes for this phase; absent when the phase doesn't adjust any. */
+  timerAdjustments?: TimerAdjustments;
 }
 
 /** Warm-up rotation reminder data. */

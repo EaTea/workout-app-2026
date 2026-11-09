@@ -300,3 +300,35 @@ describe("unknown fields warn instead of blocking", () => {
     expect(result.program).toEqual(program);
   });
 });
+
+describe("timerAdjustments", () => {
+  it("parses the shipped weeks 5-7 adjustments and leaves other phases without any", () => {
+    expect(program.progression.map((phase) => phase.timerAdjustments)).toEqual([
+      undefined, undefined, { intervalWorkSec: 5, coreRestBetweenPairsSec: -15 }, undefined,
+    ]);
+  });
+
+  it("treats a missing key as 0", () => {
+    const json = readRealProgramJson();
+    json.progression[2].timerAdjustments = { intervalWorkSec: 10 };
+    expect(parseProgram(json).program.progression[2]!.timerAdjustments).toEqual({ intervalWorkSec: 10, coreRestBetweenPairsSec: 0 });
+  });
+
+  it("rejects non-whole or non-numeric values and a non-object, naming the path", () => {
+    expect(errorMessageAfter((json) => (json.progression[2].timerAdjustments.intervalWorkSec = 2.5))).toBe(
+      "progression[2].timerAdjustments.intervalWorkSec: expected a whole number of seconds but found 2.5",
+    );
+    expect(errorMessageAfter((json) => (json.progression[2].timerAdjustments.coreRestBetweenPairsSec = "-15"))).toBe(
+      'progression[2].timerAdjustments.coreRestBetweenPairsSec: expected a whole number of seconds but found "-15"',
+    );
+    expect(errorMessageAfter((json) => (json.progression[2].timerAdjustments = 5))).toContain("progression[2].timerAdjustments:");
+  });
+
+  it("warns about an unknown key, with a suggestion for a near miss", () => {
+    const json = readRealProgramJson();
+    json.progression[2].timerAdjustments.intervalWorkSecs = 5;
+    const { warnings } = parseProgram(json);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ path: "progression[2].timerAdjustments.intervalWorkSecs", suggestion: "intervalWorkSec" });
+  });
+});

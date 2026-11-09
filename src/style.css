@@ -418,6 +418,14 @@ body {
   line-height: 1.3;
 }
 
+/* Short "Power endurance: +5s work" line explaining a phase's timer adjustment. */
+.timer-adjustment {
+  margin: 2px 0 6px;
+  color: #f0b45a;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
 .item-dose {
   display: flex;
   flex: none;

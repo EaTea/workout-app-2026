@@ -105,6 +105,17 @@ week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
 too); then they use that max with no weekly increase.
 
+A progression phase can also set `"timerAdjustments"`, whole seconds (negative
+allowed, either key optional): `"intervalWorkSec"` is added to every interval
+item's `workSec` range (heavy bag) and `"coreRestBetweenPairsSec"` to every
+core block's `restSecBetweenPairs`, never going below the timer's 5 second
+floor. The shipped program sets `{"intervalWorkSec": 5,
+"coreRestBetweenPairsSec": -15}` on weeks 5-7 (Power endurance), so Today
+shows the adjusted numbers with a "Power endurance: +5s work" / "−15s rest"
+line and the timers start from them. Explosive rest is not adjusted. The
+adjustment applies to every week of the phase it is set on, including a
+deload week if you put it on one.
+
 ## Warm-up rotation
 
 Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the
