@@ -199,11 +199,6 @@ function firstBasis(item: ItemView): MaxBasis | undefined {
   return undefined;
 }
 
-/** True when the item's target is a retest-week figure based on a max saved this week. */
-export function usesRetestedMax(item: ItemView): boolean {
-  return firstBasis(item)?.usesRetestedMax === true;
-}
-
 /**
  * True when the item is a retest-week EMOM still holding last week's reps
  * because no new max was saved this week, so Today can offer an "Update max"

@@ -17,7 +17,8 @@ import { renderWarningBanner } from "./warningBanner";
  *                           └─ <nav>  Today | History (disabled) | Settings
  *
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
- * tests, and by Ed to preview another day).
+ * tests, and by Ed to preview another day). The preview affects Today and
+ * "Start today" only; max save dates always use the real local date.
  */
 
 /** How long the "Saved" confirmation stays on screen. */
@@ -133,7 +134,7 @@ export function startApp(
       }
       main.append(
         route === "settings"
-          ? renderSettingsScreen(program, settings, resolveToday(window.location.search), handleSave)
+          ? renderSettingsScreen(program, settings, todayLocalDate(), handleSave)
           : renderTodayScreen(program, settings, resolveToday(window.location.search), handleStartToday, startTodayFailureMessage),
       );
       root.replaceChildren(main, renderNavigationBar(route));

@@ -279,7 +279,9 @@ test("week 8 retest day holds week 7's reps until a max is saved, with an Update
 
 test("saving a retested max in week 8 switches the EMOM to it and removes the Update max link", async ({ page }) => {
   await seedSettings(page);
-  await page.goto("/?date=2026-12-21#/settings");
+  // The real clock (not ?date=) decides the save date, so fix it to retest day.
+  await page.clock.setFixedTime(new Date("2026-12-21T09:00:00"));
+  await page.goto("/#/settings");
 
   await page.getByLabel("Max reps: Pull-ups").fill("15");
   await page.getByRole("button", { name: "Save" }).click();

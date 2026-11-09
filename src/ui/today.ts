@@ -206,6 +206,7 @@ function renderItemRow(item: ItemView): HTMLElement {
   if (dose.needsMaxExerciseId !== undefined) {
     const link = element("a", "item-dose item-dose-link", dose.text);
     link.href = "#/settings";
+    link.setAttribute("aria-label", `Set max for ${item.exercise.name}`);
     row.append(link);
   } else {
     const doseBox = element("span", "item-dose");
@@ -221,6 +222,7 @@ function renderItemRow(item: ItemView): HTMLElement {
   if (isAwaitingRetest(item)) {
     const updateLink = element("a", "item-dose item-dose-link", "Update max");
     updateLink.href = "#/settings";
+    updateLink.setAttribute("aria-label", `Update max for ${item.exercise.name}`);
     row.append(updateLink);
   }
 

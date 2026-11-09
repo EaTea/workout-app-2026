@@ -23,8 +23,9 @@ npm run dev
 ```
 
 To preview another day, add `?date=YYYY-MM-DD` to the URL (e.g.
-`http://localhost:5173/?date=2026-11-09`); it overrides "today" for the Today
-screen. E2E tests use it too.
+`http://localhost:5173/?date=2026-11-09`); it previews that day on the Today
+screen and also sets the start date when you tap Start today, but never changes
+when maxes count as saved. E2E tests use it too.
 
 ## Build and preview
 

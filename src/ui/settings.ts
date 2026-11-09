@@ -28,22 +28,25 @@ export type SettingsValidation =
   | { ok: false; errors: { startDate?: string; maxReps: Record<string, string> } };
 
 /**
- * Works out the new `maxSavedOn` when the form is saved: a max whose value
- * changed (or that is newly entered) is stamped with `today`; a cleared max
- * loses its date; an unchanged max keeps its previous date (which may be
- * missing for data saved before dates were recorded). Called by the Save
- * handler after validation, with `today` from the `?date=` override or the
- * local date. "Start today" does not go through here, so it leaves dates alone.
+ * Works out the new `maxSavedOn` when the form is saved: a max field the user
+ * EDITED during this visit (`editedExerciseIds`) is stamped with `today` even
+ * if the number is unchanged, so "retested, same number" counts as a retest;
+ * an untouched max keeps its previous date (which may be missing for data
+ * saved before dates were recorded); a cleared max loses its date. Saving only
+ * the start date edits no max field, so it stamps nothing. Called by the Save
+ * handler after validation, with `today` the real local date (never the
+ * `?date=` preview). "Start today" does not go through here.
  */
 export function stampMaxSavedDates(
-  previous: Pick<TrainingSettings, "maxReps" | "maxSavedOn">,
+  previous: Pick<TrainingSettings, "maxSavedOn">,
   newMaxReps: Record<string, number>,
+  editedExerciseIds: ReadonlySet<string>,
   today: string,
 ): Record<string, string> {
   const maxSavedOn: Record<string, string> = {};
 
-  for (const [exerciseId, reps] of Object.entries(newMaxReps)) {
-    if (previous.maxReps[exerciseId] !== reps) {
+  for (const exerciseId of Object.keys(newMaxReps)) {
+    if (editedExerciseIds.has(exerciseId)) {
       maxSavedOn[exerciseId] = today;
       continue;
     }
@@ -96,9 +99,9 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
 }
 
 /**
- * Builds the Settings screen. `today` is the date to stamp on changed maxes.
- * `onSave` is called with validated settings when
- * the user presses Save; `app.ts` persists them, shows "Saved" and navigates.
+ * Builds the Settings screen. `today` is the real local date, stamped on maxes
+ * the user edited. `onSave` is called with validated settings when the user
+ * presses Save; `app.ts` persists them, shows "Saved" and navigates.
  * `onSave` returns null on success or a message to show inline (e.g. storage
  * is full or blocked), in which case the user stays on this screen.
  */
@@ -128,6 +131,8 @@ export function renderSettingsScreen(
   // Tested maxes, driven by the program data
   const maxInputs: Record<string, HTMLInputElement> = {};
   const maxErrors: Record<string, HTMLElement> = {};
+  /** Max fields typed in during this visit; any `input` event counts, even if the value ends up the same. */
+  const editedExerciseIds = new Set<string>();
   for (const exercise of Object.values(program.exercises)) {
     if (!exercise.maxTested) {
       continue;
@@ -144,6 +149,7 @@ export function renderSettingsScreen(
     input.autocomplete = "off";
     input.value = current.maxReps[exercise.id]?.toString() ?? "";
     const error = element("p", "field-error");
+    input.addEventListener("input", () => editedExerciseIds.add(exercise.id));
     maxInputs[exercise.id] = input;
     maxErrors[exercise.id] = error;
     form.append(buildField(`Max reps: ${exercise.name}`, input, error));
@@ -182,7 +188,7 @@ export function renderSettingsScreen(
       return;
     }
 
-    const maxSavedOn = stampMaxSavedDates(current, result.settings.maxReps, today);
+    const maxSavedOn = stampMaxSavedDates(current, result.settings.maxReps, editedExerciseIds, today);
     saveError.textContent = onSave({ ...result.settings, maxSavedOn }) ?? "";
   });
 

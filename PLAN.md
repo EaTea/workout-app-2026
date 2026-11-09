@@ -98,10 +98,11 @@ the starting point. Revisit them if the app shows they're wrong.
      Ed saves a new max for that exercise during the retest week. From then
      on, that exercise's EMOM uses the new max with no weekly increase and
      no hold: floor(max × %). "Saved during the retest week" means the max
-     was saved on or after the week's Day 1. Settings records the date a
-     max was saved whenever its value changes (PR 4's retest prompt will
-     record it even if the value is the same). Until PR 4's retest prompt exists, Ed saves the
-     new max in Settings.
+     was saved on or after the week's Day 1. Settings records today's real
+     date (never a `?date=` preview) on every max field Ed edits and saves,
+     even if he re-types the same number, so "retested, same result"
+     counts. Until PR 4's retest prompt exists, Ed saves the new max in
+     Settings.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
@@ -144,13 +145,22 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
    (e.g. "Day 4"); the app shows dates without weekday names; tests, README,
    mockups and the project-files copies of `program.json` and the program
    doc are updated to match.
-5. [x] Week 8 (`"retest": true`) EMOMs use the current max with no hold.
-   Only EMOMs follow the retest rule; mini-doses keep their usual numbers.
+5. [x] Mark week 8 `"retest": true` in `program.json`. Only EMOMs follow
+   the retest rule; mini-doses keep their usual numbers.
 6. [x] Week 8 EMOMs hold week 7's reps until a new max is saved during
    week 8. Settings records the date each max was saved (settings format
    v2; v1 data still loads, with no dates, so it counts as not retested).
-- **Merge point:** the rules work as agreed, with tests. Steps 4–5 get
+- **Merge point:** the rules work as agreed, with tests. Steps 4–6 get
   their own challenger review before PR #4 is updated.
+
+Follow-ups from the step 6 review, for PR 4's retest prompt:
+- The "held" reps are week 7's formula applied to the max saved now, not
+  a record of what week 7 actually showed; a max raised late in week 7
+  makes the held figure higher. Revisit once logging (PR 3) stores what
+  was shown.
+- Moving the start date much earlier can make an old max date fall in
+  week 8 and look like a retest. Consider counting only dates inside
+  week 8, or clearing dates when the start date changes.
 
 ### PR 2 — Timers *(behavior change)*
 1. Shared full-screen timer view: huge digits, round counter, start/pause/

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest, usesRetestedMax,
+  formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
 } from "./format";
 
 /** Builds an ItemView with sensible defaults; tests override what they care about. */
@@ -104,14 +104,12 @@ describe("formatItemDetails", () => {
     const awaitingItem = item({ format: "emom", minutes: 5, target: awaiting });
     expect(formatItemDetails(awaitingItem)).toEqual(["40% of max 12 · +2 held until you save a retested max"]);
     expect(isAwaitingRetest(awaitingItem)).toBe(true);
-    expect(usesRetestedMax(awaitingItem)).toBe(false);
   });
 
   it("says a retest-week target uses the retested max, with no update link", () => {
     const retest = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 15, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false } } as RepTarget;
     const retestItem = item({ format: "emom", minutes: 5, target: retest });
     expect(formatItemDetails(retestItem)).toEqual(["40% of your retested max 15"]);
-    expect(usesRetestedMax(retestItem)).toBe(true);
     expect(isAwaitingRetest(retestItem)).toBe(false);
   });
 

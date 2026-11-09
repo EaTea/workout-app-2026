@@ -110,7 +110,7 @@ function validMaxSavedOn(value: unknown, maxReps: Record<string, number>): Recor
   }
 
   for (const [exerciseId, date] of Object.entries(value)) {
-    if (exerciseId in maxReps && validStartDate(date) !== null) {
+    if (Object.hasOwn(maxReps, exerciseId) && validStartDate(date) !== null) {
       result[exerciseId] = date as string;
     }
   }
