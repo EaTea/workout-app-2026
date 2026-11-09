@@ -1,0 +1,178 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#d9dce1;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:40px;display:flex;flex-wrap:wrap;gap:40px;width:1360px}
+.wrap{display:flex;flex-direction:column;gap:12px;align-items:center}
+.cap{font:600 18px sans-serif;color:#333;width:390px;text-align:center}
+.cap small{display:block;font-weight:400;font-size:14px;color:#555;margin-top:4px}
+.phone{width:390px;height:844px;background:#111317;color:#eef0f3;border-radius:44px;overflow:hidden;position:relative;border:10px solid #000;display:flex;flex-direction:column}
+.status{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:14px;font-weight:600;color:#ddd;flex:none}
+.scroll{flex:1;overflow:hidden;padding:0 16px}
+.hdr .k{color:#8b93a1;font-size:13px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.hdr h1{font-size:28px;margin:4px 0 2px}
+.hdr .s{color:#aab1bd;font-size:15px}
+.pill{display:inline-block;background:#24324a;color:#8fb8ff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;margin-right:6px}
+.pill.warn{background:#4a3519;color:#ffc069}.pill.ok{background:#173a2a;color:#5fd497}
+.phase{background:#1a1e25;border-radius:14px;padding:10px 14px;margin:12px 0;font-size:13px;color:#b9c0cb;display:flex;justify-content:space-between;align-items:center}
+.card{background:#1a1e25;border-radius:16px;padding:14px;margin-bottom:10px}
+.card .bt{display:flex;justify-content:space-between;align-items:center;color:#8b93a1;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.ex{display:flex;align-items:center;gap:12px;min-height:48px}
+.ex+.ex{border-top:1px solid #262b34}
+.ex .n{flex:1}.ex .n b{font-size:17px;display:block}.ex .n span{font-size:13px;color:#99a1ad}
+.ex .d{font-size:18px;font-weight:700;text-align:right}
+.chk{width:28px;height:28px;border-radius:50%;border:2px solid #3a414d;flex:none}
+.chk.on{background:#2f7cf6;border-color:#2f7cf6;position:relative}
+.chk.on:after{content:"✓";color:#fff;position:absolute;left:6px;top:1px;font-size:16px;font-weight:800}
+.last{font-size:12px;color:#5fd497;margin-top:2px}
+.done .n b,.done .d{color:#6c7480}
+.fab{position:absolute;left:16px;right:16px;bottom:96px;height:60px;border-radius:18px;background:#2f7cf6;color:#fff;font-size:19px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px #0008}
+.nav{height:84px;background:#16191e;border-top:1px solid #262b34;display:flex;justify-content:space-around;padding-top:12px;flex:none}
+.nav div{font-size:12px;color:#7b8390;text-align:center;width:80px}.nav div i{display:block;font-style:normal;font-size:22px;margin-bottom:3px}
+.nav .on{color:#8fb8ff}
+.timer{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 20px 30px}
+.big{font-size:128px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-4px;line-height:1}
+.ring{width:300px;height:300px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:20px 0}
+.btns{display:flex;gap:14px;width:100%;margin-top:auto}
+.btn{flex:1 0 auto;height:72px;border-radius:20px;background:#262b34;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700}
+.btn.p{background:#2f7cf6}
+.dots{display:flex;gap:6px;margin:14px 0}.dots i{width:22px;height:8px;border-radius:4px;background:#2b313b}.dots i.on{background:#2f7cf6}.dots i.cur{background:#8fb8ff}
+.set{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #262b34;font-size:16px}
+.set .lbl{width:46px;color:#8b93a1;font-weight:700}
+.step{display:flex;align-items:center;background:#111317;border-radius:12px;overflow:hidden}
+.step b{width:44px;height:48px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#8fb8ff}
+.step span{width:44px;text-align:center;font-size:20px;font-weight:700}
+.field{background:#111317;border-radius:12px;height:48px;display:flex;align-items:center;padding:0 12px;color:#99a1ad;font-size:15px}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:170px;background:#1d2129;border-radius:24px 24px 0 0;padding:10px 20px;box-shadow:0 -10px 30px #000a}
+.grab{width:40px;height:5px;border-radius:3px;background:#444b57;margin:0 auto 14px}
+.dim{position:absolute;inset:0;background:#000a}
+h3{font-size:13px;color:#8b93a1;text-transform:uppercase;letter-spacing:.08em;margin:18px 0 8px}
+ul.c{list-style:none}ul.c li{padding:8px 0 8px 22px;position:relative;font-size:16px;line-height:1.35}ul.c li:before{content:"•";position:absolute;left:4px;color:#8fb8ff}
+.hist{display:flex;justify-content:space-between;font-size:15px;padding:8px 0;border-top:1px solid #2a2f38}
+.hist span{color:#99a1ad}
+.banner{background:#3a2a14;border:1px solid #6b4a1c;border-radius:14px;padding:12px 14px;color:#ffd08a;font-size:14px;line-height:1.4;margin:12px 0}
+.inp{background:#111317;border-radius:14px;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:26px;font-weight:700;margin-bottom:6px}
+.inp small{font-size:14px;color:#8b93a1;font-weight:500}
+.note{font-size:13px;color:#8b93a1;margin-bottom:14px}
+a{color:#8fb8ff}
+</style></head><body>
+
+<!-- 1 TODAY -->
+<div class="wrap"><div class="phone" id="s1">
+<div class="status"><span>6:42</span><span>●●● 5G ▮</span></div>
+<div class="scroll">
+ <div class="hdr"><div class="k">Mon 9 Nov · Week 2 of 8</div><h1>Upper: pull</h1><div class="s">~50 min · 6 blocks</div></div>
+ <div class="phase"><span><span class="pill">BASE</span>Add 1 rep per set or EMOM minute</span><span>›</span></div>
+ <div class="card done"><div class="bt"><span>1 · Warm-up · 2 rounds</span><span style="color:#5fd497">DONE</span></div>
+  <div class="ex"><div class="chk on"></div><div class="n"><b>YTWI raises</b></div><div class="d">12–15</div></div>
+  <div class="ex"><div class="chk on"></div><div class="n"><b>Pallof press</b></div><div class="d">12–15</div></div></div>
+ <div class="card"><div class="bt"><span>2 · Explosive</span><span>2/6 sets</span></div>
+  <div class="ex"><div class="chk"></div><div class="n"><b>Med ball slams</b><span>Rest 30–45s · stop when speed drops</span></div><div class="d">6 × 6</div></div></div>
+ <div class="card"><div class="bt"><span>3 · Main strength · 9 min</span><span>⏱ EMOM</span></div>
+  <div class="ex"><div class="chk"></div><div class="n"><b>Pull-ups</b><span>40% of max 12, +1 this week</span><div class="last">Last time: 9/9 rounds × 4</div></div><div class="d">5 / min</div></div></div>
+ <div class="card"><div class="bt"><span>4 · Mini-dose</span></div>
+  <div class="ex"><div class="chk"></div><div class="n"><b>Dips</b><span>50% of max 15 · easy</span></div><div class="d">2 × 7</div></div></div>
+ <div class="card"><div class="bt"><span>5 · Core · superset</span></div>
+  <div class="ex"><div class="chk"></div><div class="n"><b>Back extension</b><span>Hold a plate</span></div><div class="d">4 × 12–15</div></div></div>
+</div>
+<div class="fab">▶ Continue: Med ball slams</div>
+<div class="nav"><div class="on"><i>◉</i>Today</div><div><i>▤</i>History</div><div><i>⚙</i>Settings</div></div>
+</div><div class="cap">1 · Today's workout<small>Week, phase and day worked out from your start date. Blocks in session order; one big button resumes where you left off.</small></div></div>
+
+<!-- 2 LOGGING -->
+<div class="wrap"><div class="phone" id="s2">
+<div class="status"><span>6:51</span><span>●●● 5G ▮</span></div>
+<div class="scroll">
+ <div class="hdr" style="display:flex;align-items:center;gap:10px"><span style="font-size:26px;color:#8fb8ff">‹</span><div><div class="k">Explosive · Week 2</div><h1 style="font-size:24px">Med ball slams</h1></div><span style="margin-left:auto;font-size:22px;color:#8b93a1">ⓘ</span></div>
+ <div class="note" style="margin-top:8px">6 × 6 · rest 30–45s · move every rep as fast as you can</div>
+ <div class="card">
+  <div class="set" style="border:0"><span class="lbl">Set 1</span><div class="chk on"></div><span style="flex:1">6 reps · 6 kg</span></div>
+  <div class="set"><span class="lbl">Set 2</span><div class="chk on"></div><span style="flex:1">6 reps · 6 kg</span></div>
+  <div class="set" style="flex-wrap:wrap;background:#202631;margin:0 -14px;padding:12px 14px;border-radius:12px"><span class="lbl" style="color:#8fb8ff">Set 3</span>
+   <div class="step"><b>−</b><span>6</span><b>+</b></div><span style="color:#8b93a1;font-size:13px">reps</span>
+   <div class="step"><b>−</b><span>6</span><b>+</b></div><span style="color:#8b93a1;font-size:13px">kg</span>
+   <div class="field" style="width:100%;margin-top:10px">+ Add note</div></div>
+  <div class="set"><span class="lbl">Set 4</span><div class="chk"></div><span style="flex:1;color:#6c7480">6 reps</span></div>
+  <div class="set"><span class="lbl">Set 5</span><div class="chk"></div><span style="flex:1;color:#6c7480">6 reps</span></div>
+  <div class="set"><span class="lbl">Set 6</span><div class="chk"></div><span style="flex:1;color:#6c7480">6 reps</span></div>
+ </div>
+ <div class="note">Last time (Mon 2 Nov): 6 × 6 at 6 kg</div>
+</div>
+<div style="padding:0 16px 30px;display:flex;gap:12px">
+ <div class="btn" style="flex:none;width:110px">Skip</div>
+ <div class="btn p">✓ Log set · rest 0:30</div></div>
+</div><div class="cap">2 · Logging a set<small>Reps and load pre-filled from the plan or last time. Ticking a set starts the rest timer from restSec.</small></div></div>
+
+<!-- 3 EMOM -->
+<div class="wrap"><div class="phone" id="s3">
+<div class="status"><span>7:02</span><span>●●● 5G ▮</span></div>
+<div style="padding:4px 20px;display:flex;justify-content:space-between;color:#8b93a1;font-size:15px"><span>✕ Close</span><span>☀ Screen stays on</span></div>
+<div class="timer">
+ <div style="font-size:15px;color:#8b93a1;letter-spacing:.1em;font-weight:700">PULL-UP EMOM · 9 MIN</div>
+ <div class="ring" style="border:14px solid #2b313b;border-top-color:#2f7cf6;border-right-color:#2f7cf6">
+  <div style="font-size:22px;color:#aab1bd;font-weight:700">ROUND</div>
+  <div style="font-size:96px;font-weight:800;line-height:1">4<span style="font-size:40px;color:#6c7480">/9</span></div></div>
+ <div class="big" style="font-size:96px">0:38</div>
+ <div style="font-size:16px;color:#8b93a1;margin-top:4px">left in this minute · beep + buzz at 0:00</div>
+ <div style="margin-top:22px;background:#1a1e25;border-radius:16px;padding:14px 20px;width:100%;display:flex;justify-content:space-between;align-items:center"><span style="font-size:18px">Target</span><span style="font-size:32px;font-weight:800">5 reps</span></div>
+ <div class="btns"><div class="btn">❚❚ Pause</div><div class="btn">Skip ›</div></div>
+</div>
+</div><div class="cap">3 · EMOM timer<small>Huge round number and countdown, readable from the bar. Beep and vibration on each minute; screen kept awake.</small></div></div>
+
+<!-- 4 INTERVAL -->
+<div class="wrap"><div class="phone" id="s4" style="background:#0f2a1c">
+<div class="status"><span>7:31</span><span>●●● 5G ▮</span></div>
+<div style="padding:4px 20px;display:flex;justify-content:space-between;color:#9fc7b0;font-size:15px"><span>✕ Close</span><span>Heavy bag finisher</span></div>
+<div class="timer">
+ <div style="font-size:64px;font-weight:900;color:#5fd497;letter-spacing:.05em;margin-top:30px">WORK</div>
+ <div class="big" style="font-size:140px;margin-top:20px;letter-spacing:-2px">0:18</div>
+ <div class="dots" style="margin-top:30px"><i class="on" style="width:44px;height:12px;border-radius:6px;background:#5fd497"></i><i class="cur" style="width:44px;height:12px;border-radius:6px;background:#bff0d3"></i><i style="width:44px;height:12px;border-radius:6px;background:#244a36"></i><i style="width:44px;height:12px;border-radius:6px;background:#244a36"></i><i style="width:44px;height:12px;border-radius:6px;background:#244a36"></i></div>
+ <div style="font-size:22px;font-weight:700;color:#cfe9da">Round 2 of 5</div>
+ <div style="font-size:16px;color:#9fc7b0;margin-top:8px">Hard combinations · then 30s rest</div>
+ <div style="font-size:14px;color:#9fc7b0;margin-top:22px">Work 30s · Rest 30s · 5 rounds &nbsp;<u>edit</u></div>
+ <div class="btns"><div class="btn" style="background:#1d4430">❚❚ Pause</div><div class="btn" style="background:#1d4430">Skip ›</div></div>
+</div>
+</div><div class="cap">4 · Interval and rest timers<small>Whole screen changes colour (green work, blue rest) so you can tell the phase at a glance mid-round.</small></div></div>
+
+<!-- 5 DETAIL SHEET -->
+<div class="wrap"><div class="phone" id="s5">
+<div class="status"><span>6:44</span><span>●●● 5G ▮</span></div>
+<div class="scroll" style="opacity:.5">
+ <div class="hdr"><div class="k">Mon 9 Nov · Week 2 of 8</div><h1>Upper: pull</h1><div class="s">~50 min · 6 blocks</div></div>
+ <div class="phase"><span><span class="pill">BASE</span>Add 1 rep per set</span></div>
+ <div class="card"><div class="bt"><span>3 · Main strength</span></div><div class="ex"><div class="n"><b>Pull-ups</b></div></div></div>
+</div>
+<div class="dim"></div>
+<div class="sheet"><div class="grab"></div>
+ <div class="k" style="color:#8b93a1;font-size:13px;font-weight:700;letter-spacing:.08em">STRENGTH · MAX TESTED</div>
+ <h1 style="font-size:26px;margin:4px 0">Pull-ups</h1>
+ <div style="color:#aab1bd;font-size:15px">9-min EMOM at 40% of max, +1 rep per minute each week</div>
+ <h3>Your targets</h3>
+ <div class="hist" style="border:0"><span>Current max</span><b>12 reps</b></div>
+ <div class="hist"><span>EMOM (Mon)</span><b>5 / min</b></div>
+ <div class="hist"><span>Mini-dose (Fri)</span><b>2 × 6</b></div>
+ <h3>Last sessions</h3>
+ <div class="hist" style="border:0"><span>Fri 6 Nov · mini</span><b>2 × 6</b></div>
+ <div class="hist"><span>Mon 2 Nov · EMOM</span><b>9 × 4</b></div>
+ <h3>Evidence</h3>
+ <div style="font-size:15px;line-height:1.4">Light loads and high reps build local muscular endurance.<br><a>Schoenfeld et al., 2021 ↗</a></div>
+</div>
+</div><div class="cap">5 · Exercise details<small>Tap any exercise: cues, alternative, your current targets, recent history and the evidence link.</small></div></div>
+
+<!-- 6 WEEKLY CHECK -->
+<div class="wrap"><div class="phone" id="s6">
+<div class="status"><span>6:40</span><span>●●● 5G ▮</span></div>
+<div class="scroll" style="padding-top:10px">
+ <div class="hdr"><div class="k">Week 3 · Weekly check-in</div><h1>How are you tracking?</h1><div class="s">Takes 2 minutes, before today's warm-up.</div></div>
+ <h3 style="margin-top:24px">Best broad jump</h3>
+ <div class="inp"><span>2.31 <small>m</small></span><span class="pill ok">−1%</span></div>
+ <div class="note">Best recent: 2.34 m</div>
+ <h3>Max pull-ups</h3>
+ <div class="inp"><span>10 <small>reps</small></span><span class="pill warn">−17%</span></div>
+ <div class="note">Best recent: 12 reps</div>
+ <div class="banner"><b>⚠ Pull-ups are down more than 10%.</b><br>If this stays down, or you've felt flat for several days, add a rest day or start the deload early.</div>
+</div>
+<div style="padding:0 16px 30px;display:flex;flex-direction:column;gap:10px">
+ <div class="btn p">Save check-in</div>
+ <div style="text-align:center;color:#8b93a1;font-size:14px">Remind me tomorrow</div></div>
+</div><div class="cap">6 · Weekly fatigue check<small>Prompted once a week. Compares against your best of the last 3 checks and flags drops over 10%.</small></div></div>
+
+</body></html>

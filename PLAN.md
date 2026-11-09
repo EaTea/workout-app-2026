@@ -106,7 +106,9 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 ### PR 1 — Skeleton and "Today's workout" *(behavior change)*
 1. Skeleton: Vite + TypeScript, `index.html` with "Hello", Vitest and
    Playwright wired up with one trivial test each, `README.md` with
-   install/build/run/test commands. Verify it builds and runs.
+   install/build/run/test commands, and a GitHub Actions workflow that
+   deploys `main` to GitHub Pages so it can be opened on a phone. Verify it
+   builds and runs.
 2. Program wire and internal types, `parseProgram`, unit tests against the
    real `program.json`.
 3. Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
@@ -163,10 +165,30 @@ Start date Mon 2 Nov 2026, max pull-ups 12, max dips 15.
 
 ## 7. Open questions
 
-1. **Mockup fidelity.** I'm reading "mockup" as a working, clickable app on
-   real data (PR 1 first, then PR 2–3), not static design images. Is that
-   right?
-2. **Previewing on your phone.** Simplest is GitHub Pages from `main`. Would
-   you like that set up in PR 1, or will you run it locally?
-3. **Assumptions in section 4**, especially deload rounding (round up) and
+1. **Assumptions in section 4**, especially deload rounding (round up) and
    the EMOM reset after week 4.
+2. **Mockup feedback.** Anything in the screens below to change before PR 1.
+
+Resolved:
+
+- **Mockup fidelity:** "mockup" means static images, not a clickable app.
+  They're in `docs/mockups/` (section 8).
+- **Previewing on your phone:** GitHub Pages. PR 1 adds a workflow that
+  builds and deploys `main` to Pages.
+
+## 8. Mockups
+
+Static screens in `docs/mockups/`, drawn at iPhone size from the worked
+example above (start Mon 2 Nov, max 12 pull-ups and 15 dips, viewed on
+Mon 9 Nov, week 2). `0-overview.png` shows all six side by side. They're
+design references for PR 1–4, not app code: edit `mockups.html` and run
+`node docs/mockups/render.cjs` to refresh the PNGs.
+
+| Screen | File | Built in |
+| --- | --- | --- |
+| Today's workout | `1-today.png` | PR 1 |
+| Logging a set | `2-log-set.png` | PR 3 |
+| EMOM timer | `3-emom-timer.png` | PR 2 |
+| Interval / rest timer | `4-interval-timer.png` | PR 2 |
+| Exercise details sheet | `5-exercise-details.png` | PR 1 |
+| Weekly fatigue check | `6-weekly-check.png` | PR 4 |
