@@ -4,8 +4,11 @@ A mobile-first web app for following an 8-week "Explosive Endurance" training
 program. Today it shows today's session from `public/program.json` (with
 deload weeks applied), turns max-based reps into concrete targets from your
 tested maxes, shows exercise details (cues, alternative, evidence,
-progression) and has a settings screen. Set logging and EMOM/interval timers
-are planned but not built yet (see [PLAN.md](PLAN.md)). It is a static site
+progression) and has a settings screen. EMOM rows have a "Start EMOM" button
+that opens a full-screen timer with a beep and vibration each minute and a
+3-2-1 countdown (an iPhone's silent switch mutes the beeps, and iOS Safari has
+no vibration). Set logging and the interval/rest timers are planned but not
+built yet (see [PLAN.md](PLAN.md)). It is a static site
 (Vite + TypeScript, no UI framework).
 
 ## Install

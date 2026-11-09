@@ -102,7 +102,7 @@ test("tapping an exercise opens the details sheet; Escape closes it", async ({ p
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  const opener = row(page, "Pull-ups").getByRole("button");
+  const opener = row(page, "Pull-ups").locator(".item-open");
   await opener.click();
 
   const sheet = page.getByRole("dialog");
@@ -121,7 +121,7 @@ test("the sheet traps focus, freezes the page behind it, and restores both on cl
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("button", { name: "Close" })).toBeFocused();
   await expect(page.locator("nav.bottom-nav")).toHaveJSProperty("inert", true);
@@ -144,11 +144,11 @@ test("backdrop and close button also close the sheet", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
 
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   await page.locator(".sheet-backdrop").click({ position: { x: 10, y: 10 } });
   await expect(page.getByRole("dialog")).toBeHidden();
 });
@@ -185,7 +185,7 @@ test("no horizontal overflow on training, rest and sheet views", async ({ page }
   }
 
   await page.goto("/?date=2026-11-09");
-  await row(page, "Pull-ups").getByRole("button").click();
+  await row(page, "Pull-ups").locator(".item-open").click();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

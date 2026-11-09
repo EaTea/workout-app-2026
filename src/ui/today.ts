@@ -1,8 +1,11 @@
 import type { Program } from "../program/model";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
+import { createCuePlayer } from "../timer/cues";
+import { buildEmomPlan } from "../timer/plans";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
+import { openTimer } from "./timerView";
 import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatShortDate, isAwaitingRetest } from "./format";
 
 /**
@@ -226,6 +229,32 @@ function renderItemRow(item: ItemView): HTMLElement {
     row.append(updateLink);
   }
 
+  // EMOM items get their own Start button, a sibling so the row button keeps opening the details sheet.
+  if (item.format === "emom" && item.minutes !== undefined) {
+    row.append(renderStartEmomButton(item));
+  }
+
   openButton.addEventListener("click", () => openExerciseSheet(item, openButton));
   return row;
+}
+
+/**
+ * "Start EMOM" button for an EMOM row. Opens the full-screen timer for the
+ * item (timer/plans.ts) with beeps and vibration (timer/cues.ts) wired in;
+ * the audio is unlocked inside the timer's own Start tap.
+ */
+function renderStartEmomButton(item: ItemView): HTMLButtonElement {
+  const button = element("button", "item-start", "Start EMOM");
+  button.type = "button";
+  button.setAttribute("aria-label", `Start EMOM for ${item.exercise.name}`);
+
+  button.addEventListener("click", () => {
+    const cues = createCuePlayer();
+    openTimer(buildEmomPlan(item), {
+      onStart: () => cues.prime(),
+      onEvent: (event) => cues.handleEvent(event),
+      onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+    });
+  });
+  return button;
 }

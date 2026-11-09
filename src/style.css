@@ -730,3 +730,19 @@ body {
 }
 
 /* The ring jumps in whole steps with reduced motion (see timerView.ts); no CSS transitions are used otherwise. */
+
+/* Secondary button beside an EMOM row: starts the timer without opening the details sheet. */
+.item-start {
+  flex: none;
+  min-width: 72px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-text);
+  border-radius: 12px;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}

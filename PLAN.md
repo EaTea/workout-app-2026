@@ -166,7 +166,7 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
 1. [x] Timer engine (pure state machine, wall-clock based, so it catches
    up after the phone sleeps) and a shared full-screen timer view: huge
    digits, round counter, start/pause/skip, thumb-reachable controls.
-2. [ ] EMOM timer (beep + vibrate each minute, round N of M).
+2. [x] EMOM timer (beep + vibrate each minute, round N of M).
 3. [ ] Interval timer for the heavy bag (work/rest rounds).
 4. [ ] Rest timer launched from a set, using `restSec`.
 5. [ ] Screen Wake Lock while a session or timer is active, and refresh

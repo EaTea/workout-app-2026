@@ -27,8 +27,12 @@ const FOCUSABLE = "button:not([disabled])";
 
 /** Optional hooks for whoever opens the timer. */
 export interface TimerViewOptions {
-  /** Called for every engine event (segment starts, finish), in order. Step 2 plays sound and vibration here. */
+  /** Called for every engine event (segment starts, finish), in order. Used to play sound and vibration. */
   onEvent?: (event: TimerEvent) => void;
+  /** Called synchronously inside the Start tap, before the timer starts: the place to unlock audio (iOS needs a user gesture). */
+  onStart?: () => void;
+  /** Called each time the displayed remaining seconds change while running (for the 3-2-1 countdown ticks). */
+  onSecondTick?: (remainingSec: number) => void;
   /** Called once after the overlay has been closed, however it was closed. */
   onClose?: () => void;
 }
@@ -45,6 +49,8 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   let state: TimerState = createTimerState(plan);
   let isClosed = false;
   let lastRenderedWholeSecond = -1;
+  /** "segmentIndex:remainingSec" of the last second reported to onSecondTick, so each second is reported once. */
+  let lastReportedSecond = "";
 
   const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
@@ -119,6 +125,14 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     }
     lastRenderedWholeSecond = view.remainingSec;
 
+    if (state.status === "running") {
+      const secondKey = `${view.segmentIndex}:${view.remainingSec}`;
+      if (secondKey !== lastReportedSecond) {
+        lastReportedSecond = secondKey;
+        options.onSecondTick?.(view.remainingSec);
+      }
+    }
+
     toggleButton.textContent =
       state.status === "ready" ? "Start" : state.status === "running" ? "❚❚ Pause" : state.status === "paused" ? "▶ Resume" : "Done";
     skipButton.disabled = state.status === "ready" || state.status === "finished";
@@ -127,7 +141,10 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   /** The big button: start, pause, resume, or (when finished) close, depending on the state. */
   function handleToggle(): void {
     const now = Date.now();
-    if (state.status === "ready") applyUpdate(startTimer(state, now));
+    if (state.status === "ready") {
+      options.onStart?.();
+      applyUpdate(startTimer(state, now));
+    }
     else if (state.status === "running") applyUpdate(pauseTimer(state, now));
     else if (state.status === "paused") applyUpdate(resumeTimer(state, now));
     else close();
