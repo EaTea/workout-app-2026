@@ -167,11 +167,35 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
 2. [x] EMOM timer (beep + vibrate each minute, round N of M).
 3. [x] Interval timer for the heavy bag (work/rest rounds).
 4. [x] Rest timer launched from a set, using `restSec`.
-5. [x] Screen Wake Lock while a session or timer is active, and refresh
-   Today after midnight (PR 1 follow-up).
+5. [x] Screen Wake Lock while a timer is running, and notice when Today
+   is left open past midnight (PR 1 follow-up).
    Unit tests for the timer state machine with a fake clock; E2E test that
    runs a short EMOM.
+6. [ ] Fixes from the challenger review:
+   - One shared audio context for all timers (each timer made its own and
+     never closed it, so beeps could go silent mid-session), resumed on
+     every tap so iOS interruptions don't mute it; ask iOS to play through
+     the silent switch where supported.
+   - After the phone sleeps, play only the latest cue, not a burst.
+   - Hold the wake lock for as long as a timer is open (ready, paused or
+     finished too), not only while it runs.
+   - Midnight: don't swap the session out from under Ed. Show a "new day"
+     banner on Today with a button to switch, instead of re-rendering.
+   - Rest buttons remember an adjusted rest for the rest of the visit.
+   - Finished timers say "Done"; focus moves off buttons that become
+     disabled; visible button text is part of each accessible name; the
+     timer dialog keeps a stable name; the between-pairs button is labelled.
+   - E2E for Skip and for catching up after the page was hidden.
 - **Merge point:** a full session can be run with timers.
+
+Follow-ups from the PR 2 review (later PRs):
+- PR 3: start the rest timer when a set is ticked off, and hold the wake
+  lock for the whole session once "session in progress" exists.
+- Schedule upcoming beeps on the audio clock so they stay on time while the
+  browser throttles a hidden page.
+- Let the phone's Back gesture close the timer instead of leaving the app.
+- Power-endurance weeks (5–7) say to lengthen bag rounds and cut some rests;
+  timer defaults don't follow that yet (waiting on Ed).
 
 ### PR 3 — Logging and "last time" *(behavior change)*
 1. Tick off sets; record reps, load and an optional note per set.
