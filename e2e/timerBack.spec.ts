@@ -70,3 +70,17 @@ test("a second timer opened after the first was closed also closes on Back", asy
   await expect(overlay).toBeHidden();
   await expect(startButton).toBeVisible();
 });
+
+test("Back closes the heavy bag interval timer and Today is still shown", async ({ page }) => {
+  await openApp(page, "/?date=2026-11-02");
+  const startButton = page.getByRole("button", { name: "Start timer, Heavy bag finisher" });
+  await startButton.click();
+  const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
+  await expect(overlay).toBeVisible();
+
+  await page.goBack();
+
+  await expect(overlay).toBeHidden();
+  await expect(startButton).toBeVisible();
+  expect(new URL(page.url()).search).toBe("?date=2026-11-02");
+});
