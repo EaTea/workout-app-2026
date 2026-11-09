@@ -93,16 +93,22 @@ the starting point. Revisit them if the app shows they're wrong.
    - A plain deload week (week 4) keeps the previous week's EMOM reps
      (week 3's) with the minutes halved, because the program says "keep
      intensity".
-   - A retest week (week 8, marked `"retest": true` in `progression`) uses
-     the current max with no weekly increase and no hold: floor(max × %).
-     The max is the retested one once Ed saves it (the week 8 prompt in
-     PR 4; until then he can update it in Settings).
+   - A retest week (week 8, marked `"retest": true` in `progression`)
+     holds the previous week's EMOM reps (week 7's), like a deload, until
+     Ed saves a new max for that exercise during the retest week. From then
+     on, that exercise's EMOM uses the new max with no weekly increase and
+     no hold: floor(max × %). "Saved during the retest week" means the max
+     was saved on or after the week's Day 1. Settings records the date a
+     max was saved whenever its value changes (PR 4's retest prompt will
+     record it even if the value is the same). Until PR 4's retest prompt exists, Ed saves the
+     new max in Settings.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
 5. **Week 8 retest** shows a prompt on the week 8 session to enter new max
-   pull-ups and dips; saving them updates the settings, and week 8's EMOM
-   targets follow the new maxes straight away (rule 3).
+   pull-ups and dips; saving them updates the settings (with today's date),
+   and week 8's EMOM targets switch from the held week 7 reps to the new
+   maxes straight away (rule 3).
 6. **Weekly fatigue check** prompts once per program week (first session of
    the week) for broad jump and max pull-ups. "Best recent result" means the
    best of the previous 3 checks. A drop of more than 10% on either shows the
@@ -140,6 +146,9 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
    doc are updated to match.
 5. [x] Week 8 (`"retest": true`) EMOMs use the current max with no hold.
    Only EMOMs follow the retest rule; mini-doses keep their usual numbers.
+6. [ ] Week 8 EMOMs hold week 7's reps until a new max is saved during
+   week 8. Settings records the date each max was saved (settings format
+   v2; v1 data still loads, with no dates, so it counts as not retested).
 - **Merge point:** the rules work as agreed, with tests. Steps 4–5 get
   their own challenger review before PR #4 is updated.
 
@@ -183,7 +192,7 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 4 Nov | W1 D3 | Base | Dip EMOM floor(15×0.40)–floor(15×0.50) = 6–7 reps; plyo push-ups 5 × 5 |
 | 23 Nov | W4 D1 | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 6 (week 3's reps); dip mini-dose 1 × 7 |
 | 8 Nov | W1 D7 | Rest | Rest-day card |
-| 21 Dec | W8 D1 | Deload + retest | Pull-up EMOM 5 min × 4 (floor(12 × 0.40), no hold); with a retested max of 15, 5 min × 6 |
+| 21 Dec | W8 D1 | Deload + retest | Pull-up EMOM 5 min × 6 (week 7's 4 + 2, held: no max saved in week 8); after saving a retested max of 15 on 21 Dec, 5 min × 6 (floor(15 × 0.40), no hold) |
 | 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (retest prompt comes in PR 4) |
 
 A second start date shows the cycle doesn't depend on the weekday: start
@@ -192,17 +201,13 @@ W2 D1, and 3 Nov is "not started".
 
 ## 7. Open questions
 
-1. **Week 8 before the retest is saved.** Week 8 EMOMs use whatever max is
-   saved, so until Ed enters a retested max they drop to week 1's numbers.
-   The row says "retest week: update your max in Settings" with a link.
-   Should week 8 instead hold week 7's reps until a new max is saved? That
-   needs a "max updated on" date, so it would land with the retest prompt
-   in PR 4.
+None right now.
 
 Resolved:
 
 - **Weekdays:** dropped everywhere in favour of Day 1–7 (rule 1).
-- **Week 8 EMOMs:** use the retested max with no hold (rule 3).
+- **Week 8 EMOMs:** hold week 7's reps until a new max is saved during
+  week 8, then use it with no hold (rule 3).
 - **Assumptions in section 4:** agreed as a starting point.
 - **Mockup fidelity:** "mockup" means static images, not a clickable app.
   They're in `docs/mockups/` (section 8).
