@@ -191,6 +191,54 @@ Before writing or editing any code in response to a user request:
   language or ecosystem. The specific commands will differ, but the
   presence of working, up-to-date instructions must not.
 
+## 10. Delegate implementation, then have it challenged
+
+Implementation is delegated to subagents, and every implementation PR is
+reviewed by a second, stronger subagent before it goes to the owner. This is
+how the work is split (a project's `PLAN.md` can spell the stages out in
+more detail):
+
+1. **The lead plans.** The lead agent writes the plan (sections 1 and 2) and
+   the owner approves it. Implementation doesn't start before that, unless
+   the owner asks for the implementation PR to be drafted stacked on the
+   plan PR.
+2. **A lower-cost implementer does the work.** A subagent on a lower-cost
+   model (for example Sonnet or Haiku) implements the plan **one step at a
+   time**. It is given the plan, this file and the step, and nothing else
+   it doesn't need.
+   - It stops and asks when anything is unclear, instead of guessing.
+   - It doesn't commit, push or open PRs. The lead does.
+   - It doesn't leave anything running (a dev or preview server, for
+     example) that a later check could mistake for a fresh build.
+3. **The lead reviews and commits each step.** The lead checks the step
+   itself: reads the diff, reruns the checks and looks at any screenshot,
+   rather than trusting the implementer's report. Then it commits the step
+   as its own commit, with a message that explains why (section 7).
+4. **A new, higher-reasoning subagent challenges the PR.** When all of a
+   PR's steps are committed, and **before the PR is opened**, a *new*
+   subagent on a higher-reasoning model (for example Opus, thinking hard)
+   reviews the whole PR as a reviewer and challenger.
+   - It gets the plan, the PR's diff, the requirements and the worked
+     examples.
+   - It looks for bugs, figures that don't match the worked examples, edge
+     cases the tests miss, breaches of this file, and anything that
+     contradicts the plan. It checks claims by running things (an
+     independent calculation, a comparison with the base branch), not only
+     by reading.
+   - It **challenges the plan's own decisions** where they look wrong.
+   - It **doesn't change code.** It reports findings, most severe first,
+     each with the evidence, and ends with a verdict on whether the PR is
+     ready to open.
+5. **The lead deals with every finding.** Fix it in its own commit (with the
+   why, and the checks rerun), or record why it isn't being fixed. Design
+   challenges, where the plan itself may be wrong, go to the owner.
+6. **Then the PR is opened for the owner**, and its description summarises
+   the review and what was done about each finding. Each PR gets its own
+   challenger review, including each of several stacked PRs.
+
+A subagent's report is information, not approval. Only the owner approves a
+plan or a PR, and the lead merges only when the owner says so.
+
 ## Commit checklist
 
 Before proposing any commit, confirm all of the following:
@@ -213,3 +261,6 @@ Before proposing any commit, confirm all of the following:
 - [ ] Code favors readability: descriptive names, deliberate whitespace,
       generous comments, and ASCII diagrams where they'd help a reader.
 - [ ] `README.md` has accurate, current install/build/run/test instructions.
+- [ ] If the work was delegated: the lead reviewed each step itself, and a new
+      higher-reasoning subagent challenged the PR before it was opened, with
+      every finding fixed or explained.
