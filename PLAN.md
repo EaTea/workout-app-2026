@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 and PR 1b merged (#3, #4). PR 2 (timers) in progress.**
+Status: **PR 1 and PR 1b merged (#3, #4). PR 2 (timers) in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -131,8 +131,6 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 ### PR 0 — this plan *(design)* — merged as PR #2
 
 ### PR 1 — Skeleton and "Today's workout" *(behavior change)* — merged as PR #3
-Follow-ups not yet done: Today doesn't refresh after midnight if left open
-(revisit with timers in PR 2).
 
 ### PR 1b — Rule changes from the PR 1 review *(behavior change)* — merged as PR #4
 Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
@@ -169,7 +167,7 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
 2. [x] EMOM timer (beep + vibrate each minute, round N of M).
 3. [x] Interval timer for the heavy bag (work/rest rounds).
 4. [x] Rest timer launched from a set, using `restSec`.
-5. [ ] Screen Wake Lock while a session or timer is active, and refresh
+5. [x] Screen Wake Lock while a session or timer is active, and refresh
    Today after midnight (PR 1 follow-up).
    Unit tests for the timer state machine with a fake clock; E2E test that
    runs a short EMOM.

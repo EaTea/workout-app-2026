@@ -195,3 +195,46 @@ test("the superset block has a between-pairs rest button defaulting to 45s", asy
   await expect(page.getByRole("dialog", { name: "Rest · Between pairs" })).toBeVisible();
   await expect(page.locator(".timer-view .timer-digits")).toHaveText("0:45");
 });
+
+test("the screen wake lock is held while a timer runs, dropped on pause, and released on close", async ({ page }) => {
+  await page.addInitScript(() => {
+    const scope = window as unknown as { __wakeLocks: { type: string; released: boolean }[] };
+    scope.__wakeLocks = [];
+    Object.defineProperty(navigator, "wakeLock", {
+      configurable: true,
+      value: {
+        request: async (type: string) => {
+          const record = { type, released: false };
+          scope.__wakeLocks.push(record);
+          return { release: async () => { record.released = true; } };
+        },
+      },
+    });
+  });
+  await openToday(page);
+
+  const wakeLocks = () => page.evaluate(() => (window as unknown as { __wakeLocks: { type: string; released: boolean }[] }).__wakeLocks);
+
+  await page.getByRole("button", { name: "Start EMOM for Pull-ups" }).click();
+  const overlay = page.getByRole("dialog", { name: "Pull-ups EMOM · 9 min" });
+  expect(await wakeLocks()).toEqual([]);
+
+  await overlay.getByRole("button", { name: "Start" }).click();
+  await expect.poll(wakeLocks).toEqual([{ type: "screen", released: false }]);
+
+  await overlay.getByRole("button", { name: "❚❚ Pause" }).click();
+  await expect.poll(wakeLocks).toEqual([{ type: "screen", released: true }]);
+
+  await overlay.getByRole("button", { name: "▶ Resume" }).click();
+  await expect.poll(wakeLocks).toEqual([
+    { type: "screen", released: true },
+    { type: "screen", released: false },
+  ]);
+
+  await overlay.getByRole("button", { name: "✕ Close" }).click();
+  await expect(overlay).toBeHidden();
+  await expect.poll(wakeLocks).toEqual([
+    { type: "screen", released: true },
+    { type: "screen", released: true },
+  ]);
+});

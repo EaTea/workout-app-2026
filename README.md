@@ -9,7 +9,9 @@ that opens a full-screen timer with a beep and vibration each minute and a
 3-2-1 countdown (an iPhone's silent switch mutes the beeps, and iOS Safari has
 no vibration). The heavy bag row has a "Start timer" interval timer and rows
 with a prescribed rest (and superset blocks) have a "Rest 30s" button, all with
-adjustable numbers before Start. Set logging is planned but not
+adjustable numbers before Start. The screen stays awake while a timer runs
+(needs a browser with the Screen Wake Lock API, e.g. iOS Safari 16.4+), and
+Today refreshes itself if left open past midnight. Set logging is planned but not
 built yet (see [PLAN.md](PLAN.md)). It is a static site
 (Vite + TypeScript, no UI framework).
 

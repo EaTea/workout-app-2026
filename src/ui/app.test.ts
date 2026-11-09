@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { persistSettings, resolveToday, SAVE_FAILED_MESSAGE } from "./app";
+import { hasTodayChanged, persistSettings, resolveToday, SAVE_FAILED_MESSAGE } from "./app";
 
 describe("resolveToday", () => {
   const now = new Date(2026, 10, 9, 12, 0);
@@ -33,5 +33,20 @@ describe("persistSettings", () => {
       },
     } as unknown as Storage;
     expect(persistSettings(settings, storage)).toBe(SAVE_FAILED_MESSAGE);
+  });
+});
+
+describe("hasTodayChanged", () => {
+  it("is false on the same local day and true after midnight", () => {
+    expect(hasTodayChanged("2026-11-09", "", new Date(2026, 10, 9, 23, 59))).toBe(false);
+    expect(hasTodayChanged("2026-11-09", "", new Date(2026, 10, 10, 0, 0))).toBe(true);
+  });
+
+  it("never changes while a valid ?date= preview pins the date", () => {
+    expect(hasTodayChanged("2026-12-25", "?date=2026-12-25", new Date(2026, 10, 10, 0, 1))).toBe(false);
+  });
+
+  it("follows the real date when the ?date= value is invalid", () => {
+    expect(hasTodayChanged("2026-11-09", "?date=banana", new Date(2026, 10, 10, 0, 1))).toBe(true);
   });
 });

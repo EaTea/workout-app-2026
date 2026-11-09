@@ -2,6 +2,7 @@ import {
   createTimerState, describeTimer, formatClock, pauseTimer, resumeTimer, skipSegment, startTimer, tickTimer,
   type TimerEvent, type TimerPlan, type TimerState, type TimerUpdate,
 } from "../timer/engine";
+import { createScreenWakeLock } from "../timer/wakeLock";
 import { element } from "./dom";
 
 /**
@@ -18,6 +19,9 @@ import { element } from "./dom";
  * Optional setup row (`options.setup`): before Start, numeric steppers let the
  * user adjust the plan (e.g. rounds); each change asks the caller to rebuild
  * the plan. Once started the steppers are replaced by a read-only summary.
+ *
+ * The screen is kept awake (timer/wakeLock.ts) exactly while the timer is
+ * running: acquired on Start/Resume, released on pause, finish and close.
  *
  * Like the exercise sheet it lives outside #app (re-renders of Today don't
  * remove it), makes the screens behind it inert and returns focus on close.
@@ -86,6 +90,9 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   let lastRenderedWholeSecond = -1;
   /** "segmentIndex:remainingSec" of the last second reported to onSecondTick, so each second is reported once. */
   let lastReportedSecond = "";
+
+  /** Keeps the phone from dimming mid-timer; told whether the timer is running after every render. */
+  const screenWakeLock = createScreenWakeLock();
 
   const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
@@ -225,6 +232,10 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     toggleButton.textContent =
       state.status === "ready" ? "Start" : state.status === "running" ? "❚❚ Pause" : state.status === "paused" ? "▶ Resume" : "Done";
     skipButton.disabled = state.status === "ready" || state.status === "finished";
+
+    // Every state change passes through here, so this one line covers
+    // start, pause, resume, skip-to-finish and the clock catching up.
+    screenWakeLock.setWanted(state.status === "running");
   }
 
   /** The big button: start, pause, resume, or (when finished) close, depending on the state. */
@@ -281,6 +292,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     isClosed = true;
 
     window.clearInterval(refreshLoopId);
+    screenWakeLock.dispose();
     document.removeEventListener("keydown", handleKeydown);
     document.removeEventListener("visibilitychange", refreshFromClock);
     window.removeEventListener("hashchange", close);

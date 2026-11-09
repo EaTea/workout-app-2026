@@ -19,7 +19,13 @@ import { renderWarningBanner } from "./warningBanner";
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
  * tests, and by Ed to preview another day). The preview affects Today and
  * "Start today" only; max save dates always use the real local date.
+ *
+ * Midnight rollover: if Today stays open past local midnight it re-renders
+ * for the new day (checked every minute and when the page becomes visible).
  */
+
+/** How often a left-open Today screen checks whether the local date has changed. */
+const DATE_CHECK_INTERVAL_MS = 60_000;
 
 /** How long the "Saved" confirmation stays on screen. */
 const SAVED_TOAST_MILLISECONDS = 2500;
@@ -39,6 +45,15 @@ export function resolveToday(search: string, now: Date = new Date()): string {
     }
   }
   return todayLocalDate(now);
+}
+
+/**
+ * True when the date the app would show now differs from `renderedDate`, the
+ * date the screen was last drawn for. A valid `?date=` in `search` pins the
+ * date, so a preview never counts as changed. Used by the midnight check in `startApp`.
+ */
+export function hasTodayChanged(renderedDate: string, search: string, now: Date = new Date()): boolean {
+  return resolveToday(search, now) !== renderedDate;
 }
 
 /** Inline message on the welcome card when "Start today" cannot be saved. */
@@ -77,6 +92,8 @@ export function startApp(
   let warningsDismissed = false;
   /** Set when "Start today" could not be saved; shown on the welcome card. */
   let startTodayFailureMessage: string | undefined;
+  /** The date Today was last drawn for; compared against the clock by `refreshTodayAfterMidnight`. */
+  let renderedTodayDate = resolveToday(window.location.search);
 
   /** Dismiss handler for the warning banner: remembers it for this page load and re-renders. */
   function handleDismissWarnings(): void {
@@ -122,12 +139,28 @@ export function startApp(
   }
 
   /**
+   * Re-renders Today if the local date has moved on since it was drawn. Runs
+   * on a timer and when the page becomes visible (a sleeping phone's timers
+   * are paused). Skipped on other screens (they re-render when navigated to
+   * and Settings holds unsaved input) and while the timer overlay or exercise
+   * sheet is open: they live in <body> outside #app, but the timer marks
+   * #app's regions inert, so replacing them mid-timer would un-inert the
+   * new ones. The next check after the overlay closes catches up.
+   */
+  function refreshTodayAfterMidnight(): void {
+    if (routeFromHash(window.location.hash) !== "today") return;
+    if (document.querySelector(".timer-view, .sheet")) return;
+    if (hasTodayChanged(renderedTodayDate, window.location.search)) render();
+  }
+
+  /**
    * Draws the screen for the current hash route plus the nav bar into `root`.
    * Runs once at start and again on every `hashchange` (see `startApp`).
    */
   function render(): void {
     try {
       const route = routeFromHash(window.location.hash);
+      renderedTodayDate = resolveToday(window.location.search);
       const main = element("main", "app-main");
       if (route === "today" && warnings.length > 0 && !warningsDismissed) {
         main.append(renderWarningBanner(warnings, handleDismissWarnings));
@@ -146,6 +179,10 @@ export function startApp(
   }
 
   window.addEventListener("hashchange", render);
+  window.setInterval(refreshTodayAfterMidnight, DATE_CHECK_INTERVAL_MS);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refreshTodayAfterMidnight();
+  });
   render();
 }
 

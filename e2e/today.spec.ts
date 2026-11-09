@@ -299,3 +299,22 @@ test("week 8 mini-dose rows have no retest wording or Update max link", async ({
   await expect(row(page, "Dips").locator(".item-details")).not.toContainText("retest");
   await expect(row(page, "Dips").getByRole("link", { name: "Update max" })).toHaveCount(0);
 });
+
+test("Today left open past midnight moves on to the next day", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/");
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+
+  await page.clock.runFor(120_000);
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+});
+
+test("a ?date= preview stays on its date past midnight", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/?date=2026-11-09");
+
+  await page.clock.runFor(120_000);
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+});
