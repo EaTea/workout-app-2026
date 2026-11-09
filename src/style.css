@@ -247,10 +247,6 @@ body {
   color: var(--accent-text);
 }
 
-.nav-item-disabled {
-  opacity: 0.45;
-}
-
 /* "Saved" confirmation */
 .toast {
   position: fixed;
@@ -1105,4 +1101,90 @@ body {
   background: none;
   color: var(--accent-text);
   font-size: 16px;
+}
+
+/* History screen */
+.history-empty {
+  color: var(--muted);
+  text-align: center;
+  margin: 32px 0;
+}
+
+.history-session {
+  padding: 12px 16px;
+}
+
+.history-session-header {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.history-exercise-row,
+.history-set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-exercise:first-of-type .history-exercise-row {
+  border-top: 0;
+}
+
+.history-exercise-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.history-exercise-name {
+  font-weight: 700;
+}
+
+.history-exercise-summary {
+  color: #aab1bd;
+  font-size: 15px;
+}
+
+.history-exercise-note {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.history-chevron {
+  flex: none;
+  color: var(--muted);
+}
+
+.history-set-row {
+  justify-content: flex-start;
+  padding-left: 16px;
+  color: #aab1bd;
+  font-size: 16px;
+}
+
+.history-editor {
+  margin: 4px -16px;
+}
+
+.history-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
 }

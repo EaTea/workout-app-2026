@@ -7,6 +7,7 @@ import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
 import { saveLog, type LoadLogResult } from "../log/storage";
 import type { WorkoutLog } from "../log/model";
 import { LOG_SAVE_FAILED_MESSAGE, renderLogScreen } from "./logScreen";
+import { renderHistoryScreen } from "./history";
 import { renderNewDayBanner } from "./newDayBanner";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
@@ -17,8 +18,8 @@ import { focusMainHeading, renderWarningBanner } from "./warningBanner";
  * for the current hash route, and draws the bottom navigation bar.
  *
  *   main.ts ──startApp──▶ render() ◀── hashchange
- *                           ├─ <main> Today | Log screen | Settings screen
- *                           └─ <nav>  Today | History (disabled) | Settings
+ *                           ├─ <main> Today | Log screen | History | Settings screen
+ *                           └─ <nav>  Today | History | Settings
  *
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
  * tests, and by Ed to preview another day). The preview affects Today and
@@ -152,7 +153,7 @@ export function startApp(
   }
 
   /**
-   * Called by the log screen after every change: keeps the new log as the
+   * Called by the log screen and History after every change: keeps the new log as the
    * app's copy (Today reads it for "2/6") and saves it. Returns a message if
    * saving failed; the in-memory change is kept regardless.
    */
@@ -235,6 +236,8 @@ export function startApp(
         main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave));
       } else if (route === "log" && logTarget !== undefined) {
         main.append(renderLogScreen(program, settings, date, logTarget.blockPosition, logTarget.exerciseId, log, handleLogChanged));
+      } else if (route === "history") {
+        main.append(renderHistoryScreen(program, log, handleLogChanged));
       } else {
         main.append(renderTodayScreen(program, settings, date, handleStartToday, startTodayFailureMessage, log));
       }
@@ -273,20 +276,18 @@ function renderLogWarningBanner(warningText: string, onDismiss: () => void): HTM
   return banner;
 }
 
-/** Bottom nav: Today, History (disabled placeholder) and Settings. */
+/** Bottom nav: Today, History and Settings. */
 function renderNavigationBar(activeRoute: Route): HTMLElement {
   const nav = element("nav", "bottom-nav");
   nav.setAttribute("aria-label", "Main");
 
   const todayLink = navigationLink("◉", "Today", "#/today", activeRoute === "today");
 
-  const history = element("span", "nav-item nav-item-disabled");
-  history.setAttribute("aria-disabled", "true");
-  history.append(element("i", undefined, "▤"), "History", element("small", undefined, "coming later"));
+  const historyLink = navigationLink("▤", "History", "#/history", activeRoute === "history");
 
   const settingsLink = navigationLink("⚙", "Settings", "#/settings", activeRoute === "settings");
 
-  nav.append(todayLink, history, settingsLink);
+  nav.append(todayLink, historyLink, settingsLink);
   return nav;
 }
 

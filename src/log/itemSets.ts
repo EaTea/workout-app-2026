@@ -171,7 +171,7 @@ export function prefillForSet(item: ItemView, setNumber: number, loggedSetsThisS
  * The singular noun for one tick of an item, for the "last time" hint of
  * ticked-only items: "set", "round" or "minute" (the lower-case `setWord`).
  */
-export function setNounFor(item: ItemView): string {
+export function setNounFor(item: { sets: readonly unknown[]; format: string }): string {
   if (item.sets.length > 0) return "set";
   return item.format === "emom" ? "minute" : "round";
 }
@@ -208,7 +208,7 @@ export function formatProgress(loggedCount: number, totalSets: number): string |
  * The word for one tick of an item: "Set" for straight sets, "Min" for EMOM
  * minutes, "Round" for heavy-bag rounds and warm-up rounds.
  */
-export function setWord(item: ItemView): string {
+export function setWord(item: { sets: readonly unknown[]; format: string }): string {
   if (item.sets.length > 0) return "Set";
   return item.format === "emom" ? "Min" : "Round";
 }

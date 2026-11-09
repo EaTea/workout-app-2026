@@ -10,6 +10,7 @@ import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
 import { blockLabel, formatPrescriptionSummary, formatRepTarget } from "./format";
 import { lastTimeHint } from "./lastTimeHint";
+import { renderActionButton, renderNoteInput, renderStepper, KILOGRAM_STEP, MINIMUM_REPS } from "./setEditor";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 
@@ -52,12 +53,6 @@ export const LOG_SAVE_FAILED_MESSAGE = "Couldn't save on this device. This set i
 
 /** Shown when a set that needs a rep count (max-based, no saved max) has none. */
 export const REPS_REQUIRED_MESSAGE = "Enter the reps you did. (The target needs your max: set it in Settings.)";
-
-/** Smallest reps value the stepper can reach; a set with 0 reps is a skip, not a log. */
-const MINIMUM_REPS = 1;
-
-/** Kg step. Whole kilograms keep the stepper quick; 0 means no load. */
-const KILOGRAM_STEP = 1;
 
 /** The reps, load and note in the steppers before the set is logged. */
 interface SetDraft {
@@ -389,63 +384,6 @@ export function renderLogScreen(
     return panel;
   }
 
-  /**
-   * A big − / value / + stepper with a unit label beside it. `read` and `write`
-   * connect it to the draft; an undefined value shows "—" (reps not known yet,
-   * or no load; with `zeroMeansNone`, stepping down to 0 clears the value). The value text is updated in place, so focus stays on the
-   * pressed button.
-   */
-  function renderStepper(
-    name: string,
-    unit: string,
-    read: () => number | undefined,
-    write: (value: number | undefined) => void,
-    minimum: number,
-    step: number,
-    zeroMeansNone: boolean,
-  ): HTMLElement {
-    const row = element("div", "log-stepper-row");
-    const stepper = element("div", "log-stepper");
-    const value = element("output", "log-stepper-value");
-    value.setAttribute("aria-label", name);
-
-    /** Shows the current draft value (or "—" when none). */
-    function showValue(): void {
-      value.textContent = read() === undefined ? "—" : String(read());
-    }
-
-    /** Applies one step; for reps an undefined start steps up to the minimum, and kg steps down to "none". */
-    function changeBy(direction: 1 | -1): void {
-      const current = read();
-      if (current === undefined) {
-        if (direction === 1) write(Math.max(minimum, step));
-      } else {
-        const next = current + direction * step;
-        if (zeroMeansNone) {
-          write(next <= 0 ? undefined : next);
-        } else {
-          write(Math.max(minimum, next));
-        }
-      }
-      showValue();
-    }
-
-    const decrease = element("button", "log-stepper-button", "−");
-    decrease.type = "button";
-    decrease.setAttribute("aria-label", `Decrease ${name}`);
-    decrease.addEventListener("click", () => changeBy(-1));
-
-    const increase = element("button", "log-stepper-button", "+");
-    increase.type = "button";
-    increase.setAttribute("aria-label", `Increase ${name}`);
-    increase.addEventListener("click", () => changeBy(1));
-
-    showValue();
-    stepper.append(decrease, value, increase);
-    row.append(stepper, element("span", "log-stepper-unit", unit));
-    return row;
-  }
-
   /** "+ Add note" button that turns into a text field when tapped (or is already one when the set has a note). */
   function renderNoteField(): HTMLElement {
     if (!isNoteOpen) {
@@ -459,14 +397,7 @@ export function renderLogScreen(
       return addNote;
     }
 
-    const input = element("input", "log-note-input");
-    input.type = "text";
-    input.value = draft.note;
-    input.placeholder = "Note";
-    input.setAttribute("aria-label", "Note");
-    input.maxLength = 500;
-    input.addEventListener("input", () => { draft.note = input.value; });
-    return input;
+    return renderNoteInput(draft.note, (value) => { draft.note = value; });
   }
 
   /** The sticky button bar: Skip + Log set normally, Cancel/Delete/Save while editing; plus "Log all as planned". */
@@ -474,42 +405,34 @@ export function renderLogScreen(
     const bar = element("div", "log-actions");
 
     if (isEditing) {
-      const save = actionButton("log-primary", "✓ Save changes", handleSaveEdit);
-      const cancel = actionButton("log-secondary", "Cancel", () => {
+      const save = renderActionButton("log-primary", "✓ Save changes", handleSaveEdit);
+      const cancel = renderActionButton("log-secondary", "Cancel", () => {
         message = undefined;
         focusSet(firstUnloggedSetNumber());
         draw();
       });
-      const remove = actionButton("log-secondary log-danger", "Delete set", handleDelete);
+      const remove = renderActionButton("log-secondary log-danger", "Delete set", handleDelete);
       bar.append(save, cancel, remove);
       return bar;
     }
 
     if (unloggedCount >= 2) {
-      bar.append(actionButton("log-all", "Log all as planned", handleLogAll));
+      bar.append(renderActionButton("log-all", "Log all as planned", handleLogAll));
     }
 
-    const skip = actionButton("log-secondary", "Skip", handleSkip);
+    const skip = renderActionButton("log-secondary", "Skip", handleSkip);
     skip.disabled = currentSetNumber === undefined || nextSetNumber(currentSetNumber, totalSets, loggedNumbers()) === undefined;
 
     // Label shows the rest only when logging will actually start it (a set is still to come).
     const startsRest = restRange !== undefined && nextSetNumber(currentSetNumber ?? 0, totalSets, loggedNumbers()) !== undefined;
     const logLabel = startsRest ? `✓ Log set · rest ${formatClock(currentRestSeconds(restRange, restMemory))}` : "✓ Log set";
-    bar.append(skip, actionButton("log-primary", logLabel, handleLogSet));
+    bar.append(skip, renderActionButton("log-primary", logLabel, handleLogSet));
     return bar;
   }
 
   focusSet(firstUnloggedSetNumber());
   draw();
   return screen;
-}
-
-/** A big button for the sticky action bar. */
-function actionButton(className: string, label: string, onClick: () => void): HTMLButtonElement {
-  const button = element("button", `log-action ${className}`, label);
-  button.type = "button";
-  button.addEventListener("click", onClick);
-  return button;
 }
 
 /** Card for an unknown block/exercise or a day with nothing to train. */

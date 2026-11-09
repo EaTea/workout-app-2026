@@ -1,5 +1,5 @@
 /**
- * Minimal hash router. Screens are addressed as `#/today`, `#/settings` and
+ * Minimal hash router. Screens are addressed as `#/today`, `#/history`, `#/settings` and
  * `#/log/<blockPosition>/<exerciseId>` (the log screen for one item of
  * today's session); anything else (including an empty or malformed hash)
  * falls back to Today. `app.ts` reads the current route on every render and
@@ -8,7 +8,7 @@
  */
 
 /** The screens the app can show. */
-export type Route = "today" | "settings" | "log";
+export type Route = "today" | "history" | "settings" | "log";
 
 /** Which item the log screen is for: the block's 1-based position on Today, and the exercise id. */
 export interface LogRouteTarget {
@@ -42,11 +42,12 @@ export function logRouteHash(blockPosition: number, exerciseId: string): string 
 /** Maps a `location.hash` string such as "#/settings" to a route (default: today). */
 export function routeFromHash(hash: string): Route {
   if (hash === "#/settings") return "settings";
+  if (hash === "#/history") return "history";
   if (parseLogRoute(hash) !== undefined) return "log";
   return "today";
 }
 
 /** Changes the address bar to a top-level screen, which fires `hashchange` and so a re-render. */
-export function navigateTo(route: "today" | "settings"): void {
+export function navigateTo(route: "today" | "history" | "settings"): void {
   window.location.hash = `#/${route}`;
 }

@@ -6,6 +6,11 @@ describe("routeFromHash", () => {
     expect(routeFromHash("#/settings")).toBe("settings");
   });
 
+  it("recognises the history route", () => {
+    expect(routeFromHash("#/history")).toBe("history");
+    expect(routeFromHash("#/history/extra")).toBe("today");
+  });
+
   it("recognises a log route", () => {
     expect(routeFromHash("#/log/2/med_ball_slam")).toBe("log");
   });

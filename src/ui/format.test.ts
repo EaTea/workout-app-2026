@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatLastTime, formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
+  formatLastTime, formatSetsSummary, formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
 } from "./format";
 import type { LoggedSet } from "../log/model";
 
@@ -145,5 +145,13 @@ describe("formatLastTime", () => {
   it("counts ticked-only sets in the item's own word", () => {
     expect(formatLastTime(lastTime([[undefined, undefined], [undefined, undefined]]), "round")).toBe("Last time (2 Nov): 2 rounds");
     expect(formatLastTime(lastTime([[undefined, undefined]]), "set")).toBe("Last time (2 Nov): 1 set");
+  });
+});
+
+describe("formatSetsSummary", () => {
+  it("has the same text as the last-time hint without its prefix", () => {
+    expect(formatSetsSummary([{ reps: 6, loadKg: 6 }, { reps: 6, loadKg: 6 }], "set")).toBe("2 × 6 at 6 kg");
+    expect(formatSetsSummary([{ reps: 6 }, { reps: 6 }, { reps: 5 }], "set")).toBe("6, 6, 5");
+    expect(formatSetsSummary([{}, {}, {}, {}, {}], "round")).toBe("5 rounds");
   });
 });

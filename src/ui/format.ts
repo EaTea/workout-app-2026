@@ -1,6 +1,7 @@
 import type { Range } from "../program/model";
 import type { BlockView, ItemView, MaxBasis, RepTarget, SetView } from "../program/schedule";
 import type { LastTime } from "../log/lastTime";
+import type { LoggedSet } from "../log/model";
 
 /**
  * Pure text formatting for the Today screen and the exercise sheet.
@@ -280,23 +281,31 @@ export function formatPrescriptionSummary(item: ItemView): string {
  * The date goes through `formatShortDate`, so there is never a weekday.
  */
 export function formatLastTime(lastTime: LastTime, setNoun: string): string {
-  const prefix = `Last time (${formatShortDate(lastTime.date)}): `;
+  return `Last time (${formatShortDate(lastTime.date)}): ${formatSetsSummary(lastTime.sets, setNoun)}`;
+}
 
-  const repsPerSet = lastTime.sets.flatMap((set) => (set.reps === undefined ? [] : [set.reps]));
+/**
+ * The compact summary of an exercise's sets without any prefix: "6 × 6 at 6 kg",
+ * "6, 6, 5" or "5 rounds" (rules in `formatLastTime`'s comment). Shared by the
+ * "Last time" hint and History's exercise rows, so both read the same way.
+ * `sets` must not be empty.
+ */
+export function formatSetsSummary(sets: Pick<LoggedSet, "reps" | "loadKg">[], setNoun: string): string {
+  const repsPerSet = sets.flatMap((set) => (set.reps === undefined ? [] : [set.reps]));
   if (repsPerSet.length === 0) {
-    const count = lastTime.sets.length;
-    return `${prefix}${count} ${count === 1 ? setNoun : `${setNoun}s`}`;
+    const count = sets.length;
+    return `${count} ${count === 1 ? setNoun : `${setNoun}s`}`;
   }
 
   const allSameReps = repsPerSet.every((reps) => reps === repsPerSet[0]);
   const repsText = allSameReps ? `${repsPerSet.length} ${MULTIPLY} ${repsPerSet[0]}` : repsPerSet.join(", ");
 
-  const loads = lastTime.sets.flatMap((set) => (set.loadKg === undefined ? [] : [set.loadKg]));
-  if (loads.length === 0) return `${prefix}${repsText}`;
+  const loads = sets.flatMap((set) => (set.loadKg === undefined ? [] : [set.loadKg]));
+  if (loads.length === 0) return repsText;
 
   const lowestLoad = Math.min(...loads);
   const highestLoad = Math.max(...loads);
   const loadText = lowestLoad === highestLoad ? `${lowestLoad} kg` : `${lowestLoad}${EN_DASH}${highestLoad} kg`;
 
-  return `${prefix}${repsText} at ${loadText}`;
+  return `${repsText} at ${loadText}`;
 }

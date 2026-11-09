@@ -233,7 +233,7 @@ Rule 8 in section 4.
    set" (starts the rest timer when the item has one) and Skip. Today rows
    show progress such as "2/6".
 3. [x] "Last time" lookup and hint on Today rows and the log screen.
-4. [ ] History screen (the "History" tab): sessions by date, newest
+4. [x] History screen (the "History" tab): sessions by date, newest
    first, each listing what was logged; tap a set to edit or delete it.
 5. [ ] Keep the screen awake while a session is in progress (rule 8).
    Unit tests for the log mapping, set edits and "last time"; E2E test that

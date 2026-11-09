@@ -21,8 +21,10 @@ set that has a prescribed rest starts the rest timer. Logged sets can be
 tapped to edit or delete, and Today rows show progress such as "2/6". The log
 is kept in this browser's local storage (nothing is sent anywhere); the
 exercise details sheet is behind the ⓘ button on the log screen. "Last time"
-hints, a History screen and keeping the screen awake during a session are still
-to come (see [PLAN.md](PLAN.md)). It is a static site
+hints show on Today rows and the log screen. The History tab lists every logged
+session, newest first, with a summary per exercise; tap an exercise to see its
+sets and tap a set to edit or delete it. Keeping the screen awake during a
+session is still to come (see [PLAN.md](PLAN.md)). It is a static site
 (Vite + TypeScript, no UI framework).
 
 ## Install
