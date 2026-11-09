@@ -1241,3 +1241,41 @@ body {
   gap: 12px;
   margin-top: 12px;
 }
+
+/* Week 8 retest card on Today */
+.retest-intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.retest-row {
+  margin-bottom: 12px;
+}
+
+.retest-name {
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.retest-save,
+.retest-dismiss {
+  min-height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.retest-save {
+  background: var(--accent);
+  color: #fff;
+}
+
+.retest-dismiss {
+  width: 100%;
+  background: var(--field);
+  color: var(--text);
+}

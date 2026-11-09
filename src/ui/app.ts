@@ -2,6 +2,7 @@ import type { Program, ProgramWarning } from "../program/model";
 import { toDayNumber, todayLocalDate } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
 import { saveSettings } from "../settings/storage";
+import { RETEST_DISMISSED_STORAGE_KEY, retestDismissedFromWire, retestDismissedToWire } from "./retest";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
 import { applyLogChange, type LoadLogResult } from "../log/storage";
@@ -14,7 +15,7 @@ import { buildSession } from "../program/schedule";
 import { createScreenWakeLock } from "../timer/wakeLock";
 import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
-import { renderSettingsScreen } from "./settings";
+import { renderSettingsScreen, stampMaxSavedDates } from "./settings";
 import { renderTodayScreen } from "./today";
 import { focusMainHeading, renderWarningBanner } from "./warningBanner";
 
@@ -180,6 +181,10 @@ export function startApp(
   let logWarningDismissed = false;
   /** Set when "Start today" could not be saved; shown on the welcome card. */
   let startTodayFailureMessage: string | undefined;
+  /** The date "Not today" was tapped on the retest card (kept in localStorage too), or undefined. */
+  let retestDismissedDate = loadRetestDismissedDate();
+  /** Retest card stepper values by exercise id, kept here so re-renders don't reset an unsaved one. */
+  const retestDrafts: Record<string, number | undefined> = {};
   /**
    * The pinned session date: what Today shows. Set once here and moved only by
    * `handleShowNewDay` (the banner button), so a session left open past
@@ -287,6 +292,43 @@ export function startApp(
   }
 
   /**
+   * Save handler for one exercise on the week 8 retest card. Stamps the max
+   * with the REAL local date (never the `?date=` preview, like Settings),
+   * persists through `persistSettings`, and on success keeps the new settings
+   * and re-renders Today so the EMOM target switches to the new max at once.
+   * Returns null on success or the failure message for the card to show inline.
+   */
+  function handleSaveRetestMax(exerciseId: string, newMax: number): string | null {
+    const maxReps = { ...settings.maxReps, [exerciseId]: newMax };
+    const maxSavedOn = stampMaxSavedDates(settings, maxReps, new Set([exerciseId]), todayLocalDate());
+    const newSettings: TrainingSettings = { ...settings, maxReps, maxSavedOn };
+
+    const failureMessage = persistSettings(newSettings);
+    if (failureMessage !== null) {
+      return failureMessage;
+    }
+    settings = newSettings;
+
+    // TODO(PR 4 step 3): rule 6 says saving the retest also records the max
+    // pull-ups as this week's fatigue check. Hook that in here once the
+    // fatigue check storage (PR 4 step 2) and the check-in card exist.
+
+    render();
+    return null;
+  }
+
+  /** "Not today" on the retest card: hides it for the shown date, remembered across reloads, and re-renders. */
+  function handleDismissRetest(): void {
+    retestDismissedDate = shownDate;
+    try {
+      localStorage.setItem(RETEST_DISMISSED_STORAGE_KEY, retestDismissedToWire(shownDate));
+    } catch {
+      // Storage blocked: the card stays hidden until reload, which is fine for a dismissal.
+    }
+    render();
+  }
+
+  /**
    * Moves the shown date forward to the real current date and redraws. Only
    * the new-day banner's button calls this, so the session on screen never
    * changes by itself.
@@ -348,7 +390,10 @@ export function startApp(
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
       } else {
-        main.append(renderTodayScreen(program, settings, shownDate, handleStartToday, startTodayFailureMessage, log));
+        main.append(renderTodayScreen(program, settings, shownDate, handleStartToday, startTodayFailureMessage, log, {
+          dismissedDate: retestDismissedDate,
+          actions: { onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts },
+        }));
       }
       // The log screen belongs to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" ? "today" : route));
@@ -367,6 +412,19 @@ export function startApp(
     if (document.visibilityState === "visible") handleClockCheck();
   });
   render();
+}
+
+/**
+ * Reads the retest card's dismissed date from localStorage at startup
+ * (through `retestDismissedFromWire`); undefined if absent, corrupt or if
+ * storage cannot be read.
+ */
+function loadRetestDismissedDate(): string | undefined {
+  try {
+    return retestDismissedFromWire(localStorage.getItem(RETEST_DISMISSED_STORAGE_KEY));
+  } catch {
+    return undefined;
+  }
 }
 
 /** Dismissible amber banner shown when the saved workout log could not be read (it was set aside, see log/storage.ts). */

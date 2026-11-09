@@ -4,6 +4,8 @@ import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
 import { element } from "./dom";
+import { retestExercisesToSave } from "./retest";
+import { renderRetestCard, type RetestCardActions } from "./retestCard";
 import { countSetsForItem, formatProgress } from "../log/itemSets";
 import type { WorkoutLog } from "../log/model";
 import { setsForItem } from "../log/operations";
@@ -22,8 +24,17 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *                       └ item row (button) ─▶ log screen (#/log/<date>/..., pinned to the date shown), which has the details sheet
  *        rest / notStarted / complete / noStartDate ─▶ a single message card
  *
- * It renders exactly what `buildSession` returns; all numbers are final.
+ * It renders exactly what `buildSession` returns; all numbers are final. On
+ * a retest-week training day a "Retest week" card (retestCard.ts) goes above
+ * the header while a max is still to be saved and it was not dismissed.
  */
+
+/** What Today needs to show the retest card; supplied by app.ts, which owns the saving and dismissal. */
+export interface RetestOptions {
+  /** The date "Not today" was tapped for, or undefined. */
+  dismissedDate: string | undefined;
+  actions: RetestCardActions;
+}
 
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). `onStartToday` is called
@@ -38,12 +49,19 @@ export function renderTodayScreen(
   onStartToday: () => void = () => undefined,
   startTodayFailureMessage?: string,
   log: WorkoutLog = { sessions: {} },
+  retest?: RetestOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
 
   switch (session.kind) {
     case "training":
+      if (retest !== undefined) {
+        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
+        if (exercisesToRetest.length > 0) {
+          screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions));
+        }
+      }
       screen.append(...renderTrainingDay(program, session, date, log));
       break;
     default:

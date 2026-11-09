@@ -316,9 +316,7 @@ function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekC
   }
 
   if (week.isRetest) {
-    const savedOn = settings.maxSavedOn[item.exerciseId];
-    // ISO dates compare correctly as strings.
-    const retested = savedOn !== undefined && savedOn >= week.weekStartDate;
+    const retested = wasMaxSavedSince(settings, item.exerciseId, week.weekStartDate);
 
     return retested
       ? { increase: week.offset, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false }
@@ -326,6 +324,41 @@ function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekC
   }
 
   return { increase: week.offset, heldForDeload: week.isDeload && week.offset > 0, usesRetestedMax: false, awaitingRetest: false };
+}
+
+/**
+ * True when the exercise's max was saved on or after `weekStartDate` (Day 1 of
+ * the week in question). This is THE "retested during the retest week" check:
+ * `chooseIncrease` uses it to switch EMOMs to the new max, and the Today
+ * retest card (ui/retest.ts) uses it to know which maxes are still to save.
+ * ISO dates compare correctly as strings; a max with no known save date counts
+ * as not saved.
+ */
+export function wasMaxSavedSince(settings: TrainingSettings, exerciseId: string, weekStartDate: string): boolean {
+  const savedOn = settings.maxSavedOn[exerciseId];
+  return savedOn !== undefined && savedOn >= weekStartDate;
+}
+
+/**
+ * For a retest-week TRAINING day, returns the date of that week's Day 1;
+ * for any other date (no start date, not started, complete, a non-retest
+ * week, or a rest day) returns undefined. Used by the Today retest card to
+ * decide whether to appear and which saved dates count as "retested".
+ */
+export function retestWeekStartDate(program: Program, settings: TrainingSettings, date: string): string | undefined {
+  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  if (status.kind !== "active") {
+    return undefined;
+  }
+
+  const isRetestWeek = phaseForWeek(program, status.week).retest;
+  const isTrainingDay = program.days[status.dayNumber] !== undefined;
+  if (!isRetestWeek || !isTrainingDay) {
+    return undefined;
+  }
+
+  // settings.startDate is non-null here: programStatus was "active".
+  return addDaysToDate(settings.startDate as string, (status.week - 1) * DAYS_PER_WEEK);
 }
 
 /** Halves a count, rounding up (5 -> 3, 2 -> 1). */

@@ -27,7 +27,12 @@ exercise details sheet is behind the ⓘ button on the log screen. "Last time"
 hints (last week's same day and block type, else the same kind of block on
 another day) show on Today rows and the log screen. The History tab lists every logged
 session, newest first, with a summary per exercise; tap an exercise to see its
-sets and tap a set to edit or delete it. It is a static site
+sets and tap a set to edit or delete it. On every week 8 training day Today opens
+with a "Retest week" card: steppers (pre-filled with your current maxes) and a
+"Save max" button per exercise for pull-ups and dips. Saving stamps the max with
+today's real date and switches week 8's EMOM targets to the new max at once; the
+card stays until both are saved that week, and "Not today" hides it for that
+date only. It is a static site
 (Vite + TypeScript, no UI framework).
 
 ## Install
