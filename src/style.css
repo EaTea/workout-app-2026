@@ -557,3 +557,176 @@ body {
   text-align: center;
   color: var(--accent);
 }
+
+/* Full-screen timer (EMOM, interval and rest timers) */
+.timer-view {
+  --timer-tint: var(--background);
+  --timer-button: #262b34;
+  --timer-ring: var(--accent);
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: env(safe-area-inset-top) 20px calc(24px + env(safe-area-inset-bottom));
+  background: var(--timer-tint);
+  color: var(--text);
+  outline: none;
+}
+
+/* Work is green, rest is blue: readable at a glance mid-round. */
+.timer-view[data-phase="work"] {
+  --timer-tint: #0f2a1c;
+  --timer-button: #1d4430;
+}
+
+.timer-view[data-phase="rest"] {
+  --timer-tint: #0e2140;
+  --timer-button: #1c3a68;
+}
+
+.timer-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 640px;
+}
+
+.timer-close {
+  min-width: 56px;
+  min-height: 56px;
+  margin-left: -12px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.timer-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.timer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 640px;
+  text-align: center;
+}
+
+.timer-phase {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.timer-view[data-phase="work"] .timer-phase {
+  color: #5fd497;
+}
+
+.timer-view[data-phase="rest"] .timer-phase {
+  color: #7fb0ff;
+}
+
+/* Ring showing progress through the current minute: --progress is set from JS. */
+.timer-ring {
+  --progress: 0%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(300px, 70vw);
+  aspect-ratio: 1;
+  margin: 12px 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--timer-tint) calc(100% - 14px), transparent calc(100% - 13px)),
+    conic-gradient(var(--timer-ring) var(--progress), #2b313b 0);
+}
+
+.timer-ring[hidden],
+.timer-phase[hidden],
+.timer-round[hidden] {
+  display: none;
+}
+
+.timer-ring-caption {
+  color: #aab1bd;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.timer-ring-number {
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.timer-ring-total {
+  color: #6c7480;
+  font-size: 40px;
+}
+
+.timer-digits {
+  font-size: min(128px, 30vw);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.timer-round {
+  margin-top: 20px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.timer-label {
+  margin-top: 8px;
+  color: #b9c0cb;
+  font-size: 16px;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.timer-button {
+  flex: 1;
+  min-height: 72px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--timer-button);
+  color: var(--text);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.timer-button-primary {
+  background: var(--accent);
+}
+
+.timer-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The ring jumps in whole steps with reduced motion (see timerView.ts); no CSS transitions are used otherwise. */

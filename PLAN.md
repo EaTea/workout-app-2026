@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 merged (#3). PR 1b in progress; PR 2 (timers) next.**
+Status: **PR 1 and PR 1b merged (#3, #4). PR 2 (timers) in progress.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -134,7 +134,7 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 Follow-ups not yet done: Today doesn't refresh after midnight if left open
 (revisit with timers in PR 2).
 
-### PR 1b — Rule changes from the PR 1 review *(behavior change)* — PR #4
+### PR 1b — Rule changes from the PR 1 review *(behavior change)* — merged as PR #4
 Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
 1. [x] Count program days from the start date. "Start today" button.
 2. [x] Deload weeks keep the previous week's EMOM reps.
@@ -163,12 +163,14 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
   week 8, or clearing dates when the start date changes.
 
 ### PR 2 — Timers *(behavior change)*
-1. Shared full-screen timer view: huge digits, round counter, start/pause/
-   skip, thumb-reachable controls.
-2. EMOM timer (beep + vibrate each minute, round N of M).
-3. Interval timer for the heavy bag (work/rest rounds).
-4. Rest timer launched from a set, using `restSec`.
-5. Screen Wake Lock while a session or timer is active.
+1. [x] Timer engine (pure state machine, wall-clock based, so it catches
+   up after the phone sleeps) and a shared full-screen timer view: huge
+   digits, round counter, start/pause/skip, thumb-reachable controls.
+2. [ ] EMOM timer (beep + vibrate each minute, round N of M).
+3. [ ] Interval timer for the heavy bag (work/rest rounds).
+4. [ ] Rest timer launched from a set, using `restSec`.
+5. [ ] Screen Wake Lock while a session or timer is active, and refresh
+   Today after midnight (PR 1 follow-up).
    Unit tests for the timer state machine with a fake clock; E2E test that
    runs a short EMOM.
 - **Merge point:** a full session can be run with timers.
