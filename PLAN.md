@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PRs 7–9 planned, waiting for Ed's go-ahead.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -433,6 +433,51 @@ the PR 2 review.
    48px, Android's guideline, which also satisfies Apple's 44pt.
 - **Merge point:** the program's weeks 5–7 changes are reflected in the
   timers, and the PR 2 follow-ups are done.
+
+### PR 7 — Data follow-ups from earlier reviews *(behavior change)*
+Stacked on PR 6. The brief's must-haves and nice-to-haves are all built;
+these are the follow-ups the PR 1 and PR 4 reviews left open, so that a
+changed start date or a late max doesn't quietly give wrong numbers.
+1. [ ] **Fatigue checks filed by date.** A check keeps its date as the
+   key, and its program week is worked out from the current start date
+   whenever it is read (the stored `programWeek` is still written, for
+   older versions, but ignored on read). A restarted program then can't
+   misfile old checks, and checks dated before the start date are kept
+   but don't count as "best recent". Unit tests with a changed start date.
+2. [ ] **Broad jump in the week 8 retest.** The retest card gets an
+   optional broad jump field (same stepper and blank rules as the weekly
+   check-in), saved as week 8's check together with the retested
+   pull-ups, so week 8 has a full check like the other weeks.
+3. [ ] **Held reps from what week 7 showed.** Settings keep a short
+   history of saved maxes (date and value) instead of only the latest,
+   behind a settings wire v3 with a mapping from v2 (the current max
+   becomes the only history entry). Week 8's held EMOM figure (rule 3) is
+   then worked out with the max that was in effect on the last week 7 day
+   that had that EMOM, so it matches what week 7 actually showed, and a
+   max raised later in week 7 doesn't change it. Worked example (start
+   2 Nov): pull-up max 12 saved 2 Nov, then 14 saved 18 Dec (W7 D5). The
+   pull-up EMOM was on 14 Dec (W7 D1) with max 12, so W8 D1 holds
+   floor(12 × 0.40) + 2 = 6, not floor(14 × 0.40) + 2 = 7. A save inside
+   week 8 is the retest and replaces the hold, as now.
+- **Merge point:** checks and held reps stay right after a start-date
+  change or a late max.
+
+### PR 8 — Import a JSON export *(behavior change)*
+Export exists but there is no way back, so a new phone or a cleared
+browser loses the log. Settings gets "Import from JSON": it reads an
+`explosive-endurance-export` v1 file through its own wire parser (unknown
+versions refused with a clear message), shows what it holds (sessions,
+sets, checks, date range), and on a confirm tap replaces the log, checks
+and settings. The current data is first kept as a backup key, like the
+corrupt-log backups, so an import can be undone from the next export.
+Unit tests for the parser and mapping; E2E for export → clear → import.
+- **Merge point:** a phone change loses nothing.
+
+### PR 9 — Run the E2E suite in CI *(external non-functional change)*
+CI runs only the unit tests and the build. The workflow gains a job that
+installs the pinned Playwright's Chromium and runs `npm run test:e2e`
+(traces only on failure, uploaded as an artifact). No app changes.
+- **Merge point:** every PR into main is checked end to end.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
