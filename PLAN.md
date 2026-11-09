@@ -9,7 +9,7 @@ The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 ## 1. What I understand the request to be
 
 Ed wants a small personal app for running the 8-week Explosive Endurance
-Program on his phone at the gym. The source material is in the project files:
+Program on a phone at the gym. The source material is in the project files:
 
 - `APP_BRIEF.md` lists the must-haves, nice-to-haves and constraints.
 - `program.json` is the source of truth for exercises, days, doses and
@@ -18,7 +18,7 @@ Program on his phone at the gym. The source material is in the project files:
   only to resolve ambiguities in `program.json`.
 
 The ask for this round is a **mockup optimised for mobile**: something Ed can
-open on his phone and click through to judge the layout and flow, built on
+open on a phone and click through to judge the layout and flow, built on
 real program data so it can grow into the real app instead of being thrown
 away. Following the brief's own suggestion, the first screens are "Today's
 workout", then timers, then logging.
@@ -100,7 +100,7 @@ the starting point. Revisit them if the app shows they're wrong.
      no hold: floor(max × %). "Saved during the retest week" means the max
      was saved on or after the week's Day 1. Settings records today's real
      date (never a `?date=` preview) on every max field Ed edits and saves,
-     even if he re-types the same number, so "retested, same result"
+     even if Ed re-types the same number, so "retested, same result"
      counts. Until PR 4's retest prompt exists, Ed saves the new max in
      Settings.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
