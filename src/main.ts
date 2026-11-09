@@ -1,16 +1,26 @@
 import "./style.css";
-import { APP_TITLE, buildPlaceholderHtml } from "./placeholder";
+import { loadProgram } from "./program/load";
+import { loadSettings } from "./settings/storage";
+import { showStartupError, startApp } from "./ui/app";
 
 /**
- * Application entry point: mounts the placeholder screen into #app.
- * Loaded by index.html; will later boot the real router/screens.
+ * Application entry point (loaded by index.html): loads program.json once,
+ * loads saved settings, then hands both to the app shell. If program.json
+ * can't be loaded or parsed, the error is shown on screen so Ed can see what
+ * he broke.
  */
-function startApp(): void {
+async function main(): Promise<void> {
   const root = document.getElementById("app");
   if (!root) {
     throw new Error("Missing #app element in index.html");
   }
-  root.innerHTML = buildPlaceholderHtml(APP_TITLE);
+
+  try {
+    const program = await loadProgram();
+    startApp(root, program, loadSettings());
+  } catch (error) {
+    showStartupError(root, error);
+  }
 }
 
-startApp();
+void main();

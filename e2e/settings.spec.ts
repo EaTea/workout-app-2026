@@ -1,0 +1,43 @@
+import { expect, test } from "@playwright/test";
+
+test("first run prompts for a start date; settings save, drive Today and persist", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Set your program start date")).toBeVisible();
+
+  await page.getByRole("link", { name: "Go to Settings" }).click();
+  await page.getByLabel("Start date").fill("2026-11-02");
+  await page.getByLabel("Max reps: Pull-ups").fill("12");
+  await page.getByLabel("Max reps: Dips").fill("15");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page).toHaveURL(/#\/today$/);
+
+  // Preview Monday of week 2 via the ?date= override.
+  await page.goto("/?date=2026-11-09");
+  await expect(page.getByText("Week 2 · Mon")).toBeVisible();
+
+  await page.goto("/#/settings");
+  await expect(page.getByLabel("Start date")).toHaveValue("2026-11-02");
+  await expect(page.getByLabel("Max reps: Pull-ups")).toHaveValue("12");
+  await expect(page.getByLabel("Max reps: Dips")).toHaveValue("15");
+});
+
+test("invalid max reps show an inline error and do not save", async ({ page }) => {
+  await page.goto("/#/settings");
+  await page.getByLabel("Start date").fill("2026-11-02");
+  await page.getByLabel("Max reps: Pull-ups").fill("0");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByText("Enter a whole number of reps")).toBeVisible();
+  await expect(page).toHaveURL(/#\/settings$/);
+});
+
+test("a broken program.json shows the error card", async ({ page }) => {
+  await page.route("**/program.json", (route) =>
+    route.fulfill({ contentType: "application/json", body: '{"name": "broken"}' }),
+  );
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Could not load the program" })).toBeVisible();
+});

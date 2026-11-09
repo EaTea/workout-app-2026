@@ -19,6 +19,10 @@ npm ci
 npm run dev
 ```
 
+To preview another day, add `?date=YYYY-MM-DD` to the URL (e.g.
+`http://localhost:5173/?date=2026-11-09`); it overrides "today" for the Today
+screen. E2E tests use it too.
+
 ## Build and preview
 
 ```sh

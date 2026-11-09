@@ -89,3 +89,15 @@ function mondayOfWeekContaining(dayNumber: number): number {
   const mondayFirstIndex = (((dayNumber + 3) % 7) + 7) % 7;
   return dayNumber - mondayFirstIndex;
 }
+
+/**
+ * Formats a JS `Date` as its LOCAL calendar date "YYYY-MM-DD" (not UTC, which
+ * would give the wrong day for Ed late in the evening). Used by the app shell
+ * to pass "today" to `buildSession`; `now` is injectable so tests are stable.
+ */
+export function todayLocalDate(now: Date = new Date()): string {
+  const year = String(now.getFullYear()).padStart(4, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

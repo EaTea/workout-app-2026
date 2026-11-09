@@ -1,16 +1,188 @@
+/* Dark, mobile-first theme; colours and radii follow docs/mockups/mockups.html. */
 :root {
   color-scheme: dark;
-  --background: #0f1115;
-  --text: #e8eaed;
+  --background: #111317;
+  --card: #1a1e25;
+  --field: #0f1115;
+  --border: #262b34;
+  --text: #eef0f3;
+  --muted: #8b93a1;
+  --accent: #2f7cf6;
+  --accent-text: #8fb8ff;
+  --danger: #ff8a80;
+  --nav-height: 72px;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   background: var(--background);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
 }
 
-.placeholder {
-  padding: 24px 16px;
+/* Leave room for the fixed nav bar (plus the iPhone home-indicator inset). */
+.app-main {
+  padding: 16px 16px calc(var(--nav-height) + env(safe-area-inset-bottom) + 24px);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.screen-title {
+  font-size: 28px;
+  margin: 8px 0 16px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.session-summary {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Buttons (also used on links) */
+.primary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 60px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Forms */
+.field {
+  margin-bottom: 18px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.field input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 20px;
+}
+
+.field-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.field-error {
+  margin: 6px 0 0;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+/* Startup error */
+.error-card {
+  border: 1px solid #6b2a2a;
+}
+
+.error-message {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+/* Bottom navigation: fixed, big tap targets, clear of the home indicator */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: #16191e;
+  border-top: 1px solid var(--border);
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--nav-height);
+  min-width: 48px;
+  color: #7b8390;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.nav-item i {
+  font-style: normal;
+  font-size: 22px;
+  margin-bottom: 3px;
+}
+
+.nav-item small {
+  font-size: 10px;
+}
+
+.nav-item-active {
+  color: var(--accent-text);
+}
+
+.nav-item-disabled {
+  opacity: 0.45;
+}
+
+/* "Saved" confirmation */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 16px);
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: #173a2a;
+  color: #5fd497;
+  font-weight: 700;
 }

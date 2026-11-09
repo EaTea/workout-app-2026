@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { programStatus, toDayNumber, weekdayOf } from "./calendar";
+import { programStatus, toDayNumber, todayLocalDate, weekdayOf } from "./calendar";
 
 describe("weekdayOf", () => {
   it("returns the calendar weekday", () => {
@@ -41,5 +41,13 @@ describe("programStatus", () => {
   it("is complete after the last week", () => {
     expect(programStatus("2026-11-02", 8, "2026-12-27")).toEqual({ kind: "active", week: 8, weekday: "Sun" });
     expect(programStatus("2026-11-02", 8, "2026-12-28")).toEqual({ kind: "complete" });
+  });
+});
+
+describe("todayLocalDate", () => {
+  it("formats the local calendar date with zero padding", () => {
+    // Local-time constructor: month index 10 = November.
+    expect(todayLocalDate(new Date(2026, 10, 9, 23, 59))).toBe("2026-11-09");
+    expect(todayLocalDate(new Date(2026, 0, 5, 0, 1))).toBe("2026-01-05");
   });
 });
