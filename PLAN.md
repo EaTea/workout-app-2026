@@ -138,7 +138,7 @@ Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
    (e.g. "Day 4"); the app shows dates without weekday names; tests, README,
    mockups and the project-files copies of `program.json` and the program
    doc are updated to match.
-5. [ ] Week 8 (`"retest": true`) EMOMs use the current max with no hold.
+5. [x] Week 8 (`"retest": true`) EMOMs use the current max with no hold.
 - **Merge point:** the rules work as agreed, with tests. Steps 4–5 get
   their own challenger review before PR #4 is updated.
 

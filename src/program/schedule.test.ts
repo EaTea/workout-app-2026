@@ -120,12 +120,35 @@ describe("further schedule rules", () => {
     expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 5 });
   });
 
-  it("holds the previous week's EMOM reps in both deloads (21 Dec, W8 D1: 5 min x 6), W5 restarts at 4", () => {
-    const week8 = item(trainingOn("2026-12-21").blocks, "pull_up");
-    expect(week8.minutes).toBe(5);
-    expect(week8.target).toMatchObject({ kind: "fixed", count: 6 });
+  it("holds the previous week's EMOM reps in the W4 plain deload (23 Nov: 5 min x 6), W5 restarts at 4", () => {
+    const week4 = item(trainingOn("2026-11-23").blocks, "pull_up");
+    expect(week4.minutes).toBe(5);
+    expect(week4.target).toMatchObject({ kind: "fixed", count: 6 });
 
     expect(item(trainingOn("2026-11-30").blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 4 });
+  });
+
+  it("uses the current max with no hold in the W8 retest week (21 Dec, W8 D1): max 12 -> 5 min x 4", () => {
+    const week8 = item(trainingOn("2026-12-21").blocks, "pull_up");
+    expect(week8.minutes).toBe(5);
+    expect(week8.target).toMatchObject({
+      kind: "fixed", count: 4, basis: { max: 12, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true },
+    });
+  });
+
+  it("follows a retested pull-up max straight away (21 Dec: max 15 -> 5 min x 6)", () => {
+    const session = trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 } });
+    expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 6 });
+  });
+
+  it("gives W8 D3 dips the plain 40-50% of max with no +2 (23 Dec, max 15 -> 6-7)", () => {
+    const session = trainingOn("2026-12-23");
+    expect(session.week).toBe(8);
+    expect(item(session.blocks, "dip").target).toMatchObject({ kind: "range", min: 6, max: 7, basis: { weeklyIncrease: 0, usesRetestedMax: true } });
+  });
+
+  it("still holds W4's +2 for dips and pull-ups (W4 pull-ups stay 6)", () => {
+    expect(item(trainingOn("2026-11-23").blocks, "pull_up").target).toMatchObject({ basis: { usesRetestedMax: false, heldForDeload: true } });
   });
 
   it("holds week 3's dip EMOM in the W4 deload (25 Nov, W4 D3: 6-7 + 2 = 8-9) while the mini-dose stays 1 x 7", () => {
@@ -199,7 +222,7 @@ describe("edge cases", () => {
 });
 
 describe("percent-of-max basis", () => {
-  const basis = (weeklyIncrease: number, max = 12) => ({ percentMin: 0.4, percentMax: 0.4, max, weeklyIncrease, heldForDeload: false });
+  const basis = (weeklyIncrease: number, max = 12) => ({ percentMin: 0.4, percentMax: 0.4, max, weeklyIncrease, heldForDeload: false, usesRetestedMax: false });
 
   it("records the max and this week's increase (W2 D1 pull-ups: 40% of 12, +1)", () => {
     expect(item(trainingOn("2026-11-09").blocks, "pull_up").target).toEqual({ kind: "fixed", count: 5, basis: basis(1) });
@@ -220,7 +243,7 @@ describe("percent-of-max basis", () => {
       kind: "range",
       min: 6,
       max: 7,
-      basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0, heldForDeload: false },
+      basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: false },
     });
   });
 
@@ -251,7 +274,7 @@ describe("percent-of-max rounding survives floating point", () => {
 
 describe("deload weeks hold the last normal week's weekly increase", () => {
   /** Rebuilds the real program with a different 8-week progression layout. */
-  function programWithPhases(phases: { weeks: number[]; phase: string }[]) {
+  function programWithPhases(phases: { weeks: number[]; phase: string; retest?: boolean }[]) {
     const json = JSON.parse(readFileSync("public/program.json", "utf-8"));
     json.progression = phases.map((entry) => ({ ...entry, changes: ["x"] }));
     return parseProgram(json).program;
@@ -281,9 +304,21 @@ describe("deload weeks hold the last normal week's weekly increase", () => {
       { weeks: [4, 5], phase: "Deload" },
       { weeks: [6, 7, 8], phase: "Power endurance" },
     ]);
-    expect(pullUpBasisInWeek(modified, 3)).toMatchObject({ weeklyIncrease: 2, heldForDeload: false });
+    expect(pullUpBasisInWeek(modified, 3)).toMatchObject({ weeklyIncrease: 2, heldForDeload: false, usesRetestedMax: false });
     expect(pullUpBasisInWeek(modified, 4)).toMatchObject({ weeklyIncrease: 2, heldForDeload: true });
     expect(pullUpBasisInWeek(modified, 5)).toMatchObject({ weeklyIncrease: 2, heldForDeload: true });
+  });
+
+  it("a retest week does not hold, and a plain deload after it holds 0", () => {
+    const modified = programWithPhases([
+      { weeks: [1, 2, 3, 4, 5], phase: "Base" },
+      { weeks: [6], phase: "Deload + retest", retest: true },
+      { weeks: [7], phase: "Deload" },
+      { weeks: [8], phase: "Base" },
+    ]);
+    expect(pullUpBasisInWeek(modified, 5)).toMatchObject({ weeklyIncrease: 4 });
+    expect(pullUpBasisInWeek(modified, 6)).toMatchObject({ weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true });
+    expect(pullUpBasisInWeek(modified, 7)).toMatchObject({ weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: false });
   });
 
   it("does not flag heldForDeload when the held increase is 0", () => {
@@ -291,6 +326,6 @@ describe("deload weeks hold the last normal week's weekly increase", () => {
       { weeks: [1], phase: "Deload" },
       { weeks: [2, 3, 4, 5, 6, 7, 8], phase: "Base" },
     ]);
-    expect(pullUpBasisInWeek(modified, 1)).toMatchObject({ weeklyIncrease: 0, heldForDeload: false });
+    expect(pullUpBasisInWeek(modified, 1)).toMatchObject({ weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: false });
   });
 });

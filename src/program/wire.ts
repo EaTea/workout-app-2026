@@ -85,6 +85,8 @@ export interface ProgressionPhaseWire {
   weeks: number[];
   phase: string;
   changes: string[];
+  /** True in a retest week: EMOM targets use the current max with no weekly increase or hold. */
+  retest?: boolean;
 }
 
 /** The `program` object: name, length and session-wide rules. */

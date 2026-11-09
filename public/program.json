@@ -261,7 +261,7 @@
       "Cut core-block rest by 15s",
       "Lengthen heavy bag rounds by 5-10s"
     ]},
-    { "weeks": [8], "phase": "Deload + retest", "changes": ["Halve all sets", "Retest max pull-ups and dips", "Reset EMOM targets from the new maxes"] }
+    { "weeks": [8], "phase": "Deload + retest", "retest": true, "changes": ["Halve all sets", "Retest max pull-ups and dips", "Reset EMOM targets from the new maxes"] }
   ],
 
   "coreProgressions": {

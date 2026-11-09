@@ -262,3 +262,13 @@ test("no warning banner when program.json has no unknown fields", async ({ page 
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
   await expect(page.locator(".warning-banner")).toHaveCount(0);
 });
+
+test("week 8 retest day shows EMOM from the current max with no hold", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-12-21");
+
+  await expect(page.getByText("Week 8 of 8 · Day 1")).toBeVisible();
+  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("4 / min");
+  await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("5 min");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12 · from your retested max");
+});

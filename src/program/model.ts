@@ -125,6 +125,8 @@ export interface ProgressionPhase {
   weeks: number[];
   phase: string;
   changes: string[];
+  /** True in a retest week (week 8): EMOM targets use the current saved max, no weekly increase and no hold. Defaults to false. */
+  retest: boolean;
 }
 
 /** Warm-up rotation reminder data. */

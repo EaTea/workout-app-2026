@@ -129,6 +129,10 @@ describe("parseProgram on the real program.json", () => {
     expect(program.exercises.ytwi!.cues).toEqual([]);
   });
 
+  it("marks only the week 8 phase as a retest phase (absent means false)", () => {
+    expect(program.progression.map((phase) => phase.retest)).toEqual([false, false, false, true]);
+  });
+
   it("keeps progression phases, core progressions, rotation and fatigue check", () => {
     expect(program.progression[1]).toMatchObject({ weeks: [4], phase: "Deload" });
     expect(program.progression).toHaveLength(4);
@@ -208,6 +212,10 @@ describe("parseProgram errors", () => {
 });
 
 describe("progression and rest day validation", () => {
+  it("rejects a non-boolean retest flag", () => {
+    expect(errorMessageAfter((json) => (json.progression[3].retest = "yes"))).toBe('progression[3].retest: expected true or false but found "yes"');
+  });
+
   it("rejects a week with no phase", () => {
     expect(errorMessageAfter((json) => (json.progression[0].weeks = [1, 2]))).toBe("progression: week 3 is not covered by any phase");
   });

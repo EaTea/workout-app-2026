@@ -89,14 +89,19 @@ describe("formatItemDetails", () => {
   });
 
   it("explains percent-of-max targets, omitting a zero increase and labelling a held one", () => {
-    const week2 = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 1, heldForDeload: false } } as RepTarget;
+    const week2 = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 1, heldForDeload: false, usesRetestedMax: false } } as RepTarget;
     expect(formatItemDetails(item({ format: "emom", minutes: 9, target: week2 }))).toEqual(["40% of max 12 · +1 this week"]);
 
-    const range = { kind: "range", min: 6, max: 7, basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0, heldForDeload: false } } as RepTarget;
+    const range = { kind: "range", min: 6, max: 7, basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: false } } as RepTarget;
     expect(formatItemDetails(item({ format: "emom", minutes: 9, target: range }))).toEqual(["40–50% of max 15"]);
 
     const deload = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 2, heldForDeload: true } } as RepTarget;
     expect(formatItemDetails(item({ format: "emom", minutes: 5, target: deload }))).toEqual(["40% of max 12 · +2, held for deload"]);
+  });
+
+  it("says a retest-week target comes from the retested max, without an increase", () => {
+    const retest = { kind: "fixed", count: 4, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true } } as RepTarget;
+    expect(formatItemDetails(item({ format: "emom", minutes: 5, target: retest }))).toEqual(["40% of max 12 · from your retested max"]);
   });
 
   it("builds a one-line prescription summary", () => {

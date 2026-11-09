@@ -91,7 +91,7 @@ const ITEM_KEYS = allowedKeysOf<ItemWire>()([
   "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "load", "note", "tempo", "weeklyIncrease",
 ]);
 const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
-const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes"]);
+const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest"]);
 const WARMUP_ROTATION_KEYS = allowedKeysOf<WarmupRotationWire>()(["everyWeeks", "swaps", "alsoAvailable"]);
 const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in"]);
 const FATIGUE_CHECK_KEYS = allowedKeysOf<FatigueCheckWire>()(["frequency", "tests", "rule", "lowerBackRule"]);
@@ -457,7 +457,12 @@ function parseProgressionPhase(raw: unknown, path: string, warnings: ProgramWarn
     return week;
   });
 
-  return { weeks, phase: readString(record, "phase", path), changes: readStringList(record, "changes", path) };
+  return {
+    weeks,
+    phase: readString(record, "phase", path),
+    changes: readStringList(record, "changes", path),
+    retest: readFlag(record, "retest", path),
+  };
 }
 
 /** Converts the warm-up rotation section. */
