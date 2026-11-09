@@ -344,7 +344,7 @@ brief's remaining nice-to-haves.
    `explosive-endurance-YYYY-MM-DD.csv/.json` and downloaded, or shared
    through the phone's share sheet where downloading isn't supported.
    Import is out of scope.
-3. [ ] **Progress chart per strength exercise** in the History tab: pick
+3. [x] **Progress chart per strength exercise** in the History tab: pick
    an exercise that has been logged in a main-strength, mini-dose or
    explosive block; a simple line chart over the 8 program weeks of the
    best set each session (most reps, and heaviest load when loads were
