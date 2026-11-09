@@ -289,7 +289,7 @@ Stacked on PR 3. Rules 5 and 6 in section 4.
    save, and the pure "best of previous 3" and 10% comparison.
 3. [ ] Weekly check-in card and the drop warning on Today (rule 6,
    mockup 6), including "Remind me tomorrow".
-4. [ ] Installable, offline app: web manifest and icons (home screen on
+4. [x] Installable, offline app: web manifest and icons (home screen on
    iPhone and Android), and a hand-written service worker. Pages under
    `/workout-app-2026/` is the scope. The app shell and its hashed assets
    are precached at install (the list generated at build time), so the

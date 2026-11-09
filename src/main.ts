@@ -2,6 +2,7 @@ import "./style.css";
 import { loadProgram } from "./program/load";
 import { loadLog } from "./log/storage";
 import { loadSettings } from "./settings/storage";
+import { registerServiceWorker } from "./pwa/register";
 import { showStartupError, startApp } from "./ui/app";
 
 /**
@@ -24,4 +25,5 @@ async function main(): Promise<void> {
   }
 }
 
+registerServiceWorker();
 void main();
