@@ -1,8 +1,9 @@
 import type { Program, ProgramWarning } from "../program/model";
-import { toDayNumber, todayLocalDate } from "../program/calendar";
+import { programStatus, toDayNumber, todayLocalDate } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
-import { saveSettings } from "../settings/storage";
-import { RETEST_DISMISSED_STORAGE_KEY, retestDismissedFromWire, retestDismissedToWire } from "./retest";
+import { loadSettings, saveSettings } from "../settings/storage";
+import { RETEST_DISMISSED_STORAGE_KEY, applyRetestMax, retestDismissedFromWire, retestDismissedToWire } from "./retest";
+import { focusRemainingRetestStepper } from "./retestCard";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
 import { applyLogChange, type LoadLogResult } from "../log/storage";
@@ -11,11 +12,11 @@ import type { LogChangeOutcome } from "./logChange";
 import { renderLogScreen } from "./logScreen";
 import { renderHistoryScreen } from "./history";
 import { isSessionInProgress } from "../log/sessionProgress";
-import { buildSession } from "../program/schedule";
+import { buildSession, phaseForWeek } from "../program/schedule";
 import { createScreenWakeLock } from "../timer/wakeLock";
 import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
-import { renderSettingsScreen, stampMaxSavedDates } from "./settings";
+import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
 import { applyFatigueChange, type LoadFatigueHistoryResult } from "../fatigue/storage";
 import { checkForWeek, recordCheck } from "../fatigue/operations";
@@ -26,11 +27,11 @@ import {
   checkInSnoozedFromWire,
   checkInSnoozedToWire,
   checkInWeekToAsk,
+  PREVIEW_SAVING_OFF_MESSAGE,
   createCheckInDraft,
   dropWarningForShownDate,
   fatigueWarningDismissedFromWire,
   fatigueWarningDismissedToWire,
-  trainingWeekOf,
   type CheckInDraft,
 } from "./checkin";
 import { renderDropBanner } from "./checkinCard";
@@ -331,16 +332,30 @@ export function startApp(
   }
 
   /**
-   * Save handler for one exercise on the week 8 retest card. Stamps the max
-   * with the REAL local date (never the `?date=` preview, like Settings),
-   * persists through `persistSettings`, and on success keeps the new settings
-   * and re-renders Today so the EMOM target switches to the new max at once.
-   * Returns null on success or the failure message for the card to show inline.
+   * True when the shown date is the real today. A `?date=` preview (or a page
+   * left open past midnight) fails this, and then the retest and check-in
+   * cards can't save: a retest save stamps the REAL date, so saving from a
+   * preview would change the max for every week (PLAN.md rules 5 and 6).
+   */
+  function canSaveOnShownDate(): boolean {
+    return shownDate === todayLocalDate();
+  }
+
+  /**
+   * Save handler for one exercise on the week 8 retest card. Refuses when the
+   * shown date is not the real today. Otherwise it RE-READS the stored
+   * settings and changes only this one max and its date (`applyRetestMax`, the
+   * real local date, never the preview), so a second open copy of the app that
+   * changed the start date or the other max isn't undone. On success the app
+   * keeps the saved settings, re-renders Today (the EMOM target switches to the
+   * new max at once) and moves focus to the next retest stepper, or to the
+   * main heading when the card is gone. Returns null on success or the message
+   * for the card to show inline.
    */
   function handleSaveRetestMax(exerciseId: string, newMax: number): string | null {
-    const maxReps = { ...settings.maxReps, [exerciseId]: newMax };
-    const maxSavedOn = stampMaxSavedDates(settings, maxReps, new Set([exerciseId]), todayLocalDate());
-    const newSettings: TrainingSettings = { ...settings, maxReps, maxSavedOn };
+    if (!canSaveOnShownDate()) return PREVIEW_SAVING_OFF_MESSAGE;
+
+    const newSettings = applyRetestMax(loadSettings(), exerciseId, newMax, todayLocalDate());
 
     const failureMessage = persistSettings(newSettings);
     if (failureMessage !== null) {
@@ -353,26 +368,32 @@ export function startApp(
     }
 
     render();
+    if (!focusRemainingRetestStepper()) focusMainHeading();
     return null;
   }
 
   /**
    * Rule 6: week 8's retest replaces the weekly check-in, so saving the
-   * pull-up retest also records the max pull-ups as that week's check. Only
-   * the pull-up value is written; an existing check for the week (e.g. one
-   * with a broad jump) keeps its other values and its date. The settings were
-   * already saved, so a failure here only keeps the check in memory (the
-   * retest card has no spot for a second error); dips never touch this.
+   * pull-up retest also records the max pull-ups as that week's check. It only
+   * records when the REAL save date is inside the retest week (a save made
+   * outside it, e.g. after the program ended, files nothing under a week it
+   * doesn't belong to). Only the pull-up value is written; an existing check
+   * for the week (e.g. one with a broad jump) keeps its other values and its
+   * date. The settings were already saved, so a failure here only keeps the
+   * check in memory (the retest card has no spot for a second error); dips
+   * never touch this.
    */
   function recordRetestPullUpsAsCheck(maxPullUps: number): void {
-    const week = trainingWeekOf(program, settings, shownDate);
-    if (week === undefined) return;
+    const realToday = todayLocalDate();
+    const status = programStatus(settings.startDate, program.lengthWeeks, realToday);
+    if (status.kind !== "active" || !phaseForWeek(program, status.week).retest) return;
+    const week = status.week;
 
     const now = new Date();
     const result = applyFatigueChange(localStorage, (freshHistory) => {
       const existing = checkForWeek(freshHistory, week);
       const merged: FatigueCheck = {
-        date: existing?.date ?? shownDate,
+        date: existing?.date ?? realToday,
         programWeek: week,
         broadJumpMetres: existing?.broadJumpMetres,
         maxPullUps,
@@ -385,25 +406,40 @@ export function startApp(
   }
 
   /**
-   * Save handler for the check-in card. Stores one check for the shown date's
-   * program week: `date` is the SHOWN date (so a `?date=` preview files the
-   * check under the day on screen, like the log) and `savedAt` is the real
-   * clock. Blank fields are left out. On success the draft is cleared and
-   * Today re-renders (the card goes; a drop shows the banner). Returns null
-   * on success or the message to show inline; on a write failure the check
-   * is still kept in memory (and the card goes at the next render).
+   * Save handler for the check-in card. Refuses when the shown date is not the
+   * real today (a preview). Stores one check for the shown date's program
+   * week: `date` is the shown date (equal to the real today here) and
+   * `savedAt` is the real clock. Blank fields are left out. The fatigue
+   * history is re-read first: if this week already has a check there (saved
+   * from another open copy), it is NOT overwritten; the card goes away, the
+   * stored check is shown and a short note says so. On success the draft is
+   * cleared, Today re-renders (the card goes; a drop shows the banner) and
+   * focus moves to the main heading, because the Save button is gone. Returns
+   * null on success or the message to show inline; on a write failure the
+   * check is still kept in memory (and the card goes at the next render).
    */
   function handleSaveCheckIn(values: { broadJumpMetres?: number; maxPullUps?: number }): string | null {
+    if (!canSaveOnShownDate()) return PREVIEW_SAVING_OFF_MESSAGE;
+
     const week = checkInWeekToAsk(program, settings, shownDate, fatigueHistory, undefined);
     if (week === undefined) return "No check-in is due for this day";
 
     const check: FatigueCheck = { date: shownDate, programWeek: week, savedAt: new Date(), ...values };
-    const result = applyFatigueChange(localStorage, (freshHistory) => recordCheck(freshHistory, check));
+    let foundExistingCheck = false;
+    const result = applyFatigueChange(localStorage, (freshHistory) => {
+      if (checkForWeek(freshHistory, week) !== undefined) {
+        foundExistingCheck = true;
+        return freshHistory; // keep the other copy's check untouched
+      }
+      return recordCheck(freshHistory, check);
+    });
     if (result.history !== undefined) fatigueHistory = result.history;
     if (!result.saved) return result.error;
 
     checkInDraft = undefined;
     render();
+    focusMainHeading();
+    if (foundExistingCheck) showToast(CHECK_ALREADY_SAVED_MESSAGE);
     return null;
   }
 
@@ -416,6 +452,7 @@ export function startApp(
       // Storage blocked: hidden until reload, which is fine for a snooze.
     }
     render();
+    focusMainHeading(); // the Remind me tomorrow button is gone with the card
   }
 
   /** Dismiss on the drop banner: hides it for that week, remembered across reloads, and re-renders. */
@@ -429,10 +466,10 @@ export function startApp(
     render();
   }
 
-  /** The unsaved check-in values for `week`; a draft of another week is replaced by a fresh one pre-filled with best recent values. */
+  /** The unsaved check-in values for `week`; a draft of another week is replaced by a fresh, blank one. */
   function draftForWeek(week: number): CheckInDraft {
     if (checkInDraft === undefined || checkInDraft.week !== week) {
-      checkInDraft = createCheckInDraft(fatigueHistory, week);
+      checkInDraft = createCheckInDraft(week);
     }
     return checkInDraft;
   }
@@ -446,6 +483,7 @@ export function startApp(
       // Storage blocked: the card stays hidden until reload, which is fine for a dismissal.
     }
     render();
+    focusMainHeading(); // the Not today button is gone with the card
   }
 
   /**
@@ -521,10 +559,11 @@ export function startApp(
       } else {
         main.append(renderTodayScreen(program, settings, shownDate, handleStartToday, startTodayFailureMessage, log, {
           dismissedDate: retestDismissedDate,
-          actions: { onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts },
+          actions: { canSave: canSaveOnShownDate(), onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts },
         }, {
           history: fatigueHistory,
           snoozedDate: checkInSnoozedDate,
+          canSave: canSaveOnShownDate(),
           ruleText: program.fatigueCheck.rule,
           draftForWeek,
           onSave: handleSaveCheckIn,
@@ -576,8 +615,17 @@ function loadStoredValue<Value>(key: string, fromWire: (text: string | null) => 
   }
 }
 
-/** Id of the exercise whose retest also counts as the week 8 fatigue check (max pull-ups). */
+/**
+ * Id of the exercise whose retest also counts as the week 8 fatigue check
+ * (max pull-ups). Kept as a constant on purpose: program.json's
+ * `fatigueCheck.tests` is only free text ("Max pull-ups"), with no exercise id
+ * to follow, and the check-in card's fields (broad jump, max pull-ups) are
+ * fixed in code and in the stored check's shape anyway.
+ */
 const RETEST_PULL_UP_ID = "pull_up";
+
+/** Shown when a check-in save found this week's check already stored (saved from another open copy). */
+const CHECK_ALREADY_SAVED_MESSAGE = "Already saved on another screen";
 
 /** Dismissible amber banner shown when saved data (the workout log or the weekly check-ins) could not be read (it was set aside, see log/storage.ts). */
 function renderLogWarningBanner(warningText: string, onDismiss: () => void): HTMLElement {
@@ -623,9 +671,14 @@ function navigationLink(icon: string, label: string, href: string, isActive: boo
   return link;
 }
 
-/** Briefly shows "Saved" above the nav bar. Lives outside #app so re-renders don't remove it. */
+/** Briefly shows "Saved" above the nav bar (see `showToast`). */
 function showSavedToast(): void {
-  const toast = element("div", "toast", "Saved");
+  showToast("Saved");
+}
+
+/** Briefly shows `message` above the nav bar. Lives outside #app so re-renders don't remove it. */
+function showToast(message: string): void {
+  const toast = element("div", "toast", message);
   toast.setAttribute("role", "status");
   document.body.append(toast);
   window.setTimeout(() => toast.remove(), SAVED_TOAST_MILLISECONDS);

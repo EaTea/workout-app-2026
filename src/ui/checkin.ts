@@ -3,7 +3,7 @@ import { programStatus, toDayNumber } from "../program/calendar";
 import { phaseForWeek } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import type { FatigueField, FatigueHistory } from "../fatigue/model";
-import { bestRecent, checkForWeek, fatigueWarnings, type FatigueWarning } from "../fatigue/operations";
+import { checkForWeek, fatigueWarnings, type FatigueWarning } from "../fatigue/operations";
 
 /**
  * Pure rules and storage mapping for the weekly check-in on Today (PLAN.md
@@ -35,6 +35,15 @@ export const MAXIMUM_PULL_UPS = 100;
 
 /** Step of the broad jump stepper. */
 export const BROAD_JUMP_STEP_METRES = 0.01;
+
+/** Where the first tap on a blank broad jump stepper lands when there is no "best recent" to start from. */
+export const DEFAULT_BROAD_JUMP_METRES = 2;
+
+/** Where the first tap on a blank pull-up stepper lands when there is no "best recent" to start from. */
+export const DEFAULT_PULL_UPS = 10;
+
+/** Shown on the retest and check-in cards in a `?date=` preview, where saving is switched off (see app.ts). */
+export const PREVIEW_SAVING_OFF_MESSAGE = "Previewing — saving is off on this date.";
 
 /**
  * The program week the check-in card should ask about on `date`, or
@@ -89,7 +98,7 @@ export function dropWarningForShownDate(
   return { week: status.week, warnings: fatigueWarnings(history, status.week) };
 }
 
-/** What the card's two steppers hold before saving; undefined is a blank field. */
+/** What the card's two steppers hold before saving; undefined is a blank field (never saved as a number). */
 export interface CheckInDraft {
   /** The program week the draft is for; a draft of another week is discarded. */
   week: number;
@@ -97,13 +106,14 @@ export interface CheckInDraft {
   maxPullUps?: number;
 }
 
-/** A fresh draft for `week`, each field pre-filled with its best recent value (blank when there is none). */
-export function createCheckInDraft(history: FatigueHistory, week: number): CheckInDraft {
-  return {
-    week,
-    broadJumpMetres: bestRecent(history, "broadJumpMetres", week),
-    maxPullUps: bestRecent(history, "maxPullUps", week),
-  };
+/**
+ * A fresh draft for `week`: both fields blank. They are NOT pre-filled with
+ * the best recent values, because a pre-filled value saved by a tap on Save
+ * would record a measurement Ed never took. "Best recent" is shown as a hint
+ * and is where the first tap on a blank stepper starts (checkinCard.ts).
+ */
+export function createCheckInDraft(week: number): CheckInDraft {
+  return { week };
 }
 
 /**
@@ -145,15 +155,16 @@ export function formatPercentChange(percentChange: number): string {
 
 /**
  * Plain-language headline for the drops, e.g. "Pull-ups are down more than
- * 10%." or "Broad jump and pull-ups are down more than 10%." Followed in the
- * UI by the program's `fatigueCheck.rule` text. `warnings` must not be empty.
+ * 10% this week." or "Broad jump and pull-ups are down more than 10% this
+ * week." Followed in the UI by the program's `fatigueCheck.rule` text.
+ * `warnings` must not be empty.
  */
 export function describeDrops(warnings: FatigueWarning[]): string {
   const hasJump = warnings.some((warning) => warning.field === "broadJumpMetres");
   const hasPullUps = warnings.some((warning) => warning.field === "maxPullUps");
 
-  if (hasJump && hasPullUps) return "Broad jump and pull-ups are down more than 10%.";
-  return hasJump ? "Broad jump is down more than 10%." : "Pull-ups are down more than 10%.";
+  if (hasJump && hasPullUps) return "Broad jump and pull-ups are down more than 10% this week.";
+  return hasJump ? "Broad jump is down more than 10% this week." : "Pull-ups are down more than 10% this week.";
 }
 
 /** Stored form of a snoozed date: just the date text (CLAUDE.md section 6 wants the shape named). */

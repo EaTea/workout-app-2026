@@ -50,13 +50,19 @@ export interface CheckInOptions {
   /** The date "Remind me tomorrow" was tapped on, or undefined. */
   snoozedDate: string | undefined;
 
+  /** False in a `?date=` preview (shown date is not the real today): the card cannot save. */
+  canSave: boolean;
+
   /** The program's `fatigueCheck.rule` text, shown in the drop warning. */
   ruleText: string;
 
-  /** Returns the unsaved values for a week, creating a pre-filled draft the first time (app.ts keeps it across re-renders). */
+  /** Returns the unsaved values for a week, creating a blank draft the first time (app.ts keeps it across re-renders). */
   draftForWeek: (week: number) => CheckInDraft;
 
+  /** Saves the check-in (blank fields left out); returns null on success or a message to show inline. */
   onSave: (values: { broadJumpMetres?: number; maxPullUps?: number }) => string | null;
+
+  /** "Remind me tomorrow" tapped; app.ts remembers the date and re-renders. */
   onSnooze: () => void;
 }
 
@@ -92,6 +98,7 @@ export function renderTodayScreen(
         if (weekToAsk !== undefined) {
           screen.append(renderCheckInCard(weekToAsk, checkIn.history, checkIn.ruleText, {
             draft: checkIn.draftForWeek(weekToAsk),
+            canSave: checkIn.canSave,
             onSave: checkIn.onSave,
             onSnooze: checkIn.onSnooze,
           }));

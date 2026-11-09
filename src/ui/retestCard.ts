@@ -1,6 +1,7 @@
 import type { Exercise } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
 import { element } from "./dom";
+import { PREVIEW_SAVING_OFF_MESSAGE } from "./checkin";
 import { renderStepper } from "./setEditor";
 
 /**
@@ -8,7 +9,7 @@ import { renderStepper } from "./setEditor";
  * today.ts when `retestExercisesToSave` finds something to ask for.
  *
  *   ┌ Retest week                                              ┐
- *   │ Test your max pull-ups and dips, then save them. ...     │
+ *   │ Test your max <names from program.json>, then save...    │
  *   │ Pull-ups   [ − 12 + ] reps   [Save max]                  │
  *   │ Dips       [ − 15 + ] reps   [Save max]                  │
  *   │ [Not today]                                              │
@@ -18,10 +19,17 @@ import { renderStepper } from "./setEditor";
  * exercise at a time, and a save is immediate and re-renders Today, so the
  * saved exercise's row drops out while the other stays. app.ts owns the
  * saving; this file only builds the DOM.
+ *
+ * In a `?date=` preview (`canSave` false) every Save is disabled, a line says
+ * saving is off, and "Not today" is not offered: a preview changes nothing
+ * (a preview save would stamp the real date and change the max for every week).
  */
 
 /** Callbacks and shared state the card needs from app.ts. */
 export interface RetestCardActions {
+  /** False in a `?date=` preview: the Save buttons are disabled and "Not today" is left out. */
+  canSave: boolean;
+
   /**
    * Saves a new max for one exercise (stamped with the real date, persisted,
    * Today re-rendered by app.ts). Returns null on success or a message to
@@ -29,7 +37,7 @@ export interface RetestCardActions {
    */
   onSaveMax: (exerciseId: string, newMax: number) => string | null;
 
-  /** "Not today" tapped: hide the card for the shown date. */
+  /** "Not today" tapped: hide the card for the shown date (never called when `canSave` is false). */
   onDismiss: () => void;
 
   /**
@@ -37,6 +45,32 @@ export interface RetestCardActions {
    * re-render after saving one exercise does not reset the other's stepper.
    */
   drafts: Record<string, number | undefined>;
+}
+
+/**
+ * Joins exercise names for a sentence in lower case: "pull-ups", "pull-ups
+ * and dips", "a, b and c". The names come from program.json's `maxTested`
+ * exercises, so the card never hard-codes which exercises are tested.
+ */
+export function joinExerciseNames(names: string[]): string {
+  const lowered = names.map((name) => name.toLowerCase());
+  if (lowered.length <= 1) return lowered.join("");
+
+  return `${lowered.slice(0, -1).join(", ")} and ${lowered[lowered.length - 1]}`;
+}
+
+/**
+ * Moves focus to the first stepper button of the retest card, if it is still
+ * on screen. Called by app.ts after a Save max re-render, because the button
+ * that was pressed is gone with its row; returns false when no row is left
+ * (the card is gone) so the caller can fall back to the main heading.
+ */
+export function focusRemainingRetestStepper(): boolean {
+  const button = document.querySelector<HTMLElement>(".retest-card .log-stepper-button");
+  if (button === null) return false;
+
+  button.focus();
+  return true;
 }
 
 /**
@@ -53,17 +87,21 @@ export function renderRetestCard(
   card.setAttribute("aria-label", "Retest week");
   card.append(
     element("h2", "card-title", "Retest week"),
-    element("p", "retest-intro", "Test your max pull-ups and dips, then save them. This week's EMOMs switch to the new numbers."),
+    element("p", "retest-intro", `Test your max ${joinExerciseNames(exercises.map((exercise) => exercise.name))}, then save them. This week's EMOMs switch to the new numbers.`),
   );
 
   for (const exercise of exercises) {
     card.append(renderRetestRow(exercise, settings, actions));
   }
 
-  const dismissButton = element("button", "retest-dismiss", "Not today");
-  dismissButton.type = "button";
-  dismissButton.addEventListener("click", actions.onDismiss);
-  card.append(dismissButton);
+  if (actions.canSave) {
+    const dismissButton = element("button", "retest-dismiss", "Not today");
+    dismissButton.type = "button";
+    dismissButton.addEventListener("click", actions.onDismiss);
+    card.append(dismissButton);
+  } else {
+    card.append(element("p", "preview-note", PREVIEW_SAVING_OFF_MESSAGE));
+  }
 
   return card;
 }
@@ -79,6 +117,7 @@ function renderRetestRow(exercise: Exercise, settings: TrainingSettings, actions
 
   const saveButton = element("button", "retest-save", "Save max");
   saveButton.type = "button";
+  saveButton.disabled = !actions.canSave;
   saveButton.setAttribute("aria-label", `Save max for ${exercise.name}`);
   saveButton.addEventListener("click", () => {
     const newMax = drafts[exercise.id];

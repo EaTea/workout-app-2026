@@ -10,6 +10,7 @@ test("first run prompts for a start date; settings save, drive Today and persist
   await page.getByLabel("Max reps: Dips").fill("15");
   await page.getByRole("button", { name: "Save" }).click();
 
+  // Located by class: the stepper's <output> also has role "status", so getByRole("status") would be ambiguous.
   await expect(page.locator(".toast")).toHaveText("Saved");
   await expect(page).toHaveURL(/#\/today$/);
 

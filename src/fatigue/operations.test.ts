@@ -68,7 +68,19 @@ describe("compareToBest", () => {
     expect(compareToBest(9, 10).isDropOverThreshold).toBe(false);
     expect(compareToBest(10.8, 12).isDropOverThreshold).toBe(false);
     expect(compareToBest(8.99, 10).isDropOverThreshold).toBe(true);
-    expect(compareToBest(89.9, 100)).toEqual({ percentChange: -10, isDropOverThreshold: true });
+  });
+
+  it("shows one decimal for a flagged drop that would round to -10%, so the pill never contradicts the warning", () => {
+    expect(compareToBest(89.7, 100)).toEqual({ percentChange: -10.3, isDropOverThreshold: true });
+    expect(compareToBest(89.9, 100)).toEqual({ percentChange: -10.1, isDropOverThreshold: true });
+    expect(compareToBest(8.99, 10)).toEqual({ percentChange: -10.1, isDropOverThreshold: true });
+    // From 10.5% down a whole number reads -11 (or more) and is already honest.
+    expect(compareToBest(89, 100)).toEqual({ percentChange: -11, isDropOverThreshold: true });
+  });
+
+  it("never shows more than -10% for a drop that is not flagged (exactly 10%)", () => {
+    expect(compareToBest(9, 10)).toEqual({ percentChange: -10, isDropOverThreshold: false });
+    expect(compareToBest(10.8, 12)).toEqual({ percentChange: -10, isDropOverThreshold: false });
   });
 
   it("reports improvements as positive and never flags them", () => {

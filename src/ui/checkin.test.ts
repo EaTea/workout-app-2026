@@ -79,10 +79,8 @@ describe("dropWarningForShownDate", () => {
 });
 
 describe("createCheckInDraft", () => {
-  it("pre-fills with best recent values and stays blank without any", () => {
-    const history = { checks: [check(1, { broadJumpMetres: 2.3 }), check(2, { broadJumpMetres: 2.34, maxPullUps: 11 })] };
-    expect(createCheckInDraft(history, 3)).toEqual({ week: 3, broadJumpMetres: 2.34, maxPullUps: 11 });
-    expect(createCheckInDraft(emptyHistory, 3)).toEqual({ week: 3, broadJumpMetres: undefined, maxPullUps: undefined });
+  it("starts with both fields blank, whatever the history holds (a blank is never saved as a number)", () => {
+    expect(createCheckInDraft(3)).toEqual({ week: 3 });
   });
 });
 
@@ -111,14 +109,15 @@ describe("formatting", () => {
     expect(formatBestRecent("broadJumpMetres", 2.3)).toBe("Best recent: 2.30 m");
     expect(formatBestRecent("maxPullUps", 12)).toBe("Best recent: 12 reps");
     expect(formatPercentChange(-17)).toBe("−17%");
+    expect(formatPercentChange(-10.3)).toBe("−10.3%");
     expect(formatPercentChange(3)).toBe("+3%");
     expect(formatPercentChange(0)).toBe("0%");
 
     const jump = { field: "broadJumpMetres" as const, value: 2, best: 2.3, percentChange: -13 };
     const pullUps = { field: "maxPullUps" as const, value: 10, best: 12, percentChange: -17 };
-    expect(describeDrops([pullUps])).toBe("Pull-ups are down more than 10%.");
-    expect(describeDrops([jump])).toBe("Broad jump is down more than 10%.");
-    expect(describeDrops([jump, pullUps])).toBe("Broad jump and pull-ups are down more than 10%.");
+    expect(describeDrops([pullUps])).toBe("Pull-ups are down more than 10% this week.");
+    expect(describeDrops([jump])).toBe("Broad jump is down more than 10% this week.");
+    expect(describeDrops([jump, pullUps])).toBe("Broad jump and pull-ups are down more than 10% this week.");
   });
 });
 

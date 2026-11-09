@@ -27,7 +27,7 @@ body {
 
 /* Leave room for the fixed nav bar (plus the iPhone home-indicator inset). */
 .app-main {
-  padding: 16px 16px calc(var(--nav-height) + env(safe-area-inset-bottom) + 24px);
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(var(--nav-height) + env(safe-area-inset-bottom) + 24px);
   max-width: 640px;
   margin: 0 auto;
 }
@@ -1108,6 +1108,8 @@ body {
 
 /* The kg value is a button (tap to type) with a text field that replaces it while typing */
 .log-stepper-value-button {
+  min-height: 44px; /* comfortable tap target for "tap to type" */
+  min-width: 56px;
   border: 0;
   background: none;
   color: inherit;
@@ -1366,4 +1368,45 @@ body {
   background: none;
   color: var(--muted);
   font-weight: 400;
+}
+
+/* Check-in field heading with its Clear button at the right */
+.checkin-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.checkin-field-head .checkin-field-title {
+  margin: 0;
+}
+
+.checkin-clear {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.checkin-clear[hidden] {
+  display: none;
+}
+
+/* "Previewing — saving is off on this date." on the retest and check-in cards */
+.preview-note {
+  margin: 12px 0 0;
+  color: #f5c451;
+  font-size: 14px;
+}
+
+.retest-save:disabled {
+  opacity: 0.4;
+  cursor: default;
 }

@@ -28,15 +28,17 @@ hints (last week's same day and block type, else the same kind of block on
 another day) show on Today rows and the log screen. The History tab lists every logged
 session, newest first, with a summary per exercise; tap an exercise to see its
 sets and tap a set to edit or delete it. On every week 8 training day Today opens
-with a "Retest week" card: steppers (pre-filled with your current maxes) and a
+with a "Retest week" card: steppers (starting at your current maxes) and a
 "Save max" button per exercise for pull-ups and dips. Saving stamps the max with
 today's real date and switches week 8's EMOM targets to the new max at once; the
 card stays until both are saved that week, and "Not today" hides it for that
-date only. On other training days (weeks 1-7), until the week's check is saved,
+date only. In a `?date=` preview of another day both cards show but can't
+save. On other training days (weeks 1-7), until the week's check is saved,
 Today opens with a "Weekly check-in" card: best broad jump (metres, 0.01 steps
 or tap the number to type it) and max pull-ups, either of which may be left
-blank. Each shows "Best recent" (the best of the previous 3 checks that
-recorded it) and a percentage pill; a drop of more than 10% shows the
+blank (both start blank; the first tap on a stepper starts from "Best
+recent", and "Clear" goes back to blank). Each shows "Best recent" (the best of
+the previous 3 checks that recorded it) and a percentage pill; a drop of more than 10% shows the
 program's `fatigueCheck.rule` text as a warning on the card, and after saving
 as a dismissible banner on Today for the rest of that week. "Remind me
 tomorrow" hides the card for that date only. Saving the week 8 retest of

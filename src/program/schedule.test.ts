@@ -149,6 +149,24 @@ describe("further schedule rules", () => {
     expect(item(saved("2026-12-21").blocks, "pull_up").target).toMatchObject({ count: 6, basis: { usesRetestedMax: true } });
   });
 
+  it("counts a max saved on the week's last day (27 Dec, Day 7) but not the day after (28 Dec)", () => {
+    const saved = (date: string) => trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: date } });
+    expect(item(saved("2026-12-27").blocks, "pull_up").target).toMatchObject({ count: 6, basis: { usesRetestedMax: true } });
+    expect(item(saved("2026-12-28").blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
+  });
+
+  it("does not turn an old save into a retest when the start date moves later (21 Dec is now before week 8)", () => {
+    // Start 9 Nov: week 8 is 28 Dec - 3 Jan. A max saved on 21 Dec (week 7 now) is not a retest.
+    const moved = { startDate: "2026-11-09", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" } };
+    expect(item(trainingOn("2026-12-28", moved).blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
+  });
+
+  it("does not turn an old save into a retest when the start date moves earlier (21 Dec is now after week 8)", () => {
+    // Start 26 Oct: week 8 is 14-20 Dec. A max saved on 21 Dec (after the program) is not a retest.
+    const moved = { startDate: "2026-10-26", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" } };
+    expect(item(trainingOn("2026-12-14", moved).blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
+  });
+
   it("still holds when the max was saved on 14 Dec (week 7): floor(15 x 0.4) + 2 = 8", () => {
     const session = trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-14" } });
     expect(item(session.blocks, "pull_up").target).toMatchObject({

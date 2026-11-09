@@ -1,7 +1,8 @@
 import type { Exercise, Program } from "../program/model";
-import { retestWeekStartDate, wasMaxSavedSince } from "../program/schedule";
+import { retestWeekStartDate, wasMaxSavedDuringWeek } from "../program/schedule";
 import { toDayNumber } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
+import { stampMaxSavedDates } from "./settings";
 
 /**
  * Pure rules and storage mapping for the week 8 retest card on Today
@@ -20,9 +21,9 @@ export const RETEST_DISMISSED_STORAGE_KEY = "explosive-endurance.retest-dismisse
 /**
  * Which max-tested exercises the retest card should still ask for on `date`.
  * Empty (no card) unless `date` is a retest-week training day, the card was
- * not dismissed for that date, and the exercise's max was not yet saved on or
- * after that week's Day 1 (the same check the schedule uses to switch EMOMs
- * to the new max, `wasMaxSavedSince`). Exercises come back in program order.
+ * not dismissed for that date, and the exercise's max was not yet saved on a
+ * date inside that week, Day 1 to Day 7 (the same check the schedule uses to
+ * switch EMOMs to the new max, `wasMaxSavedDuringWeek`). Exercises come back in program order.
  * Called by `renderTodayScreen` on every render.
  */
 export function retestExercisesToSave(
@@ -37,8 +38,21 @@ export function retestExercisesToSave(
   }
 
   return Object.values(program.exercises).filter(
-    (exercise) => exercise.maxTested && !wasMaxSavedSince(settings, exercise.id, weekStartDate),
+    (exercise) => exercise.maxTested && !wasMaxSavedDuringWeek(settings, exercise.id, weekStartDate),
   );
+}
+
+/**
+ * The settings after saving ONE retested max: `freshSettings` (just re-read
+ * from storage by app.ts, so another open copy's changes survive) with only
+ * `exerciseId`'s max set to `newMax` and stamped `today` (the real local date,
+ * never a `?date=` preview). Every other max, its date and the start date are
+ * left exactly as they were. Pure; called by `handleSaveRetestMax` in app.ts.
+ */
+export function applyRetestMax(freshSettings: TrainingSettings, exerciseId: string, newMax: number, today: string): TrainingSettings {
+  const maxReps = { ...freshSettings.maxReps, [exerciseId]: newMax };
+  const maxSavedOn = stampMaxSavedDates(freshSettings, maxReps, new Set([exerciseId]), today);
+  return { ...freshSettings, maxReps, maxSavedOn };
 }
 
 /**

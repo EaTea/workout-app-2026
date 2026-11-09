@@ -69,8 +69,8 @@ export interface MaxBasis {
  *  - offset: weekly increases to add (see `weeklyIncreaseOffsetForWeek`)
  *  - retestHeldOffset: in a retest week, the previous week's offset, which
  *    EMOMs hold until a retested max is saved (0 outside retest weeks)
- *  - weekStartDate: first calendar day of the program week; a max saved on
- *    or after it counts as retested
+ *  - weekStartDate: first calendar day of the program week; a max saved
+ *    from that day to the week's last day (Day 7) counts as retested
  */
 interface WeekContext {
   isDeload: boolean;
@@ -316,7 +316,7 @@ function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekC
   }
 
   if (week.isRetest) {
-    const retested = wasMaxSavedSince(settings, item.exerciseId, week.weekStartDate);
+    const retested = wasMaxSavedDuringWeek(settings, item.exerciseId, week.weekStartDate);
 
     return retested
       ? { increase: week.offset, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false }
@@ -327,23 +327,27 @@ function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekC
 }
 
 /**
- * True when the exercise's max was saved on or after `weekStartDate` (Day 1 of
- * the week in question). This is THE "retested during the retest week" check:
- * `chooseIncrease` uses it to switch EMOMs to the new max, and the Today
- * retest card (ui/retest.ts) uses it to know which maxes are still to save.
- * ISO dates compare correctly as strings; a max with no known save date counts
- * as not saved.
+ * True when the exercise's max was saved on a date inside the week that starts
+ * on `weekStartDate`: Day 1 to Day 7 inclusive. This is THE "retested during
+ * the retest week" check: `chooseIncrease` uses it to switch EMOMs to the new
+ * max, and the Today retest card (ui/retest.ts) uses it to know which maxes
+ * are still to save. The window has an end as well as a start so that moving
+ * the start date later (the old save is now before week 8) or earlier (the old
+ * save is now after week 8) can't turn an unrelated old save into a retest.
+ * ISO dates compare correctly as strings; a max with no known save date
+ * counts as not saved.
  */
-export function wasMaxSavedSince(settings: TrainingSettings, exerciseId: string, weekStartDate: string): boolean {
+export function wasMaxSavedDuringWeek(settings: TrainingSettings, exerciseId: string, weekStartDate: string): boolean {
   const savedOn = settings.maxSavedOn[exerciseId];
-  return savedOn !== undefined && savedOn >= weekStartDate;
+  const weekEndDate = addDaysToDate(weekStartDate, DAYS_PER_WEEK - 1);
+  return savedOn !== undefined && savedOn >= weekStartDate && savedOn <= weekEndDate;
 }
 
 /**
  * For a retest-week TRAINING day, returns the date of that week's Day 1;
  * for any other date (no start date, not started, complete, a non-retest
  * week, or a rest day) returns undefined. Used by the Today retest card to
- * decide whether to appear and which saved dates count as "retested".
+ * decide whether to appear and which saved dates count as "retested" (see `wasMaxSavedDuringWeek`).
  */
 export function retestWeekStartDate(program: Program, settings: TrainingSettings, date: string): string | undefined {
   const status = programStatus(settings.startDate, program.lengthWeeks, date);

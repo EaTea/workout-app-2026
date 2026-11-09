@@ -17,7 +17,12 @@ const FRACTION_TOLERANCE = 1e-9;
 
 /** Result of comparing a value with the best recent one. */
 export interface Comparison {
-  /** Change relative to the best, rounded to a whole percent; negative is a drop (-17 for 10 vs 12). */
+  /**
+   * Change relative to the best, rounded to a whole percent; negative is a
+   * drop (-17 for 10 vs 12). Never contradicts `isDropOverThreshold`: a drop
+   * over 10% that would round to -10 is given to one decimal instead (-10.3),
+   * and a drop that is not over 10% is never shown beyond -10.
+   */
   percentChange: number;
   /** True when the value is down by strictly more than 10%. */
   isDropOverThreshold: boolean;
@@ -25,9 +30,16 @@ export interface Comparison {
 
 /** One field of a week's check that is down by more than 10%, with the numbers the warning shows. */
 export interface FatigueWarning {
+  /** Which measurement dropped. */
   field: FatigueField;
+
+  /** The value saved this week. */
   value: number;
+
+  /** The best of the previous 3 checks that recorded this field (what `value` is compared with). */
   best: number;
+
+  /** The change against `best` as `compareToBest` reports it (negative; one decimal when a whole number would read as 10%). */
   percentChange: number;
 }
 
@@ -68,11 +80,36 @@ export function compareToBest(value: number, best: number): Comparison {
   }
 
   const changeFraction = (value - best) / best;
+  const isDropOverThreshold = -changeFraction > DROP_WARNING_FRACTION + FRACTION_TOLERANCE;
+
   return {
-    // `+ 0` turns -0 into 0 so a tiny change shows as "0%", not "-0%".
-    percentChange: Math.round(changeFraction * 100) + 0,
-    isDropOverThreshold: -changeFraction > DROP_WARNING_FRACTION + FRACTION_TOLERANCE,
+    percentChange: displayPercentChange(changeFraction * 100, isDropOverThreshold),
+    isDropOverThreshold,
   };
+}
+
+/**
+ * Turns an exact percentage into the figure shown next to the value, without
+ * ever contradicting the warning:
+ *  - a flagged drop (over 10%) whose whole-number rounding would read -10 is
+ *    shown to one decimal, rounded away from zero (-10.3), so it visibly
+ *    exceeds 10;
+ *  - an unflagged change is never shown beyond -10 (exactly 10% is not a warning).
+ * Everything else is a plain whole percent. Used only by `compareToBest`.
+ */
+function displayPercentChange(exactPercent: number, isDropOverThreshold: boolean): number {
+  const wholePercent = Math.round(exactPercent);
+
+  if (isDropOverThreshold && wholePercent > -11) {
+    // The tiny subtraction stops float noise (10.1 x 10 = 101.00000000000001) rounding up an extra tenth.
+    return -Math.ceil(Math.abs(exactPercent) * 10 - 1e-9) / 10;
+  }
+  if (!isDropOverThreshold && wholePercent < -10) {
+    return -10;
+  }
+
+  // `+ 0` turns -0 into 0 so a tiny change shows as "0%", not "-0%".
+  return wholePercent + 0;
 }
 
 /**
