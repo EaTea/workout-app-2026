@@ -232,7 +232,7 @@ Rule 8 in section 4.
    ticks, reps and kg steppers pre-filled per rule 8, optional note, "Log
    set" (starts the rest timer when the item has one) and Skip. Today rows
    show progress such as "2/6".
-3. [ ] "Last time" lookup and hint on Today rows and the log screen.
+3. [x] "Last time" lookup and hint on Today rows and the log screen.
 4. [ ] History screen (the "History" tab): sessions by date, newest
    first, each listing what was logged; tap a set to edit or delete it.
 5. [ ] Keep the screen awake while a session is in progress (rule 8).

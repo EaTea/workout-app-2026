@@ -7,6 +7,7 @@ import { element } from "./dom";
 import { countSetsForItem, formatProgress } from "../log/itemSets";
 import type { WorkoutLog } from "../log/model";
 import { setsForItem } from "../log/operations";
+import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
@@ -207,7 +208,8 @@ function renderBlockCard(block: BlockView, position: number, date: string, log: 
 /**
  * One exercise row. The name/details/dose are a single button that opens the
  * item's log screen (the details sheet is behind the ⓘ button there), with
- * logging progress ("2/6", "✓ 6/6") under the details once a set is logged. When the dose needs a max, the dose is a separate link to
+ * logging progress ("2/6", "✓ 6/6") under the details once a set is logged, then the muted
+ * "Last time (2 Nov): ..." line when the exercise has been logged before (not on warm-ups). When the dose needs a max, the dose is a separate link to
  * Settings instead (a link can't live inside a button).
  */
 function renderItemRow(item: ItemView, block: BlockView, date: string, blockPosition: number, log: WorkoutLog): HTMLElement {
@@ -226,6 +228,10 @@ function renderItemRow(item: ItemView, block: BlockView, date: string, blockPosi
   const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id).length, countSetsForItem(item, block));
   if (progress !== undefined) {
     text.append(element("span", "item-progress", progress));
+  }
+  const lastTimeText = lastTimeHint(log, item, block, date);
+  if (lastTimeText !== undefined) {
+    text.append(element("span", "item-last-time", lastTimeText));
   }
   openButton.append(text);
 

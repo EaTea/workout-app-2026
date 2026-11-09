@@ -1,4 +1,5 @@
 import type { BlockView, ItemView, RepTarget } from "../program/schedule";
+import { lastTimeSetFor, type LastTime } from "./lastTime";
 import type { LoggedSet } from "./model";
 
 /**
@@ -9,7 +10,7 @@ import type { LoggedSet } from "./model";
  *   ItemView + BlockView ──▶ countSetsForItem      how many ticks the item has
  *                        ──▶ itemTracksReps        do sets carry reps/kg at all?
  *                        ──▶ plannedRepsForSet     the plan's number for set n
- *   logged sets so far   ──▶ choosePrefill         what the stepper starts at
+ *   logged sets + last time ──▶ prefillForSet      what the stepper starts at (choosePrefill)
  *                        ──▶ nextSetNumber         where "Skip"/"Log set" go next
  *                        ──▶ formatProgress        "2/6" on Today
  */
@@ -92,20 +93,87 @@ export function setNeedsMax(item: ItemView, setNumber: number): boolean {
 }
 
 /**
- * Chooses what the steppers start at (rule 8): the previous set of this item
- * this session if there is one, else the plan's target.
- *
- * Seam for step 4: "last time" (the same exercise on an earlier date) slots in
- * between the two, as another optional `lastTimeSet` argument. It is not
- * looked up yet.
+ * True when the plan prescribes a different rep target for set `setNumber`
+ * than for set `otherSetNumber` (e.g. the calf raise's heavy 8–10 set, then
+ * its moderate 15–25 sets). Compared by value, so equal targets on different
+ * sets count as the same. Items with one item-level target never differ.
  */
-export function choosePrefill(previousSetThisSession: PreviousSet | undefined, plannedReps: number | undefined): SetPrefill {
-  if (previousSetThisSession !== undefined) {
+export function planTargetDiffers(item: ItemView, setNumber: number, otherSetNumber: number): boolean {
+  return JSON.stringify(targetForSet(item, setNumber)) !== JSON.stringify(targetForSet(item, otherSetNumber));
+}
+
+/** Everything `choosePrefill` weighs, gathered by `prefillForSet` for one set. */
+export interface PrefillSources {
+  /** The item's nearest earlier logged set this session, if any. */
+  previousSetThisSession?: PreviousSet;
+
+  /** Last time's set for this set number (or its last set), if the item was logged on an earlier date. */
+  lastTimeSet?: PreviousSet;
+
+  /** The plan's rep number for this set (`plannedRepsForSet`). */
+  plannedReps?: number;
+
+  /** True when the plan's target for this set differs from the previous set's (`planTargetDiffers`). */
+  planTargetChanged: boolean;
+}
+
+/**
+ * Chooses what the steppers start at (rule 8):
+ *  - reps: the previous set this session, else the plan's reps, else last
+ *    time's same set (only when the plan has no number, e.g. free text).
+ *    The plan comes before last time because it already includes this
+ *    week's increase: pre-filling last week's reps would quietly undo the
+ *    progression.
+ *  - load: the previous set this session, else last time's same set, else
+ *    none. The plan has no kg, so last time is the best guess.
+ *
+ * Exception: when the plan prescribes a different target for this set than
+ * for the previous one (`planTargetChanged`), the previous set's numbers don't
+ * apply: reps come from the plan (else last time's same set), and the load
+ * from last time's same set, else none (a heavy set's kg must not carry into
+ * the moderate sets).
+ * Called through `prefillForSet` by the log screen.
+ */
+export function choosePrefill(sources: PrefillSources): SetPrefill {
+  const { previousSetThisSession, lastTimeSet, plannedReps, planTargetChanged } = sources;
+
+  if (previousSetThisSession !== undefined && !planTargetChanged) {
     return { reps: previousSetThisSession.reps, loadKg: previousSetThisSession.loadKg ?? 0 };
   }
 
-  // Seam for step 4 ("last time" pre-fill): consult the last-time set here.
-  return { reps: plannedReps, loadKg: 0 };
+  // Either no earlier set this session, or the target changed:
+  // reps from the plan (it carries this week's increase), load from last time.
+  return { reps: plannedReps ?? lastTimeSet?.reps, loadKg: lastTimeSet?.loadKg ?? 0 };
+}
+
+/**
+ * Gathers the sources for set `setNumber` of `item` and applies
+ * `choosePrefill`. `loggedSetsThisSession` are the item's logged sets today
+ * (any order); `lastTime` is `findLastTime`'s result for the exercise, if any.
+ * Shared by the log screen's draft and "Log all as planned" so both pre-fill
+ * identically.
+ */
+export function prefillForSet(item: ItemView, setNumber: number, loggedSetsThisSession: LoggedSet[], lastTime: LastTime | undefined): SetPrefill {
+  const earlierSets = loggedSetsThisSession
+    .filter((set) => set.setNumber < setNumber)
+    .sort((first, second) => first.setNumber - second.setNumber);
+  const previousSetThisSession = earlierSets[earlierSets.length - 1];
+
+  return choosePrefill({
+    previousSetThisSession,
+    lastTimeSet: lastTimeSetFor(lastTime, setNumber),
+    plannedReps: plannedRepsForSet(item, setNumber),
+    planTargetChanged: previousSetThisSession !== undefined && planTargetDiffers(item, setNumber, previousSetThisSession.setNumber),
+  });
+}
+
+/**
+ * The singular noun for one tick of an item, for the "last time" hint of
+ * ticked-only items: "set", "round" or "minute" (the lower-case `setWord`).
+ */
+export function setNounFor(item: ItemView): string {
+  if (item.sets.length > 0) return "set";
+  return item.format === "emom" ? "minute" : "round";
 }
 
 /**

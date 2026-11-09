@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
+  formatLastTime, formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
 } from "./format";
+import type { LoggedSet } from "../log/model";
 
 /** Builds an ItemView with sensible defaults; tests override what they care about. */
 function item(overrides: Partial<ItemView> = {}): ItemView {
@@ -116,5 +117,33 @@ describe("formatItemDetails", () => {
   it("builds a one-line prescription summary", () => {
     expect(formatPrescriptionSummary(item({ format: "emom", minutes: 9, target: { kind: "fixed", count: 5 } }))).toBe("5 / min, 9 min");
     expect(formatPrescriptionSummary(item({ sets: sets(6, { kind: "fixed", count: 6 }), restSec: { min: 30, max: 45 } }))).toBe("6 × 6 · Rest 30–45s");
+  });
+});
+
+describe("formatLastTime", () => {
+  /** Last-time sets from [reps, loadKg] pairs; undefined means not recorded. */
+  function lastTime(pairs: Array<[number | undefined, number | undefined]>) {
+    const loggedSets: LoggedSet[] = pairs.map(([reps, loadKg], index) => ({
+      exerciseId: "x", blockPosition: 1, setNumber: index + 1, reps, loadKg, loggedAt: new Date(),
+    }));
+    return { date: "2026-11-02", sets: loggedSets };
+  }
+
+  it("matches the mockup: sets x reps at a load", () => {
+    expect(formatLastTime(lastTime(Array.from({ length: 6 }, () => [6, 6] as [number, number])), "set")).toBe("Last time (2 Nov): 6 × 6 at 6 kg");
+  });
+
+  it("lists the reps when they differ", () => {
+    expect(formatLastTime(lastTime([[6, 6], [6, 6], [5, 6]]), "set")).toBe("Last time (2 Nov): 6, 6, 5 at 6 kg");
+  });
+
+  it("gives a load range when loads differ, and no load part for bodyweight", () => {
+    expect(formatLastTime(lastTime([[8, 6], [8, 8]]), "set")).toBe("Last time (2 Nov): 2 × 8 at 6–8 kg");
+    expect(formatLastTime(lastTime([[5, undefined], [5, undefined]]), "set")).toBe("Last time (2 Nov): 2 × 5");
+  });
+
+  it("counts ticked-only sets in the item's own word", () => {
+    expect(formatLastTime(lastTime([[undefined, undefined], [undefined, undefined]]), "round")).toBe("Last time (2 Nov): 2 rounds");
+    expect(formatLastTime(lastTime([[undefined, undefined]]), "set")).toBe("Last time (2 Nov): 1 set");
   });
 });

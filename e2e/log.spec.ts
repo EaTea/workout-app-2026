@@ -7,6 +7,16 @@ async function seedSettings(page: Page): Promise<void> {
   }, { version: 1, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 } });
 }
 
+/** Saves a log with 6 x 6 at 6 kg of med ball slams on 2 Nov, in the stored (wire) format, before the app first loads. */
+async function seedLastTimeLog(page: Page): Promise<void> {
+  const sets = Array.from({ length: 6 }, (_unused, index) => ({
+    exerciseId: "med_ball_slam", blockPosition: 2, setNumber: index + 1, reps: 6, loadKg: 6, loggedAt: "2026-11-02T18:00:00.000Z",
+  }));
+  await page.addInitScript((log) => {
+    window.localStorage.setItem("explosive-endurance.log", JSON.stringify(log));
+  }, { version: 1, sessions: [{ date: "2026-11-02", programWeek: 1, day: 1, sets }] });
+}
+
 /** Today's row for an exercise name. */
 function row(page: Page, name: string) {
   return page.locator(".item-row", { hasText: name });
@@ -175,4 +185,24 @@ test("a failed save shows an inline error and keeps the set on screen", async ({
 
   await expect(page.getByRole("alert")).toContainText("Couldn't save on this device");
   await expect(setRow(page, "Set 1")).toContainText("6 reps");
+});
+
+test("last time shows on the Today row and the log screen, and pre-fills the kg", async ({ page }) => {
+  await seedSettings(page);
+  await seedLastTimeLog(page);
+  await page.goto("/?date=2026-11-09");
+
+  const hint = "Last time (2 Nov): 6 × 6 at 6 kg";
+  await expect(row(page, "Med ball slams").locator(".item-last-time")).toHaveText(hint);
+  // Nothing for exercises never logged.
+  await expect(row(page, "Pull-ups").locator(".item-last-time")).toHaveCount(0);
+
+  await row(page, "Med ball slams").locator(".item-open").click();
+  await expect(page.locator(".log-last-time")).toHaveText(hint);
+  await expect(page.getByLabel("reps", { exact: true })).toHaveText("6");
+  await expect(page.getByLabel("kg", { exact: true })).toHaveText("6");
+
+  // The day itself shows no last time before the log's date.
+  await page.goto("/?date=2026-11-02");
+  await expect(row(page, "Med ball slams").locator(".item-last-time")).toHaveCount(0);
 });

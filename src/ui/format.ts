@@ -1,5 +1,6 @@
 import type { Range } from "../program/model";
 import type { BlockView, ItemView, MaxBasis, RepTarget, SetView } from "../program/schedule";
+import type { LastTime } from "../log/lastTime";
 
 /**
  * Pure text formatting for the Today screen and the exercise sheet.
@@ -9,6 +10,7 @@ import type { BlockView, ItemView, MaxBasis, RepTarget, SetView } from "../progr
  *   ItemView ──▶ formatItemDose        "5 / min", "6 × 6", "Set max"
  *            ──▶ formatItemDetails     ["Rest 30–45s", "per side", ...]
  *            ──▶ formatSetBreakdown    "8–10 heavy, then 15–25 moderate ×2"
+ *   LastTime ──▶ formatLastTime        "Last time (2 Nov): 6 × 6 at 6 kg"
  */
 
 /** Typographic separators used across the UI. */
@@ -261,4 +263,40 @@ export function formatPrescriptionSummary(item: ItemView): string {
   const dose = formatItemDose(item);
   const doseText = dose.subtext ? `${dose.text}, ${dose.subtext}` : dose.text;
   return [doseText, ...formatItemDetails(item)].filter((part) => part !== "").join(DOT);
+}
+
+/**
+ * The "last time" hint, e.g. "Last time (2 Nov): 6 × 6 at 6 kg". Shown on
+ * Today rows and under the log screen's set list (via `ui/lastTimeHint.ts`).
+ *
+ *  - Reps: "6 × 6" (sets × reps) when every set had the same reps, else the
+ *    reps listed in set order, "6, 6, 5". Sets without reps are left out of the list.
+ *  - Load: " at 6 kg" when the sets that had a load all had the same one,
+ *    " at 6–8 kg" (lowest to highest) when they differed, nothing without a load.
+ *  - Ticked-only sets (heavy-bag rounds, timed holds: no reps at all) read as
+ *    a count of `setNoun`, e.g. "5 rounds" or "2 sets". The caller picks the
+ *    singular noun from the item (see `itemSets.setNounFor`).
+ *
+ * The date goes through `formatShortDate`, so there is never a weekday.
+ */
+export function formatLastTime(lastTime: LastTime, setNoun: string): string {
+  const prefix = `Last time (${formatShortDate(lastTime.date)}): `;
+
+  const repsPerSet = lastTime.sets.flatMap((set) => (set.reps === undefined ? [] : [set.reps]));
+  if (repsPerSet.length === 0) {
+    const count = lastTime.sets.length;
+    return `${prefix}${count} ${count === 1 ? setNoun : `${setNoun}s`}`;
+  }
+
+  const allSameReps = repsPerSet.every((reps) => reps === repsPerSet[0]);
+  const repsText = allSameReps ? `${repsPerSet.length} ${MULTIPLY} ${repsPerSet[0]}` : repsPerSet.join(", ");
+
+  const loads = lastTime.sets.flatMap((set) => (set.loadKg === undefined ? [] : [set.loadKg]));
+  if (loads.length === 0) return `${prefix}${repsText}`;
+
+  const lowestLoad = Math.min(...loads);
+  const highestLoad = Math.max(...loads);
+  const loadText = lowestLoad === highestLoad ? `${lowestLoad} kg` : `${lowestLoad}${EN_DASH}${highestLoad} kg`;
+
+  return `${prefix}${repsText} at ${loadText}`;
 }

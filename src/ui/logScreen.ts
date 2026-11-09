@@ -1,13 +1,15 @@
 import { buildSession, type BlockView, type ItemView } from "../program/schedule";
 import type { Program } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
-import { choosePrefill, countSetsForItem, formatLoggedSet, itemTracksReps, nextSetNumber, plannedRepsForSet, setNeedsMax, setWord } from "../log/itemSets";
+import { countSetsForItem, formatLoggedSet, itemTracksReps, nextSetNumber, prefillForSet, setNeedsMax, setWord } from "../log/itemSets";
+import { findLastTime } from "../log/lastTime";
 import type { LoggedSet, WorkoutLog } from "../log/model";
 import { deleteSet, editSet, logSet, setsForItem } from "../log/operations";
 import { formatClock } from "../timer/engine";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
 import { blockLabel, formatPrescriptionSummary, formatRepTarget } from "./format";
+import { lastTimeHint } from "./lastTimeHint";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 
@@ -35,9 +37,10 @@ import { currentRestSeconds, openRestTimer } from "./restTimer";
  *
  * Reps and kg are shown only for items that count reps. Heavy-bag rounds and
  * timed holds are just ticked. A kg of 0 means "no load": it is stored as no
- * load at all (bodyweight), never as 0 kg. Reps start from the item's previous
- * set this session, else the plan's number (see `choosePrefill`; "last time"
- * joins in step 4).
+ * load at all (bodyweight), never as 0 kg. Reps and kg start from the item's
+ * previous set this session, else last time's same set, else the plan (see
+ * `choosePrefill`). A "Last time (2 Nov): 6 × 6 at 6 kg" line sits under the set
+ * list (not on warm-ups).
  *
  * The screen keeps its own copy of the log and tells app.ts about every change
  * through `onLogChanged`, so Today (re-rendered from app.ts's copy) is current
@@ -109,6 +112,10 @@ export function renderLogScreen(
   // intervals have their own timer, and superset blocks rest between pairs (a block button on Today).
   const restRange = trackedItem.format !== "interval" && trackedBlock.format !== "superset" ? trackedItem.restSec : undefined;
 
+  // Last time is looked up once: it only reads dates before this one, which edits here never touch.
+  const lastTime = findLastTime(initialLog, trackedItem.exercise.id, date);
+  const lastTimeText = lastTimeHint(initialLog, trackedItem, trackedBlock, date);
+
   let log = initialLog;
   let currentSetNumber: number | undefined;
   let draft: SetDraft = { loadKg: 0, note: "" };
@@ -135,13 +142,11 @@ export function renderLogScreen(
   }
 
   /**
-   * The values the steppers start at for an unlogged set: the item's nearest
-   * earlier logged set this session if any, else the plan (`choosePrefill`).
+   * The values the steppers start at for an unlogged set: the item's earlier
+   * set this session, else last time's, else the plan (`prefillForSet`, rule 8).
    */
   function prefillFor(setNumber: number): { reps?: number; loadKg: number } {
-    const earlierSets = loggedSets().filter((set) => set.setNumber < setNumber);
-    const previousSet = earlierSets[earlierSets.length - 1];
-    return choosePrefill(previousSet, plannedRepsForSet(trackedItem, setNumber));
+    return prefillForSet(trackedItem, setNumber, loggedSets(), lastTime);
   }
 
   /** Makes `setNumber` the expanded set and loads its draft (a logged set loads its own values to edit). */
@@ -223,8 +228,7 @@ export function renderLogScreen(
 
     let updatedLog = log;
     for (const setNumber of remaining) {
-      const earlierSets = setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id).filter((set) => set.setNumber < setNumber);
-      const prefill = choosePrefill(earlierSets[earlierSets.length - 1], plannedRepsForSet(trackedItem, setNumber));
+      const prefill = prefillForSet(trackedItem, setNumber, setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id), lastTime);
       updatedLog = logSet(updatedLog, date, buildLoggedSet(setNumber, { ...prefill, note: "" }), sessionContext);
     }
 
@@ -270,7 +274,9 @@ export function renderLogScreen(
       renderSetList(),
     ];
 
-    // Seam for step 4: the "Last time (2 Nov): 6 × 6 at 6 kg" line goes here, under the set list.
+    if (lastTimeText !== undefined) {
+      children.push(element("p", "log-last-time", lastTimeText));
+    }
 
     if (message !== undefined) {
       const alert = element("p", "field-error", message);
