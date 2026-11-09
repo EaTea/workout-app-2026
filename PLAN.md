@@ -399,6 +399,32 @@ the PR 2 review.
    Unit tests for the adjustments, the parsing, and the cue scheduling with
    a fake AudioContext; E2E for the week 5 defaults and Back closing each
    timer.
+4. [ ] **Fixes from the challenger review.** Decisions taken:
+   - The audio-clock schedule is re-anchored whenever the audio clock and
+     the wall clock disagree: when the page becomes visible again, when the
+     AudioContext changes state (iOS suspends or interrupts it on lock, an
+     app switch or a call), and on each display refresh if they drift by
+     more than a quarter second. Then the queued tones are cancelled, the
+     catch-up plays the latest cue once (as before PR 6), and the rest is
+     queued again. Nothing counts as queued while the context isn't
+     running, so the tick path plays the cues instead. On iOS a hidden page
+     is silenced anyway, so the gain there is mainly a locked-then-woken
+     timer staying right; Android and desktop gain on-time beeps while
+     hidden.
+   - Back: a timer opened while the previous timer's own close is still
+     popping its history entry waits for that pop before pushing its own,
+     so the late Back can't close it. The marker carries a per-page-load id,
+     so an entry left by a reload is never taken for the current one. A
+     hash navigation while a timer is open closes it without leaving a
+     dead Back press behind.
+   - The 5-second timer floor is a shared constant in the program model,
+     used by both the timers and `buildSession`, so program code doesn't
+     import timer code; adjustments are also capped at the steppers'
+     maximums.
+   - Tests for the timer's pause, Skip, close and stepper cancel wiring, a
+     frozen-audio-clock test, Back for the interval timer, and the week 5
+     rest figures; the timer E2E's due times are normalised so a −0 can't
+     fail them.
 - **Merge point:** the program's weeks 5–7 changes are reflected in the
   timers, and the PR 2 follow-ups are done.
 
@@ -414,6 +440,8 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 23 Nov | W4 D1 | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 6 (week 3's reps); dip mini-dose 1 × 7 |
 | 8 Nov | W1 D7 | Rest | Rest-day card |
 | 21 Dec | W8 D1 | Deload + retest | Pull-up EMOM 5 min × 6 (week 7's 4 + 2, held: no max saved in week 8); after saving a retested max of 15 on 21 Dec, 5 min × 6 (floor(15 × 0.40), no hold) |
+| 30 Nov | W5 D1 | Power endurance | Heavy bag 4–5 rounds × 25–35s work / 30s rest (timer starts 5 × 35s / 30s); core rest between pairs 30–45s (Rest button 30s) |
+| 4 Dec | W5 D5 | Power endurance | Core rest between pairs 30s |
 | 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (the retest card shows on Today) |
 
 A second start date shows the cycle doesn't depend on the weekday: start
