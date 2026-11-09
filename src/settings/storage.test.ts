@@ -16,13 +16,24 @@ function fakeStorage(initial: Record<string, string> = {}): Storage {
   } as unknown as Storage;
 }
 
-const defaults = { startDate: null, maxReps: {}, maxSavedOn: {} };
+const defaults = { startDate: null, maxReps: {}, maxSavedOn: {}, maxHistory: {} };
 
 describe("settings mapping", () => {
   it("round-trips valid settings", () => {
-    const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" } };
+    const settings = {
+      startDate: "2026-11-02",
+      maxReps: { pull_up: 14, dip: 15 },
+      maxSavedOn: { pull_up: "2026-12-18" },
+      maxHistory: {
+        pull_up: [
+          { savedOn: "2026-11-02", reps: 12 },
+          { savedOn: "2026-12-18", reps: 14 },
+        ],
+        dip: [{ savedOn: null, reps: 15 }],
+      },
+    };
     expect(settingsFromWire(settingsToWire(settings))).toEqual(settings);
-    expect(settingsToWire(settings).version).toBe(2);
+    expect(settingsToWire(settings).version).toBe(3);
   });
 
   it("reads v1 data with no saved dates", () => {
@@ -30,6 +41,71 @@ describe("settings mapping", () => {
       startDate: "2026-11-02",
       maxReps: { pull_up: 12 },
       maxSavedOn: {},
+      maxHistory: { pull_up: [{ savedOn: null, reps: 12 }] },
+    });
+  });
+
+  it("maps v2 so the current max is the only history entry, dated maxSavedOn or unknown", () => {
+    const v2 = {
+      version: 2,
+      startDate: "2026-11-02",
+      maxReps: { pull_up: 12, dip: 15 },
+      maxSavedOn: { pull_up: "2026-11-02" },
+    };
+    expect(settingsFromWire(v2)).toEqual({
+      startDate: "2026-11-02",
+      maxReps: { pull_up: 12, dip: 15 },
+      maxSavedOn: { pull_up: "2026-11-02" },
+      maxHistory: {
+        pull_up: [{ savedOn: "2026-11-02", reps: 12 }],
+        dip: [{ savedOn: null, reps: 15 }],
+      },
+    });
+  });
+
+  it("reads v3, sorting entries, keeping the later duplicate of a date and dropping bad entries", () => {
+    const v3 = {
+      version: 3,
+      startDate: null,
+      maxHistory: {
+        pull_up: [
+          { savedOn: "2026-12-18", reps: 14 },
+          { savedOn: "2026-11-02", reps: 11 },
+          { savedOn: "2026-11-02", reps: 12 },
+          { savedOn: "2026-02-30", reps: 99 },
+          { savedOn: "2026-11-05", reps: 0 },
+          "junk",
+        ],
+        dip: [],
+        bench: "nope",
+      },
+    };
+    expect(settingsFromWire(v3)).toEqual({
+      startDate: null,
+      maxReps: { pull_up: 14 },
+      maxSavedOn: { pull_up: "2026-12-18" },
+      maxHistory: {
+        pull_up: [
+          { savedOn: "2026-11-02", reps: 12 },
+          { savedOn: "2026-12-18", reps: 14 },
+        ],
+      },
+    });
+  });
+
+  it("writes the latest max as the last history entry when the history is missing or stale", () => {
+    const wire = settingsToWire({
+      startDate: null,
+      maxReps: { pull_up: 14, dip: 15 },
+      maxSavedOn: { pull_up: "2026-12-18" },
+      maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] },
+    });
+    expect(wire.maxHistory).toEqual({
+      pull_up: [
+        { savedOn: "2026-11-02", reps: 12 },
+        { savedOn: "2026-12-18", reps: 14 },
+      ],
+      dip: [{ savedOn: null, reps: 15 }],
     });
   });
 
@@ -48,7 +124,7 @@ describe("settings mapping", () => {
   it("returns defaults for non-objects and wrong versions", () => {
     expect(settingsFromWire(null)).toEqual(defaults);
     expect(settingsFromWire("text")).toEqual(defaults);
-    expect(settingsFromWire({ version: 3, startDate: "2026-11-02", maxReps: { dip: 5 } })).toEqual(defaults);
+    expect(settingsFromWire({ version: 4, startDate: "2026-11-02", maxReps: { dip: 5 } })).toEqual(defaults);
     expect(settingsFromWire({ startDate: "2026-11-02" })).toEqual(defaults);
   });
 
@@ -57,6 +133,7 @@ describe("settings mapping", () => {
       startDate: null,
       maxReps: { dip: 5 },
       maxSavedOn: {},
+      maxHistory: { dip: [{ savedOn: null, reps: 5 }] },
     });
     expect(settingsFromWire({ version: 1, startDate: "11/02/2026", maxReps: {} }).startDate).toBeNull();
     expect(settingsFromWire({ version: 1, startDate: 5, maxReps: {} }).startDate).toBeNull();
@@ -80,13 +157,17 @@ describe("loadSettings / saveSettings", () => {
 
   it("saves and reloads settings", () => {
     const storage = fakeStorage();
-    const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" } };
-    saveSettings(settings, storage);
-    expect(JSON.parse(storage.getItem(SETTINGS_STORAGE_KEY) as string)).toEqual({
-      version: 2,
+    const settings = {
       startDate: "2026-11-02",
       maxReps: { pull_up: 12 },
       maxSavedOn: { pull_up: "2026-11-02" },
+      maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] },
+    };
+    saveSettings(settings, storage);
+    expect(JSON.parse(storage.getItem(SETTINGS_STORAGE_KEY) as string)).toEqual({
+      version: 3,
+      startDate: "2026-11-02",
+      maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] },
     });
     expect(loadSettings(storage)).toEqual(settings);
   });

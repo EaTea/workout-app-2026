@@ -22,7 +22,7 @@ const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf
 
 // Start Mon 2 Nov: week 1 = 2-8 Nov, week 3 = 16-22 Nov, week 8 = 21-27 Dec.
 // Program day 7 is the rest day (program.restDay).
-const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
+const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
 const emptyHistory: FatigueHistory = { checks: [] };
 
 /** A saved check for a week with the given values. */

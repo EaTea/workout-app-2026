@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stampMaxSavedDates, validateSettingsForm } from "./settings";
+import { stampMaxSavedDates, updateMaxHistory, validateSettingsForm } from "./settings";
 
 describe("validateSettingsForm", () => {
   it("accepts a date and whole-number maxes, ignoring blanks", () => {
@@ -65,5 +65,42 @@ describe("stampMaxSavedDates", () => {
 
   it("leaves an untouched max without a date (v1 data) undated", () => {
     expect(stampMaxSavedDates(previous, { pull_up: 12, dip: 15 }, none, "2026-12-21")).not.toHaveProperty("dip");
+  });
+});
+
+describe("updateMaxHistory", () => {
+  const previous = {
+    maxSavedOn: { pull_up: "2026-11-02" },
+    maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] },
+  };
+
+  it("appends an edited max dated today", () => {
+    expect(updateMaxHistory(previous, { pull_up: 14 }, new Set(["pull_up"]), "2026-12-18")).toEqual({
+      pull_up: [{ savedOn: "2026-11-02", reps: 12 }, { savedOn: "2026-12-18", reps: 14 }],
+    });
+  });
+
+  it("replaces today's entry when saved twice on the same day", () => {
+    expect(updateMaxHistory(previous, { pull_up: 14 }, new Set(["pull_up"]), "2026-11-02")).toEqual({
+      pull_up: [{ savedOn: "2026-11-02", reps: 14 }],
+    });
+  });
+
+  it("keeps an untouched max's history, and seeds one for a max with none (dated or unknown)", () => {
+    const result = updateMaxHistory(
+      { maxSavedOn: { dip: "2026-11-05" }, maxHistory: previous.maxHistory },
+      { pull_up: 12, dip: 15, bench: 8 },
+      new Set<string>(),
+      "2026-12-18",
+    );
+    expect(result).toEqual({
+      pull_up: [{ savedOn: "2026-11-02", reps: 12 }],
+      dip: [{ savedOn: "2026-11-05", reps: 15 }],
+      bench: [{ savedOn: null, reps: 8 }],
+    });
+  });
+
+  it("drops the history of a cleared max", () => {
+    expect(updateMaxHistory(previous, {}, new Set(["pull_up"]), "2026-12-18")).toEqual({});
   });
 });

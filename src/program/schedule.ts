@@ -3,6 +3,7 @@ import { DAYS_PER_WEEK, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_S
 import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
+import { maxInEffectOn } from "../settings/maxHistory";
 
 /**
  * Turns the program plus the athlete's settings into the concrete session
@@ -73,6 +74,10 @@ export interface MaxBasis {
  *  - timerAdjustments: the phase's timer changes, if it has any
  *  - weekStartDate: first calendar day of the program week; a max saved
  *    from that day to the week's last day (Day 7) counts as retested
+ *  - heldEmomDates: in a retest week, per exercise id, the date of the last
+ *    day of the previous week whose session has that exercise's EMOM. The
+ *    held figure uses the max in effect on that day (what that week showed).
+ *    Empty outside retest weeks.
  */
 interface WeekContext {
   isDeload: boolean;
@@ -81,6 +86,7 @@ interface WeekContext {
   retestHeldOffset: number;
   timerAdjustments?: TimerAdjustments;
   weekStartDate: string;
+  heldEmomDates: Record<string, string>;
 }
 
 /** The increase handling chosen for one item; carried into `resolveReps`. */
@@ -89,6 +95,8 @@ interface IncreaseChoice {
   heldForDeload: boolean;
   usesRetestedMax: boolean;
   awaitingRetest: boolean;
+  /** Max to use instead of the current one (the week 8 hold); undefined = the current max. */
+  heldMax?: number;
 }
 
 /** One set of an item, with its computed rep target. */
@@ -203,6 +211,7 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     timerAdjustments: phase.timerAdjustments,
     // settings.startDate is non-null here: programStatus was "active".
     weekStartDate: addDaysToDate(settings.startDate as string, (week - 1) * DAYS_PER_WEEK),
+    heldEmomDates: isRetest && week > 1 ? lastEmomDatesOfWeek(program, settings.startDate as string, week - 1) : {},
   };
 
   return {
@@ -219,6 +228,34 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
       program.warmupRotation,
     ),
   };
+}
+
+/**
+ * For each exercise that has an EMOM (an item with a `weeklyIncrease`) in any
+ * training day, the calendar date of the LAST day of program week `week` whose
+ * session contains it. Used for the retest week's hold: the held reps must
+ * match what that last EMOM showed, i.e. the max in effect on that date.
+ * `startDate` is the program's Day 1.
+ */
+function lastEmomDatesOfWeek(program: Program, startDate: string, week: number): Record<string, string> {
+  const weekStartDate = addDaysToDate(startDate, (week - 1) * DAYS_PER_WEEK);
+  const dates: Record<string, string> = {};
+
+  // Days are visited in order, so a later day overwrites an earlier one.
+  for (let dayNumber = 1; dayNumber <= DAYS_PER_WEEK; dayNumber++) {
+    const day = program.days[dayNumber];
+    if (day === undefined) {
+      continue;
+    }
+    for (const block of day.blocks) {
+      for (const item of block.items) {
+        if (item.weeklyIncrease !== undefined) {
+          dates[item.exerciseId] = addDaysToDate(weekStartDate, dayNumber - 1);
+        }
+      }
+    }
+  }
+  return dates;
 }
 
 /** Finds the progression entry containing `week`; throws if the program has a gap. */
@@ -364,10 +401,31 @@ function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekC
 
     return retested
       ? { increase: week.offset, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false }
-      : { increase: week.retestHeldOffset, heldForDeload: true, usesRetestedMax: false, awaitingRetest: true };
+      : {
+          increase: week.retestHeldOffset,
+          heldForDeload: true,
+          usesRetestedMax: false,
+          awaitingRetest: true,
+          heldMax: heldMaxFor(item.exerciseId, settings, week),
+        };
   }
 
   return { increase: week.offset, heldForDeload: week.isDeload && week.offset > 0, usesRetestedMax: false, awaitingRetest: false };
+}
+
+/**
+ * The max the retest week's hold is worked out with: the max in effect on the
+ * last day of the previous week that had this exercise's EMOM (so a max raised
+ * later in that week doesn't change the hold). Undefined (= use the current
+ * max) when the exercise has no such day or no history.
+ */
+function heldMaxFor(exerciseId: string, settings: TrainingSettings, week: WeekContext): number | undefined {
+  const emomDate = week.heldEmomDates[exerciseId];
+  const history = settings.maxHistory[exerciseId];
+  if (emomDate === undefined || history === undefined) {
+    return undefined;
+  }
+  return maxInEffectOn(history, emomDate);
 }
 
 /**
@@ -439,10 +497,11 @@ function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings,
       return rangeTarget(reps.min + increase, reps.max + increase);
 
     case "percentOfMax": {
-      const max = settings.maxReps[exerciseId];
-      if (max === undefined) {
+      const currentMax = settings.maxReps[exerciseId];
+      if (currentMax === undefined) {
         return { kind: "needsMax", exerciseId, percentMin: reps.min, percentMax: reps.max };
       }
+      const max = choice.heldMax ?? currentMax;
       const low = Math.max(1, floorPercentOfMax(max, reps.min));
       const high = Math.max(1, floorPercentOfMax(max, reps.max));
       const basis: MaxBasis = { percentMin: reps.min, percentMax: reps.max, max, weeklyIncrease: increase, heldForDeload: choice.heldForDeload, usesRetestedMax: choice.usesRetestedMax, awaitingRetest: choice.awaitingRetest };

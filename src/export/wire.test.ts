@@ -3,7 +3,7 @@ import { exportToWire, serializeExport, type ExportBundle } from "./wire";
 
 const bundle: ExportBundle = {
   exportedAt: new Date("2026-11-09T08:00:00.000Z"),
-  settings: { startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" } },
+  settings: { startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" }, maxHistory: {} },
   log: {
     sessions: {
       "2026-11-02": {
@@ -22,7 +22,7 @@ describe("exportToWire", () => {
       format: "explosive-endurance-export",
       version: 1,
       exportedAt: "2026-11-09T08:00:00.000Z",
-      settings: { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" } },
+      settings: { version: 3, startDate: "2026-11-02", maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] } },
       log: {
         version: 1,
         sessions: [

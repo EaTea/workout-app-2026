@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PRs 7–9 planned, waiting for Ed's go-ahead.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in progress, stacked on PR 6 (plan in #10); PRs 8–9 approved, to follow.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -448,7 +448,7 @@ changed start date or a late max doesn't quietly give wrong numbers.
    optional broad jump field (same stepper and blank rules as the weekly
    check-in), saved as week 8's check together with the retested
    pull-ups, so week 8 has a full check like the other weeks.
-3. [ ] **Held reps from what week 7 showed.** Settings keep a short
+3. [x] **Held reps from what week 7 showed.** Settings keep a short
    history of saved maxes (date and value) instead of only the latest,
    behind a settings wire v3 with a mapping from v2 (the current max
    becomes the only history entry). Week 8's held EMOM figure (rule 3) is

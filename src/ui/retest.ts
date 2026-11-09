@@ -2,7 +2,7 @@ import type { Exercise, Program } from "../program/model";
 import { retestWeekStartDate, wasMaxSavedDuringWeek } from "../program/schedule";
 import { toDayNumber } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
-import { stampMaxSavedDates } from "./settings";
+import { stampMaxSavedDates, updateMaxHistory } from "./settings";
 
 /**
  * Pure rules and storage mapping for the week 8 retest card on Today
@@ -45,14 +45,15 @@ export function retestExercisesToSave(
 /**
  * The settings after saving ONE retested max: `freshSettings` (just re-read
  * from storage by app.ts, so another open copy's changes survive) with only
- * `exerciseId`'s max set to `newMax` and stamped `today` (the real local date,
+ * `exerciseId`'s max set to `newMax`, stamped `today` and added to its history (the real local date,
  * never a `?date=` preview). Every other max, its date and the start date are
  * left exactly as they were. Pure; called by `handleSaveRetestMax` in app.ts.
  */
 export function applyRetestMax(freshSettings: TrainingSettings, exerciseId: string, newMax: number, today: string): TrainingSettings {
   const maxReps = { ...freshSettings.maxReps, [exerciseId]: newMax };
   const maxSavedOn = stampMaxSavedDates(freshSettings, maxReps, new Set([exerciseId]), today);
-  return { ...freshSettings, maxReps, maxSavedOn };
+  const maxHistory = updateMaxHistory(freshSettings, maxReps, new Set([exerciseId]), today);
+  return { ...freshSettings, maxReps, maxSavedOn, maxHistory };
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { Program } from "../program/model";
 import { toDayNumber } from "../program/calendar";
-import type { TrainingSettings } from "../settings/model";
+import type { MaxHistoryEntry, TrainingSettings } from "../settings/model";
+import { recordMax } from "../settings/maxHistory";
 import { element } from "./dom";
 import { renderExportSection, type ExportSource } from "./exportSection";
 
@@ -20,7 +21,7 @@ export interface SettingsFormValues {
   maxReps: Record<string, string>;
 }
 
-/** The fields the form edits; the saved-on dates are added by `stampMaxSavedDates`. */
+/** The fields the form edits; the saved-on dates and history are added by `stampMaxSavedDates` and `updateMaxHistory`. */
 export type SettingsFormResult = Pick<TrainingSettings, "startDate" | "maxReps">;
 
 /** Result of validating the form: either clean settings or messages per field. */
@@ -59,6 +60,37 @@ export function stampMaxSavedDates(
   }
 
   return maxSavedOn;
+}
+
+/**
+ * Works out the new `maxHistory` alongside `stampMaxSavedDates`, with the same
+ * rules: a max the user EDITED is recorded as an entry dated `today` (replacing
+ * an entry already dated `today`); an untouched max keeps its history (or, if
+ * it had none, gets one entry carrying its previous date, or "unknown" when
+ * there was none); a cleared max loses its history. Called by the Save handler
+ * and `applyRetestMax`, so every way of saving a max keeps the history current.
+ */
+export function updateMaxHistory(
+  previous: Pick<TrainingSettings, "maxSavedOn" | "maxHistory">,
+  newMaxReps: Record<string, number>,
+  editedExerciseIds: ReadonlySet<string>,
+  today: string,
+): Record<string, MaxHistoryEntry[]> {
+  const maxHistory: Record<string, MaxHistoryEntry[]> = {};
+
+  for (const [exerciseId, reps] of Object.entries(newMaxReps)) {
+    const previousEntries = previous.maxHistory[exerciseId] ?? [];
+
+    if (editedExerciseIds.has(exerciseId)) {
+      maxHistory[exerciseId] = recordMax(previousEntries, reps, today);
+    } else if (previousEntries.length > 0) {
+      maxHistory[exerciseId] = previousEntries;
+    } else {
+      maxHistory[exerciseId] = [{ savedOn: previous.maxSavedOn[exerciseId] ?? null, reps }];
+    }
+  }
+
+  return maxHistory;
 }
 
 /**
@@ -193,7 +225,8 @@ export function renderSettingsScreen(
     }
 
     const maxSavedOn = stampMaxSavedDates(current, result.settings.maxReps, editedExerciseIds, today);
-    saveError.textContent = onSave({ ...result.settings, maxSavedOn }) ?? "";
+    const maxHistory = updateMaxHistory(current, result.settings.maxReps, editedExerciseIds, today);
+    saveError.textContent = onSave({ ...result.settings, maxSavedOn, maxHistory }) ?? "";
   });
 
   screen.append(form);

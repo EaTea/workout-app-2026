@@ -4,7 +4,7 @@ import { logToWire, type LogWireV1 } from "../log/wire";
 import type { WorkoutLog } from "../log/model";
 import type { CorruptLogBackup } from "../log/storage";
 import type { TrainingSettings } from "../settings/model";
-import { settingsToWire, type SettingsWireV2 } from "../settings/storage";
+import { settingsToWire, type SettingsWireV3 } from "../settings/storage";
 
 /**
  * "Export everything" file format and its mapping from the internal types.
@@ -38,7 +38,7 @@ export interface ExportWireV1 {
   format: typeof EXPORT_FORMAT_NAME;
   version: 1;
   exportedAt: string;
-  settings: SettingsWireV2;
+  settings: SettingsWireV3;
   log: LogWireV1;
   fatigueChecks: FatigueHistoryWireV1;
 

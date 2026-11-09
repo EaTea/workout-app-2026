@@ -6,7 +6,7 @@ import type { TrainingSettings } from "../settings/model";
 import { buildEmomPlan, buildIntervalPlan, buildRestPlan, defaultIntervalSettings, defaultRestSeconds } from "./plans";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
-const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
+const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
 
 /** Finds the EMOM item for an exercise on a date (the first matching item in the session). */
 function emomItem(date: string, exerciseId: string, overrides: Partial<TrainingSettings> = {}): ItemView {

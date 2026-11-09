@@ -138,9 +138,12 @@ test("saving a max keeps a start date changed by another copy of the app", async
 
   const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem("explosive-endurance.settings") ?? "null"));
   expect(stored).toEqual({
-    version: 2,
+    version: 3,
     startDate: "2026-09-14",
-    maxReps: { pull_up: 12, dip: 20 },
-    maxSavedOn: { dip: "2026-11-02", pull_up: "2026-11-02" },
+    maxHistory: {
+      // The seeded pull-up max had no date, so it stays as the "unknown, earliest" entry.
+      pull_up: [{ savedOn: null, reps: 12 }, { savedOn: "2026-11-02", reps: 12 }],
+      dip: [{ savedOn: "2026-11-02", reps: 20 }],
+    },
   });
 });

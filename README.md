@@ -104,7 +104,9 @@ on your start date, and Day 7 is the rest day in the shipped program (not
 weekday names). A progression phase can set `"retest": true`; EMOMs in that
 week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
-too); then they use that max with no weekly increase.
+too); then they use that max with no weekly increase. The held reps use the
+max that was in effect on the last week 7 day with that EMOM (settings keep a
+dated history of saved maxes), so a max raised later in week 7 doesn't change them.
 
 A progression phase can also set `"timerAdjustments"`, whole seconds (negative
 allowed, either key optional): `"intervalWorkSec"` is added to every interval

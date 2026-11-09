@@ -125,10 +125,13 @@ test("saving an edited max stamps the real date; an untouched max keeps its date
   await expect(page.locator(".toast")).toHaveText("Saved");
 
   expect(await readStoredSettings(page)).toEqual({
-    version: 2,
+    version: 3,
     startDate: "2026-11-02",
-    maxReps: { pull_up: 15, dip: 15 },
-    maxSavedOn: { pull_up: "2026-12-21", dip: "2026-11-02" },
+    maxHistory: {
+      // The seeded pull-up max had no date: it stays as the "unknown, earliest" entry.
+      pull_up: [{ savedOn: null, reps: 12 }, { savedOn: "2026-12-21", reps: 15 }],
+      dip: [{ savedOn: "2026-11-02", reps: 15 }],
+    },
   });
 });
 
@@ -141,7 +144,7 @@ test("re-typing the same max counts as a retest and stamps today", async ({ page
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.locator(".toast")).toHaveText("Saved");
 
-  expect(await readStoredSettings(page)).toMatchObject({ maxSavedOn: { dip: "2026-12-21" } });
+  expect(await readStoredSettings(page)).toMatchObject({ maxHistory: { dip: [{ savedOn: "2026-11-02", reps: 15 }, { savedOn: "2026-12-21", reps: 15 }] } });
 });
 
 test("changing only the start date stamps no max, and ?date= never sets a stamp", async ({ page }) => {
@@ -152,5 +155,5 @@ test("changing only the start date stamps no max, and ?date= never sets a stamp"
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.locator(".toast")).toHaveText("Saved");
 
-  expect(await readStoredSettings(page)).toMatchObject({ startDate: "2026-11-03", maxSavedOn: { dip: "2026-11-02" } });
+  expect(await readStoredSettings(page)).toMatchObject({ startDate: "2026-11-03", maxHistory: { dip: [{ savedOn: "2026-11-02", reps: 15 }] } });
 });

@@ -8,7 +8,7 @@ import type { LoggedSet, WorkoutLog } from "./model";
 import { isSessionInProgress as isInProgressAt, SESSION_IDLE_TIMEOUT_MILLISECONDS } from "./sessionProgress";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
-const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
+const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
 
 /** A training day (W2 D1) used by most tests. */
 const trainingDate = "2026-11-09";

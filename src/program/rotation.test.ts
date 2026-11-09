@@ -5,7 +5,7 @@ import { applyRotationToBlocks, isRotatedWeek, itemDisplayName, performedAsName,
 import { buildSession } from "./schedule";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
-const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
+const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
 
 describe("isRotatedWeek", () => {
   it("is false for weeks 1-4 and true for 5-8 with everyWeeks 4", () => {
