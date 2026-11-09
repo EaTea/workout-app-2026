@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in progress, stacked on PR 6 (plan in #10); PRs 8–9 approved, to follow.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in review as #11, stacked on the plan PR #10. PR 8 in progress, stacked on PR 7; PR 9 to follow.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -494,7 +494,9 @@ changed start date or a late max doesn't quietly give wrong numbers.
 Export exists but there is no way back, so a new phone or a cleared
 browser loses the log. Settings gets "Import from JSON": it reads an
 `explosive-endurance-export` v1 file through its own wire parser (unknown
-versions refused with a clear message), shows what it holds (sessions,
+versions refused with a clear message; settings inside it may be any
+settings wire version, and an optional `maxHistory` block, which the
+export now writes too, restores the max history), shows what it holds (sessions,
 sets, checks, date range), and on a confirm tap replaces the log, checks
 and settings. The current data is first kept as a backup key, like the
 corrupt-log backups, so an import can be undone from the next export.
