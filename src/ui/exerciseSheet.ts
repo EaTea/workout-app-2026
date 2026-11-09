@@ -44,6 +44,10 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
     element("p", "sheet-summary", formatPrescriptionSummary(item)),
   );
 
+  if (item.weeklyIncrease) {
+    // The program's progression rule, shown as written (never parsed).
+    sheet.append(sectionHeading("Weekly progression"), element("p", "sheet-text", `${item.weeklyIncrease} each week (not in deload)`));
+  }
   if (exercise.cues.length > 0) {
     sheet.append(sectionHeading("Cues"), bulletList(exercise.cues));
   }

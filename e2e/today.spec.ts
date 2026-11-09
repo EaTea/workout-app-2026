@@ -31,6 +31,7 @@ test("week 2 Monday shows header, six blocks in order and computed doses", async
 
   await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("5 / min");
   await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("9 min");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12 · +1 this week");
   await expect(row(page, "Dips").locator(".item-dose-main")).toHaveText("2 × 7");
   await expect(row(page, "Med ball slams").locator(".item-dose-main")).toHaveText("6 × 6");
   await expect(page.locator(".deload-note")).toHaveCount(0);
@@ -50,6 +51,8 @@ test("deload week shows the note and halved doses", async ({ page }) => {
   await expect(row(page, "Med ball slams").locator(".item-dose-main")).toHaveText("3 × 6");
   await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("4 / min");
   await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("5 min");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12");
+  await expect(row(page, "Pull-ups").locator(".item-details")).not.toContainText("+1");
 
   await page.locator(".phase-summary").click();
   await expect(page.getByRole("listitem").filter({ hasText: "Keep intensity" })).toBeVisible();
@@ -162,4 +165,22 @@ test("no horizontal overflow on training, rest and sheet views", async ({ page }
   await row(page, "Pull-ups").getByRole("button").click();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("a render that throws after a navigation shows the error card, not a blank screen", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-11-09");
+  await expect(page.locator(".item-row").first()).toBeVisible();
+
+  // Make the next full-screen render fail once; the error card's own render then succeeds.
+  await page.evaluate(() => {
+    const original = Element.prototype.replaceChildren;
+    Element.prototype.replaceChildren = function () {
+      Element.prototype.replaceChildren = original;
+      throw new Error("boom");
+    };
+    window.location.hash = "#/settings";
+  });
+
+  await expect(page.getByRole("alert")).toContainText("boom");
 });

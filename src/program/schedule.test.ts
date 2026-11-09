@@ -38,23 +38,23 @@ describe("worked examples from PLAN.md section 6", () => {
 
     const pullUps = item(session.blocks, "pull_up");
     expect(pullUps.minutes).toBe(9);
-    expect(pullUps.target).toEqual({ kind: "fixed", count: 4 });
+    expect(pullUps.target).toMatchObject({ kind: "fixed", count: 4 });
 
     const dips = item([block(session.blocks, "miniDose")], "dip");
     expect(dips.sets).toHaveLength(2);
-    expect(dips.sets.map((set) => set.target)).toEqual([{ kind: "fixed", count: 7 }, { kind: "fixed", count: 7 }]);
+    expect(dips.sets.map((set) => set.target)).toMatchObject([{ kind: "fixed", count: 7 }, { kind: "fixed", count: 7 }]);
   });
 
   it("Mon 16 Nov: W3, pull-up EMOM 6 reps per minute", () => {
     const session = trainingOn("2026-11-16");
     expect(session.week).toBe(3);
-    expect(item(session.blocks, "pull_up").target).toEqual({ kind: "fixed", count: 6 });
+    expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 6 });
   });
 
   it("Wed 4 Nov: dip EMOM 6-7 reps, plyo push-ups 5 x 5", () => {
     const session = trainingOn("2026-11-04");
     expect(session).toMatchObject({ week: 1, weekday: "Wed" });
-    expect(item(session.blocks, "dip").target).toEqual({ kind: "range", min: 6, max: 7 });
+    expect(item(session.blocks, "dip").target).toMatchObject({ kind: "range", min: 6, max: 7 });
 
     const plyo = item(session.blocks, "plyo_push_up");
     expect(plyo.sets).toHaveLength(5);
@@ -67,14 +67,14 @@ describe("worked examples from PLAN.md section 6", () => {
 
     const slams = item(session.blocks, "med_ball_slam");
     expect(slams.sets).toHaveLength(3);
-    expect(slams.sets[0]?.target).toEqual({ kind: "fixed", count: 6 });
+    expect(slams.sets[0]?.target).toMatchObject({ kind: "fixed", count: 6 });
 
     const pullUps = item(session.blocks, "pull_up");
     expect(pullUps.minutes).toBe(5);
-    expect(pullUps.target).toEqual({ kind: "fixed", count: 4 });
+    expect(pullUps.target).toMatchObject({ kind: "fixed", count: 4 });
 
     expect(item(session.blocks, "dip").sets).toHaveLength(1);
-    expect(item(session.blocks, "dip").sets[0]?.target).toEqual({ kind: "fixed", count: 7 });
+    expect(item(session.blocks, "dip").sets[0]?.target).toMatchObject({ kind: "fixed", count: 7 });
 
     expect(block(session.blocks, "warmup").rounds).toEqual({ min: 2, max: 2 });
   });
@@ -90,7 +90,7 @@ describe("worked examples from PLAN.md section 6", () => {
     const bounds = item(session.blocks, "lateral_skater_bound");
     expect(bounds.sets).toHaveLength(3);
     expect(bounds.perSide).toBe(true);
-    expect(bounds.sets[0]?.target).toEqual({ kind: "fixed", count: 6 });
+    expect(bounds.sets[0]?.target).toMatchObject({ kind: "fixed", count: 6 });
   });
 });
 
@@ -98,12 +98,12 @@ describe("further schedule rules", () => {
   it("restarts the weekly increase after the deload (Mon 7 Dec, W6: 4 + 1 = 5)", () => {
     const session = trainingOn("2026-12-07");
     expect(session.week).toBe(6);
-    expect(item(session.blocks, "pull_up").target).toEqual({ kind: "fixed", count: 5 });
+    expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 5 });
   });
 
   it("does not raise mini-dose reps week to week", () => {
     const session = trainingOn("2026-11-16");
-    expect(item(session.blocks, "dip").sets[0]?.target).toEqual({ kind: "fixed", count: 7 });
+    expect(item(session.blocks, "dip").sets[0]?.target).toMatchObject({ kind: "fixed", count: 7 });
   });
 
   it("halves heavy bag rounds to the low end in a deload and keeps the range otherwise", () => {
@@ -149,7 +149,7 @@ describe("edge cases", () => {
 
   it("asks for a missing max instead of guessing", () => {
     const session = trainingOn("2026-11-04", { maxReps: { pull_up: 12 } });
-    expect(item(session.blocks, "dip").target).toEqual({
+    expect(item(session.blocks, "dip").target).toMatchObject({
       kind: "needsMax",
       exerciseId: "dip",
       percentMin: 0.4,
@@ -159,6 +159,55 @@ describe("edge cases", () => {
 
   it("never goes below 1 rep (max 1 x 0.40)", () => {
     const session = trainingOn("2026-11-02", { maxReps: { pull_up: 1, dip: 1 } });
-    expect(item(session.blocks, "pull_up").target).toEqual({ kind: "fixed", count: 1 });
+    expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: 1 });
+  });
+});
+
+describe("percent-of-max basis", () => {
+  const basis = (weeklyIncrease: number, max = 12) => ({ percentMin: 0.4, percentMax: 0.4, max, weeklyIncrease });
+
+  it("records the max and this week's increase (W2 Mon pull-ups: 40% of 12, +1)", () => {
+    expect(item(trainingOn("2026-11-09").blocks, "pull_up").target).toEqual({ kind: "fixed", count: 5, basis: basis(1) });
+  });
+
+  it("shows no increase in week 1 of a phase", () => {
+    expect(item(trainingOn("2026-11-02").blocks, "pull_up").target).toMatchObject({ basis: basis(0) });
+  });
+
+  it("shows no increase in a deload (W4 Mon pull-ups: 40% of 12, +0)", () => {
+    expect(item(trainingOn("2026-11-23").blocks, "pull_up").target).toEqual({ kind: "fixed", count: 4, basis: basis(0) });
+  });
+
+  it("keeps the percentage range for dips (Wed W1: 40-50% of 15)", () => {
+    expect(item(trainingOn("2026-11-04").blocks, "dip").target).toEqual({
+      kind: "range",
+      min: 6,
+      max: 7,
+      basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0 },
+    });
+  });
+
+  it("gives plain program reps no basis", () => {
+    expect(item(trainingOn("2026-11-02").blocks, "med_ball_slam").sets[0]?.target).toEqual({ kind: "fixed", count: 6 });
+  });
+});
+
+describe("percent-of-max rounding survives floating point", () => {
+  // 100 * 0.57 is 56.99999999999999 in binary floating point; a bare floor gives 56.
+  it.each([
+    [100, 0.57, 57],
+    [180, 0.35, 63],
+    [90, 0.7, 63],
+  ])("max %i x %f gives %i reps", (max, fraction, expected) => {
+    const custom = parseProgram(
+      (() => {
+        const json = JSON.parse(readFileSync("public/program.json", "utf-8"));
+        json.days.find((day: any) => day.day === "Mon").blocks.find((b: any) => b.type === "mainStrength").items[0].repsPctOfMax = fraction;
+        return json;
+      })(),
+    );
+    const session = buildSession(custom, { startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 } }, "2026-11-02");
+    if (session.kind !== "training") throw new Error("expected training");
+    expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: expected });
   });
 });

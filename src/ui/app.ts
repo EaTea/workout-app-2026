@@ -85,14 +85,20 @@ export function startApp(root: HTMLElement, program: Program, initialSettings: T
    * Runs once at start and again on every `hashchange` (see `startApp`).
    */
   function render(): void {
-    const route = routeFromHash(window.location.hash);
-    const main = element("main", "app-main");
-    main.append(
-      route === "settings"
-        ? renderSettingsScreen(program, settings, handleSave)
-        : renderTodayScreen(program, settings, resolveToday(window.location.search)),
-    );
-    root.replaceChildren(main, renderNavigationBar(route));
+    try {
+      const route = routeFromHash(window.location.hash);
+      const main = element("main", "app-main");
+      main.append(
+        route === "settings"
+          ? renderSettingsScreen(program, settings, handleSave)
+          : renderTodayScreen(program, settings, resolveToday(window.location.search)),
+      );
+      root.replaceChildren(main, renderNavigationBar(route));
+    } catch (error) {
+      // A throwing render (e.g. a program gap hit on one date) must not leave
+      // a blank screen: show the same readable card as a startup failure.
+      showStartupError(root, error);
+    }
   }
 
   window.addEventListener("hashchange", render);
@@ -135,7 +141,7 @@ function showSavedToast(): void {
   window.setTimeout(() => toast.remove(), SAVED_TOAST_MILLISECONDS);
 }
 
-/** Replaces the app with a readable error card (e.g. program.json failed to parse). */
+/** Replaces the app with a readable error card (program.json failed to parse, or a render threw). */
 export function showStartupError(root: HTMLElement, error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   const card = element("div", "card error-card");

@@ -1,5 +1,5 @@
 import type { Range } from "../program/model";
-import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
+import type { BlockView, ItemView, MaxBasis, RepTarget, SetView } from "../program/schedule";
 
 /**
  * Pure text formatting for the Today screen and the exercise sheet.
@@ -181,6 +181,36 @@ export function formatSetBreakdown(item: ItemView): string | undefined {
   return groups.map((group) => (group.count > 1 ? `${group.text} ${MULTIPLY}${group.count}` : group.text)).join(", then ");
 }
 
+/** The max-percentage basis of the item's first percent-of-max target, if any. */
+function firstBasis(item: ItemView): MaxBasis | undefined {
+  const candidates = [item.target, ...item.sets.map((set) => set.target)];
+  for (const target of candidates) {
+    if (target && (target.kind === "fixed" || target.kind === "range") && target.basis) {
+      return target.basis;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Explains a percent-of-max target: "40% of max 12 · +1 this week",
+ * "40–50% of max 15". The increase part is left out when nothing was added
+ * this week (week 1 of a phase, or a deload).
+ */
+export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined {
+  if (!basis) return undefined;
+
+  const toPercent = (fraction: number) => Math.round(fraction * 100);
+  const percent =
+    basis.percentMin === basis.percentMax
+      ? `${toPercent(basis.percentMin)}%`
+      : `${toPercent(basis.percentMin)}${EN_DASH}${toPercent(basis.percentMax)}%`;
+
+  const parts = [`${percent} of max ${basis.max}`];
+  if (basis.weeklyIncrease > 0) parts.push(`+${basis.weeklyIncrease} this week`);
+  return parts.join(DOT);
+}
+
 /**
  * The secondary line facts for an item, in reading order. Only data present
  * in the view is shown (nothing is invented).
@@ -194,7 +224,8 @@ export function formatItemDetails(item: ItemView): string[] {
   if (item.perSide) details.push("per side");
   if (item.tempo) details.push(`tempo: ${item.tempo}`);
   if (item.load) details.push(item.load.charAt(0).toUpperCase() + item.load.slice(1));
-  if (item.weeklyIncrease) details.push(`${item.weeklyIncrease} each week`);
+  const basisText = formatMaxBasis(firstBasis(item));
+  if (basisText) details.push(basisText);
   if (item.note) details.push(item.note);
   if (item.optional) details.push("optional");
 

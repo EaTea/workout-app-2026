@@ -27,10 +27,26 @@ import type { TrainingSettings } from "../settings/model";
  *    the UI should ask for it (`percentMin`/`percentMax` are fractions, 0.4 = 40%)
  */
 export type RepTarget =
-  | { kind: "fixed"; count: number }
-  | { kind: "range"; min: number; max: number }
+  | { kind: "fixed"; count: number; basis?: MaxBasis }
+  | { kind: "range"; min: number; max: number; basis?: MaxBasis }
   | { kind: "text"; text: string }
   | { kind: "needsMax"; exerciseId: string; percentMin: number; percentMax: number };
+
+/**
+ * Explains where a percent-of-max target came from, so the UI can show
+ * "40% of max 12 · +1 this week" without doing any arithmetic itself.
+ * Present only on targets derived from a tested max.
+ *  - percentMin / percentMax: fractions (0.4 = 40%)
+ *  - max: the athlete's tested max the percentage was applied to
+ *  - weeklyIncrease: reps already added to the figure this week
+ *    (0 in week 1 of a phase, for items that don't progress, and in a deload)
+ */
+export interface MaxBasis {
+  percentMin: number;
+  percentMax: number;
+  max: number;
+  weeklyIncrease: number;
+}
 
 /** One set of an item, with its computed rep target. */
 export interface SetView {
@@ -58,6 +74,13 @@ export interface ItemView {
   load?: string;
   note?: string;
   tempo?: string;
+  /**
+   * The program's descriptive progression rule (e.g. "+1 rep per minute"),
+   * for display as a rule only (the exercise sheet). It is free text and is
+   * never parsed: the schedule treats its mere presence as "this item adds 1
+   * rep per week" (see `buildItem`). The amount actually added this week is
+   * on the target's `basis.weeklyIncrease`.
+   */
   weeklyIncrease?: string;
 }
 
@@ -168,7 +191,9 @@ function buildBlock(block: Block, settings: TrainingSettings, isDeload: boolean,
  * declare one.
  */
 function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, offset: number): ItemView {
-  // Only items with a `weeklyIncrease` (the EMOMs) grow week to week.
+  // Only items with a `weeklyIncrease` (the EMOMs) grow week to week. The
+  // field is descriptive text and is not parsed: its presence means "+1 rep
+  // per week", and `offset` is the number of weeks since the phase began.
   const increase = item.weeklyIncrease === undefined ? 0 : offset;
 
   const keptSets = halve ? item.sets.slice(0, Math.ceil(item.sets.length / 2)) : item.sets;
@@ -209,6 +234,7 @@ function halveRange(range: Range): Range {
 /**
  * Converts program reps into a displayable target. Percent-of-max becomes
  * floor(max x pct), at least 1; the weekly `increase` is added after that.
+ * Percent-of-max targets also carry a `basis` so the UI can explain them.
  */
 function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings, increase: number): RepTarget {
   switch (reps.kind) {
@@ -226,14 +252,25 @@ function resolveReps(reps: Reps, exerciseId: string, settings: TrainingSettings,
       if (max === undefined) {
         return { kind: "needsMax", exerciseId, percentMin: reps.min, percentMax: reps.max };
       }
-      const low = Math.max(1, Math.floor(max * reps.min));
-      const high = Math.max(1, Math.floor(max * reps.max));
-      return rangeTarget(low + increase, high + increase);
+      const low = Math.max(1, floorPercentOfMax(max, reps.min));
+      const high = Math.max(1, floorPercentOfMax(max, reps.max));
+      const basis: MaxBasis = { percentMin: reps.min, percentMax: reps.max, max, weeklyIncrease: increase };
+      return rangeTarget(low + increase, high + increase, basis);
     }
   }
 }
 
+/**
+ * floor(max x fraction), nudged by 1e-9 first. Fractions like 0.57 aren't
+ * exact in binary floating point (100 x 0.57 = 56.99999999999999), so a bare
+ * floor would drop a whole rep. The nudge is far smaller than any real
+ * difference between rep counts, so it only repairs those artefacts.
+ */
+function floorPercentOfMax(max: number, fraction: number): number {
+  return Math.floor(max * fraction + 1e-9);
+}
+
 /** A range whose ends match is shown as a single fixed number. */
-function rangeTarget(min: number, max: number): RepTarget {
-  return min === max ? { kind: "fixed", count: min } : { kind: "range", min, max };
+function rangeTarget(min: number, max: number, basis?: MaxBasis): RepTarget {
+  return min === max ? { kind: "fixed", count: min, basis } : { kind: "range", min, max, basis };
 }

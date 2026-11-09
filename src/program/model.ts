@@ -86,6 +86,12 @@ export interface BlockItem {
   load?: string;
   note?: string;
   tempo?: string;
+  /**
+   * Descriptive progression rule as written in program.json ("+1 rep per
+   * minute"). Free text: it is shown as the rule on the exercise sheet and
+   * never parsed. The schedule treats its presence as "adds 1 rep per week
+   * during a non-deload phase".
+   */
   weeklyIncrease?: string;
 }
 
