@@ -1,3 +1,5 @@
+import "./rotation.css";
+import { itemDisplayName } from "../program/rotation";
 import { buildSession, type BlockView, type ItemView } from "../program/schedule";
 import { todayLocalDate } from "../program/calendar";
 import type { Program } from "../program/model";
@@ -380,15 +382,20 @@ export function renderLogScreen(
     const heading = element("div", "log-heading");
     heading.append(
       element("div", "kicker", `${blockLabel(trackedBlock.type)} · Week ${week}`),
-      element("h1", "log-title", trackedItem.exercise.name),
+      element("h1", "log-title", itemDisplayName(trackedItem)),
     );
+    if (trackedItem.rotatedIn !== undefined) {
+      heading.append(element("p", "log-rotated-in", `Rotated in for ${trackedItem.rotatedIn.originalName}`));
+    }
 
     const infoButton = element("button", "log-info", "ⓘ");
     infoButton.type = "button";
     infoButton.setAttribute("aria-label", "Exercise details");
     infoButton.addEventListener("click", () => openExerciseSheet(trackedItem, infoButton));
 
-    header.append(back, heading, infoButton);
+    // A rotated-in exercise has no library entry, so there are no details to show.
+    header.append(back, heading);
+    if (trackedItem.rotatedIn === undefined) header.append(infoButton);
     return header;
   }
 

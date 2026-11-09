@@ -327,7 +327,7 @@ Follow-ups from the PR 4 review (later):
 ### PR 5 — Nice-to-haves: progress charts, export, warm-up rotation *(behavior change)*
 Stacked on PR 4. Ed asked for PR 5 and PR 6 after PR 4; these are the
 brief's remaining nice-to-haves.
-1. [ ] **Warm-up rotation** (`warmupRotation`). The rotation alternates
+1. [x] **Warm-up rotation** (`warmupRotation`). The rotation alternates
    every `everyWeeks` weeks: weeks 1–4 use the warm-ups as written,
    weeks 5–8 use the swaps. In a swapped block, a warm-up row whose
    exercise is a swap's `out` shows the `in` name instead, with a small

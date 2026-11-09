@@ -1,5 +1,6 @@
 import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps } from "./model";
 import { DAYS_PER_WEEK } from "./model";
+import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
 
@@ -122,6 +123,12 @@ export interface ItemView {
    * on the target's `basis.weeklyIncrease`.
    */
   weeklyIncrease?: string;
+  /**
+   * Set on a warm-up item in a rotated week (see rotation.ts): show
+   * `displayName` instead of the exercise's name, with "Rotated in for
+   * <originalName>". `exercise` stays the original so logging keeps its id.
+   */
+  rotatedIn?: { displayName: string; originalName: string };
 }
 
 /** One block of the session, in program order. */
@@ -195,7 +202,11 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     isDeload,
     focus: day.focus,
     targetMinutes: day.targetMinutes,
-    blocks: day.blocks.map((block) => buildBlock(block, settings, weekContext)),
+    blocks: applyRotationToBlocks(
+      day.blocks.map((block) => buildBlock(block, settings, weekContext)),
+      week,
+      program.warmupRotation,
+    ),
   };
 }
 

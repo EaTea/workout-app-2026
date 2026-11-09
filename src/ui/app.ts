@@ -3,6 +3,7 @@ import { programStatus, toDayNumber, todayLocalDate } from "../program/calendar"
 import type { TrainingSettings } from "../settings/model";
 import { loadSettings, saveSettings } from "../settings/storage";
 import { RETEST_DISMISSED_STORAGE_KEY, applyRetestMax, retestDismissedFromWire, retestDismissedToWire } from "./retest";
+import { ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire, rotationDismissedToWire } from "./rotationCard";
 import { focusRemainingRetestStepper } from "./retestCard";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
@@ -217,6 +218,8 @@ export function startApp(
   let startTodayFailureMessage: string | undefined;
   /** The date "Not today" was tapped on the retest card (kept in localStorage too), or undefined. */
   let retestDismissedDate = loadRetestDismissedDate();
+  /** The week the warm-up rotation card was dismissed for (kept in localStorage too), or undefined. */
+  let rotationDismissedWeek = loadStoredValue(ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire);
   /** Retest card stepper values by exercise id, kept here so re-renders don't reset an unsaved one. */
   const retestDrafts: Record<string, number | undefined> = {};
   /**
@@ -486,6 +489,21 @@ export function startApp(
     focusMainHeading(); // the Not today button is gone with the card
   }
 
+  /** "Got it" on the warm-up rotation card: hides it for this rotation block, remembered across reloads. */
+  function handleDismissRotation(): void {
+    const session = buildSession(program, settings, shownDate);
+    if (session.kind !== "training") return;
+
+    rotationDismissedWeek = session.week;
+    try {
+      localStorage.setItem(ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedToWire(session.week));
+    } catch {
+      // Storage blocked: the card stays hidden until reload, which is fine for a dismissal.
+    }
+    render();
+    focusMainHeading(); // the Got it button is gone with the card
+  }
+
   /**
    * Moves the shown date forward to the real current date and redraws. Only
    * the new-day banner's button calls this, so the session on screen never
@@ -568,7 +586,7 @@ export function startApp(
           draftForWeek,
           onSave: handleSaveCheckIn,
           onSnooze: handleSnoozeCheckIn,
-        }));
+        }, { dismissedWeek: rotationDismissedWeek, onDismiss: handleDismissRotation }));
       }
       // The log screen belongs to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" ? "today" : route));

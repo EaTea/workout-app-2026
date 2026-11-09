@@ -105,6 +105,15 @@ week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
 too); then they use that max with no weekly increase.
 
+## Warm-up rotation
+
+Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the
+exercises as written and the swaps in `program.json` (with the shipped
+program, weeks 5–8 use the swaps). A rotated-in warm-up shows its new name
+with "Rotated in for <original>" and has no details sheet; its sets are
+still logged under the original exercise. The first training day of a
+rotated block opens with a "Warm-up rotation" card listing the swaps.
+
 ## Exporting your log
 
 In Settings, "Export log as CSV" gives one row per logged set (date, week,

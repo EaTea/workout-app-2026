@@ -5,6 +5,9 @@ import { createCuePlayer } from "../timer/cues";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
 import { element } from "./dom";
 import { retestExercisesToSave } from "./retest";
+import "./rotation.css";
+import { isFirstRotationDay, itemDisplayName } from "../program/rotation";
+import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
 import { checkInWeekToAsk, type CheckInDraft } from "./checkin";
 import { renderCheckInCard } from "./checkinCard";
@@ -40,6 +43,13 @@ export interface RetestOptions {
   /** The date "Not today" was tapped for, or undefined. */
   dismissedDate: string | undefined;
   actions: RetestCardActions;
+}
+
+/** What Today needs to show the warm-up rotation card; supplied by app.ts, which owns the dismissal. */
+export interface RotationOptions {
+  /** The week the card was dismissed for, or undefined. */
+  dismissedWeek: number | undefined;
+  onDismiss: () => void;
 }
 
 /** What Today needs to show the weekly check-in card; supplied by app.ts, which owns the saving and snoozing. */
@@ -81,6 +91,7 @@ export function renderTodayScreen(
   log: WorkoutLog = { sessions: {} },
   retest?: RetestOptions,
   checkIn?: CheckInOptions,
+  rotation?: RotationOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
@@ -103,6 +114,9 @@ export function renderTodayScreen(
             onSnooze: checkIn.onSnooze,
           }));
         }
+      }
+      if (rotation !== undefined && isFirstRotationDay(program, session) && rotation.dismissedWeek !== session.week) {
+        screen.append(renderRotationCard(describeSwaps(program), program.warmupRotation, rotation.onDismiss));
       }
       screen.append(...renderTrainingDay(program, session, date, log));
       break;
@@ -266,6 +280,14 @@ function renderBlockCard(program: Program, block: BlockView, position: number, d
 }
 
 /**
+ * "<original name> → <new name>" for each swap of the warm-up rotation, for
+ * the rotation card; falls back to the exercise id if the library lacks it.
+ */
+function describeSwaps(program: Program): string[] {
+  return program.warmupRotation.swaps.map((swap) => `${program.exercises[swap.out]?.name ?? swap.out} → ${swap.in}`);
+}
+
+/**
  * One exercise row. The name/details/dose are a single button that opens the
  * item's log screen (the details sheet is behind the ⓘ button there), with
  * logging progress ("2/6", "✓ 6/6") under the details once a set is logged, then the muted
@@ -280,7 +302,10 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
   openButton.type = "button";
 
   const text = element("span", "item-text");
-  text.append(element("span", "item-name", item.exercise.name));
+  text.append(element("span", "item-name", itemDisplayName(item)));
+  if (item.rotatedIn !== undefined) {
+    text.append(element("span", "item-rotated-in", `Rotated in for ${item.rotatedIn.originalName}`));
+  }
   const details = formatItemDetails(item);
   if (details.length > 0) {
     text.append(element("span", "item-details", details.join(" · ")));
