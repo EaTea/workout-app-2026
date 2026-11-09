@@ -79,23 +79,33 @@ export function weeklyChecksFor(history: FatigueHistory, startDate: string | nul
 }
 
 /**
- * Returns a new history with `check` saved under its date. Any stored check
- * with the same date, or whose date falls in the same program week as
- * `check` under the current start date, is replaced ("saving again in the
- * same week replaces it"). `savedProgramWeek` is filled in from the derived
- * week so older app versions can still read the stored file. Checks outside
- * the program are never touched by a save inside it.
+ * Returns a new history with `check` saved under its date. Only a stored
+ * check with the very same date is replaced. A check from another date in
+ * the same program week (possible after the start date moved) stays in
+ * storage, hidden behind the newest one that `weeklyChecksFor` already picks,
+ * so a save never permanently deletes something the athlete recorded.
+ *
+ * Every stored check's `savedProgramWeek` is re-derived from the CURRENT
+ * start date on each save (and dropped for checks outside the program), so
+ * older app versions that still file by that week, and the export, see the
+ * weeks as they are now rather than as they were when each check was saved.
+ * Called by the check-in and retest saves in app.ts, through
+ * `applyFatigueChange`.
  */
 export function recordCheck(history: FatigueHistory, check: FatigueCheck, startDate: string | null, lengthWeeks: number): FatigueHistory {
-  const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks);
-  const kept = history.checks.filter((existing) => {
-    if (existing.date === check.date) return false;
-    return programWeek === undefined || programWeekOfDate(existing.date, startDate, lengthWeeks) !== programWeek;
-  });
+  const otherDates = history.checks.filter((existing) => existing.date !== check.date);
 
-  const stored: FatigueCheck = { ...check };
-  if (programWeek !== undefined) stored.savedProgramWeek = programWeek;
-  return { checks: [...kept, stored] };
+  return {
+    checks: [...otherDates, check].map((stored) => withCurrentSavedWeek(stored, startDate, lengthWeeks)),
+  };
+}
+
+/** Copy of `check` whose `savedProgramWeek` is its week under `startDate`, or absent when the date is outside the program. */
+function withCurrentSavedWeek(check: FatigueCheck, startDate: string | null, lengthWeeks: number): FatigueCheck {
+  const { savedProgramWeek: _outOfDateWeek, ...rest } = check;
+  const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks);
+
+  return programWeek === undefined ? rest : { ...rest, savedProgramWeek: programWeek };
 }
 
 /** Returns the check dated in `week`, or undefined. Used to pre-fill and to know whether the card is still due. */

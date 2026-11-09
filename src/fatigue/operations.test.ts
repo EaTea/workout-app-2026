@@ -88,20 +88,41 @@ describe("recordCheck / checkForWeek", () => {
     expect(checkForWeek(view, 2)).toBeUndefined();
   });
 
-  it("replaces the check of the same week (even on another date) and leaves other weeks alone, without mutating the input", () => {
+  it("keeps an older check of the same derived week in storage; the newest one wins on read; the input is not mutated", () => {
     const original: FatigueHistory = { checks: [storedCheck(1, { maxPullUps: 12 }), storedCheck(2, { maxPullUps: 11 })] };
     const updated = recordCheck(original, { ...storedCheck(2, { maxPullUps: 9 }), date: "2026-11-12" }, START_DATE, 8);
 
-    expect(updated.checks).toHaveLength(2);
+    expect(updated.checks).toHaveLength(3);
     const view = weeklyChecksFor(updated, START_DATE, 8);
     expect(checkForWeek(view, 2)?.maxPullUps).toBe(9);
     expect(checkForWeek(view, 1)?.maxPullUps).toBe(12);
     expect(original.checks).toHaveLength(2);
     expect(original.checks[1]?.maxPullUps).toBe(11);
+    expect(updated.checks.find((entry) => entry.date === firstDayOfWeek(2))?.maxPullUps).toBe(11);
+  });
+
+  it("re-derives every stored check's week from the current start date, dropping it outside the program", () => {
+    const history: FatigueHistory = {
+      checks: [
+        { date: "2026-11-05", savedProgramWeek: 1, maxPullUps: 12, savedAt: new Date("2026-11-05T07:00:00.000Z") },
+        { date: "2026-11-10", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-10T07:00:00.000Z") },
+      ],
+    };
+
+    // The start moved from 2 Nov to 9 Nov: 5 Nov is now before the program, 10 Nov is week 1.
+    const updated = recordCheck(history, { date: "2026-11-17", maxPullUps: 9, savedAt: new Date("2026-11-17T07:00:00.000Z") }, "2026-11-09", 8);
+
+    expect(updated.checks.map((entry) => [entry.date, entry.savedProgramWeek])).toEqual([
+      ["2026-11-05", undefined],
+      ["2026-11-10", 1],
+      ["2026-11-17", 2],
+    ]);
+    expect("savedProgramWeek" in (updated.checks[0] as FatigueCheck)).toBe(false);
+    expect(history.checks[0]?.savedProgramWeek).toBe(1);
   });
 
   it("replaces a check with the very same date, and keeps checks dated before the start untouched", () => {
-    const early: FatigueCheck = { date: "2026-10-20", savedProgramWeek: 1, maxPullUps: 14, savedAt: new Date("2026-10-20T07:00:00.000Z") };
+    const early: FatigueCheck = { date: "2026-10-20", maxPullUps: 14, savedAt: new Date("2026-10-20T07:00:00.000Z") };
     const updated = recordCheck({ checks: [early, storedCheck(1, { maxPullUps: 12 })] }, storedCheck(1, { maxPullUps: 8 }), START_DATE, 8);
 
     expect(updated.checks).toHaveLength(2);

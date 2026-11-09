@@ -267,3 +267,30 @@ test("if another copy already saved this week's check, saving keeps it and the c
   expect(week3).toMatchObject({ broadJumpMetres: 2.5 });
   expect(week3.maxPullUps).toBeUndefined();
 });
+
+test("changing the start date in Settings moves the checks to their new weeks: the card and Best recent follow", async ({ page }) => {
+  // 2 Nov holds the best figures, so they only count while 2 Nov is inside the program.
+  await seedApp(page, [
+    { date: "2026-11-02", programWeek: 1, broadJumpMetres: 2.5, maxPullUps: 14, savedAt: "2026-11-02T07:00:00.000Z" },
+    { date: "2026-11-09", programWeek: 2, broadJumpMetres: 2.34, maxPullUps: 12, savedAt: "2026-11-09T07:00:00.000Z" },
+  ]);
+  await openOn(page, WEEK_3_DAY_1);
+  await expect(card(page).getByText("Week 3 · Weekly check-in")).toBeVisible();
+  await expect(card(page)).toContainText("Best recent: 2.50 m");
+  await expect(card(page)).toContainText("Best recent: 14");
+
+  // Start the program a week later: 16 Nov becomes week 2 and 2 Nov is before the start.
+  await page.goto(`/?date=${WEEK_3_DAY_1}#/settings`);
+  await page.getByLabel("Start date").fill("2026-11-09");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.locator(".toast")).toHaveText("Saved");
+
+  await expect(card(page).getByText("Week 2 · Weekly check-in")).toBeVisible();
+  await expect(card(page)).toContainText("Best recent: 2.34 m");
+  await expect(card(page)).toContainText("Best recent: 12");
+  await expect(card(page)).not.toContainText("2.50");
+
+  // The old checks are still stored (the one before the start is kept, not deleted).
+  const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem("explosive-endurance.fatigue") ?? "null"));
+  expect(stored.checks).toHaveLength(2);
+});
