@@ -7,28 +7,39 @@
  *   days[2].blocks[1].items[0].exercise: unknown exercise "foo"
  * because that message is what Ed sees if he breaks program.json while editing.
  *
- *   unknown ──parseProgram──▶ Program
+ * Errors versus warnings: anything that would make a session wrong (wrong
+ * type, missing field, unknown exercise id, progression gap) throws. A field
+ * the app doesn't recognise (a note Ed added, or a misspelt optional field) is
+ * recorded as a `ProgramWarning` and parsing carries on, ignoring that field.
+ * A misspelt optional field DOES change the session (the app falls back to
+ * its default), so a warning carries a "did you mean" suggestion when the
+ * name is close to a known one, and the banner shows it prominently.
+ *
+ *   unknown ──parseProgram──▶ { program: Program, warnings: ProgramWarning[] }
  *               ├─ parseExercise  (per library entry)
  *               ├─ parseDay ─ parseBlock ─ parseItem (resolves exercise ids)
  *               └─ progression / warmupRotation / fatigueCheck
+ *   every parse* function ──unknown key──▶ collectUnknownFields ──▶ warnings
+ *   every parse* function ──real problem─▶ fail() ──▶ throws
  */
 import type {
   Block,
   BlockItem,
   Day,
+  DayNumber,
   Evidence,
   Exercise,
   FatigueCheck,
   Format,
   ProgressionPhase,
   Program,
+  ProgramWarning,
   Range,
   Reps,
   SetPrescription,
-  Weekday,
   WarmupRotation,
 } from "./model";
-import { WEEKDAYS } from "./model";
+import { DAYS_PER_WEEK } from "./model";
 import type {
   BlockWire,
   DayWire,
@@ -48,6 +59,12 @@ import type {
 } from "./wire";
 
 type UnknownRecord = Record<string, unknown>;
+
+/** What `parseProgram` returns: the usable program plus any non-fatal notes about program.json. */
+export interface ParseResult {
+  program: Program;
+  warnings: ProgramWarning[];
+}
 
 /**
  * Compile-time tie between the allowed-key lists below and the wire types.
@@ -74,7 +91,7 @@ const ITEM_KEYS = allowedKeysOf<ItemWire>()([
   "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "load", "note", "tempo", "weeklyIncrease",
 ]);
 const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
-const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes"]);
+const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest"]);
 const WARMUP_ROTATION_KEYS = allowedKeysOf<WarmupRotationWire>()(["everyWeeks", "swaps", "alsoAvailable"]);
 const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in"]);
 const FATIGUE_CHECK_KEYS = allowedKeysOf<FatigueCheckWire>()(["frequency", "tests", "rule", "lowerBackRule"]);
@@ -111,12 +128,72 @@ function expectArray(value: unknown, path: string): unknown[] {
   return value;
 }
 
-/** Fails on any field not in `allowedKeys`, so a typo like "restSecs" is caught instead of silently ignored. */
-function rejectUnknownFields(record: UnknownRecord, allowedKeys: readonly string[], path: string): void {
-  for (const key of Object.keys(record)) {
-    if (!allowedKeys.includes(key)) {
-      fail(child(path, key), `unknown field (allowed: ${allowedKeys.join(", ")})`);
+/**
+ * Edit distance between two strings (the number of single-character inserts,
+ * deletes or substitutions to turn one into the other). Used only to spot
+ * misspelt field names; the names are short so the simple version is fine.
+ */
+function levenshteinDistance(first: string, second: string): number {
+  let previousRow = Array.from({ length: second.length + 1 }, (_, index) => index);
+
+  for (let row = 1; row <= first.length; row++) {
+    const currentRow = [row];
+    for (let column = 1; column <= second.length; column++) {
+      const substitutionCost = first[row - 1] === second[column - 1] ? 0 : 1;
+      currentRow[column] = Math.min(
+        previousRow[column]! + 1, // delete
+        currentRow[column - 1]! + 1, // insert
+        previousRow[column - 1]! + substitutionCost, // substitute
+      );
     }
+    previousRow = currentRow;
+  }
+
+  return previousRow[second.length]!;
+}
+
+/** How many edits away from a known field name still counts as "probably a typo". */
+const MAX_TYPO_DISTANCE = 2;
+
+/**
+ * Returns the known field `unknownKey` most likely meant (same letters in
+ * another case, or within `MAX_TYPO_DISTANCE` edits), or undefined if nothing
+ * is close. Used by `collectUnknownFields` to build the "did you mean" hint.
+ */
+function suggestKnownKey(unknownKey: string, allowedKeys: readonly string[]): string | undefined {
+  const caseInsensitiveMatch = allowedKeys.find((known) => known.toLowerCase() === unknownKey.toLowerCase());
+  if (caseInsensitiveMatch !== undefined) return caseInsensitiveMatch;
+
+  let closestKey: string | undefined;
+  let closestDistance = MAX_TYPO_DISTANCE + 1;
+  for (const known of allowedKeys) {
+    const distance = levenshteinDistance(unknownKey, known);
+    if (distance < closestDistance) {
+      closestKey = known;
+      closestDistance = distance;
+    }
+  }
+  return closestKey;
+}
+
+/**
+ * Records a warning for each field not in `allowedKeys` (e.g. a typo like
+ * "restSecs", or a note Ed added) and lets parsing continue; the field is
+ * simply never read. When the name is close to a known field the warning
+ * carries a `suggestion`, because a misspelt optional field silently changes
+ * the session. Called at the top of every record-parsing function with the
+ * shared `warnings` list that `parseProgram` returns to its caller.
+ */
+function collectUnknownFields(record: UnknownRecord, allowedKeys: readonly string[], path: string, warnings: ProgramWarning[]): void {
+  for (const key of Object.keys(record)) {
+    if (allowedKeys.includes(key)) continue;
+
+    const suggestion = suggestKnownKey(key, allowedKeys);
+    const message =
+      suggestion === undefined
+        ? `unknown field, ignored (known fields: ${allowedKeys.join(", ")})`
+        : `unknown field, ignored — did you mean ${JSON.stringify(suggestion)}?`;
+    warnings.push({ path: child(path, key), message, suggestion });
   }
 }
 
@@ -220,7 +297,7 @@ function parseReps(value: unknown, path: string): Reps {
 }
 
 /** Converts a `sets` value (count or per-set list) into one SetPrescription per set. */
-function parseSets(value: unknown, itemReps: Reps | undefined, itemLoad: string | undefined, path: string): SetPrescription[] {
+function parseSets(value: unknown, itemReps: Reps | undefined, itemLoad: string | undefined, path: string, warnings: ProgramWarning[]): SetPrescription[] {
   const isCount = (candidate: unknown): candidate is Exclude<SetsWire, SetWire[]> => typeof candidate === "number";
 
   if (isCount(value)) {
@@ -233,7 +310,7 @@ function parseSets(value: unknown, itemReps: Reps | undefined, itemLoad: string 
   return entries.map((entry, index) => {
     const setPath = `${path}[${index}]`;
     const record = expectRecord(entry, setPath);
-    rejectUnknownFields(record, SET_KEYS, setPath);
+    collectUnknownFields(record, SET_KEYS, setPath, warnings);
     return {
       reps: parseReps(record.reps ?? fail(child(setPath, "reps"), "field is missing"), child(setPath, "reps")),
       load: readOptionalString(record, "load", setPath) ?? itemLoad,
@@ -259,9 +336,9 @@ function parseFormat(record: UnknownRecord, path: string): Format {
 }
 
 /** Converts one entry of the exercise library. */
-function parseExercise(id: string, raw: unknown, path: string): Exercise {
+function parseExercise(id: string, raw: unknown, path: string, warnings: ProgramWarning[]): Exercise {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, EXERCISE_KEYS, path);
+  collectUnknownFields(record, EXERCISE_KEYS, path, warnings);
 
   return {
     id,
@@ -276,9 +353,9 @@ function parseExercise(id: string, raw: unknown, path: string): Exercise {
 }
 
 /** Converts one block item, looking its exercise id up in the library. */
-function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: string): BlockItem {
+function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): BlockItem {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, ITEM_KEYS, path);
+  collectUnknownFields(record, ITEM_KEYS, path, warnings);
 
   const exerciseId = readString(record, "exercise", path);
   const exercise = Object.hasOwn(exercises, exerciseId) ? exercises[exerciseId] : undefined;
@@ -298,7 +375,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
   }
 
   const load = readOptionalString(record, "load", path);
-  const sets = record.sets === undefined ? [] : parseSets(record.sets, reps, load, child(path, "sets"));
+  const sets = record.sets === undefined ? [] : parseSets(record.sets, reps, load, child(path, "sets"), warnings);
 
   return {
     exerciseId,
@@ -322,9 +399,9 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
 }
 
 /** Converts one block and all of its items. */
-function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: string): Block {
+function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): Block {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, BLOCK_KEYS, path);
+  collectUnknownFields(record, BLOCK_KEYS, path, warnings);
 
   const itemsPath = child(path, "items");
   const items = expectArray(record.items ?? fail(itemsPath, "field is missing"), itemsPath);
@@ -335,37 +412,49 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: str
     rounds: readOptionalRange(record, "rounds", path),
     minutes: readOptionalNumber(record, "minutes", path),
     restSecBetweenPairs: readOptionalRange(record, "restSecBetweenPairs", path),
-    items: items.map((item, index) => parseItem(item, exercises, `${itemsPath}[${index}]`)),
+    items: items.map((item, index) => parseItem(item, exercises, `${itemsPath}[${index}]`, warnings)),
   };
 }
 
-/** Checks a string is one of the seven weekday abbreviations. */
-function parseWeekday(value: string, path: string): Weekday {
-  const weekday = WEEKDAYS.find((candidate) => candidate === value);
-  if (weekday === undefined) fail(path, `expected one of ${WEEKDAYS.join(", ")} but found ${JSON.stringify(value)}`);
-  return weekday;
+/**
+ * Reads `record[key]` as a program day number: a whole number from 1 to 7.
+ * Used for `days[].day` and `program.restDay`; anything else (a string such
+ * as text, 0, 8, 2.5) is rejected with the offending value in the message.
+ */
+function readDayNumber(record: UnknownRecord, key: string, path: string): DayNumber {
+  const value = record[key];
+  if (value === undefined) fail(child(path, key), "field is missing");
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > DAYS_PER_WEEK) {
+    // A weekday name is the likely mistake (an old program.json used "Mon"), so explain the numbering.
+    const hint =
+      typeof value === "string"
+        ? `. Days are numbered 1–${DAYS_PER_WEEK} from your start date (Day 1 is the first session).`
+        : "";
+    fail(child(path, key), `expected a whole number from 1 to ${DAYS_PER_WEEK} but found ${describe(value)}${hint}`);
+  }
+  return value;
 }
 
 /** Converts one training day and its blocks. */
-function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: string): Day {
+function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): Day {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, DAY_KEYS, path);
+  collectUnknownFields(record, DAY_KEYS, path, warnings);
 
   const blocksPath = child(path, "blocks");
   const blocks = expectArray(record.blocks ?? fail(blocksPath, "field is missing"), blocksPath);
 
   return {
-    day: parseWeekday(readString(record, "day", path), child(path, "day")),
+    day: readDayNumber(record, "day", path),
     focus: readString(record, "focus", path),
     targetMinutes: readNumber(record, "targetMinutes", path),
-    blocks: blocks.map((block, index) => parseBlock(block, exercises, `${blocksPath}[${index}]`)),
+    blocks: blocks.map((block, index) => parseBlock(block, exercises, `${blocksPath}[${index}]`, warnings)),
   };
 }
 
 /** Converts one progression phase. */
-function parseProgressionPhase(raw: unknown, path: string): ProgressionPhase {
+function parseProgressionPhase(raw: unknown, path: string, warnings: ProgramWarning[]): ProgressionPhase {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, PROGRESSION_PHASE_KEYS, path);
+  collectUnknownFields(record, PROGRESSION_PHASE_KEYS, path, warnings);
 
   const weeksPath = child(path, "weeks");
   const weeks = expectArray(record.weeks ?? fail(weeksPath, "field is missing"), weeksPath).map((week, index) => {
@@ -373,19 +462,24 @@ function parseProgressionPhase(raw: unknown, path: string): ProgressionPhase {
     return week;
   });
 
-  return { weeks, phase: readString(record, "phase", path), changes: readStringList(record, "changes", path) };
+  return {
+    weeks,
+    phase: readString(record, "phase", path),
+    changes: readStringList(record, "changes", path),
+    retest: readFlag(record, "retest", path),
+  };
 }
 
 /** Converts the warm-up rotation section. */
-function parseWarmupRotation(raw: unknown, path: string): WarmupRotation {
+function parseWarmupRotation(raw: unknown, path: string, warnings: ProgramWarning[]): WarmupRotation {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, WARMUP_ROTATION_KEYS, path);
+  collectUnknownFields(record, WARMUP_ROTATION_KEYS, path, warnings);
 
   const swapsPath = child(path, "swaps");
   const swaps = expectArray(record.swaps ?? fail(swapsPath, "field is missing"), swapsPath).map((swap, index) => {
     const swapPath = `${swapsPath}[${index}]`;
     const swapRecord = expectRecord(swap, swapPath);
-    rejectUnknownFields(swapRecord, WARMUP_SWAP_KEYS, swapPath);
+    collectUnknownFields(swapRecord, WARMUP_SWAP_KEYS, swapPath, warnings);
     return { out: readString(swapRecord, "out", swapPath), in: readString(swapRecord, "in", swapPath) };
   });
 
@@ -393,9 +487,9 @@ function parseWarmupRotation(raw: unknown, path: string): WarmupRotation {
 }
 
 /** Converts the fatigue-check section. */
-function parseFatigueCheck(raw: unknown, path: string): FatigueCheck {
+function parseFatigueCheck(raw: unknown, path: string, warnings: ProgramWarning[]): FatigueCheck {
   const record = expectRecord(raw, path);
-  rejectUnknownFields(record, FATIGUE_CHECK_KEYS, path);
+  collectUnknownFields(record, FATIGUE_CHECK_KEYS, path, warnings);
 
   return {
     frequency: readString(record, "frequency", path),
@@ -443,33 +537,35 @@ function requireSection(root: UnknownRecord, key: string): unknown {
  * Validates parsed program.json contents and builds the internal `Program`.
  *
  * Called by `loadProgram` at startup and directly by tests. Throws an Error
- * with a path-style message (see the module comment) on the first problem.
+ * with a path-style message (see the module comment) on the first real
+ * problem; unknown fields don't throw but come back in `warnings`.
  * Exercises are parsed first so day items can resolve their exercise ids.
  */
-export function parseProgram(json: unknown): Program {
+export function parseProgram(json: unknown): ParseResult {
+  const warnings: ProgramWarning[] = [];
   const root = expectRecord(json, "program.json");
-  rejectUnknownFields(root, ROOT_KEYS, "");
+  collectUnknownFields(root, ROOT_KEYS, "", warnings);
 
   const info = expectRecord(requireSection(root, "program"), "program");
-  rejectUnknownFields(info, PROGRAM_INFO_KEYS, "program");
+  collectUnknownFields(info, PROGRAM_INFO_KEYS, "program", warnings);
 
   const exerciseRecords = expectRecord(requireSection(root, "exercises"), "exercises");
   const exercises: Record<string, Exercise> = {};
   for (const [id, rawExercise] of Object.entries(exerciseRecords)) {
-    exercises[id] = parseExercise(id, rawExercise, `exercises.${id}`);
+    exercises[id] = parseExercise(id, rawExercise, `exercises.${id}`, warnings);
   }
 
-  const days: Partial<Record<Weekday, Day>> = {};
+  const days: Partial<Record<DayNumber, Day>> = {};
   expectArray(requireSection(root, "days"), "days").forEach((rawDay, index) => {
-    const day = parseDay(rawDay, exercises, `days[${index}]`);
-    if (days[day.day] !== undefined) fail(`days[${index}].day`, `${day.day} appears more than once`);
+    const day = parseDay(rawDay, exercises, `days[${index}]`, warnings);
+    if (days[day.day] !== undefined) fail(`days[${index}].day`, `day ${day.day} appears more than once`);
     days[day.day] = day;
   });
   if (Object.keys(days).length === 0) fail("days", "the program needs at least one training day");
 
-  const restDay = parseWeekday(readString(info, "restDay", "program"), "program.restDay");
+  const restDay = readDayNumber(info, "restDay", "program");
   if (days[restDay] !== undefined) {
-    fail("program.restDay", `${restDay} is the rest day but days has an entry for it`);
+    fail("program.restDay", `day ${restDay} is the rest day but days has an entry for it`);
   }
 
   const coreProgressionRecord = expectRecord(requireSection(root, "coreProgressions"), "coreProgressions");
@@ -480,11 +576,11 @@ export function parseProgram(json: unknown): Program {
 
   const lengthWeeks = readPositiveInteger(info, "lengthWeeks", "program");
   const progression = expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
-    parseProgressionPhase(phase, `progression[${index}]`),
+    parseProgressionPhase(phase, `progression[${index}]`, warnings),
   );
   checkProgressionCoversEveryWeek(progression, lengthWeeks);
 
-  return {
+  const program: Program = {
     name: readString(info, "name", "program"),
     goal: readString(info, "goal", "program"),
     lengthWeeks,
@@ -495,7 +591,9 @@ export function parseProgram(json: unknown): Program {
     days,
     progression,
     coreProgressions,
-    warmupRotation: parseWarmupRotation(requireSection(root, "warmupRotation"), "warmupRotation"),
-    fatigueCheck: parseFatigueCheck(requireSection(root, "fatigueCheck"), "fatigueCheck"),
+    warmupRotation: parseWarmupRotation(requireSection(root, "warmupRotation"), "warmupRotation", warnings),
+    fatigueCheck: parseFatigueCheck(requireSection(root, "fatigueCheck"), "fatigueCheck", warnings),
   };
+
+  return { program, warnings };
 }

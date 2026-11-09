@@ -130,6 +130,83 @@ body {
   font-size: 14px;
 }
 
+/* Warning banner (unknown program.json fields): amber, dismissible */
+.warning-banner {
+  border: 1px solid #7a5b12;
+  background: #2a2312;
+}
+
+.warning-banner-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.warning-banner-text {
+  flex: 1;
+  margin: 0;
+  color: #f5c451;
+  line-height: 1.4;
+}
+
+.warning-dismiss {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #7a5b12;
+  border-radius: 10px;
+  background: transparent;
+  color: #f5c451;
+  font: inherit;
+}
+
+.warning-details {
+  margin-top: 8px;
+  color: #b9c0cb;
+}
+
+.warning-details summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none; /* replaced by the explicit marker below */
+  cursor: pointer;
+}
+
+.warning-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.warning-details summary::before {
+  content: "\25B8"; /* right-pointing triangle: collapsed */
+}
+
+.warning-details[open] summary::before {
+  content: "\25BE"; /* down-pointing triangle: expanded */
+}
+
+.warning-paths li {
+  margin-bottom: 8px;
+}
+
+.warning-path,
+.warning-message {
+  display: block;
+}
+
+.warning-message {
+  color: #f5c451;
+  font-family: system-ui, sans-serif;
+}
+
+.warning-paths {
+  margin: 0;
+  padding-left: 20px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 /* Bottom navigation: fixed, big tap targets, clear of the home indicator */
 .bottom-nav {
   position: fixed;
@@ -468,4 +545,15 @@ body {
   min-height: 48px;
   color: var(--accent-text);
   font-size: 16px;
+}
+
+/* Quiet secondary link under a primary button (e.g. "Or set a different date in Settings"). */
+.text-link {
+  display: block;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 14px 0;
+  margin-top: 14px;
+  text-align: center;
+  color: var(--accent);
 }

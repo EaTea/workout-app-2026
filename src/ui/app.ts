@@ -1,4 +1,4 @@
-import type { Program } from "../program/model";
+import type { Program, ProgramWarning } from "../program/model";
 import { toDayNumber, todayLocalDate } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
 import { saveSettings } from "../settings/storage";
@@ -6,6 +6,7 @@ import { element } from "./dom";
 import { navigateTo, routeFromHash, type Route } from "./router";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
+import { renderWarningBanner } from "./warningBanner";
 
 /**
  * App shell: owns the in-memory settings, picks the screen for the current
@@ -16,7 +17,8 @@ import { renderTodayScreen } from "./today";
  *                           └─ <nav>  Today | History (disabled) | Settings
  *
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
- * tests, and by Ed to preview another day).
+ * tests, and by Ed to preview another day). The preview affects Today and
+ * "Start today" only; max save dates always use the real local date.
  */
 
 /** How long the "Saved" confirmation stays on screen. */
@@ -39,6 +41,9 @@ export function resolveToday(search: string, now: Date = new Date()): string {
   return todayLocalDate(now);
 }
 
+/** Inline message on the welcome card when "Start today" cannot be saved. */
+export const START_TODAY_SAVE_FAILED_MESSAGE = "Couldn't save on this device, so the start date won't be remembered.";
+
 /** Inline message shown when settings cannot be written to this device. */
 export const SAVE_FAILED_MESSAGE = "Couldn't save on this device";
 
@@ -59,9 +64,25 @@ export function persistSettings(newSettings: TrainingSettings, storage: Storage 
 /**
  * Shows the app inside `root`. Re-renders on every hash change; settings
  * edits go through `saveSettings`, update the in-memory copy and return to Today.
+ * `warnings` (unknown program.json fields) appear as a dismissible banner on
+ * Today; dismissing hides it until the page is reloaded.
  */
-export function startApp(root: HTMLElement, program: Program, initialSettings: TrainingSettings): void {
+export function startApp(
+  root: HTMLElement,
+  program: Program,
+  initialSettings: TrainingSettings,
+  warnings: ProgramWarning[] = [],
+): void {
   let settings = initialSettings;
+  let warningsDismissed = false;
+  /** Set when "Start today" could not be saved; shown on the welcome card. */
+  let startTodayFailureMessage: string | undefined;
+
+  /** Dismiss handler for the warning banner: remembers it for this page load and re-renders. */
+  function handleDismissWarnings(): void {
+    warningsDismissed = true;
+    render();
+  }
 
   /**
    * Save handler passed to the Settings screen. Persists the settings; on
@@ -81,6 +102,26 @@ export function startApp(root: HTMLElement, program: Program, initialSettings: T
   }
 
   /**
+   * Handler for the first-run "Start today" button: saves `today` (which
+   * honours the `?date=` override) as the start date, keeping any maxes, and
+   * re-renders Today. A storage failure is shown inline on the welcome card
+   * (the nav stays, and Ed can still pick a date in Settings).
+   */
+  function handleStartToday(): void {
+    const today = resolveToday(window.location.search);
+    const failureMessage = persistSettings({ ...settings, startDate: today });
+    if (failureMessage !== null) {
+      startTodayFailureMessage = START_TODAY_SAVE_FAILED_MESSAGE;
+      render();
+      return;
+    }
+
+    startTodayFailureMessage = undefined;
+    settings = { ...settings, startDate: today };
+    render();
+  }
+
+  /**
    * Draws the screen for the current hash route plus the nav bar into `root`.
    * Runs once at start and again on every `hashchange` (see `startApp`).
    */
@@ -88,10 +129,13 @@ export function startApp(root: HTMLElement, program: Program, initialSettings: T
     try {
       const route = routeFromHash(window.location.hash);
       const main = element("main", "app-main");
+      if (route === "today" && warnings.length > 0 && !warningsDismissed) {
+        main.append(renderWarningBanner(warnings, handleDismissWarnings));
+      }
       main.append(
         route === "settings"
-          ? renderSettingsScreen(program, settings, handleSave)
-          : renderTodayScreen(program, settings, resolveToday(window.location.search)),
+          ? renderSettingsScreen(program, settings, todayLocalDate(), handleSave)
+          : renderTodayScreen(program, settings, resolveToday(window.location.search), handleStartToday, startTodayFailureMessage),
       );
       root.replaceChildren(main, renderNavigationBar(route));
     } catch (error) {

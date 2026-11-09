@@ -3,7 +3,7 @@
     "name": "Explosive Endurance Program",
     "goal": "Build explosiveness and muscular endurance, not hypertrophy",
     "lengthWeeks": 8,
-    "restDay": "Sun",
+    "restDay": 7,
     "sessionOrder": ["warmup", "explosive", "mainStrength", "miniDose", "core", "finisher"],
     "rules": [
       "Explosive work always comes before strength work. Never superset explosive and strength exercises.",
@@ -111,7 +111,7 @@
 
   "days": [
     {
-      "day": "Mon",
+      "day": 1,
       "focus": "Upper: pull",
       "targetMinutes": 50,
       "blocks": [
@@ -139,7 +139,7 @@
       ]
     },
     {
-      "day": "Tue",
+      "day": 2,
       "focus": "Lower: knee",
       "targetMinutes": 30,
       "blocks": [
@@ -159,7 +159,7 @@
       ]
     },
     {
-      "day": "Wed",
+      "day": 3,
       "focus": "Upper: push",
       "targetMinutes": 32,
       "blocks": [
@@ -180,7 +180,7 @@
       ]
     },
     {
-      "day": "Thu",
+      "day": 4,
       "focus": "Lower: hinge",
       "targetMinutes": 30,
       "blocks": [
@@ -200,7 +200,7 @@
       ]
     },
     {
-      "day": "Fri",
+      "day": 5,
       "focus": "Upper: overhead",
       "targetMinutes": 50,
       "blocks": [
@@ -219,7 +219,7 @@
         ]},
         { "type": "core", "format": "superset", "restSecBetweenPairs": 45, "items": [
           { "exercise": "hanging_leg_raise", "sets": 4, "reps": "8-12", "note": "No swinging, 2-3s lowering" },
-          { "exercise": "back_extension", "sets": 3, "reps": 20, "load": "bodyweight", "note": "Slow; stays bodyweight because Thursday loads the lower back" },
+          { "exercise": "back_extension", "sets": 3, "reps": 20, "load": "bodyweight", "note": "Slow; stays bodyweight because Day 4 loads the lower back" },
           { "exercise": "hollow_hold", "sets": 2, "durationSec": 30, "optional": true }
         ]},
         { "type": "finisher", "items": [
@@ -228,7 +228,7 @@
       ]
     },
     {
-      "day": "Sat",
+      "day": 6,
       "focus": "Lower: ankle",
       "targetMinutes": 30,
       "blocks": [
@@ -261,11 +261,11 @@
       "Cut core-block rest by 15s",
       "Lengthen heavy bag rounds by 5-10s"
     ]},
-    { "weeks": [8], "phase": "Deload + retest", "changes": ["Halve all sets", "Retest max pull-ups and dips", "Reset EMOM targets from the new maxes"] }
+    { "weeks": [8], "phase": "Deload + retest", "retest": true, "changes": ["Halve all sets", "Retest max pull-ups and dips", "Reset EMOM targets from the new maxes"] }
   ],
 
   "coreProgressions": {
-    "back_extension": "Build to 20 reps, then add load on Mondays only",
+    "back_extension": "Build to 20 reps, then add load on Day 1 only",
     "hanging_leg_raise": "Move through the progression list; add 1 rep per set each week"
   },
 
@@ -283,6 +283,6 @@
     "frequency": "weekly",
     "tests": ["Best broad jump", "Max pull-ups"],
     "rule": "If either drops more than ~10% and stays down, or you feel flat for several days, add a rest day or start the deload early",
-    "lowerBackRule": "If the lower back feels tight on Friday, cut back extensions to 2 sets"
+    "lowerBackRule": "If the lower back feels tight on Day 5, cut back extensions to 2 sets"
   }
 }

@@ -6,11 +6,16 @@
  * to handle "number or tuple" or "number or array" unions themselves.
  */
 
-/** Days of the week, as spelled in program.json. */
-export type Weekday = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+/**
+ * A program day number, 1 to 7. The app counts days from the start date
+ * (start date = day 1 of week 1), so day numbers are the only way sessions
+ * are named. Validity (a whole number 1-7) is checked by the parser; the type
+ * is a plain number so it can key `Program.days`.
+ */
+export type DayNumber = number;
 
-/** Every weekday, in calendar order starting on Monday. */
-export const WEEKDAYS: readonly Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+/** The number of days in one program week (days 1-6 train, the rest day is day 7 in the shipped file). */
+export const DAYS_PER_WEEK = 7;
 
 /** An inclusive numeric range. A single value `n` is represented as min === max === n. */
 export interface Range {
@@ -35,7 +40,7 @@ export type Reps =
 /**
  * One set. Sets are always stored as a list of these, one per set, rather than
  * a count plus a template: `sets: 3, reps: "10-12"` becomes three identical
- * entries and Saturday's calf raise maps one-to-one. That keeps deload
+ * entries and the calf raise maps one-to-one. That keeps deload
  * halving a single `slice(0, Math.ceil(n / 2))` with no special cases for
  * per-set prescriptions.
  */
@@ -108,7 +113,8 @@ export interface Block {
 
 /** One training day. Blocks are in the order written in the file. */
 export interface Day {
-  day: Weekday;
+  /** This day's number within the program week (1-7). */
+  day: DayNumber;
   focus: string;
   targetMinutes: number;
   blocks: Block[];
@@ -119,6 +125,8 @@ export interface ProgressionPhase {
   weeks: number[];
   phase: string;
   changes: string[];
+  /** True in a retest week (week 8): EMOM targets use the current saved max, no weekly increase and no hold. Defaults to false. */
+  retest: boolean;
 }
 
 /** Warm-up rotation reminder data. */
@@ -141,14 +149,26 @@ export interface Program {
   name: string;
   goal: string;
   lengthWeeks: number;
-  restDay: Weekday;
+  restDay: DayNumber;
   sessionOrder: string[];
   rules: string[];
   exercises: Record<string, Exercise>;
-  /** Training days keyed by weekday; the rest day has no entry. */
-  days: Partial<Record<Weekday, Day>>;
+  /** Training days keyed by day number (1-7); the rest day has no entry. */
+  days: Partial<Record<DayNumber, Day>>;
   progression: ProgressionPhase[];
   coreProgressions: Record<string, string>;
   warmupRotation: WarmupRotation;
   fatigueCheck: FatigueCheck;
+}
+
+/**
+ * A non-fatal problem found while parsing program.json (currently: a field the
+ * app doesn't recognise). `path` is the same style as parse errors, e.g.
+ * `exercises.pull_up.notes`. Shown to Ed in the Today screen's warning banner.
+ */
+export interface ProgramWarning {
+  path: string;
+  message: string;
+  /** The known field this one is probably a misspelling of, e.g. "weeklyIncrease" for "weeklyIncreese". */
+  suggestion?: string;
 }

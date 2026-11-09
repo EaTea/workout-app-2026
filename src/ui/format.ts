@@ -17,7 +17,6 @@ const MULTIPLY = "×";
 const DOT = " · ";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Friendly names for the block type ids used in program.json. One place to edit. */
 const BLOCK_LABELS: Record<string, string> = {
@@ -58,16 +57,24 @@ export function formatRepTarget(target: RepTarget): string {
   }
 }
 
-/** "Mon 9 Nov" from "2026-11-09". Used in the Today header and "Program starts ..." line. */
+/** "9 Nov" from "2026-11-09". Used in the Today header and "Program starts ..." line. */
 export function formatShortDate(calendarDate: string): string {
-  const [year = 0, month = 1, day = 1] = calendarDate.split("-").map(Number);
-  const weekday = WEEKDAY_NAMES[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
-  return `${weekday} ${day} ${MONTH_NAMES[month - 1]}`;
+  const [, month = 1, day = 1] = calendarDate.split("-").map(Number);
+  return `${day} ${MONTH_NAMES[month - 1]}`;
 }
 
-/** Small header line, e.g. "Mon 9 Nov · Week 2 of 8". */
-export function formatSessionKicker(calendarDate: string, week: number, lengthWeeks: number): string {
-  return `${formatShortDate(calendarDate)}${DOT}Week ${week} of ${lengthWeeks}`;
+/**
+ * Small header line, e.g. "9 Nov · Week 2 of 8 · Day 1": the real
+ * calendar date, then the program week (out of `lengthWeeks`) and day number
+ * (counted from the start date). Used by the training header and the rest-day card.
+ */
+export function formatSessionKicker(calendarDate: string, week: number, lengthWeeks: number, dayNumber: number): string {
+  return `${formatShortDate(calendarDate)}${DOT}${formatWeekAndDay(week, lengthWeeks, dayNumber)}`;
+}
+
+/** "Week 1 of 8 · Day 7". Only used by `formatSessionKicker`. */
+function formatWeekAndDay(week: number, lengthWeeks: number, dayNumber: number): string {
+  return `Week ${week} of ${lengthWeeks}${DOT}Day ${dayNumber}`;
 }
 
 /** Friendly label for a block type id; unknown ids fall back to the raw id. */
@@ -193,9 +200,19 @@ function firstBasis(item: ItemView): MaxBasis | undefined {
 }
 
 /**
+ * True when the item is a retest-week EMOM still holding last week's reps
+ * because no new max was saved this week, so Today can offer an "Update max"
+ * link to Settings.
+ */
+export function isAwaitingRetest(item: ItemView): boolean {
+  return firstBasis(item)?.awaitingRetest === true;
+}
+
+/**
  * Explains a percent-of-max target: "40% of max 12 · +1 this week",
- * "40–50% of max 15". The increase part is left out when nothing was added
- * this week (week 1 of a phase, or a deload).
+ * "40% of max 12 · +2, held for deload", "40% of max 12 · +2 held until you
+ * save a retested max", "40% of your retested max 15", "40–50% of max 15". The increase
+ * part is left out when nothing was added (week 1 of a phase).
  */
 export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined {
   if (!basis) return undefined;
@@ -207,7 +224,14 @@ export function formatMaxBasis(basis: MaxBasis | undefined): string | undefined 
       : `${toPercent(basis.percentMin)}${EN_DASH}${toPercent(basis.percentMax)}%`;
 
   const parts = [`${percent} of max ${basis.max}`];
-  if (basis.weeklyIncrease > 0) parts.push(`+${basis.weeklyIncrease} this week`);
+  if (basis.awaitingRetest) {
+    // Retest week with no max saved yet: last week's reps are held.
+    parts.push(basis.weeklyIncrease > 0 ? `+${basis.weeklyIncrease} held until you save a retested max` : "held until you save a retested max");
+  } else if (basis.usesRetestedMax) {
+    parts[0] = `${percent} of your retested max ${basis.max}`;
+  } else if (basis.weeklyIncrease > 0) {
+    parts.push(basis.heldForDeload ? `+${basis.weeklyIncrease}, held for deload` : `+${basis.weeklyIncrease} this week`);
+  }
   return parts.join(DOT);
 }
 

@@ -12,22 +12,34 @@ import { toDayNumber } from "../program/calendar";
 /** localStorage key holding the JSON-encoded `SettingsWire`. */
 export const SETTINGS_STORAGE_KEY = "explosive-endurance.settings";
 
-/** The stored shape. Bump `version` if the shape ever changes incompatibly. */
-export interface SettingsWire {
+/** Format v1: start date and maxes only. Still readable; never written any more. */
+export interface SettingsWireV1 {
   version: 1;
   startDate: string | null;
   maxReps: Record<string, number>;
 }
 
+/** Format v2 (current): v1 plus the date each max was saved. */
+export interface SettingsWireV2 {
+  version: 2;
+  startDate: string | null;
+  maxReps: Record<string, number>;
+  maxSavedOn: Record<string, string>;
+}
+
+/** Every stored shape we can read. Bump `version` if the shape ever changes incompatibly. */
+export type SettingsWire = SettingsWireV1 | SettingsWireV2;
+
 /** What a fresh install (or unreadable stored data) looks like. */
 function defaultSettings(): TrainingSettings {
-  return { startDate: null, maxReps: {} };
+  return { startDate: null, maxReps: {}, maxSavedOn: {} };
 }
 
 /**
  * Converts untrusted stored data into internal settings. Tolerant by design:
  * anything missing, malformed or from an unknown version yields defaults for
  * that part rather than an error, so a corrupt entry never bricks the app.
+ * Reads v1 (no saved dates, so `maxSavedOn` is empty) and v2.
  */
 export function settingsFromWire(wire: unknown): TrainingSettings {
   if (typeof wire !== "object" || wire === null) {
@@ -35,22 +47,27 @@ export function settingsFromWire(wire: unknown): TrainingSettings {
   }
 
   const record = wire as Record<string, unknown>;
-  if (record.version !== 1) {
+  if (record.version !== 1 && record.version !== 2) {
     return defaultSettings();
   }
 
+  const maxReps = validMaxReps(record.maxReps);
+
   return {
     startDate: validStartDate(record.startDate),
-    maxReps: validMaxReps(record.maxReps),
+    maxReps,
+    // v1 has no dates field, so it reads as "no max has a known save date".
+    maxSavedOn: record.version === 2 ? validMaxSavedOn(record.maxSavedOn, maxReps) : {},
   };
 }
 
-/** Converts internal settings to the stored shape. */
-export function settingsToWire(settings: TrainingSettings): SettingsWire {
+/** Converts internal settings to the stored shape. Always writes the current version (v2). */
+export function settingsToWire(settings: TrainingSettings): SettingsWireV2 {
   return {
-    version: 1,
+    version: 2,
     startDate: settings.startDate,
     maxReps: { ...settings.maxReps },
+    maxSavedOn: { ...settings.maxSavedOn },
   };
 }
 
@@ -77,6 +94,24 @@ function validMaxReps(value: unknown): Record<string, number> {
   for (const [exerciseId, reps] of Object.entries(value)) {
     if (typeof reps === "number" && Number.isInteger(reps) && reps > 0) {
       result[exerciseId] = reps;
+    }
+  }
+  return result;
+}
+
+/**
+ * Keeps only entries that are real "YYYY-MM-DD" dates for an exercise that
+ * actually has a max (a date without a max is meaningless).
+ */
+function validMaxSavedOn(value: unknown, maxReps: Record<string, number>): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return result;
+  }
+
+  for (const [exerciseId, date] of Object.entries(value)) {
+    if (Object.hasOwn(maxReps, exerciseId) && validStartDate(date) !== null) {
+      result[exerciseId] = date as string;
     }
   }
   return result;

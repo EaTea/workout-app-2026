@@ -14,7 +14,7 @@ export type NumberOrRangeWire = number | [number, number];
 /** Reps are a number (6), or free text ("12-15", "easy, ~50% effort", "8 each direction"). */
 export type RepsWire = number | string;
 
-/** One entry of a per-set `sets` array (Saturday's calf raise). */
+/** One entry of a per-set `sets` array (the calf raise). */
 export interface SetWire {
   reps: RepsWire;
   load?: string;
@@ -73,7 +73,8 @@ export interface BlockWire {
 
 /** One training day. */
 export interface DayWire {
-  day: string;
+  /** Program day number, 1-6 in the shipped file (7 is the rest day). */
+  day: number;
   focus: string;
   targetMinutes: number;
   blocks: BlockWire[];
@@ -84,6 +85,8 @@ export interface ProgressionPhaseWire {
   weeks: number[];
   phase: string;
   changes: string[];
+  /** True in a retest week: EMOM targets use the current max with no weekly increase or hold. */
+  retest?: boolean;
 }
 
 /** The `program` object: name, length and session-wide rules. */
@@ -91,7 +94,7 @@ export interface ProgramInfoWire {
   name: string;
   goal: string;
   lengthWeeks: number;
-  restDay: string;
+  restDay: number;
   sessionOrder: string[];
   rules: string[];
 }

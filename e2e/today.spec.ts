@@ -12,11 +12,11 @@ function row(page: Page, name: string) {
   return page.locator(".item-row", { hasText: name });
 }
 
-test("week 2 Monday shows header, six blocks in order and computed doses", async ({ page }) => {
+test("week 2 day 1 shows header, six blocks in order and computed doses", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await expect(page.getByText("Mon 9 Nov · Week 2 of 8")).toBeVisible();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
   await expect(page.getByText("~50 min · 6 blocks")).toBeVisible();
 
@@ -47,12 +47,11 @@ test("deload week shows the note and halved doses", async ({ page }) => {
   await page.goto("/?date=2026-11-23");
 
   await expect(page.getByText("Deload week: sets halved")).toBeVisible();
-  await expect(page.getByText("Week 4 of 8")).toBeVisible();
+  await expect(page.getByText("Week 4 of 8 · Day 1")).toBeVisible();
   await expect(row(page, "Med ball slams").locator(".item-dose-main")).toHaveText("3 × 6");
-  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("4 / min");
+  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("6 / min");
   await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("5 min");
-  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12");
-  await expect(row(page, "Pull-ups").locator(".item-details")).not.toContainText("+1");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12 · +2, held for deload");
 
   await page.locator(".phase-summary").click();
   await expect(page.getByRole("listitem").filter({ hasText: "Keep intensity" })).toBeVisible();
@@ -63,16 +62,40 @@ test("the rest day shows a rest card", async ({ page }) => {
   await page.goto("/?date=2026-11-08");
 
   await expect(page.getByRole("heading", { name: "Rest day" })).toBeVisible();
+  await expect(page.getByText("8 Nov · Week 1 of 8 · Day 7")).toBeVisible();
   await expect(page.locator(".block-card")).toHaveCount(0);
 });
 
 test("before the start date and after the program show friendly cards", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-10-30");
-  await expect(page.getByRole("heading", { name: "Program starts Mon 2 Nov" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Program starts 2 Nov" })).toBeVisible();
 
   await page.goto("/?date=2027-03-01");
   await expect(page.getByRole("heading", { name: "Program complete" })).toBeVisible();
+});
+
+test("a mid-week start date makes the start date day 1 and day 7 the rest day", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "explosive-endurance.settings",
+      JSON.stringify({ version: 1, startDate: "2026-11-04", maxReps: {} }),
+    );
+  });
+
+  await page.goto("/?date=2026-11-03");
+  await expect(page.getByRole("heading", { name: "Program starts 4 Nov" })).toBeVisible();
+
+  await page.goto("/?date=2026-11-04");
+  await expect(page.getByText("4 Nov · Week 1 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+
+  await page.goto("/?date=2026-11-10");
+  await expect(page.getByRole("heading", { name: "Rest day" })).toBeVisible();
+  await expect(page.getByText("10 Nov · Week 1 of 8 · Day 7")).toBeVisible();
+
+  await page.goto("/?date=2026-11-11");
+  await expect(page.getByText("11 Nov · Week 2 of 8 · Day 1")).toBeVisible();
 });
 
 test("tapping an exercise opens the details sheet; Escape closes it", async ({ page }) => {
@@ -183,4 +206,96 @@ test("a render that throws after a navigation shows the error card, not a blank 
   });
 
   await expect(page.getByRole("alert")).toContainText("boom");
+});
+
+test("an unknown program.json field shows a dismissible warning but the session still loads", async ({ page }) => {
+  await seedSettings(page);
+  await page.route("**/program.json", async (route) => {
+    const response = await route.fetch();
+    const program = await response.json();
+    program.exercises.pull_up.notes = "x";
+    await route.fulfill({ response, json: program });
+  });
+  await page.goto("/?date=2026-11-09");
+
+  // The session renders as normal...
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("5 / min");
+
+  // ...with a banner naming the ignored field.
+  const banner = page.locator(".warning-banner");
+  await expect(banner).toContainText("program.json has 1 field the app doesn't recognise, so it was ignored");
+  await expect(banner.getByText("exercises.pull_up.notes")).toBeHidden();
+  await banner.getByText("Show which fields").click();
+  await expect(banner.getByText("exercises.pull_up.notes")).toBeVisible();
+
+  // Dismissing hides it, and it stays hidden after navigating away and back.
+  await banner.getByRole("button", { name: "Dismiss" }).click();
+  await expect(banner).toHaveCount(0);
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.locator(".warning-banner")).toHaveCount(0);
+});
+
+test("a typo in a known field shows a did-you-mean hint without expanding anything", async ({ page }) => {
+  await seedSettings(page);
+  await page.route("**/program.json", async (route) => {
+    const response = await route.fetch();
+    const program = await response.json();
+    program.days[0].blocks[1].items[0].weeklyIncreese = "+1 rep";
+    await route.fulfill({ response, json: program });
+  });
+  await page.goto("/?date=2026-11-09");
+
+  const banner = page.locator(".warning-banner");
+  await expect(banner).toContainText("Some look like typos, so parts of today's session may be missing.");
+  await expect(banner.getByText('unknown field, ignored \u2014 did you mean "weeklyIncrease"?')).toBeVisible();
+
+  // Dismissing moves focus to the main heading rather than dropping it.
+  await banner.getByRole("button", { name: "Dismiss" }).click();
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeFocused();
+});
+
+test("no warning banner when program.json has no unknown fields", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-11-09");
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+  await expect(page.locator(".warning-banner")).toHaveCount(0);
+});
+
+test("week 8 retest day holds week 7's reps until a max is saved, with an Update max link", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-12-21");
+
+  await expect(page.getByText("Week 8 of 8 · Day 1")).toBeVisible();
+  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("6 / min");
+  await expect(row(page, "Pull-ups").locator(".item-dose-sub")).toHaveText("5 min");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of max 12 · +2 held until you save a retested max");
+
+  await row(page, "Pull-ups").getByRole("link", { name: "Update max" }).click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.getByLabel("Max reps: Pull-ups")).toBeVisible();
+});
+
+test("saving a retested max in week 8 switches the EMOM to it and removes the Update max link", async ({ page }) => {
+  await seedSettings(page);
+  // The real clock (not ?date=) decides the save date, so fix it to retest day.
+  await page.clock.setFixedTime(new Date("2026-12-21T09:00:00"));
+  await page.goto("/#/settings");
+
+  await page.getByLabel("Max reps: Pull-ups").fill("15");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page).toHaveURL(/#\/today$/);
+
+  await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("6 / min");
+  await expect(row(page, "Pull-ups").locator(".item-details")).toHaveText("40% of your retested max 15");
+  await expect(row(page, "Pull-ups").getByRole("link", { name: "Update max" })).toHaveCount(0);
+});
+
+test("week 8 mini-dose rows have no retest wording or Update max link", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-12-21");
+
+  await expect(row(page, "Dips").locator(".item-details")).not.toContainText("retest");
+  await expect(row(page, "Dips").getByRole("link", { name: "Update max" })).toHaveCount(0);
 });

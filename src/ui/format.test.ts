@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatSessionKicker, formatSetBreakdown, formatShortDate,
+  formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
 } from "./format";
 
 /** Builds an ItemView with sensible defaults; tests override what they care about. */
@@ -24,8 +24,8 @@ function sets(count: number, target?: RepTarget, load?: string): SetView[] {
 
 describe("dates and titles", () => {
   it("formats short dates and the kicker", () => {
-    expect(formatShortDate("2026-11-09")).toBe("Mon 9 Nov");
-    expect(formatSessionKicker("2026-11-09", 2, 8)).toBe("Mon 9 Nov · Week 2 of 8");
+    expect(formatShortDate("2026-11-09")).toBe("9 Nov");
+    expect(formatSessionKicker("2026-11-09", 2, 8, 1)).toBe("9 Nov · Week 2 of 8 · Day 1");
   });
 
   it("maps block labels and titles", () => {
@@ -88,15 +88,29 @@ describe("formatItemDetails", () => {
     expect(formatItemDetails(item({ load: "hold a plate", weeklyIncrease: "+1 rep per minute" }))).toEqual(["Hold a plate"]);
   });
 
-  it("explains percent-of-max targets, omitting a zero increase", () => {
-    const week2 = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 1 } } as RepTarget;
+  it("explains percent-of-max targets, omitting a zero increase and labelling a held one", () => {
+    const week2 = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 1, heldForDeload: false, usesRetestedMax: false } } as RepTarget;
     expect(formatItemDetails(item({ format: "emom", minutes: 9, target: week2 }))).toEqual(["40% of max 12 · +1 this week"]);
 
-    const range = { kind: "range", min: 6, max: 7, basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0 } } as RepTarget;
+    const range = { kind: "range", min: 6, max: 7, basis: { percentMin: 0.4, percentMax: 0.5, max: 15, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: false } } as RepTarget;
     expect(formatItemDetails(item({ format: "emom", minutes: 9, target: range }))).toEqual(["40–50% of max 15"]);
 
-    const deload = { kind: "fixed", count: 4, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 0 } } as RepTarget;
-    expect(formatItemDetails(item({ sets: sets(2, deload) }))).toEqual(["40% of max 12"]);
+    const deload = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 2, heldForDeload: true } } as RepTarget;
+    expect(formatItemDetails(item({ format: "emom", minutes: 5, target: deload }))).toEqual(["40% of max 12 · +2, held for deload"]);
+  });
+
+  it("says a retest-week target is held until a retested max is saved, and offers the update link", () => {
+    const awaiting = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 12, weeklyIncrease: 2, heldForDeload: true, usesRetestedMax: false, awaitingRetest: true } } as RepTarget;
+    const awaitingItem = item({ format: "emom", minutes: 5, target: awaiting });
+    expect(formatItemDetails(awaitingItem)).toEqual(["40% of max 12 · +2 held until you save a retested max"]);
+    expect(isAwaitingRetest(awaitingItem)).toBe(true);
+  });
+
+  it("says a retest-week target uses the retested max, with no update link", () => {
+    const retest = { kind: "fixed", count: 6, basis: { percentMin: 0.4, percentMax: 0.4, max: 15, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false } } as RepTarget;
+    const retestItem = item({ format: "emom", minutes: 5, target: retest });
+    expect(formatItemDetails(retestItem)).toEqual(["40% of your retested max 15"]);
+    expect(isAwaitingRetest(retestItem)).toBe(false);
   });
 
   it("builds a one-line prescription summary", () => {

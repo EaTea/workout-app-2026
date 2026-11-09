@@ -1,6 +1,10 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **plan agreed and merged (PR #2). PR 1 in progress.**
+Status: **PR 1 merged (#3). PR 1b in progress; PR 2 (timers) next.**
+
+The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
+7-day cycle that starts on the day Ed starts, and nothing in the app,
+`program.json` or these docs names a weekday.
 
 ## 1. What I understand the request to be
 
@@ -69,28 +73,53 @@ internal types.
 These are my readings of the brief and `program.json`, agreed with Ed as
 the starting point. Revisit them if the app shows they're wrong.
 
-1. **Current week and day.** Week 1 starts on the Monday of the week that
-   contains Ed's start date. The day is the calendar weekday. Sunday, and any
-   date before the start or after week 8, shows a rest/"not started"/"program
-   complete" card.
+1. **Current week and day.** Day 1 of week 1 is the day Ed starts the
+   program (a "Start today" button sets it; Settings can correct it).
+   `program.json` numbers its sessions `"day": 1` to `6`, and day 7
+   (`"restDay": 7`) is the rest day. Days since start = d; week =
+   floor(d / 7) + 1 and day = (d mod 7) + 1. The calendar weekday never
+   matters, and the app never shows one: dates appear as "9 Nov". Dates
+   before the start show "not started", and dates after week 8 show
+   "program complete".
 2. **Deload (weeks 4 and 8).** Halve the sets and **round up**, so 5 sets
    become 3, 3 become 2, 2 become 1. EMOM minutes are halved the same way
    (9 → 5, 8 → 4) and heavy-bag rounds use the low end, halved (4 → 2).
    Warm-ups are not halved.
 3. **Max-rep targets.** `floor(max × repsPctOfMax)`, minimum 1. Where
-   `repsPctOfMax` is a range (Wednesday dips, 40–50%), show the range, e.g.
-   "4–5 reps". The EMOM's "+1 rep per minute each week" adds `week − 1` in
+   `repsPctOfMax` is a range (Day 3 dips, 40–50%), show the range, e.g.
+   "6–7 reps". The EMOM's "+1 rep per minute each week" adds `week − 1` in
    weeks 1–3, and `week − 5` in weeks 5–7 (the second block restarts from the
    base after the deload). Mini-dose reps don't increase weekly.
+   - A plain deload week (week 4) keeps the previous week's EMOM reps
+     (week 3's) with the minutes halved, because the program says "keep
+     intensity".
+   - A retest week (week 8, marked `"retest": true` in `progression`)
+     holds the previous week's EMOM reps (week 7's), like a deload, until
+     Ed saves a new max for that exercise during the retest week. From then
+     on, that exercise's EMOM uses the new max with no weekly increase and
+     no hold: floor(max × %). "Saved during the retest week" means the max
+     was saved on or after the week's Day 1. Settings records today's real
+     date (never a `?date=` preview) on every max field Ed edits and saves,
+     even if he re-types the same number, so "retested, same result"
+     counts. Until PR 4's retest prompt exists, Ed saves the new max in
+     Settings.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
 5. **Week 8 retest** shows a prompt on the week 8 session to enter new max
-   pull-ups and dips; saving them updates the settings.
+   pull-ups and dips; saving them updates the settings (with today's date),
+   and week 8's EMOM targets switch from the held week 7 reps to the new
+   maxes straight away (rule 3).
 6. **Weekly fatigue check** prompts once per program week (first session of
    the week) for broad jump and max pull-ups. "Best recent result" means the
    best of the previous 3 checks. A drop of more than 10% on either shows the
    `fatigueCheck.rule` text as a warning.
+7. **Editing `program.json`.** Wrong types, missing fields, unknown
+   exercise ids and gaps in the progression block the app with an error
+   card, because the session would be wrong. Unknown fields (a typo or a
+   note Ed adds) only show a warning banner listing their paths, and the
+   session still loads. A name close to a known field gets a "did you
+   mean" hint.
 
 ## 5. Milestones and PR merge points
 
@@ -101,35 +130,37 @@ higher-reasoning reviewer before I open it (CLAUDE.md section 10).
 
 ### PR 0 — this plan *(design)* — merged as PR #2
 
-### PR 1 — Skeleton and "Today's workout" *(behavior change)*
-1. [x] Skeleton: Vite + TypeScript, `index.html` with a placeholder, Vitest and
-   Playwright wired up with one trivial test each, `README.md` with
-   install/build/run/test commands, and a GitHub Actions workflow that
-   deploys `main` to GitHub Pages so it can be opened on a phone. Verify it
-   builds and runs. Playwright uses the iPhone 13 viewport on Chromium
-   (the only browser installed here); CI runs unit tests and the build but
-   not Playwright yet.
-2. [x] Program wire and internal types, `parseProgram`, unit tests against the
-   real `program.json`. The parser also rejects unknown fields, so a typo
-   in `program.json` (e.g. `restSecs`) shows an error instead of being
-   silently ignored; a genuinely new field needs a small parser change.
-3. [x] Schedule logic: week/day/phase, deload halving, max-rep targets, EMOM
-   weekly increase. Unit tests built from worked examples (below).
-4. [x] Settings screen: start date, max pull-ups, max dips (stored locally).
-5. [x] Today screen: header (week N of 8, phase, day focus), blocks in session
-   order as cards, tap an exercise to open cues/alternative/evidence. Phase
-   changes from `progression` shown in a collapsible strip. Rest-day card.
-   E2E test: set a start date and maxes, see the right session.
-- **Merge point:** Ed can open the mockup on his phone and see the correct
-  session for any date.
+### PR 1 — Skeleton and "Today's workout" *(behavior change)* — merged as PR #3
+Follow-ups not yet done: Today doesn't refresh after midnight if left open
+(revisit with timers in PR 2).
 
-Pending owner decisions raised by the PR 1 review (they may change rules
-in section 4 before or after PR 1 merges):
-- Week 1 should start on the Monday on or after the start date, so a
-  Sunday start doesn't lose a week.
-- Deload EMOM reps: keep week 3's reps in week 4, or drop back as now.
-- Unknown fields in `program.json`: warn and still load, instead of
-  blocking the app.
+### PR 1b — Rule changes from the PR 1 review *(behavior change)* — PR #4
+Agreed with Ed after PR 1 merged; rules 1, 3 and 7 in section 4.
+1. [x] Count program days from the start date. "Start today" button.
+2. [x] Deload weeks keep the previous week's EMOM reps.
+3. [x] Unknown `program.json` fields warn and still load, with "did you
+   mean" hints for likely typos.
+4. [x] No weekdays anywhere: `program.json` numbers days 1–7
+   (`"day": 1`, `"restDay": 7`) and its notes refer to days by number
+   (e.g. "Day 4"); the app shows dates without weekday names; tests, README,
+   mockups and the project-files copies of `program.json` and the program
+   doc are updated to match.
+5. [x] Mark week 8 `"retest": true` in `program.json`. Only EMOMs follow
+   the retest rule; mini-doses keep their usual numbers.
+6. [x] Week 8 EMOMs hold week 7's reps until a new max is saved during
+   week 8. Settings records the date each max was saved (settings format
+   v2; v1 data still loads, with no dates, so it counts as not retested).
+- **Merge point:** the rules work as agreed, with tests. Steps 4–6 get
+  their own challenger review before PR #4 is updated.
+
+Follow-ups from the step 6 review, for PR 4's retest prompt:
+- The "held" reps are week 7's formula applied to the max saved now, not
+  a record of what week 7 actually showed; a max raised late in week 7
+  makes the held figure higher. Revisit once logging (PR 3) stores what
+  was shown.
+- Moving the start date much earlier can make an old max date fall in
+  week 8 and look like a retest. Consider counting only dates inside
+  week 8, or clearing dates when the start date changes.
 
 ### PR 2 — Timers *(behavior change)*
 1. Shared full-screen timer view: huge digits, round counter, start/pause/
@@ -162,23 +193,31 @@ in section 4 before or after PR 1 merges):
 
 ## 6. Worked examples (used as unit-test fixtures)
 
-Start date Mon 2 Nov 2026, max pull-ups 12, max dips 15.
+Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 
 | Date | Week / day | Phase | Example figures |
 | --- | --- | --- | --- |
-| Mon 2 Nov | W1 Mon | Base | Pull-up EMOM 9 min × floor(12 × 0.40) = 4 reps; dip mini-dose 2 × floor(15 × 0.50) = 7 |
-| Mon 16 Nov | W3 Mon | Base | Pull-up EMOM 4 + 2 = 6 reps/min |
-| Wed 4 Nov | W1 Wed | Base | Dip EMOM floor(15×0.40)–floor(15×0.50) = 6–7 reps; plyo push-ups 5 × 5 |
-| Mon 23 Nov | W4 Mon | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 4; dip mini-dose 1 × 7 |
-| Sun 8 Nov | — | Rest | Rest-day card |
-| Sat 26 Dec | W8 Sat | Deload + retest | Skater bounds 3 × 6 per side (retest prompt comes in PR 4) |
+| 2 Nov | W1 D1 | Base | Pull-up EMOM 9 min × floor(12 × 0.40) = 4 reps; dip mini-dose 2 × floor(15 × 0.50) = 7 |
+| 16 Nov | W3 D1 | Base | Pull-up EMOM 4 + 2 = 6 reps/min |
+| 4 Nov | W1 D3 | Base | Dip EMOM floor(15×0.40)–floor(15×0.50) = 6–7 reps; plyo push-ups 5 × 5 |
+| 23 Nov | W4 D1 | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 6 (week 3's reps); dip mini-dose 1 × 7 |
+| 8 Nov | W1 D7 | Rest | Rest-day card |
+| 21 Dec | W8 D1 | Deload + retest | Pull-up EMOM 5 min × 6 (week 7's 4 + 2, held: no max saved in week 8); after saving a retested max of 15 on 21 Dec, 5 min × 6 (floor(15 × 0.40), no hold) |
+| 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (retest prompt comes in PR 4) |
+
+A second start date shows the cycle doesn't depend on the weekday: start
+4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
+W2 D1, and 3 Nov is "not started".
 
 ## 7. Open questions
 
-1. **Mockup feedback.** Anything in the screens below to change before PR 1.
+None right now.
 
 Resolved:
 
+- **Weekdays:** dropped everywhere in favour of Day 1–7 (rule 1).
+- **Week 8 EMOMs:** hold week 7's reps until a new max is saved during
+  week 8, then use it with no hold (rule 3).
 - **Assumptions in section 4:** agreed as a starting point.
 - **Mockup fidelity:** "mockup" means static images, not a clickable app.
   They're in `docs/mockups/` (section 8).
@@ -188,8 +227,8 @@ Resolved:
 ## 8. Mockups
 
 Static screens in `docs/mockups/`, drawn at iPhone size from the worked
-example above (start Mon 2 Nov, max 12 pull-ups and 15 dips, viewed on
-Mon 9 Nov, week 2). `0-overview.png` shows all six side by side. They're
+example above (start 2 Nov, max 12 pull-ups and 15 dips, viewed on
+9 Nov, week 2 day 1). `0-overview.png` shows all six side by side. They're
 design references for PR 1–4, not app code: edit `mockups.html` and run
 `node docs/mockups/render.cjs` to refresh the PNGs.
 
