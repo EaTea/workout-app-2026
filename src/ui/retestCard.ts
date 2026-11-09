@@ -1,7 +1,10 @@
 import type { Exercise } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
 import { element } from "./dom";
-import { PREVIEW_SAVING_OFF_MESSAGE } from "./checkin";
+import type { WeeklyFatigueHistory } from "../fatigue/model";
+import { checkForWeek } from "../fatigue/operations";
+import { PREVIEW_SAVING_OFF_MESSAGE, formatMetres } from "./checkin";
+import { renderBroadJumpField } from "./checkinCard";
 import { renderStepper } from "./setEditor";
 
 /**
@@ -12,6 +15,8 @@ import { renderStepper } from "./setEditor";
  *   │ Test your max <names from program.json>, then save...    │
  *   │ Pull-ups   [ − 12 + ] reps   [Save max]                  │
  *   │ Dips       [ − 15 + ] reps   [Save max]                  │
+ *   │ BEST BROAD JUMP (optional)                      [Clear]  │
+ *   │ [ − — + ] m                              [Save jump]     │
  *   │ [Not today]                                              │
  *   └──────────────────────────────────────────────────────────┘
  *
@@ -19,6 +24,14 @@ import { renderStepper } from "./setEditor";
  * exercise at a time, and a save is immediate and re-renders Today, so the
  * saved exercise's row drops out while the other stays. app.ts owns the
  * saving; this file only builds the DOM.
+ *
+ * The broad jump field is optional and uses the weekly check-in's stepper,
+ * blank and Clear rules (`renderBroadJumpField`), with its own "Save jump"
+ * button: it records week 8's check (merged with the retested pull-ups). It
+ * does NOT hold the card while maxes remain. Once both maxes are saved the
+ * card stays with only the jump block and a "Skip jump" button (no max rows),
+ * until a jump is saved, "Skip jump" hides it for the rest of the week, or
+ * "Not today" hides it for the date.
  *
  * In a `?date=` preview (`canSave` false) every Save is disabled, a line says
  * saving is off, and "Not today" is not offered: a preview changes nothing
@@ -45,6 +58,31 @@ export interface RetestCardActions {
    * re-render after saving one exercise does not reset the other's stepper.
    */
   drafts: Record<string, number | undefined>;
+
+  /** The broad jump stepper's value (undefined = blank); lives in app.ts like `drafts`. */
+  jumpDraft: { metres?: number };
+
+  /**
+   * Saves the broad jump as week 8's check (merged with the retested
+   * pull-ups, stamped with the real date). Returns null on success or a
+   * message to show inline.
+   */
+  onSaveBroadJump: (metres: number) => string | null;
+
+  /**
+   * "Skip jump" tapped (only offered once both maxes are saved): hides the
+   * card for the rest of the retest week. Never called when `canSave` is false.
+   */
+  onSkipJump: () => void;
+}
+
+/** What the card needs to draw the broad jump field; supplied by today.ts. */
+export interface RetestJumpContext {
+  /** The program week of the shown date (the retest week), so "Best recent" only counts earlier weeks. */
+  week: number;
+
+  /** The saved checks by derived week: source of "Best recent" and of the "Saved this week" line. */
+  history: WeeklyFatigueHistory;
 }
 
 /**
@@ -74,6 +112,15 @@ export function focusRemainingRetestStepper(): boolean {
 }
 
 /**
+ * Moves focus to the broad jump stepper's last button, if the card is on
+ * screen. Called by app.ts after Save jump re-renders Today (the pressed
+ * button is gone with the old DOM).
+ */
+export function focusRetestJumpStepper(): void {
+  document.querySelector<HTMLElement>(".retest-jump .log-stepper-button:last-of-type")?.focus();
+}
+
+/**
  * Builds the card for the exercises still to retest. Each stepper starts at
  * the draft value if there is one, else the current saved max (undefined
  * shows "—" and the first + gives 1).
@@ -82,16 +129,30 @@ export function renderRetestCard(
   exercises: Exercise[],
   settings: TrainingSettings,
   actions: RetestCardActions,
+  jump: RetestJumpContext,
 ): HTMLElement {
   const card = element("section", "card retest-card");
   card.setAttribute("aria-label", "Retest week");
   card.append(
     element("h2", "card-title", "Retest week"),
-    element("p", "retest-intro", `Test your max ${joinExerciseNames(exercises.map((exercise) => exercise.name))}, then save them. This week's EMOMs switch to the new numbers.`),
+    element("p", "retest-intro", exercises.length === 0
+      ? "Your maxes are saved. Add your broad jump, or skip it."
+      : `Test your max ${joinExerciseNames(exercises.map((exercise) => exercise.name))}, then save them. This week's EMOMs switch to the new numbers.`),
   );
 
   for (const exercise of exercises) {
     card.append(renderRetestRow(exercise, settings, actions));
+  }
+
+  card.append(renderRetestJump(jump, actions));
+
+  if (exercises.length === 0) {
+    // Jump-only card: disabled in a preview like the other saves.
+    const skipButton = element("button", "retest-dismiss retest-skip-jump", "Skip jump");
+    skipButton.type = "button";
+    skipButton.disabled = !actions.canSave;
+    skipButton.addEventListener("click", actions.onSkipJump);
+    card.append(skipButton);
   }
 
   if (actions.canSave) {
@@ -141,4 +202,51 @@ function renderRetestRow(exercise: Exercise, settings: TrainingSettings, actions
 
   row.append(element("div", "retest-name", exercise.name), stepperRow, error);
   return row;
+}
+
+/**
+ * The optional broad jump block: the shared field (stepper, Clear, Best
+ * recent), a "Saved this week" line when week 8's check already has a jump,
+ * and a "Save jump" button that is disabled while the field is blank or in a
+ * preview. Blank is never saved as a number.
+ */
+function renderRetestJump(jump: RetestJumpContext, actions: RetestCardActions): HTMLElement {
+  const block = element("div", "retest-jump");
+  const { jumpDraft } = actions;
+
+  const error = element("p", "field-error");
+  error.setAttribute("role", "alert");
+
+  const saveButton = element("button", "retest-save", "Save jump");
+  saveButton.type = "button";
+  saveButton.setAttribute("aria-label", "Save broad jump");
+
+  /** Enables Save jump only for a real value outside a preview. */
+  function refreshSaveButton(): void {
+    saveButton.disabled = !actions.canSave || jumpDraft.metres === undefined;
+    error.textContent = "";
+  }
+
+  saveButton.addEventListener("click", () => {
+    if (jumpDraft.metres === undefined) return;
+    error.textContent = actions.onSaveBroadJump(jumpDraft.metres) ?? "";
+  });
+
+  const field = renderBroadJumpField(
+    jump.history,
+    jump.week,
+    () => jumpDraft.metres,
+    (value) => { jumpDraft.metres = value; refreshSaveButton(); },
+  );
+  field.querySelector(".checkin-field-title")?.append(" (optional)");
+
+  block.append(field);
+  const savedJump = checkForWeek(jump.history, jump.week)?.broadJumpMetres;
+  if (savedJump !== undefined) {
+    block.append(element("p", "checkin-best retest-jump-saved", `Saved this week: ${formatMetres(savedJump)} m`));
+  }
+  block.append(saveButton, error);
+
+  refreshSaveButton();
+  return block;
 }

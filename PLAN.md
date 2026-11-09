@@ -444,10 +444,12 @@ changed start date or a late max doesn't quietly give wrong numbers.
    older versions, but ignored on read). A restarted program then can't
    misfile old checks, and checks dated before the start date are kept
    but don't count as "best recent". Unit tests with a changed start date.
-2. [ ] **Broad jump in the week 8 retest.** The retest card gets an
+2. [x] **Broad jump in the week 8 retest.** The retest card gets an
    optional broad jump field (same stepper and blank rules as the weekly
    check-in), saved as week 8's check together with the retested
-   pull-ups, so week 8 has a full check like the other weeks.
+   pull-ups, so week 8 has a full check like the other weeks. Once both
+   maxes are saved, the card stays with only the jump until it is saved
+   or "Skip jump" is tapped (remembered for that retest week).
 3. [x] **Held reps from what week 7 showed.** Settings keep a short
    history of saved maxes (date and value) instead of only the latest,
    behind a settings wire v3 with a mapping from v2 (the current max

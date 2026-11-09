@@ -4,12 +4,12 @@ import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
 import { element } from "./dom";
-import { retestExercisesToSave } from "./retest";
+import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
-import { checkInWeekToAsk, type CheckInDraft } from "./checkin";
+import { checkInWeekToAsk, trainingWeekOf, type CheckInDraft } from "./checkin";
 import { weeklyChecksFor } from "../fatigue/operations";
 import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
@@ -44,6 +44,12 @@ export interface RetestOptions {
   /** The date "Not today" was tapped for, or undefined. */
   dismissedDate: string | undefined;
   actions: RetestCardActions;
+
+  /** Saved fatigue checks: the retest card's broad jump field shows "Best recent" and what is already saved for the week. */
+  history: FatigueHistory;
+
+  /** First date of the retest week whose jump was skipped with "Skip jump", or undefined. */
+  jumpSkippedWeekStart: string | undefined;
 }
 
 /** What Today needs to show the warm-up rotation card; supplied by app.ts, which owns the dismissal. */
@@ -104,8 +110,13 @@ export function renderTodayScreen(
     case "training":
       if (retest !== undefined) {
         const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
-        if (exercisesToRetest.length > 0) {
-          screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions));
+        const jumpOnly = exercisesToRetest.length === 0
+          && shouldOfferJumpOnly(program, settings, date, retest.dismissedDate, retest.history, retest.jumpSkippedWeekStart);
+        if (exercisesToRetest.length > 0 || jumpOnly) {
+          screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, {
+            week: trainingWeekOf(program, settings, date) ?? 0,
+            history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks),
+          }));
         }
       }
       if (checkIn !== undefined) {

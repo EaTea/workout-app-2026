@@ -2,6 +2,10 @@ import type { Exercise, Program } from "../program/model";
 import { retestWeekStartDate, wasMaxSavedDuringWeek } from "../program/schedule";
 import { toDayNumber } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
+import type { FatigueCheck, WeeklyFatigueCheck } from "../fatigue/model";
+import type { FatigueHistory } from "../fatigue/model";
+import { checkForWeek, weeklyChecksFor } from "../fatigue/operations";
+import { trainingWeekOf } from "./checkin";
 import { stampMaxSavedDates, updateMaxHistory } from "./settings";
 
 /**
@@ -42,6 +46,35 @@ export function retestExercisesToSave(
   );
 }
 
+/** localStorage key holding the first date ("YYYY-MM-DD") of the retest week whose broad jump was skipped with "Skip jump". */
+export const RETEST_JUMP_SKIPPED_STORAGE_KEY = "explosive-endurance.retest-jump-skipped";
+
+/**
+ * True when the retest card should still show on `date` for the broad jump
+ * alone: both maxes are saved (the caller found no exercises to retest), it is
+ * a retest-week training day, "Not today" was not tapped for `date`, no broad
+ * jump is saved in that week's check, and "Skip jump" was not tapped for this
+ * retest week (`skippedWeekStart` is that week's Day 1). This keeps the jump
+ * from being lost just because the maxes were saved first. Called by
+ * `renderTodayScreen` when `retestExercisesToSave` is empty.
+ */
+export function shouldOfferJumpOnly(
+  program: Program,
+  settings: TrainingSettings,
+  date: string,
+  dismissedDate: string | undefined,
+  history: FatigueHistory,
+  skippedWeekStart: string | undefined,
+): boolean {
+  const weekStartDate = retestWeekStartDate(program, settings, date);
+  const week = trainingWeekOf(program, settings, date);
+  if (weekStartDate === undefined || week === undefined || dismissedDate === date) return false;
+  if (skippedWeekStart === weekStartDate) return false;
+
+  const savedCheck = checkForWeek(weeklyChecksFor(history, settings.startDate, program.lengthWeeks), week);
+  return savedCheck?.broadJumpMetres === undefined;
+}
+
 /**
  * The settings after saving ONE retested max: `freshSettings` (just re-read
  * from storage by app.ts, so another open copy's changes survive) with only
@@ -54,6 +87,28 @@ export function applyRetestMax(freshSettings: TrainingSettings, exerciseId: stri
   const maxSavedOn = stampMaxSavedDates(freshSettings, maxReps, new Set([exerciseId]), today);
   const maxHistory = updateMaxHistory(freshSettings, maxReps, new Set([exerciseId]), today);
   return { ...freshSettings, maxReps, maxSavedOn, maxHistory };
+}
+
+/**
+ * The week 8 check after a retest save: `existing` (the week's check, if any)
+ * with only the fields in `values` replaced, so saving the pull-up retest and
+ * the broad jump in either order never wipes the other. Keeps the existing
+ * check's date (a later save in the week merges into the same check), else
+ * files it under `today`. A field that is absent from `values` is kept as it
+ * was. Pure; called by `recordRetestCheck` in app.ts.
+ */
+export function mergeRetestCheck(
+  existing: WeeklyFatigueCheck | undefined,
+  values: { broadJumpMetres?: number; maxPullUps?: number },
+  today: string,
+  savedAt: Date,
+): FatigueCheck {
+  return {
+    date: existing?.date ?? today,
+    broadJumpMetres: values.broadJumpMetres ?? existing?.broadJumpMetres,
+    maxPullUps: values.maxPullUps ?? existing?.maxPullUps,
+    savedAt,
+  };
 }
 
 /**
@@ -84,4 +139,14 @@ export function retestDismissedFromWire(wire: RetestDismissedWire | null): strin
 /** Converts the dismissed date to its stored text. Called by `startApp` when "Not today" is tapped. */
 export function retestDismissedToWire(dismissedDate: string): RetestDismissedWire {
   return dismissedDate;
+}
+
+/** Converts stored text (untrusted, possibly null or corrupt) into the skipped retest week's first date, or undefined. Called once at startup. */
+export function retestJumpSkippedFromWire(wire: RetestDismissedWire | null): string | undefined {
+  return retestDismissedFromWire(wire);
+}
+
+/** Converts the skipped retest week's first date to its stored text. Called when "Skip jump" is tapped. */
+export function retestJumpSkippedToWire(weekStartDate: string): RetestDismissedWire {
+  return retestDismissedToWire(weekStartDate);
 }

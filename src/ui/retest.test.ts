@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseProgram } from "../program/parse";
 import type { TrainingSettings } from "../settings/model";
-import { applyRetestMax, retestDismissedFromWire, retestDismissedToWire, retestExercisesToSave } from "./retest";
+import { applyRetestMax, mergeRetestCheck, retestDismissedFromWire, retestDismissedToWire, retestExercisesToSave, retestJumpSkippedFromWire, retestJumpSkippedToWire, shouldOfferJumpOnly } from "./retest";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 
@@ -94,5 +94,68 @@ describe("applyRetestMax", () => {
 
   it("stamps the date even when the number is unchanged", () => {
     expect(applyRetestMax(settings, "dip", 15, "2026-12-21").maxSavedOn).toEqual({ dip: "2026-12-21" });
+  });
+});
+
+describe("mergeRetestCheck", () => {
+  const savedAt = new Date("2026-12-22T08:00:00Z");
+  const jumpOnlyWeek8Check = { date: "2026-12-21", programWeek: 8, broadJumpMetres: 2.4, savedAt: new Date("2026-12-21T07:00:00Z") };
+  const pullUpsOnlyWeek8Check = { date: "2026-12-21", programWeek: 8, maxPullUps: 14, savedAt: new Date("2026-12-21T07:00:00Z") };
+
+  it("files a first save under today's date with only the saved field", () => {
+    const check = mergeRetestCheck(undefined, { broadJumpMetres: 2.31 }, "2026-12-21", savedAt);
+    expect(check).toEqual({ date: "2026-12-21", broadJumpMetres: 2.31, maxPullUps: undefined, savedAt });
+  });
+
+  it("adds retested pull-ups to a week 8 check that already has a jump, keeping its date", () => {
+    const check = mergeRetestCheck(jumpOnlyWeek8Check, { maxPullUps: 15 }, "2026-12-22", savedAt);
+    expect(check).toMatchObject({ date: "2026-12-21", broadJumpMetres: 2.4, maxPullUps: 15, savedAt });
+  });
+
+  it("adds a jump to a week 8 check that already has pull-ups, never wiping them", () => {
+    const check = mergeRetestCheck(pullUpsOnlyWeek8Check, { broadJumpMetres: 2.5 }, "2026-12-22", savedAt);
+    expect(check).toMatchObject({ date: "2026-12-21", broadJumpMetres: 2.5, maxPullUps: 14 });
+  });
+
+  it("replaces a field saved again with a new value", () => {
+    const check = mergeRetestCheck(jumpOnlyWeek8Check, { broadJumpMetres: 2.6 }, "2026-12-22", savedAt);
+    expect(check.broadJumpMetres).toBe(2.6);
+  });
+});
+
+describe("shouldOfferJumpOnly", () => {
+  const noChecks = { checks: [] };
+  const week8JumpCheck = { checks: [{ date: "2026-12-22", broadJumpMetres: 2.4, savedAt: new Date("2026-12-22T07:00:00Z") }] };
+  const week8PullUpsCheck = { checks: [{ date: "2026-12-22", maxPullUps: 14, savedAt: new Date("2026-12-22T07:00:00Z") }] };
+
+  it("offers the jump on a week 8 training day when no jump is saved", () => {
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-23", undefined, noChecks, undefined)).toBe(true);
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-23", undefined, week8PullUpsCheck, undefined)).toBe(true);
+  });
+
+  it("stops once a jump is saved anywhere in that week", () => {
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-23", undefined, week8JumpCheck, undefined)).toBe(false);
+  });
+
+  it("stops after Skip jump for that retest week, but not for another week's skip", () => {
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-23", undefined, noChecks, "2026-12-21")).toBe(false);
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-23", undefined, noChecks, "2026-12-14")).toBe(true);
+  });
+
+  it("stops after Not today on that date only", () => {
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-23", "2026-12-23", noChecks, undefined)).toBe(false);
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-23", "2026-12-22", noChecks, undefined)).toBe(true);
+  });
+
+  it("never offers outside a retest-week training day", () => {
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-14", undefined, noChecks, undefined)).toBe(false);
+  });
+});
+
+describe("retest jump skipped mapping", () => {
+  it("round-trips a week start date and tolerates absent or corrupt text", () => {
+    expect(retestJumpSkippedFromWire(retestJumpSkippedToWire("2026-12-21"))).toBe("2026-12-21");
+    expect(retestJumpSkippedFromWire(null)).toBeUndefined();
+    expect(retestJumpSkippedFromWire("soon")).toBeUndefined();
   });
 });
