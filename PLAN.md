@@ -126,11 +126,13 @@ the starting point. Revisit them if the app shows they're wrong.
    minutes, or its heavy-bag rounds. Each logged set records reps (none for
    bag rounds and timed holds, where the set is just ticked), an optional
    load in kg, and an optional note. Reps and load are pre-filled from the
-   same exercise's previous set this session, else from last time's same
-   set, else from the plan's target. Where the plan prescribes a different
-   target for this set than for the previous one (the calf raise's heavy
-   then moderate sets), reps come from the plan (or last time's same set)
-   instead, and the load is not carried over. Loads are kg only for now.
+   same exercise's previous set this session. Otherwise reps come from the
+   plan's target (it already carries this week's increase, so last week's
+   reps would undo the progression), or from last time's same set when the
+   plan has no number; load comes from last time's same set. Where the plan
+   prescribes a different target for this set than for the previous one
+   (the calf raise's heavy then moderate sets), the previous set is ignored
+   and the same plan-then-last-time order applies. Loads are kg only for now.
    - The log is stored by program date (the same date Today uses, so a
      `?date=` preview logs to the previewed day) in local storage, with its
      own wire type and version, separate from settings.
