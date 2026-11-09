@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 and PR 1b merged (#3, #4). PR 2 (timers) in review.**
+Status: **PR 1 and PR 1b merged (#3, #4). PR 2 (timers) open for review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -171,7 +171,7 @@ Follow-ups from the step 6 review, for PR 4's retest prompt:
    is left open past midnight (PR 1 follow-up).
    Unit tests for the timer state machine with a fake clock; E2E test that
    runs a short EMOM.
-6. [ ] Fixes from the challenger review:
+6. [x] Fixes from the challenger review:
    - One shared audio context for all timers (each timer made its own and
      never closed it, so beeps could go silent mid-session), resumed on
      every tap so iOS interruptions don't mute it; ask iOS to play through

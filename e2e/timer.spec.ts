@@ -198,7 +198,8 @@ test("a rest timer from a set: default 30s, raise to 35s, finish cue and buzz", 
 
   await overlay.getByRole("button", { name: "Done" }).click();
   await expect(overlay).toBeHidden();
-  await expect(restButton).toBeFocused();
+  // The adjusted 35s was started, so the button now says so (same element, still focused).
+  await expect(page.getByRole("button", { name: "Rest 35s, Med ball slams" })).toBeFocused();
 });
 
 test("the superset block has a between-pairs rest button defaulting to 45s", async ({ page }) => {
@@ -310,4 +311,65 @@ test("focus moves to a working control when the focused one becomes disabled", a
   await overlay.getByRole("button", { name: "Skip ›" }).click();
   await expect(overlay.locator(".timer-phase")).toHaveText("DONE");
   await expect(overlay.getByRole("button", { name: "Done" })).toBeFocused();
+});
+
+test("a rest adjusted and started is remembered for the next open and the button label", async ({ page }) => {
+  await openToday(page);
+  await page.getByRole("button", { name: "Rest 30s, Med ball slams" }).click();
+  const overlay = page.getByRole("dialog", { name: "Rest timer" });
+  await overlay.getByRole("button", { name: "Increase rest" }).click();
+  await expect(overlay.locator(".timer-digits")).toHaveText("0:35");
+  await overlay.getByRole("button", { name: "Start" }).click();
+  await overlay.getByRole("button", { name: "✕ Close" }).click();
+  await expect(overlay).toBeHidden();
+
+  // The button label follows, and reopening starts at the remembered value.
+  const restButton = page.getByRole("button", { name: "Rest 35s, Med ball slams" });
+  await expect(restButton).toHaveText("Rest 35s");
+  await restButton.click();
+  await expect(page.getByRole("dialog", { name: "Rest timer" }).locator(".timer-digits")).toHaveText("0:35");
+});
+
+test("an adjusted rest that was never started is not remembered", async ({ page }) => {
+  await openToday(page);
+  await page.getByRole("button", { name: "Rest 30s, Med ball slams" }).click();
+  const overlay = page.getByRole("dialog", { name: "Rest timer" });
+  await overlay.getByRole("button", { name: "Increase rest" }).click();
+  await overlay.getByRole("button", { name: "✕ Close" }).click();
+
+  await expect(page.getByRole("button", { name: "Rest 30s, Med ball slams" })).toHaveText("Rest 30s");
+});
+
+test("Skip during an EMOM moves to the next minute and round", async ({ page }) => {
+  await openToday(page);
+  await page.getByRole("button", { name: "Start EMOM, Pull-ups" }).click();
+  const overlay = page.getByRole("dialog", { name: "Pull-ups EMOM timer" });
+  await overlay.getByRole("button", { name: "Start" }).click();
+  await expect(overlay.locator(".timer-ring-number")).toHaveText("1/9");
+
+  await overlay.getByRole("button", { name: "Skip ›" }).click();
+  await expect(overlay.locator(".timer-ring-number")).toHaveText("2/9");
+  await expect(overlay.locator(".timer-digits")).toHaveText("1:00");
+});
+
+test("after the page was hidden for several segments, becoming visible shows the right later segment", async ({ page }) => {
+  await openToday(page);
+  await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
+  const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
+  await overlay.getByRole("button", { name: "Start" }).click();
+
+  // Hide the page and let the clock jump 70s (work 30, rest 30, work 10 into round 2) with no timers firing.
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+  });
+  await page.clock.setSystemTime(new Date("2026-11-02T09:01:10"));
+  await expect(overlay.locator(".timer-phase")).toHaveText("WORK");
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
+  await expect(overlay.getByText("Round 2 of 5")).toBeVisible();
+  await expect(overlay.locator(".timer-phase")).toHaveText("WORK");
+  await expect(overlay.locator(".timer-digits")).toHaveText("0:20");
 });

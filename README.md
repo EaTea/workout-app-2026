@@ -12,7 +12,7 @@ vibration). The heavy bag row has a "Start timer" interval timer and rows
 with a prescribed rest (and superset blocks) have a "Rest 30s" button, all with
 adjustable numbers before Start. The screen stays awake while a timer is open
 (needs a browser with the Screen Wake Lock API, e.g. iOS Safari 16.4+), and
-Today refreshes itself if left open past midnight. Set logging is planned but not
+Today shows an "It's a new day" banner (with a button to switch) if left open past midnight. Set logging is planned but not
 built yet (see [PLAN.md](PLAN.md)). It is a static site
 (Vite + TypeScript, no UI framework).
 

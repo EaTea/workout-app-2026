@@ -4,6 +4,7 @@ import type { TrainingSettings } from "../settings/model";
 import { saveSettings } from "../settings/storage";
 import { element } from "./dom";
 import { navigateTo, routeFromHash, type Route } from "./router";
+import { renderNewDayBanner } from "./newDayBanner";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
 import { renderWarningBanner } from "./warningBanner";
@@ -20,8 +21,19 @@ import { renderWarningBanner } from "./warningBanner";
  * tests, and by Ed to preview another day). The preview affects Today and
  * "Start today" only; max save dates always use the real local date.
  *
- * Midnight rollover: if Today stays open past local midnight it re-renders
- * for the new day (checked every minute and when the page becomes visible).
+ * Midnight rollover: if Today stays open past local midnight it does NOT
+ * swap the session by itself (that could replace the workout under someone
+ * training at 23:30 and lose scroll/focus). Instead a "It's a new day"
+ * banner is inserted at the top of the existing <main>; its button re-renders
+ * Today for the new date, as does navigating away and back.
+ *
+ *   every 60s / page visible ─▶ shouldShowNewDayBanner? ─▶ main.prepend(banner)
+ *   banner button ─▶ render()   (redraws for the new date; banner disappears)
+ *
+ * While a timer overlay or exercise sheet is open the banner may still be
+ * added: both mark `#app > main` inert, and inert applies to the whole
+ * subtree, so a child inserted later is inert too (no focus, no taps) until
+ * the overlay closes and removes inert from <main>. Nothing is replaced.
  */
 
 /** How often a left-open Today screen checks whether the local date has changed. */
@@ -54,6 +66,22 @@ export function resolveToday(search: string, now: Date = new Date()): string {
  */
 export function hasTodayChanged(renderedDate: string, search: string, now: Date = new Date()): boolean {
   return resolveToday(search, now) !== renderedDate;
+}
+
+/**
+ * Pure decision for the midnight check: show the new-day banner only on the
+ * Today route, when the date shown differs from the date now (see
+ * `hasTodayChanged`; a `?date=` preview never differs), and not if the banner
+ * is already on screen. Used by `refreshTodayAfterMidnight` in `startApp`.
+ */
+export function shouldShowNewDayBanner(
+  route: Route,
+  renderedDate: string,
+  search: string,
+  isBannerShown: boolean,
+  now: Date = new Date(),
+): boolean {
+  return route === "today" && !isBannerShown && hasTodayChanged(renderedDate, search, now);
 }
 
 /** Inline message on the welcome card when "Start today" cannot be saved. */
@@ -139,18 +167,19 @@ export function startApp(
   }
 
   /**
-   * Re-renders Today if the local date has moved on since it was drawn. Runs
-   * on a timer and when the page becomes visible (a sleeping phone's timers
-   * are paused). Skipped on other screens (they re-render when navigated to
-   * and Settings holds unsaved input) and while the timer overlay or exercise
-   * sheet is open: they live in <body> outside #app, but the timer marks
-   * #app's regions inert, so replacing them mid-timer would un-inert the
-   * new ones. The next check after the overlay closes catches up.
+   * Adds the "It's a new day" banner to the top of Today's existing <main>
+   * if the local date has moved on since Today was drawn. Runs on a timer and
+   * when the page becomes visible (a sleeping phone's timers are paused).
+   * Never re-renders, so the current session, scroll position, focus and any
+   * open timer/sheet are untouched; the banner's button calls `render()`.
    */
   function refreshTodayAfterMidnight(): void {
-    if (routeFromHash(window.location.hash) !== "today") return;
-    if (document.querySelector(".timer-view, .sheet")) return;
-    if (hasTodayChanged(renderedTodayDate, window.location.search)) render();
+    const main = root.querySelector("main");
+    const isBannerShown = document.querySelector(".new-day-banner") !== null;
+    const route = routeFromHash(window.location.hash);
+    if (main === null || !shouldShowNewDayBanner(route, renderedTodayDate, window.location.search, isBannerShown)) return;
+
+    main.prepend(renderNewDayBanner(render));
   }
 
   /**

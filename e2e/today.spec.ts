@@ -300,13 +300,58 @@ test("week 8 mini-dose rows have no retest wording or Update max link", async ({
   await expect(row(page, "Dips").getByRole("link", { name: "Update max" })).toHaveCount(0);
 });
 
-test("Today left open past midnight moves on to the next day", async ({ page }) => {
+test("Today left open past midnight offers a new-day banner instead of swapping the session", async ({ page }) => {
   await seedSettings(page);
   await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
   await page.goto("/");
   await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
 
   await page.clock.runFor(120_000);
+
+  // The session is untouched; only the banner is added (and only once, even after more checks).
+  await expect(page.getByText("It's a new day.")).toBeVisible();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await page.clock.runFor(120_000);
+  await expect(page.getByText("It's a new day.")).toHaveCount(1);
+
+  const showToday = page.getByRole("button", { name: "Show today's session" });
+  const box = await showToday.boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(48);
+  await showToday.click();
+
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(0);
+});
+
+test("navigating away and back after midnight shows the new day without the banner", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/");
+  await page.clock.runFor(120_000);
+  await expect(page.getByText("It's a new day.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(0);
+});
+
+test("the new-day banner can appear behind an open timer and works after it closes", async ({ page }) => {
+  await seedSettings(page);
+  await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Rest 30s, Med ball slams" }).click();
+  const overlay = page.getByRole("dialog", { name: "Rest timer" });
+
+  await page.clock.runFor(120_000);
+  // Added into the inert <main>, so it is inert too: the timer stays modal.
+  await expect(page.locator(".new-day-banner")).toHaveCount(1);
+  expect(await page.locator(".new-day-banner").evaluate((banner) => banner.closest("[inert]") !== null)).toBe(true);
+  await expect(overlay).toBeVisible();
+
+  await overlay.getByRole("button", { name: "✕ Close" }).click();
+  await expect(overlay).toBeHidden();
+  await page.getByRole("button", { name: "Show today's session" }).click();
   await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
 });
 
@@ -317,4 +362,5 @@ test("a ?date= preview stays on its date past midnight", async ({ page }) => {
 
   await page.clock.runFor(120_000);
   await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(0);
 });

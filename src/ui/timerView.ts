@@ -81,6 +81,8 @@ export interface TimerViewOptions {
   onSecondTick?: (remainingSec: number) => void;
   /** Adjustable numbers shown before Start; locked once the timer has started. */
   setup?: TimerSetup;
+  /** Called once, when the user starts the timer from its ready state (after any setup changes were made). */
+  onStart?: () => void;
   /** Called once after the overlay has been closed, however it was closed. */
   onClose?: () => void;
 }
@@ -277,6 +279,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     const now = Date.now();
     if (state.status === "ready") {
       applyUpdate(startTimer(state, now));
+      options.onStart?.();
     }
     else if (state.status === "running") applyUpdate(pauseTimer(state, now));
     else if (state.status === "paused") applyUpdate(resumeTimer(state, now));
