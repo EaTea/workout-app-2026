@@ -10,6 +10,7 @@ import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
 import { checkInWeekToAsk, type CheckInDraft } from "./checkin";
+import { weeklyChecksFor } from "../fatigue/operations";
 import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
 import { countSetsForItem, formatProgress } from "../log/itemSets";
@@ -110,7 +111,7 @@ export function renderTodayScreen(
       if (checkIn !== undefined) {
         const weekToAsk = checkInWeekToAsk(program, settings, date, checkIn.history, checkIn.snoozedDate);
         if (weekToAsk !== undefined) {
-          screen.append(renderCheckInCard(weekToAsk, checkIn.history, checkIn.ruleText, {
+          screen.append(renderCheckInCard(weekToAsk, weeklyChecksFor(checkIn.history, settings.startDate, program.lengthWeeks), checkIn.ruleText, {
             draft: checkIn.draftForWeek(weekToAsk),
             canSave: checkIn.canSave,
             onSave: checkIn.onSave,

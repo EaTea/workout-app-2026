@@ -1,4 +1,4 @@
-import type { FatigueField, FatigueHistory } from "../fatigue/model";
+import type { FatigueField, WeeklyFatigueHistory } from "../fatigue/model";
 import { bestRecent, compareToBest, type Comparison, type FatigueWarning } from "../fatigue/operations";
 import { element } from "./dom";
 import { renderStepper, STEPPER_REFRESH_EVENT, type StepperNumberRules } from "./setEditor";
@@ -87,7 +87,7 @@ const PULL_UP_RULES: StepperNumberRules = {
  */
 export function renderCheckInCard(
   week: number,
-  history: FatigueHistory,
+  history: WeeklyFatigueHistory,
   ruleText: string,
   actions: CheckInCardActions,
 ): HTMLElement {
@@ -191,7 +191,7 @@ interface FieldSectionOptions {
   field: FatigueField;
   stepperName: string;
   unit: string;
-  history: FatigueHistory;
+  history: WeeklyFatigueHistory;
   week: number;
   read: () => number | undefined;
   write: (value: number | undefined) => void;

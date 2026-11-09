@@ -3,7 +3,7 @@ import { programStatus, toDayNumber } from "../program/calendar";
 import { phaseForWeek } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import type { FatigueField, FatigueHistory } from "../fatigue/model";
-import { checkForWeek, fatigueWarnings, type FatigueWarning } from "../fatigue/operations";
+import { checkForWeek, fatigueWarnings, weeklyChecksFor, type FatigueWarning } from "../fatigue/operations";
 
 /**
  * Pure rules and storage mapping for the weekly check-in on Today (PLAN.md
@@ -63,7 +63,8 @@ export function checkInWeekToAsk(
 ): number | undefined {
   const week = trainingWeekOf(program, settings, date);
   if (week === undefined || phaseForWeek(program, week).retest) return undefined;
-  if (checkForWeek(history, week) !== undefined || snoozedDate === date) return undefined;
+  const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks);
+  if (checkForWeek(weeklyChecks, week) !== undefined || snoozedDate === date) return undefined;
 
   return week;
 }
@@ -95,7 +96,8 @@ export function dropWarningForShownDate(
   const status = programStatus(settings.startDate, program.lengthWeeks, date);
   if (status.kind !== "active") return { week: 0, warnings: [] };
 
-  return { week: status.week, warnings: fatigueWarnings(history, status.week) };
+  const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks);
+  return { week: status.week, warnings: fatigueWarnings(weeklyChecks, status.week) };
 }
 
 /** What the card's two steppers hold before saving; undefined is a blank field (never saved as a number). */

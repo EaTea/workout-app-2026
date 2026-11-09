@@ -12,7 +12,7 @@ const bundle: ExportBundle = {
       },
     },
   },
-  fatigueHistory: { checks: [{ date: "2026-11-09", programWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
+  fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
   corruptLogBackups: [],
 };
 

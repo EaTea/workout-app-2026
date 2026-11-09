@@ -438,7 +438,7 @@ the PR 2 review.
 Stacked on PR 6. The brief's must-haves and nice-to-haves are all built;
 these are the follow-ups the PR 1 and PR 4 reviews left open, so that a
 changed start date or a late max doesn't quietly give wrong numbers.
-1. [ ] **Fatigue checks filed by date.** A check keeps its date as the
+1. [x] **Fatigue checks filed by date.** A check keeps its date as the
    key, and its program week is worked out from the current start date
    whenever it is read (the stored `programWeek` is still written, for
    older versions, but ignored on read). A restarted program then can't

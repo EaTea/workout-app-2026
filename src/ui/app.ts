@@ -22,7 +22,7 @@ import { renderPreviewStrip } from "./previewStrip";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
 import { applyFatigueChange, type LoadFatigueHistoryResult } from "../fatigue/storage";
-import { checkForWeek, recordCheck } from "../fatigue/operations";
+import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
 import type { FatigueCheck } from "../fatigue/model";
 import {
   CHECKIN_SNOOZED_STORAGE_KEY,
@@ -396,15 +396,14 @@ export function startApp(
 
     const now = new Date();
     const result = applyFatigueChange(localStorage, (freshHistory) => {
-      const existing = checkForWeek(freshHistory, week);
+      const existing = checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week);
       const merged: FatigueCheck = {
         date: existing?.date ?? realToday,
-        programWeek: week,
         broadJumpMetres: existing?.broadJumpMetres,
         maxPullUps,
         savedAt: now,
       };
-      return recordCheck(freshHistory, merged);
+      return recordCheck(freshHistory, merged, settings.startDate, program.lengthWeeks);
     }, now);
 
     if (result.history !== undefined) fatigueHistory = result.history;
@@ -429,14 +428,14 @@ export function startApp(
     const week = checkInWeekToAsk(program, settings, shownDate, fatigueHistory, undefined);
     if (week === undefined) return "No check-in is due for this day";
 
-    const check: FatigueCheck = { date: shownDate, programWeek: week, savedAt: new Date(), ...values };
+    const check: FatigueCheck = { date: shownDate, savedAt: new Date(), ...values };
     let foundExistingCheck = false;
     const result = applyFatigueChange(localStorage, (freshHistory) => {
-      if (checkForWeek(freshHistory, week) !== undefined) {
+      if (checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week) !== undefined) {
         foundExistingCheck = true;
         return freshHistory; // keep the other copy's check untouched
       }
-      return recordCheck(freshHistory, check);
+      return recordCheck(freshHistory, check, settings.startDate, program.lengthWeeks);
     });
     if (result.history !== undefined) fatigueHistory = result.history;
     if (!result.saved) return result.error;

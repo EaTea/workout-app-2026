@@ -1,4 +1,5 @@
-import type { FatigueCheck, FatigueField, FatigueHistory } from "./model";
+import type { FatigueCheck, FatigueField, FatigueHistory, WeeklyFatigueCheck, WeeklyFatigueHistory } from "./model";
+import { programStatus } from "../program/calendar";
 
 /**
  * Pure fatigue-check operations (no storage, no DOM). PR 4 step 3's check-in
@@ -43,14 +44,62 @@ export interface FatigueWarning {
   percentChange: number;
 }
 
-/** Returns a new history with `check` saved; any existing check for the same program week is replaced. */
-export function recordCheck(history: FatigueHistory, check: FatigueCheck): FatigueHistory {
-  const otherWeeks = history.checks.filter((existing) => existing.programWeek !== check.programWeek);
-  return { checks: [...otherWeeks, check] };
+/**
+ * The program week (1-8) that `date` falls in for the given start date, or
+ * undefined when there is no start date, the date is before it, or it is
+ * after the last week. The single place a check's week is worked out.
+ */
+export function programWeekOfDate(date: string, startDate: string | null, lengthWeeks: number): number | undefined {
+  const status = programStatus(startDate, lengthWeeks, date);
+  return status.kind === "active" ? status.week : undefined;
 }
 
-/** Returns the check saved for `week`, or undefined. Used to pre-fill and to know whether the card is still due. */
-export function checkForWeek(history: FatigueHistory, week: number): FatigueCheck | undefined {
+/**
+ * The weekly view of the stored `history`: every check whose date falls inside
+ * the program under the CURRENT `startDate`, with its derived week. Checks
+ * outside the program (before the start, no start date, after the end) are
+ * left out here but stay in `history`. If two checks land in the same week
+ * (e.g. after the start date moved) the newest by date is kept, so "one per
+ * week" holds. Called by the UI layer on every render and before every save.
+ */
+export function weeklyChecksFor(history: FatigueHistory, startDate: string | null, lengthWeeks: number): WeeklyFatigueHistory {
+  const newestPerWeek = new Map<number, WeeklyFatigueCheck>();
+
+  for (const check of history.checks) {
+    const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks);
+    if (programWeek === undefined) continue;
+
+    const alreadyThere = newestPerWeek.get(programWeek);
+    if (alreadyThere === undefined || alreadyThere.date < check.date) {
+      newestPerWeek.set(programWeek, { ...check, programWeek });
+    }
+  }
+
+  return { checks: [...newestPerWeek.values()] };
+}
+
+/**
+ * Returns a new history with `check` saved under its date. Any stored check
+ * with the same date, or whose date falls in the same program week as
+ * `check` under the current start date, is replaced ("saving again in the
+ * same week replaces it"). `savedProgramWeek` is filled in from the derived
+ * week so older app versions can still read the stored file. Checks outside
+ * the program are never touched by a save inside it.
+ */
+export function recordCheck(history: FatigueHistory, check: FatigueCheck, startDate: string | null, lengthWeeks: number): FatigueHistory {
+  const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks);
+  const kept = history.checks.filter((existing) => {
+    if (existing.date === check.date) return false;
+    return programWeek === undefined || programWeekOfDate(existing.date, startDate, lengthWeeks) !== programWeek;
+  });
+
+  const stored: FatigueCheck = { ...check };
+  if (programWeek !== undefined) stored.savedProgramWeek = programWeek;
+  return { checks: [...kept, stored] };
+}
+
+/** Returns the check dated in `week`, or undefined. Used to pre-fill and to know whether the card is still due. */
+export function checkForWeek(history: WeeklyFatigueHistory, week: number): WeeklyFatigueCheck | undefined {
   return history.checks.find((check) => check.programWeek === week);
 }
 
@@ -60,7 +109,7 @@ export function checkForWeek(history: FatigueHistory, week: number): FatigueChec
  * skipped the field are ignored (they do not use up one of the 3 slots).
  * Undefined when there is none, so the card shows no "Best recent" line.
  */
-export function bestRecent(history: FatigueHistory, field: FatigueField, beforeWeek: number): number | undefined {
+export function bestRecent(history: WeeklyFatigueHistory, field: FatigueField, beforeWeek: number): number | undefined {
   const recentValues = history.checks
     .filter((check) => check.programWeek < beforeWeek && check[field] !== undefined)
     .sort((first, second) => second.programWeek - first.programWeek)
@@ -118,7 +167,7 @@ function displayPercentChange(exactPercent: number, isDropOverThreshold: boolean
  * nothing earlier to compare with, or no drop. Drives both the card warning
  * and the Today banner (PR 4 step 3).
  */
-export function fatigueWarnings(history: FatigueHistory, week: number): FatigueWarning[] {
+export function fatigueWarnings(history: WeeklyFatigueHistory, week: number): FatigueWarning[] {
   const check = checkForWeek(history, week);
   if (check === undefined) return [];
 
