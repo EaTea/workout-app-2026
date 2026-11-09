@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in progress (fixing the challenger review), stacked on PR 4.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in progress, stacked on PR 5.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -353,7 +353,7 @@ brief's remaining nice-to-haves.
    as inline SVG, no chart library.
    Unit tests for the rotation, CSV quoting and export mapping, and the
    chart's data series; E2E for each feature.
-4. [ ] **Fixes from the challenger review.** Decisions taken:
+4. [x] **Fixes from the challenger review.** Decisions taken:
    - The chart is per exercise *and* block type ("Pull-ups — EMOM",
      "Pull-ups — mini-dose"), so main-strength and mini-dose sets aren't
      mixed in one line. The table labels "best reps" and "heaviest load"

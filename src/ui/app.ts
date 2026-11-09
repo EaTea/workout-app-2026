@@ -1,5 +1,6 @@
 import type { Program, ProgramWarning } from "../program/model";
 import { programStatus, toDayNumber, todayLocalDate } from "../program/calendar";
+import { readExportSource } from "../export/source";
 import { rotationBlockStartWeek } from "../program/rotation";
 import type { TrainingSettings } from "../settings/model";
 import { loadSettings, saveSettings } from "../settings/storage";
@@ -572,7 +573,7 @@ export function startApp(
       }
       const logTarget = parseLogRoute(window.location.hash);
       if (route === "settings") {
-        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => ({ settings, log, fatigueHistory })));
+        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage)));
       } else if (route === "log" && logTarget !== undefined) {
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {

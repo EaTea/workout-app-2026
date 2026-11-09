@@ -111,16 +111,23 @@ Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the
 exercises as written and the swaps in `program.json` (with the shipped
 program, weeks 5–8 use the swaps). A rotated-in warm-up shows its new name
 with "Rotated in for <original>" and has no details sheet; its sets are
-still logged under the original exercise. The first training day of a
-rotated block opens with a "Warm-up rotation" card listing the swaps.
+still logged under the original exercise. Every training day of a rotated
+block shows a "Warm-up rotation" card listing the swaps until you tap "Got
+it" (remembered per block; disabled when previewing another date with
+`?date=`). History shows the name the warm-up was performed as.
 
 ## Exporting your log
 
 In Settings, "Export log as CSV" gives one row per logged set (date, week,
-day, block, block type, exercise, set, reps, kg, note) for any spreadsheet.
+day, block, block type, exercise id, exercise name, performed as, set, reps,
+kg, note) for any spreadsheet; `exercise_name` is the program's name and
+`performed_as` the rotated-in warm-up name, if any. The file starts with a
+UTF-8 byte order mark so Excel reads it correctly. The export reads what is
+stored at the moment you tap the button.
 "Export everything as JSON" gives the log, the weekly checks and your
 settings in a versioned file (`"format": "explosive-endurance-export"`,
-`"version": 1`). Files are named `explosive-endurance-YYYY-MM-DD.csv` or
+`"version": 1`), plus `corruptLogBackups` if the app ever had to set aside
+unreadable log text. Files are named `explosive-endurance-YYYY-MM-DD.csv` or
 `.json`; they download, or on iPhone open the share sheet so you can save
 them to Files. Nothing is sent anywhere, and there is no import yet.
 

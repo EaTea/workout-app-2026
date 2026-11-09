@@ -4,6 +4,7 @@ import { exportFileName, saveExportFile } from "../export/download";
 import { exportToWire, serializeExport } from "../export/wire";
 import type { FatigueHistory } from "../fatigue/model";
 import type { WorkoutLog } from "../log/model";
+import type { CorruptLogBackup } from "../log/storage";
 import type { Program } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
 import { element } from "./dom";
@@ -15,11 +16,12 @@ import { element } from "./dom";
  * file always reflects the latest log.
  */
 
-/** The data an export reads, supplied fresh at click time by `app.ts`. */
+/** The data an export reads, read fresh from storage at click time (`export/source.ts` `readExportSource`, supplied by `app.ts`). */
 export interface ExportSource {
   settings: TrainingSettings;
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
+  corruptLogBackups: CorruptLogBackup[];
 }
 
 /** True when the log holds no sets (the CSV would be only a header). */
@@ -57,6 +59,7 @@ export function renderExportSection(program: Program, getSource: () => ExportSou
       settings: source.settings,
       log: source.log,
       fatigueHistory: source.fatigueHistory,
+      corruptLogBackups: source.corruptLogBackups,
     });
     void saveExportFile(exportFileName("json"), serializeExport(wire), "application/json");
   });

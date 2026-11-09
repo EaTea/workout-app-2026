@@ -13,6 +13,7 @@ const bundle: ExportBundle = {
     },
   },
   fatigueHistory: { checks: [{ date: "2026-11-09", programWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
+  corruptLogBackups: [],
 };
 
 describe("exportToWire", () => {
@@ -33,6 +34,16 @@ describe("exportToWire", () => {
       },
       fatigueChecks: { version: 1, checks: [{ date: "2026-11-09", programWeek: 2, maxPullUps: 10, savedAt: "2026-11-09T07:30:00.000Z" }] },
     });
+  });
+
+  it("includes corrupt-log backups, mapped to their own wire shape, only when there are any", () => {
+    const withBackups = exportToWire({
+      ...bundle,
+      corruptLogBackups: [{ storageKey: "explosive-endurance.log.corrupt-2026-11-09T08:00:00.000Z", originalText: "{broken" }],
+    });
+
+    expect(withBackups.corruptLogBackups).toEqual([{ key: "explosive-endurance.log.corrupt-2026-11-09T08:00:00.000Z", text: "{broken" }]);
+    expect("corruptLogBackups" in exportToWire(bundle)).toBe(false);
   });
 
   it("exports an empty app (no log, no checks) as valid JSON", () => {

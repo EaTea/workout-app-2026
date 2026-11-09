@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LoggedSet, WorkoutLog } from "./model";
 import { logSet } from "./operations";
-import { applyLogChange, LOG_CORRUPT_BACKUP_PREFIX, LOG_STORAGE_KEY, loadLog, saveLog, type LogStorage } from "./storage";
+import { applyLogChange, LOG_CORRUPT_BACKUP_PREFIX, LOG_STORAGE_KEY, listCorruptLogBackups, loadLog, saveLog, type LogStorage } from "./storage";
 import { logFromWire, logToWire } from "./wire";
 
 /** In-memory stand-in for localStorage; `failWrites` simulates a full or blocked store. */
@@ -322,5 +322,35 @@ describe("applyLogChange", () => {
     expect(result.saved).toBe(false);
     expect(result.saved === false && result.error).toContain("QuotaExceededError");
     expect(result.saved === false && result.log?.sessions["2026-11-09"]?.sets).toHaveLength(1);
+  });
+});
+
+describe("listCorruptLogBackups", () => {
+  /** A fake with the key-listing part of the Storage API. */
+  function listingStorage(initial: Record<string, string>) {
+    const entries = Object.entries(initial);
+    return {
+      length: entries.length,
+      key: (index: number) => entries[index]?.[0] ?? null,
+      getItem: (key: string) => initial[key] ?? null,
+    };
+  }
+
+  it("returns only the log's corrupt backups, oldest first", () => {
+    const backups = listCorruptLogBackups(
+      listingStorage({
+        [`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-09T08:00:00.000Z`]: "second",
+        [LOG_STORAGE_KEY]: "{}",
+        [`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-02T08:00:00.000Z`]: "first",
+        "explosive-endurance.fatigue.corrupt-2026-11-01T00:00:00.000Z": "other",
+      }),
+    );
+
+    expect(backups.map((backup) => backup.originalText)).toEqual(["first", "second"]);
+  });
+
+  it("returns an empty list when there are none or storage throws", () => {
+    expect(listCorruptLogBackups(listingStorage({}))).toEqual([]);
+    expect(listCorruptLogBackups({ length: 1, key: () => { throw new Error("blocked"); }, getItem: () => null })).toEqual([]);
   });
 });

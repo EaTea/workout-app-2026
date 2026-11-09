@@ -114,6 +114,43 @@ function setAsideCorruptLog(storage: LogStorage, storedText: string, now: Date, 
   }
 }
 
+/** The subset of the Web Storage API needed to find the backup keys. */
+export interface KeyListingStorage extends Pick<LogStorage, "getItem"> {
+  readonly length: number;
+  key(index: number): string | null;
+}
+
+/** One corrupt-log backup kept by `loadLog`: the key it lives under and the original text. */
+export interface CorruptLogBackup {
+  storageKey: string;
+  originalText: string;
+}
+
+/**
+ * Finds every `.corrupt-<timestamp>` backup of the log in storage, oldest
+ * first (the key ends in an ISO timestamp, so key order is time order). Used
+ * by the JSON export so a backup of unreadable log text travels with the
+ * file instead of being stranded in localStorage. Never throws: a storage
+ * error gives what was found so far.
+ */
+export function listCorruptLogBackups(storage: KeyListingStorage): CorruptLogBackup[] {
+  const backups: CorruptLogBackup[] = [];
+
+  try {
+    for (let index = 0; index < storage.length; index++) {
+      const storageKey = storage.key(index);
+      if (storageKey === null || !storageKey.startsWith(LOG_CORRUPT_BACKUP_PREFIX)) continue;
+
+      const originalText = storage.getItem(storageKey);
+      if (originalText !== null) backups.push({ storageKey, originalText });
+    }
+  } catch {
+    // Blocked storage: export what could be read.
+  }
+
+  return backups.sort((first, second) => first.storageKey.localeCompare(second.storageKey));
+}
+
 /** Inline message when a log change cannot be written to this device. */
 export const LOG_SAVE_FAILED_MESSAGE = "Couldn't save on this device. This change is kept until you reload.";
 
