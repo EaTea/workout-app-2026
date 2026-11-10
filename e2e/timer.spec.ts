@@ -108,9 +108,11 @@ test("pausing stops the EMOM from progressing", async ({ page }) => {
   await expect(overlay.locator(".timer-ring-number")).toHaveText("2/9");
 });
 
-test("the row button still opens the exercise details", async ({ page }) => {
+test("the row button opens the log screen, whose ⓘ button opens the exercise details", async ({ page }) => {
   await openToday(page);
   await page.locator(".item-open", { hasText: "Pull-ups" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Exercise details" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("dialog", { name: /EMOM/ })).toHaveCount(0);
 });

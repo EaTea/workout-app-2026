@@ -4,9 +4,9 @@ import { formatPrescriptionSummary } from "./format";
 
 /**
  * Bottom sheet with the details for one exercise (cues, alternative,
- * progression, evidence). Opened by tapping an item row on Today.
+ * progression, evidence). Opened by the ⓘ button on the log screen.
  *
- *   row button ──click──▶ openExerciseSheet(item, opener)
+ *   ⓘ button (log screen) ──click──▶ openExerciseSheet(item, opener)
  *                           ├─ backdrop (tap closes)    ┐ appended to <body>, outside #app,
  *                           └─ dialog (focus moves in)  ┘ so Today re-renders don't remove it
  *   Escape / close button / backdrop / hashchange ──▶ closeSheet ──▶ focus back on `opener`

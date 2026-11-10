@@ -2,10 +2,15 @@ import type { Program, Range } from "../program/model";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
-import { buildEmomPlan, buildIntervalPlan, buildRestPlan, defaultIntervalSettings, defaultRestSeconds, INTERVAL_LIMITS, REST_LIMITS } from "../timer/plans";
+import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
 import { element } from "./dom";
-import { openExerciseSheet } from "./exerciseSheet";
-import { createRestMemory, restMemoryKey } from "./restMemory";
+import { countSetsForItem, formatProgress } from "../log/itemSets";
+import type { WorkoutLog } from "../log/model";
+import { setsForItem } from "../log/operations";
+import { lastTimeHint } from "./lastTimeHint";
+import { logRouteHash } from "./router";
+import { restMemoryKey } from "./restMemory";
+import { currentRestSeconds, openRestTimer } from "./restTimer";
 import { openTimer } from "./timerView";
 import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatShortDate, isAwaitingRetest } from "./format";
 
@@ -14,17 +19,11 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *
  *   buildSession(...) ─▶ SessionView
  *        training  ─▶ header, phase strip, deload note, one card per block
- *                       └ item row (button) ─▶ exerciseSheet
+ *                       └ item row (button) ─▶ log screen (#/log/<date>/..., pinned to the date shown), which has the details sheet
  *        rest / notStarted / complete / noStartDate ─▶ a single message card
  *
  * It renders exactly what `buildSession` returns; all numbers are final.
  */
-
-/**
- * Rest lengths Ed adjusted and started during this page load (see restMemory.ts).
- * Module-level so it survives Today re-renders but not a reload.
- */
-const adjustedRests = createRestMemory();
 
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). `onStartToday` is called
@@ -38,13 +37,14 @@ export function renderTodayScreen(
   date: string,
   onStartToday: () => void = () => undefined,
   startTodayFailureMessage?: string,
+  log: WorkoutLog = { sessions: {} },
 ): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
 
   switch (session.kind) {
     case "training":
-      screen.append(...renderTrainingDay(program, session, date));
+      screen.append(...renderTrainingDay(program, session, date, log));
       break;
     default:
       screen.append(renderMessageCard(session, program.lengthWeeks, date, onStartToday, startTodayFailureMessage));
@@ -132,6 +132,7 @@ function renderTrainingDay(
   program: Program,
   session: Extract<SessionView, { kind: "training" }>,
   date: string,
+  log: WorkoutLog,
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
@@ -148,7 +149,7 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => parts.push(renderBlockCard(block, index + 1, date)));
+  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, date, log)));
   return parts;
 }
 
@@ -181,7 +182,7 @@ function renderPhaseStrip(program: Program, phaseName: string, isDeload: boolean
 }
 
 /** One card for a block: numbered title, then one row per item. */
-function renderBlockCard(block: BlockView, position: number, date: string): HTMLElement {
+function renderBlockCard(program: Program, block: BlockView, position: number, dayNumber: number, date: string, log: WorkoutLog): HTMLElement {
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
@@ -199,17 +200,19 @@ function renderBlockCard(block: BlockView, position: number, date: string): HTML
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(item, date, position));
+    card.append(renderItemRow(program, item, block, dayNumber, date, position, log));
   }
   return card;
 }
 
 /**
  * One exercise row. The name/details/dose are a single button that opens the
- * details sheet. When the dose needs a max, the dose is a separate link to
+ * item's log screen (the details sheet is behind the ⓘ button there), with
+ * logging progress ("2/6", "✓ 6/6") under the details once a set is logged, then the muted
+ * "Last time (2 Nov): ..." line when the exercise has been logged before (not on warm-ups). When the dose needs a max, the dose is a separate link to
  * Settings instead (a link can't live inside a button).
  */
-function renderItemRow(item: ItemView, date: string, blockPosition: number): HTMLElement {
+function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNumber: number, date: string, blockPosition: number, log: WorkoutLog): HTMLElement {
   const row = element("div", "item-row");
   const dose = formatItemDose(item);
 
@@ -221,6 +224,14 @@ function renderItemRow(item: ItemView, date: string, blockPosition: number): HTM
   const details = formatItemDetails(item);
   if (details.length > 0) {
     text.append(element("span", "item-details", details.join(" · ")));
+  }
+  const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id).length, countSetsForItem(item, block));
+  if (progress !== undefined) {
+    text.append(element("span", "item-progress", progress));
+  }
+  const lastTimeText = lastTimeHint(log, program, item, block, dayNumber, date);
+  if (lastTimeText !== undefined) {
+    text.append(element("span", "item-last-time", lastTimeText));
   }
   openButton.append(text);
 
@@ -249,7 +260,7 @@ function renderItemRow(item: ItemView, date: string, blockPosition: number): HTM
     row.append(updateLink);
   }
 
-  // EMOM items get their own Start button, a sibling so the row button keeps opening the details sheet.
+  // EMOM items get their own Start button, a sibling so the row button keeps opening the log screen.
   if (item.format === "emom" && item.minutes !== undefined) {
     row.append(renderStartEmomButton(item));
   }
@@ -264,7 +275,9 @@ function renderItemRow(item: ItemView, date: string, blockPosition: number): HTM
     row.append(renderStartIntervalButton(item));
   }
 
-  openButton.addEventListener("click", () => openExerciseSheet(item, openButton));
+  openButton.addEventListener("click", () => {
+    window.location.hash = logRouteHash(date, blockPosition, item.exercise.id);
+  });
   return row;
 }
 
@@ -377,36 +390,10 @@ function renderStartRestButton(
     button.textContent = visibleText;
     if (accessibleContext) button.setAttribute("aria-label", `${visibleText}, ${accessibleContext}`);
   }
-  showSeconds(adjustedRests.get(memoryKey, defaultRestSeconds(range)));
+  showSeconds(currentRestSeconds(range, memoryKey));
 
   button.addEventListener("click", () => {
-    const cues = createCuePlayer();
-    const { minSeconds, maxSeconds, secondsStep } = REST_LIMITS;
-    const startingSeconds = adjustedRests.get(memoryKey, defaultRestSeconds(range));
-    /** Follows the stepper, so Start can remember what was actually chosen. */
-    let chosenSeconds = startingSeconds;
-
-    openTimer(buildRestPlan(startingSeconds, restName), {
-      dialogName: "Rest timer",
-      onUserTap: () => cues.prime(),
-      onEvents: (events) => cues.handleEvents(events),
-      onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
-      onStart: () => adjustedRests.set(memoryKey, chosenSeconds),
-      onClose: () => showSeconds(adjustedRests.get(memoryKey, defaultRestSeconds(range))),
-      setup: {
-        fields: [
-          {
-            id: "seconds", label: "rest", value: startingSeconds,
-            min: minSeconds, max: maxSeconds, step: secondsStep,
-            format: (value) => `Rest ${value}s`,
-          },
-        ],
-        rebuildPlan: (values) => {
-          chosenSeconds = values.seconds ?? startingSeconds;
-          return buildRestPlan(chosenSeconds, restName);
-        },
-      },
-    });
+    openRestTimer(range, restName, memoryKey, { onClose: () => showSeconds(currentRestSeconds(range, memoryKey)) });
   });
   return button;
 }

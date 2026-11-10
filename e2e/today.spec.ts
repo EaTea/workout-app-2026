@@ -7,6 +7,14 @@ async function seedSettings(page: Page, maxReps: Record<string, number> = { pull
   }, { version: 1, startDate: "2026-11-02", maxReps });
 }
 
+/** Opens the log screen for a row, then its exercise details sheet via the ⓘ button; returns the ⓘ button. */
+async function openDetails(page: Page, name: string) {
+  await row(page, name).locator(".item-open").click();
+  const infoButton = page.getByRole("button", { name: "Exercise details" });
+  await infoButton.click();
+  return infoButton;
+}
+
 /** The row for an exercise name on the Today screen. */
 function row(page: Page, name: string) {
   return page.locator(".item-row", { hasText: name });
@@ -98,12 +106,11 @@ test("a mid-week start date makes the start date day 1 and day 7 the rest day", 
   await expect(page.getByText("11 Nov · Week 2 of 8 · Day 1")).toBeVisible();
 });
 
-test("tapping an exercise opens the details sheet; Escape closes it", async ({ page }) => {
+test("the log screen's ⓘ button opens the details sheet; Escape closes it", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  const opener = row(page, "Pull-ups").locator(".item-open");
-  await opener.click();
+  const opener = await openDetails(page, "Pull-ups");
 
   const sheet = page.getByRole("dialog");
   await expect(sheet).toBeVisible();
@@ -121,7 +128,7 @@ test("the sheet traps focus, freezes the page behind it, and restores both on cl
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await row(page, "Pull-ups").locator(".item-open").click();
+  await openDetails(page, "Pull-ups");
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("button", { name: "Close" })).toBeFocused();
   await expect(page.locator("nav.bottom-nav")).toHaveJSProperty("inert", true);
@@ -144,11 +151,11 @@ test("backdrop and close button also close the sheet", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09");
 
-  await row(page, "Pull-ups").locator(".item-open").click();
+  await openDetails(page, "Pull-ups");
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
 
-  await row(page, "Pull-ups").locator(".item-open").click();
+  await page.getByRole("button", { name: "Exercise details" }).click();
   await page.locator(".sheet-backdrop").click({ position: { x: 10, y: 10 } });
   await expect(page.getByRole("dialog")).toBeHidden();
 });
@@ -157,11 +164,11 @@ test("evidence shows a link for URLs and plain text for coaching practice", asyn
   await seedSettings(page);
 
   await page.goto("/?date=2026-11-03");
-  await row(page, "Split-squat jumps").locator(".item-open").click();
+  await openDetails(page, "Split-squat jumps");
   await expect(page.getByRole("dialog").getByRole("link", { name: /Read the evidence/ })).toBeVisible();
 
   await page.goto("/?date=2026-11-04");
-  await row(page, "Plyo push-ups").locator(".item-open").click();
+  await openDetails(page, "Plyo push-ups");
   await expect(page.getByRole("dialog").getByText("Based on coaching practice")).toBeVisible();
   await expect(page.getByRole("dialog").getByRole("link", { name: /Read the evidence/ })).toHaveCount(0);
 });
@@ -185,7 +192,7 @@ test("no horizontal overflow on training, rest and sheet views", async ({ page }
   }
 
   await page.goto("/?date=2026-11-09");
-  await row(page, "Pull-ups").locator(".item-open").click();
+  await openDetails(page, "Pull-ups");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
@@ -233,7 +240,7 @@ test("an unknown program.json field shows a dismissible warning but the session 
   await banner.getByRole("button", { name: "Dismiss" }).click();
   await expect(banner).toHaveCount(0);
   await page.getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("link", { name: "Today" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Today" }).click();
   await expect(page.locator(".warning-banner")).toHaveCount(0);
 });
 
@@ -323,15 +330,26 @@ test("Today left open past midnight offers a new-day banner instead of swapping 
   await expect(page.getByText("It's a new day.")).toHaveCount(0);
 });
 
-test("navigating away and back after midnight shows the new day without the banner", async ({ page }) => {
+test("navigating away and back after midnight keeps the shown day and the banner until it is tapped", async ({ page }) => {
   await seedSettings(page);
   await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
   await page.goto("/");
+  // Wait for the app to start before running the clock, or the interval it sets up would never fire.
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
   await page.clock.runFor(120_000);
   await expect(page.getByText("It's a new day.")).toBeVisible();
 
+  // Rule 8: leaving Today and coming back does not move the session on; the banner is still there.
   await page.getByRole("link", { name: "Settings" }).click();
   await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+  await expect(page.getByText("It's a new day.")).toHaveCount(1);
+
+  await page.getByRole("link", { name: "History" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
+
+  await page.getByRole("button", { name: "Show today's session" }).click();
   await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
   await expect(page.getByText("It's a new day.")).toHaveCount(0);
 });
@@ -340,6 +358,7 @@ test("the new-day banner can appear behind an open timer and works after it clos
   await seedSettings(page);
   await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
   await page.goto("/");
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
   await page.getByRole("button", { name: "Rest 30s, Med ball slams" }).click();
   const overlay = page.getByRole("dialog", { name: "Rest timer" });
 
@@ -359,6 +378,8 @@ test("a ?date= preview stays on its date past midnight", async ({ page }) => {
   await seedSettings(page);
   await page.clock.install({ time: new Date("2026-11-09T23:59:00") });
   await page.goto("/?date=2026-11-09");
+  // Wait for the app to start before running the clock, or the interval it sets up would never fire.
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();
 
   await page.clock.runFor(120_000);
   await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1")).toBeVisible();

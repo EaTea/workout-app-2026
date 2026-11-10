@@ -247,10 +247,6 @@ body {
   color: var(--accent-text);
 }
 
-.nav-item-disabled {
-  opacity: 0.45;
-}
-
 /* "Saved" confirmation */
 .toast {
   position: fixed;
@@ -834,4 +830,414 @@ body {
   font-size: 18px;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* Progress under an item row on Today: "2/6", "✓ 6/6" */
+.item-progress {
+  margin-top: 2px;
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* "Last time (2 Nov): 6 × 6 at 6 kg" under an item row on Today: small and muted */
+.item-last-time {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+/* Log screen (mockup 2) */
+.log-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 4px -8px;
+}
+
+.log-back,
+.log-info {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 32px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.log-info {
+  font-size: 26px;
+}
+
+.log-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.log-title {
+  margin: 2px 0 0;
+  font-size: 28px;
+  overflow-wrap: anywhere;
+}
+
+.log-subtitle {
+  margin: 0 0 12px;
+  color: #aab1bd;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.log-sets {
+  padding: 4px 16px;
+}
+
+.log-set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.log-set-row:first-child {
+  border-top: 0;
+}
+
+.log-set-logged {
+  color: var(--text);
+}
+
+.log-set-label {
+  flex: none;
+  width: 64px;
+  font-weight: 700;
+}
+
+.log-check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid #3a4150;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 20px;
+}
+
+.log-check-done {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.log-set-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.log-set-note {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.log-set-current {
+  margin: 4px -16px;
+  padding: 12px 16px;
+  background: #1f2532;
+  border-radius: 16px;
+}
+
+.log-set-label-current {
+  width: auto;
+  margin-bottom: 8px;
+  color: var(--accent-text);
+  font-size: 17px;
+}
+
+.log-set-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.log-stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.log-stepper {
+  display: flex;
+  align-items: center;
+  background: var(--field);
+  border-radius: 16px;
+}
+
+.log-stepper-button {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.log-stepper-value {
+  min-width: 56px;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.log-stepper-unit {
+  color: var(--muted);
+}
+
+.log-add-note,
+.log-note-input {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+}
+
+.log-add-note {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* "Last time" line under the set list */
+.log-last-time {
+  margin: 12px 4px 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.log-done {
+  margin: 16px 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Sticky action bar, sitting just above the fixed bottom nav */
+.log-actions {
+  position: sticky;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 8px 0 12px;
+  background: var(--background);
+}
+
+.log-action {
+  min-height: 64px;
+  border: 0;
+  border-radius: 20px;
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.log-primary {
+  flex: 1;
+  background: var(--accent);
+  color: #fff;
+}
+
+.log-secondary {
+  flex: none;
+  min-width: 96px;
+  background: #262c38;
+  color: var(--text);
+}
+
+.log-secondary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.log-danger {
+  color: var(--danger);
+}
+
+/* "Tap again to delete": the armed state of a delete button */
+.log-danger-armed {
+  background: var(--danger);
+  color: #2a0d0a;
+}
+
+.log-primary:disabled,
+.log-all:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The kg value is a button (tap to type) with a text field that replaces it while typing */
+.log-stepper-value-button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: text;
+}
+
+.log-stepper-input {
+  width: 96px;
+  min-height: 48px;
+  border: 1px solid var(--accent-text);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* "Previewing 16 Nov · back to today" strip */
+.preview-strip {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #7a5b12;
+  border-radius: 10px;
+  background: #2a2312;
+  color: #f5c451;
+  font-size: 14px;
+  text-align: center;
+}
+
+.preview-strip-link {
+  color: inherit;
+  font-weight: 700;
+}
+
+.log-all {
+  flex-basis: 100%;
+  min-height: 48px;
+  border: 1px solid var(--accent-text);
+  background: none;
+  color: var(--accent-text);
+  font-size: 16px;
+}
+
+/* History screen */
+.history-empty {
+  color: var(--muted);
+  text-align: center;
+  margin: 32px 0;
+}
+
+.history-session {
+  padding: 12px 16px;
+}
+
+.history-session-header {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.history-exercise-row,
+.history-set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-exercise:first-of-type .history-exercise-row {
+  border-top: 0;
+}
+
+.history-exercise-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.history-exercise-name {
+  font-weight: 700;
+}
+
+.history-exercise-summary {
+  color: #aab1bd;
+  font-size: 15px;
+}
+
+.history-exercise-note {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.history-chevron {
+  flex: none;
+  color: var(--muted);
+}
+
+.history-set-row {
+  justify-content: flex-start;
+  padding-left: 16px;
+  color: #aab1bd;
+  font-size: 16px;
+}
+
+.history-editor {
+  margin: 4px -16px;
+}
+
+.history-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
 }

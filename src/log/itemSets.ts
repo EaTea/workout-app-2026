@@ -1,0 +1,226 @@
+import type { BlockView, ItemView, RepTarget } from "../program/schedule";
+import { lastTimeSetFor, type LastTime } from "./lastTime";
+import type { LoggedSet } from "./model";
+
+/**
+ * Pure helpers that answer "what is there to log for this item?". They sit
+ * between the schedule (`ItemView`/`BlockView`, final numbers for a date) and
+ * the log screen / Today rows, which only draw what these return.
+ *
+ *   ItemView + BlockView ──▶ countSetsForItem      how many ticks the item has
+ *                        ──▶ itemTracksReps        do sets carry reps/kg at all?
+ *                        ──▶ plannedRepsForSet     the plan's number for set n
+ *   logged sets + last time ──▶ prefillForSet      what the stepper starts at (choosePrefill)
+ *                        ──▶ nextSetNumber         where "Skip"/"Log set" go next
+ *                        ──▶ formatProgress        "2/6" on Today
+ */
+
+/**
+ * The value a reps/kg stepper starts at for one set. `reps` is undefined when
+ * nothing is known (a max-based target without a saved max, or free-text reps
+ * such as "easy, ~50% effort"). `loadKg` is 0 for "no load" (bodyweight):
+ * the log screen stores 0 as "no load recorded", never as a literal 0 kg.
+ */
+export interface SetPrefill {
+  reps?: number;
+  loadKg: number;
+}
+
+/** The fields of a logged set that pre-filling reads: only reps and load matter. */
+export type PreviousSet = Pick<LoggedSet, "reps" | "loadKg">;
+
+/**
+ * How many sets (ticks) an item has on the log screen:
+ *  - straight sets: the number of sets, already halved in a deload
+ *  - EMOM: its minutes (halved in a deload), one tick per minute
+ *  - interval (heavy bag): the high end of the rounds range (a deload has
+ *    already collapsed it to the halved low end)
+ *  - anything else (warm-up reps inside a superset): the block's rounds, high
+ *    end, else 1
+ * Used by the log screen and by Today's "2/6" progress.
+ */
+export function countSetsForItem(item: ItemView, block: BlockView): number {
+  if (item.sets.length > 0) return item.sets.length;
+  if (item.format === "emom" && item.minutes !== undefined) return item.minutes;
+  if (item.format === "interval" && item.rounds) return item.rounds.max;
+  return block.rounds?.max ?? 1;
+}
+
+/**
+ * False for items whose sets are just ticked: heavy-bag rounds and timed
+ * holds (side plank, hollow hold: `durationSec`). True for everything with
+ * reps, where the log screen shows reps and kg steppers. Takes only the two
+ * fields it reads, so History can ask it about a program item too.
+ */
+export function itemTracksReps(item: Pick<ItemView, "format" | "durationSec">): boolean {
+  return item.format !== "interval" && item.durationSec === undefined;
+}
+
+/**
+ * The rep target for set number `setNumber` (1-based): the set's own target
+ * when sets are prescribed one by one, else the item-level target (EMOM,
+ * warm-ups). Undefined when the item has none.
+ */
+function targetForSet(item: ItemView, setNumber: number): RepTarget | undefined {
+  return item.sets[setNumber - 1]?.target ?? item.target;
+}
+
+/**
+ * The plan's rep number for a set, used as the pre-fill when nothing was
+ * logged before: a fixed count as is, a range at its low end (also what a
+ * percent-of-max range gives). Free text and "needs a max" have no number, so
+ * the result is undefined and the athlete types the reps.
+ */
+export function plannedRepsForSet(item: ItemView, setNumber: number): number | undefined {
+  const target = targetForSet(item, setNumber);
+
+  switch (target?.kind) {
+    case "fixed":
+      return target.count;
+    case "range":
+      return target.min;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * True when the set's reps are required before it can be logged: the plan
+ * cannot give a number because the athlete's max is missing. (Free-text
+ * targets like "8 each direction" may be logged without reps.)
+ */
+export function setNeedsMax(item: ItemView, setNumber: number): boolean {
+  return targetForSet(item, setNumber)?.kind === "needsMax";
+}
+
+/**
+ * True when the plan prescribes a different rep target for set `setNumber`
+ * than for set `otherSetNumber` (e.g. the calf raise's heavy 8–10 set, then
+ * its moderate 15–25 sets). Compared by value, so equal targets on different
+ * sets count as the same. Items with one item-level target never differ.
+ */
+export function planTargetDiffers(item: ItemView, setNumber: number, otherSetNumber: number): boolean {
+  return JSON.stringify(targetForSet(item, setNumber)) !== JSON.stringify(targetForSet(item, otherSetNumber));
+}
+
+/** Everything `choosePrefill` weighs, gathered by `prefillForSet` for one set. */
+export interface PrefillSources {
+  /** The item's nearest earlier logged set this session, if any. */
+  previousSetThisSession?: PreviousSet;
+
+  /** Last time's set for this set number (or its last set), if the item was logged on an earlier date. */
+  lastTimeSet?: PreviousSet;
+
+  /** The plan's rep number for this set (`plannedRepsForSet`). */
+  plannedReps?: number;
+
+  /** True when the plan's target for this set differs from the previous set's (`planTargetDiffers`). */
+  planTargetChanged: boolean;
+}
+
+/**
+ * Chooses what the steppers start at (rule 8):
+ *  - reps: the previous set this session, else the plan's reps, else last
+ *    time's same set (only when the plan has no number, e.g. free text).
+ *    The plan comes before last time because it already includes this
+ *    week's increase: pre-filling last week's reps would quietly undo the
+ *    progression.
+ *  - load: the previous set this session, else last time's same set, else
+ *    none. The plan has no kg, so last time is the best guess.
+ *
+ * Exception: when the plan prescribes a different target for this set than
+ * for the previous one (`planTargetChanged`), the previous set's numbers don't
+ * apply: reps come from the plan (else last time's same set), and the load
+ * from last time's same set, else none (a heavy set's kg must not carry into
+ * the moderate sets).
+ * Called through `prefillForSet` by the log screen.
+ */
+export function choosePrefill(sources: PrefillSources): SetPrefill {
+  const { previousSetThisSession, lastTimeSet, plannedReps, planTargetChanged } = sources;
+
+  if (previousSetThisSession !== undefined && !planTargetChanged) {
+    return { reps: previousSetThisSession.reps, loadKg: previousSetThisSession.loadKg ?? 0 };
+  }
+
+  // Either no earlier set this session, or the target changed:
+  // reps from the plan (it carries this week's increase), load from last time.
+  return { reps: plannedReps ?? lastTimeSet?.reps, loadKg: lastTimeSet?.loadKg ?? 0 };
+}
+
+/**
+ * Gathers the sources for set `setNumber` of `item` and applies
+ * `choosePrefill`. `loggedSetsThisSession` are the item's logged sets today
+ * (any order); `lastTime` is `findLastTime`'s result for the exercise, if any.
+ * Shared by the log screen's draft and "Log all as planned" so both pre-fill
+ * identically.
+ */
+export function prefillForSet(item: ItemView, setNumber: number, loggedSetsThisSession: LoggedSet[], lastTime: LastTime | undefined): SetPrefill {
+  const earlierSets = loggedSetsThisSession
+    .filter((set) => set.setNumber < setNumber)
+    .sort((first, second) => first.setNumber - second.setNumber);
+  const previousSetThisSession = earlierSets[earlierSets.length - 1];
+
+  return choosePrefill({
+    previousSetThisSession,
+    lastTimeSet: lastTimeSetFor(lastTime, setNumber),
+    plannedReps: plannedRepsForSet(item, setNumber),
+    planTargetChanged: previousSetThisSession !== undefined && planTargetDiffers(item, setNumber, previousSetThisSession.setNumber),
+  });
+}
+
+/**
+ * The singular noun for one tick of an item, for the "last time" hint of
+ * ticked-only items: "set", "round" or "minute" (the lower-case `setWord`).
+ */
+export function setNounFor(item: { sets: readonly unknown[]; format: string }): string {
+  if (item.sets.length > 0) return "set";
+  return item.format === "emom" ? "minute" : "round";
+}
+
+/**
+ * Which set the log screen should move to after `fromSetNumber` is logged or
+ * skipped: the first unlogged set after it, else the first unlogged set
+ * before it (a skipped one), else undefined when nothing is left.
+ * `loggedSetNumbers` are the 1-based numbers already logged.
+ */
+export function nextSetNumber(fromSetNumber: number, totalSets: number, loggedSetNumbers: number[]): number | undefined {
+  const isOpen = (setNumber: number) => setNumber !== fromSetNumber && !loggedSetNumbers.includes(setNumber);
+
+  for (let setNumber = fromSetNumber + 1; setNumber <= totalSets; setNumber++) {
+    if (isOpen(setNumber)) return setNumber;
+  }
+  for (let setNumber = 1; setNumber < fromSetNumber; setNumber++) {
+    if (isOpen(setNumber)) return setNumber;
+  }
+  return undefined;
+}
+
+/**
+ * Today's progress text for an item: "2/6", "✓ 6/6" when complete, or
+ * undefined when nothing is logged (the row shows no progress then). Logged
+ * counts above the total (a deload-shortened item re-opened) read as complete.
+ */
+export function formatProgress(loggedCount: number, totalSets: number): string | undefined {
+  if (loggedCount === 0) return undefined;
+  return loggedCount >= totalSets ? `✓ ${loggedCount}/${totalSets}` : `${loggedCount}/${totalSets}`;
+}
+
+/**
+ * The word for one tick of an item: "Set" for straight sets, "Min" for EMOM
+ * minutes, "Round" for heavy-bag rounds and warm-up rounds.
+ */
+export function setWord(item: { sets: readonly unknown[]; format: string }): string {
+  if (item.sets.length > 0) return "Set";
+  return item.format === "emom" ? "Min" : "Round";
+}
+
+/**
+ * Text for a logged set in the list: "6 reps · 6 kg", "6 reps" for
+ * bodyweight, "Done" for ticked-only sets (bag rounds, holds).
+ */
+export function formatLoggedSet(set: Pick<LoggedSet, "reps" | "loadKg">): string {
+  const parts: string[] = [];
+  if (set.reps !== undefined) parts.push(set.reps === 1 ? "1 rep" : `${set.reps} reps`);
+  if (set.loadKg !== undefined) parts.push(`${set.loadKg} kg`);
+  return parts.length > 0 ? parts.join(" · ") : "Done";
+}

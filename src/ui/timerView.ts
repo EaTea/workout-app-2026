@@ -85,6 +85,15 @@ export interface TimerViewOptions {
   onStart?: () => void;
   /** Called once after the overlay has been closed, however it was closed. */
   onClose?: () => void;
+  /**
+   * Start the timer as soon as the overlay opens, instead of waiting for the
+   * Start button. For a rest opened by "Log set", where the Log tap already
+   * is the "go". The caller must call `openTimer` from inside that tap (the
+   * browser only allows audio from a user gesture) and `onStart` runs as if
+   * Start had been pressed. The setup steppers are then never shown, because
+   * they are only for a timer that has not started.
+   */
+  startImmediately?: boolean;
 }
 
 /** What `openTimer` gives back to the caller. */
@@ -359,6 +368,11 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   screenWakeLock.setWanted(true);
   document.body.append(overlay);
   toggleButton.focus();
+
+  if (options.startImmediately) {
+    applyUpdate(startTimer(state, Date.now()));
+    options.onStart?.();
+  }
 
   return { close };
 }
