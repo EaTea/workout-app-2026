@@ -824,8 +824,11 @@ superset like the Day 1 and Day 5 core blocks:
   new in the code. Deload weeks (4 and 8) halve the sets, rounding up
   (3 → 2). Weeks 5–7 cut the rest between pairs by 15s through the
   existing `coreRestBetweenPairsSec` adjustment (45–60s → 30–45s). Reps
-  stay at 10 and 6 every week. The other core items don't add reps each
-  week either, and a fixed count keeps the sprawls fast.
+  stay at 10 and 6 every week, so the Base phase's "add 1 rep per set"
+  doesn't reach them. The other core items have rep ranges Ed climbs
+  himself (`coreProgressions`), but a fixed count keeps the sprawls fast
+  and the block small. **Open question for Ed:** give the touches a
+  range to climb (for example 10–14) instead.
 - **Time:** about 8 minutes (3 rounds of roughly 40s + 30s of work and
   about 50s rest, plus setting up), so Day 3's `targetMinutes` goes from 32
   to 40. The Overview's weekly total goes from about 234 to about 242
@@ -854,7 +857,22 @@ superset like the Day 1 and Day 5 core blocks:
 2. [x] E2E (`e2e/dayThreeCore.spec.ts`): Day 3 on Today shows the core block with both exercises and
    the 45–60s Rest button. The Day 3 plan for week 4 shows 2 × 10 and 2 × 6
    with their "Changed" lines, and a set of each can be logged.
-3. [ ] Fixes from the challenger review.
+3. [x] **Fixes from the challenger review** (it found no bugs, and every
+   figure matched the worked examples in the app):
+   - [x] The sprawl note says to end the set once the sprawls slow down
+     (the program's explosive rule).
+   - [x] E2E also checks the week 5 Rest button (30s) and the week 4 → 5
+     "Changed" lines, and the 45s rest line by its full text.
+   - [x] The plan no longer claims the other core items have fixed reps.
+   - Not changed: the touches stay `"reps": 10` with "5 each" in the note
+     rather than `perSide`, so a set logs as the 10 touches Ed counts.
+     The new exercises stay at the end of the library, which has no
+     order the app relies on.
+   - **Follow-up, not in this PR:** the project files' `program.json` and
+     `Explosive Endurance Program.md` have drifted from
+     `public/program.json` since PR 10 (no wall sits, no week 5–7 timer
+     changes, and now no Day 3 core). Nothing reads them, so Ed decides
+     whether to sync them or treat them as frozen.
 - **Merge point:** Day 3 has a working core block in every week.
 
 ## 6. Worked examples (used as unit-test fixtures)
