@@ -17,6 +17,51 @@ import { KILOGRAM_STEP, parseKilogramInput, roundToOneDecimal } from "./kilogram
  * sets) and uses only the first two; History uses `renderSetEditor`.
  */
 
+/**
+ * How a stepper rounds, bounds and reads typed text for its kind of number.
+ * The default (`KILOGRAM_RULES`) is the kg stepper's; the weekly check-in
+ * card passes its own for metres and pull-up counts.
+ */
+export interface StepperNumberRules {
+  /** Rounds after a step, so repeated steps never show floating-point noise ("2.3100000000000005"). */
+  round: (value: number) => number;
+
+  /** Largest value stepping up can reach; absent means no cap (the kg stepper's historical behaviour). */
+  maximum?: number;
+
+  /** Reads typed text; undefined when it is not acceptable (the field then reverts). Used only with `allowTyping`. */
+  parseTyped?: (text: string) => number | undefined;
+
+  /** Text shown for a value; defaults to `String(value)`. Metres use two decimals ("2.30"). */
+  format?: (value: number) => string;
+
+  /**
+   * Where a tap on a BLANK stepper lands, in either direction (the check-in
+   * card uses the best recent value, or a sensible default). Absent means the
+   * historical behaviour: "+" gives the minimum (or one step) and "−" does nothing.
+   */
+  startingValue?: number;
+
+  /** When true, committing an empty typed entry clears the value to blank instead of reverting. */
+  allowBlank?: boolean;
+}
+
+/** The kg stepper's rules: one decimal, typed text through `parseKilogramInput`. */
+const KILOGRAM_RULES: StepperNumberRules = {
+  round: roundToOneDecimal,
+  parseTyped: (text) => {
+    const parsed = parseKilogramInput(text);
+    return parsed.isValid ? parsed.kilograms : undefined;
+  },
+};
+
+/**
+ * Event name a caller dispatches on a stepper's row (the element
+ * `renderStepper` returns) after changing the draft behind it from outside
+ * the stepper (for example a "Clear" button), so the row redraws its value.
+ */
+export const STEPPER_REFRESH_EVENT = "stepper-refresh";
+
 /** Smallest reps value the stepper can reach; a set with 0 reps is a skip, not a log. */
 export const MINIMUM_REPS = 1;
 
@@ -25,6 +70,36 @@ export const DELETE_CONFIRMATION_MILLISECONDS = 4000;
 
 /** Label of the delete button once armed. */
 export const DELETE_CONFIRM_LABEL = "Tap again to delete";
+
+/**
+ * The value after one tap of − (direction -1) or + (direction 1). Pure, so the
+ * rules can be unit tested without a DOM; `renderStepper`'s buttons call it.
+ *
+ *   blank, rules.startingValue set -> the starting value (either direction)
+ *   blank, otherwise               -> "+" gives max(minimum, step); "−" stays blank
+ *   a number                       -> current ± step, rounded by rules.round and
+ *                                     capped at rules.maximum; floored at `minimum`
+ *                                     (with `zeroMeansNone`, reaching 0 gives blank)
+ */
+export function steppedValue(
+  current: number | undefined,
+  direction: 1 | -1,
+  minimum: number,
+  step: number,
+  zeroMeansNone: boolean,
+  rules: StepperNumberRules,
+): number | undefined {
+  const maximum = rules.maximum ?? Infinity;
+
+  if (current === undefined) {
+    if (rules.startingValue !== undefined) return Math.min(maximum, Math.max(minimum, rules.startingValue));
+    return direction === 1 ? Math.max(minimum, step) : undefined;
+  }
+
+  const next = Math.min(maximum, rules.round(current + direction * step));
+  if (zeroMeansNone) return next <= 0 ? undefined : next;
+  return Math.max(minimum, next);
+}
 
 /**
  * A big − / value / + stepper with a unit label beside it. `read` and `write`
@@ -36,6 +111,11 @@ export const DELETE_CONFIRM_LABEL = "Tap again to delete";
  * in a decimal text field (`inputmode="decimal"`). Enter or leaving the field
  * commits it through `parseKilogramInput`; Escape or an invalid entry puts
  * the previous value back. A typed 0 means "no load", like stepping down to 0.
+ *
+ * `rules` (default: kilograms) swaps the rounding, cap, typed-text parsing
+ * and display format, so the check-in card can reuse the same widget for
+ * metres (0.01 steps, two decimals) and pull-ups. The typing button is at
+ * least 44px tall (style.css) so it is a comfortable tap target.
  */
 export function renderStepper(
   name: string,
@@ -46,6 +126,7 @@ export function renderStepper(
   step: number,
   zeroMeansNone: boolean,
   allowTyping = false,
+  rules: StepperNumberRules = KILOGRAM_RULES,
 ): HTMLElement {
   const row = element("div", "log-stepper-row");
   const stepper = element("div", "log-stepper");
@@ -58,22 +139,15 @@ export function renderStepper(
 
   /** Shows the current draft value (or "—" when none). */
   function showValue(): void {
-    value.textContent = read() === undefined ? "—" : String(read());
+    const current = read();
+    value.textContent = current === undefined ? "—" : (rules.format ?? String)(current);
   }
 
-  /** Applies one step; for reps an undefined start steps up to the minimum, and kg steps down to "none". */
+  /** Applies one step to the draft (see `steppedValue`) and shows the result. */
   function changeBy(direction: 1 | -1): void {
     const current = read();
-    if (current === undefined) {
-      if (direction === 1) write(Math.max(minimum, step));
-    } else {
-      const next = roundToOneDecimal(current + direction * step);
-      if (zeroMeansNone) {
-        write(next <= 0 ? undefined : next);
-      } else {
-        write(Math.max(minimum, next));
-      }
-    }
+    const next = steppedValue(current, direction, minimum, step, zeroMeansNone, rules);
+    if (next !== current) write(next);
     showValue();
   }
 
@@ -85,7 +159,8 @@ export function renderStepper(
     const input = element("input", "log-stepper-input");
     input.type = "text";
     input.inputMode = "decimal";
-    input.value = read() === undefined ? "" : String(read());
+    const current = read();
+    input.value = current === undefined ? "" : String(current);
     input.setAttribute("aria-label", name);
 
     /** True once the field has been committed or cancelled, so the blur caused by removing it does nothing. */
@@ -96,9 +171,11 @@ export function renderStepper(
       if (isFinished) return;
       isFinished = true;
 
-      const parsed = parseKilogramInput(input.value);
-      if (shouldCommit && parsed.isValid && parsed.kilograms !== undefined) {
-        write(zeroMeansNone && parsed.kilograms <= 0 ? undefined : parsed.kilograms);
+      const typedValue = rules.parseTyped?.(input.value);
+      if (shouldCommit && typedValue !== undefined) {
+        write(zeroMeansNone && typedValue <= 0 ? undefined : typedValue);
+      } else if (shouldCommit && rules.allowBlank === true && input.value.trim() === "") {
+        write(undefined); // an emptied field means "no value", never a number
       }
 
       input.replaceWith(value);
@@ -134,6 +211,7 @@ export function renderStepper(
   increase.addEventListener("click", () => changeBy(1));
 
   showValue();
+  row.addEventListener(STEPPER_REFRESH_EVENT, showValue);
   stepper.append(decrease, value, increase);
   row.append(stepper, element("span", "log-stepper-unit", unit));
   return row;

@@ -10,6 +10,9 @@ export default defineConfig({
     // we install) with the same viewport, touch and user-agent emulation.
     defaultBrowserType: "chromium",
     baseURL: "http://localhost:4173",
+    // The production build registers a service worker; block it by default so
+    // it can't cache or bypass page.route() mocks. e2e/offline.spec.ts opts in.
+    serviceWorkers: "block",
   },
   webServer: {
     command: "npm run build && vite preview --port 4173 --strictPort",

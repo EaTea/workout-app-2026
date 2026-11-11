@@ -4,6 +4,11 @@ import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
 import { element } from "./dom";
+import { retestExercisesToSave } from "./retest";
+import { renderRetestCard, type RetestCardActions } from "./retestCard";
+import { checkInWeekToAsk, type CheckInDraft } from "./checkin";
+import { renderCheckInCard } from "./checkinCard";
+import type { FatigueHistory } from "../fatigue/model";
 import { countSetsForItem, formatProgress } from "../log/itemSets";
 import type { WorkoutLog } from "../log/model";
 import { setsForItem } from "../log/operations";
@@ -22,8 +27,44 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *                       └ item row (button) ─▶ log screen (#/log/<date>/..., pinned to the date shown), which has the details sheet
  *        rest / notStarted / complete / noStartDate ─▶ a single message card
  *
- * It renders exactly what `buildSession` returns; all numbers are final.
+ * It renders exactly what `buildSession` returns; all numbers are final. On
+ * a retest-week training day a "Retest week" card (retestCard.ts) goes above
+ * the header while a max is still to be saved and it was not dismissed. On
+ * any other training day, until that week's check is saved or snoozed for the
+ * day, a "Weekly check-in" card (checkinCard.ts) sits in the same place
+ * (below the retest card, though the two never show together).
  */
+
+/** What Today needs to show the retest card; supplied by app.ts, which owns the saving and dismissal. */
+export interface RetestOptions {
+  /** The date "Not today" was tapped for, or undefined. */
+  dismissedDate: string | undefined;
+  actions: RetestCardActions;
+}
+
+/** What Today needs to show the weekly check-in card; supplied by app.ts, which owns the saving and snoozing. */
+export interface CheckInOptions {
+  /** Saved checks, for "due this week?" and the "Best recent" values. */
+  history: FatigueHistory;
+
+  /** The date "Remind me tomorrow" was tapped on, or undefined. */
+  snoozedDate: string | undefined;
+
+  /** False in a `?date=` preview (shown date is not the real today): the card cannot save. */
+  canSave: boolean;
+
+  /** The program's `fatigueCheck.rule` text, shown in the drop warning. */
+  ruleText: string;
+
+  /** Returns the unsaved values for a week, creating a blank draft the first time (app.ts keeps it across re-renders). */
+  draftForWeek: (week: number) => CheckInDraft;
+
+  /** Saves the check-in (blank fields left out); returns null on success or a message to show inline. */
+  onSave: (values: { broadJumpMetres?: number; maxPullUps?: number }) => string | null;
+
+  /** "Remind me tomorrow" tapped; app.ts remembers the date and re-renders. */
+  onSnooze: () => void;
+}
 
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). `onStartToday` is called
@@ -38,12 +79,31 @@ export function renderTodayScreen(
   onStartToday: () => void = () => undefined,
   startTodayFailureMessage?: string,
   log: WorkoutLog = { sessions: {} },
+  retest?: RetestOptions,
+  checkIn?: CheckInOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
 
   switch (session.kind) {
     case "training":
+      if (retest !== undefined) {
+        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
+        if (exercisesToRetest.length > 0) {
+          screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions));
+        }
+      }
+      if (checkIn !== undefined) {
+        const weekToAsk = checkInWeekToAsk(program, settings, date, checkIn.history, checkIn.snoozedDate);
+        if (weekToAsk !== undefined) {
+          screen.append(renderCheckInCard(weekToAsk, checkIn.history, checkIn.ruleText, {
+            draft: checkIn.draftForWeek(weekToAsk),
+            canSave: checkIn.canSave,
+            onSave: checkIn.onSave,
+            onSnooze: checkIn.onSnooze,
+          }));
+        }
+      }
       screen.append(...renderTrainingDay(program, session, date, log));
       break;
     default:

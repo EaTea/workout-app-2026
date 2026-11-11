@@ -10,7 +10,8 @@ test("first run prompts for a start date; settings save, drive Today and persist
   await page.getByLabel("Max reps: Dips").fill("15");
   await page.getByRole("button", { name: "Save" }).click();
 
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  // Located by class: the stepper's <output> also has role "status", so getByRole("status") would be ambiguous.
+  await expect(page.locator(".toast")).toHaveText("Saved");
   await expect(page).toHaveURL(/#\/today$/);
 
   // Preview week 2 day 1 via the ?date= override.
@@ -121,7 +122,7 @@ test("saving an edited max stamps the real date; an untouched max keeps its date
 
   await page.getByLabel("Max reps: Pull-ups").fill("15");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.locator(".toast")).toHaveText("Saved");
 
   expect(await readStoredSettings(page)).toEqual({
     version: 2,
@@ -138,7 +139,7 @@ test("re-typing the same max counts as a retest and stamps today", async ({ page
 
   await page.getByLabel("Max reps: Dips").fill("15");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.locator(".toast")).toHaveText("Saved");
 
   expect(await readStoredSettings(page)).toMatchObject({ maxSavedOn: { dip: "2026-12-21" } });
 });
@@ -149,7 +150,7 @@ test("changing only the start date stamps no max, and ?date= never sets a stamp"
 
   await page.getByLabel("Start date").fill("2026-11-03");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.locator(".toast")).toHaveText("Saved");
 
   expect(await readStoredSettings(page)).toMatchObject({ startDate: "2026-11-03", maxSavedOn: { dip: "2026-11-02" } });
 });

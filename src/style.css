@@ -27,7 +27,7 @@ body {
 
 /* Leave room for the fixed nav bar (plus the iPhone home-indicator inset). */
 .app-main {
-  padding: 16px 16px calc(var(--nav-height) + env(safe-area-inset-bottom) + 24px);
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(var(--nav-height) + env(safe-area-inset-bottom) + 24px);
   max-width: 640px;
   margin: 0 auto;
 }
@@ -1108,6 +1108,8 @@ body {
 
 /* The kg value is a button (tap to type) with a text field that replaces it while typing */
 .log-stepper-value-button {
+  min-height: 44px; /* comfortable tap target for "tap to type" */
+  min-width: 56px;
   border: 0;
   background: none;
   color: inherit;
@@ -1240,4 +1242,171 @@ body {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 12px;
+}
+
+/* Week 8 retest card on Today */
+.retest-intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.retest-row {
+  margin-bottom: 12px;
+}
+
+.retest-name {
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.retest-save,
+.retest-dismiss {
+  min-height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.retest-save {
+  background: var(--accent);
+  color: #fff;
+}
+
+.retest-dismiss {
+  width: 100%;
+  background: var(--field);
+  color: var(--text);
+}
+
+/* Weekly check-in card on Today (mockup 6) */
+.checkin-kicker {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkin-intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.checkin-field-title {
+  margin: 16px 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkin-best {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* The percentage pill sits at the right end of the stepper row */
+.checkin-pill {
+  margin-left: auto;
+  font-size: 15px;
+}
+
+.checkin-pill[hidden] {
+  display: none;
+}
+
+.pill-ok {
+  background: #173d2b;
+  color: #5fd89a;
+}
+
+.checkin-warning {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #7a5b12;
+  border-radius: 14px;
+  background: #2a2312;
+  color: #f5c451;
+  line-height: 1.4;
+}
+
+.checkin-warning[hidden] {
+  display: none;
+}
+
+.checkin-save,
+.checkin-snooze {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.checkin-save {
+  margin-top: 16px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.checkin-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.checkin-snooze {
+  background: none;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Check-in field heading with its Clear button at the right */
+.checkin-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.checkin-field-head .checkin-field-title {
+  margin: 0;
+}
+
+.checkin-clear {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.checkin-clear[hidden] {
+  display: none;
+}
+
+/* "Previewing — saving is off on this date." on the retest and check-in cards */
+.preview-note {
+  margin: 12px 0 0;
+  color: #f5c451;
+  font-size: 14px;
+}
+
+.retest-save:disabled {
+  opacity: 0.4;
+  cursor: default;
 }

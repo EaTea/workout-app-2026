@@ -27,7 +27,23 @@ exercise details sheet is behind the ⓘ button on the log screen. "Last time"
 hints (last week's same day and block type, else the same kind of block on
 another day) show on Today rows and the log screen. The History tab lists every logged
 session, newest first, with a summary per exercise; tap an exercise to see its
-sets and tap a set to edit or delete it. It is a static site
+sets and tap a set to edit or delete it. On every week 8 training day Today opens
+with a "Retest week" card: steppers (starting at your current maxes) and a
+"Save max" button per exercise for pull-ups and dips. Saving stamps the max with
+today's real date and switches week 8's EMOM targets to the new max at once; the
+card stays until both are saved that week, and "Not today" hides it for that
+date only. In a `?date=` preview of another day both cards show but can't
+save. On other training days (weeks 1-7), until the week's check is saved,
+Today opens with a "Weekly check-in" card: best broad jump (metres, 0.01 steps
+or tap the number to type it) and max pull-ups, either of which may be left
+blank (both start blank; the first tap on a stepper starts from "Best
+recent", and "Clear" goes back to blank). Each shows "Best recent" (the best of
+the previous 3 checks that recorded it) and a percentage pill; a drop of more than 10% shows the
+program's `fatigueCheck.rule` text as a warning on the card, and after saving
+as a dismissible banner on Today for the rest of that week. "Remind me
+tomorrow" hides the card for that date only. Saving the week 8 retest of
+pull-ups also records them as that week's check. Checks are stored in
+`localStorage` under `explosive-endurance.fatigue`. It is a static site
 (Vite + TypeScript, no UI framework).
 
 ## Install
@@ -83,7 +99,26 @@ list straight away when it spots a likely typo.
 on your start date, and Day 7 is the rest day in the shipped program (not
 weekday names). A progression phase can set `"retest": true`; EMOMs in that
 week hold the previous week's reps until you save a new max for that exercise
-in Settings during the week; then they use that max with no weekly increase.
+during the week (Today shows a retest card for it in week 8; Settings works
+too); then they use that max with no weekly increase.
+
+## Install on a phone and use offline
+
+The production build includes a web manifest and a service worker
+(`sw.js`, generated at build time by a small plugin in `vite.config.ts`).
+Open the deployed site once while online, then add it to the home screen
+(iPhone Safari: Share, then Add to Home Screen; Android Chrome: menu, then
+Install app). After that first visit the app opens with no signal.
+
+The app shell and its files come from the cache that the installed worker
+version precached; page loads never overwrite it, so a patchy connection
+can't leave a half-updated app behind. `program.json` is fetched
+network-first, so an edited program shows up whenever you are online. A
+new deploy is downloaded in the background and applied the next time the
+app is opened (with one quick reload), never in the middle of a session.
+The worker is only registered in production builds (`npm run build` then
+`npm run preview`), not by `npm run dev`. The E2E suite blocks service
+workers except in `e2e/offline.spec.ts`, which tests them.
 
 ## Deployment (GitHub Pages)
 
