@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 9 merged (#3 to #13), and the PR 10 plan merged as #15. PR 10 (Day 6 wall sits) is in review.**
+Status: **PR 1 to PR 10 merged (#3 to #16). The PR 11 plan (program overview welcome page) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -582,6 +582,96 @@ block adds 5 × 90s + 4 × 60s = 11.5 minutes.
    the 1/5 progress and week 8.
 - **Merge point:** Day 6 has the wall sits with a working timer and log.
 
+### PR 11 — Program overview as the welcome page *(behavior change)*
+Ed asked for a program overview as the app's welcome page, with one clear
+call to action on where to start. Today a first visit shows a small
+"Welcome" card on Today ("Set your program start date…" and "Start
+today"), which says nothing about what the 8 weeks hold.
+
+**What the page shows.** A new Overview screen at `#/overview`, built only
+from `program.json` (nothing hard-coded, per the brief), top to bottom:
+
+```
+ ┌──────────────────────────────────┐
+ │ EXPLOSIVE ENDURANCE PROGRAM      │  program.name
+ │ Build explosiveness and …        │  program.goal
+ │ 8 weeks · 6 training days a week │  lengthWeeks, days (restDay excluded)
+ │ · about 4 h a week               │  sum of targetMinutes (242 min)
+ ├──────────────────────────────────┤
+ │ THE 8 WEEKS                      │  progression[], one segment per week
+ │ [1][2][3][4][5][6][7][8]         │  Base · Deload · Power endurance ·
+ │  Base     Dl  Power end. Dl+rt   │  Deload + retest, with each phase's
+ │                                  │  first change as a one-line summary
+ ├──────────────────────────────────┤
+ │ A TYPICAL WEEK                   │  days[1..7]
+ │ Day 1  Upper: pull       ~50 min │  focus, targetMinutes, and the main
+ │        Med ball slams · Pull-ups │  explosive + main-strength exercise
+ │ …                                │
+ │ Day 7  Rest                      │  restDay
+ ├──────────────────────────────────┤
+ │ EVERY SESSION                    │  sessionOrder as labels: Warm-up →
+ │ Warm-up → Explosive → …          │  Explosive → Main strength → …
+ ├──────────────────────────────────┤
+ │ [ Start Day 1: Upper: pull ]     │  the one primary CTA
+ │  or pick another start date      │  small text link to Settings
+ └──────────────────────────────────┘
+```
+
+The phase strip uses the same phase names Today's phase pill uses, and the
+week list uses Day 1–7 with no weekday names (rule 1).
+
+**When it shows (my reading of "welcome page").**
+- **No start date set (first run):** the app opens on the Overview instead
+  of Today's "Welcome" card. Today's `noStartDate` card goes away; `#/today`
+  with no start date sends you to the Overview.
+- **Program started:** the app keeps opening on Today, so the gym flow
+  stays one tap shorter. The Overview stays reachable from a "Program
+  overview" link on Today's header and in Settings.
+- **The CTA changes with the state**, so there is always exactly one:
+  - Not started yet → **"Start Day 1: Upper: pull"** (the first training
+    day's number and focus from `program.json`). It saves today as the
+    start date (the existing "Start today" handler, so `?date=` previews
+    and the inline storage-failure message work as now) and opens Today,
+    which then shows Week 1 · Day 1.
+  - Start date in the future → "Program starts 16 Nov" as text; the CTA
+    becomes "Preview Day 1", opening Today with `?date=<start date>`.
+  - Started → **"Go to today: Week 2 · Day 1"** (or "Rest day"), opening
+    Today; the current week is highlighted in the phase strip.
+  - Complete → "Set a new start date", opening Settings.
+- **Maxes:** the CTA doesn't ask for max pull-ups and dips. Today already
+  shows "Set max" on those rows and links to Settings, so Day 1 is usable
+  straight away.
+
+**Code.** Everything it needs is already in the internal `Program` model
+(name, goal, lengthWeeks, restDay, sessionOrder, days with focus and
+targetMinutes, progression), so no new wire type or parser change.
+- `src/program/overview.ts`: a pure `buildProgramOverview(program,
+  status)` that returns a view model (headline numbers, phases with their
+  week ranges, the 7 day rows, the CTA kind and label). Unit-tested.
+- `src/ui/overview.ts`: renders that view model. The router gets an
+  `"overview"` route, and `app.ts` picks Overview when there is no start
+  date.
+- Alternatives considered: a fourth bottom-nav tab "Program" (more
+  discoverable, but adds a tab used once or twice in 8 weeks), and showing
+  the Overview on every launch (costs a tap at every session).
+
+**Steps.**
+1. [ ] `buildProgramOverview` view model and its unit tests: phases
+   grouped from `progression` (W1–3 Base, W4 Deload, W5–7 Power endurance,
+   W8 Deload + retest), the 7 day rows in order with Day 7 as Rest, weekly
+   total minutes, and the CTA for each status (no start date, future start,
+   week 2 day 1, rest day, complete).
+2. [ ] Overview screen, `#/overview` route, first-run redirect, CTA wiring
+   (reusing "Start today"), the "Program overview" links on Today and
+   Settings, styles, and README. Replaces the old Welcome card and updates
+   the E2E tests that used it.
+3. [ ] E2E (`e2e/overview.spec.ts`): first visit lands on the Overview,
+   shows 8 weeks, the four phases and the 7 days, and "Start Day 1: Upper:
+   pull" opens Today at Week 1 · Day 1; a started program opens on Today
+   and the header link opens the Overview with "Go to today".
+- **Merge point:** a first visit lands on the program overview, and one
+  tap starts Day 1.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -601,6 +691,9 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 28 Nov | W4 D6 | Deload | Wall sit 5 rounds × 90s / 60s, not halved; skater bounds still halved to 3 × 6 per side |
 | 5 Dec | W5 D6 | Power endurance | Wall sit 5 × 90s / 60s, unchanged (no "+5s work" line); W5 D1 heavy bag still 25–35s |
 | 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side; wall sit 5 × 90s / 60s (the retest card shows on Today) |
+| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 242 min a week (50+30+32+30+50+42 from the shipped `program.json`); phases Base W1–3, Deload W4, Power endurance W5–7, Deload + retest W8; CTA "Start Day 1: Upper: pull" |
+| 9 Nov (start 2 Nov) | W2 D1 | Base | Overview CTA "Go to today: Week 2 · Day 1"; week 2 highlighted |
+| 8 Nov (start 2 Nov) | W1 D7 | Base | Overview CTA "Go to today: Rest day" |
 
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
