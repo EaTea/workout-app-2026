@@ -32,6 +32,7 @@ import type {
   FatigueCheck,
   Format,
   ProgressionPhase,
+  TimerAdjustments,
   Program,
   ProgramWarning,
   Range,
@@ -51,6 +52,7 @@ import type {
   ProgramInfoWire,
   ProgramWire,
   ProgressionPhaseWire,
+  TimerAdjustmentsWire,
   RepsWire,
   SetWire,
   SetsWire,
@@ -91,7 +93,8 @@ const ITEM_KEYS = allowedKeysOf<ItemWire>()([
   "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "load", "note", "tempo", "weeklyIncrease",
 ]);
 const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
-const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest"]);
+const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest", "timerAdjustments"]);
+const TIMER_ADJUSTMENT_KEYS = allowedKeysOf<TimerAdjustmentsWire>()(["intervalWorkSec", "coreRestBetweenPairsSec"]);
 const WARMUP_ROTATION_KEYS = allowedKeysOf<WarmupRotationWire>()(["everyWeeks", "swaps", "alsoAvailable"]);
 const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in"]);
 const FATIGUE_CHECK_KEYS = allowedKeysOf<FatigueCheckWire>()(["frequency", "tests", "rule", "lowerBackRule"]);
@@ -451,6 +454,30 @@ function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: strin
   };
 }
 
+/** Reads an optional whole-number field (negative allowed); a missing key is 0. */
+function readOptionalWholeSeconds(record: UnknownRecord, key: string, path: string): number {
+  const value = record[key];
+  if (value === undefined) return 0;
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    fail(child(path, key), `expected a whole number of seconds but found ${describe(value)}`);
+  }
+  return value;
+}
+
+/**
+ * Converts a phase's optional `timerAdjustments` object. Called by
+ * parseProgressionPhase; unknown keys become warnings like everywhere else.
+ */
+function parseTimerAdjustments(raw: unknown, path: string, warnings: ProgramWarning[]): TimerAdjustments {
+  const record = expectRecord(raw, path);
+  collectUnknownFields(record, TIMER_ADJUSTMENT_KEYS, path, warnings);
+
+  return {
+    intervalWorkSec: readOptionalWholeSeconds(record, "intervalWorkSec", path),
+    coreRestBetweenPairsSec: readOptionalWholeSeconds(record, "coreRestBetweenPairsSec", path),
+  };
+}
+
 /** Converts one progression phase. */
 function parseProgressionPhase(raw: unknown, path: string, warnings: ProgramWarning[]): ProgressionPhase {
   const record = expectRecord(raw, path);
@@ -467,6 +494,7 @@ function parseProgressionPhase(raw: unknown, path: string, warnings: ProgramWarn
     phase: readString(record, "phase", path),
     changes: readStringList(record, "changes", path),
     retest: readFlag(record, "retest", path),
+    timerAdjustments: record.timerAdjustments === undefined ? undefined : parseTimerAdjustments(record.timerAdjustments, child(path, "timerAdjustments"), warnings),
   };
 }
 

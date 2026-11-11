@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in progress, stacked on PR 5.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -250,13 +250,7 @@ Follow-ups from the step 6 review:
    - E2E for Skip and for catching up after the page was hidden.
 - **Merge point:** a full session can be run with timers.
 
-Follow-ups from the PR 2 review (later PRs):
-- Schedule upcoming beeps on the audio clock so they stay on time while the
-  browser throttles a hidden page.
-- Let the phone's Back gesture close the timer instead of leaving the app.
-- Power-endurance weeks (5–7): Ed chose that the heavy bag work default
-  gets +5s and the core rest between pairs −15s. Explosive rest stays as
-  written, since the program allows adding reps instead. Not built yet.
+Follow-ups from the PR 2 review are planned as PR 6.
 
 ### PR 3 — Logging and "last time" *(behavior change)*
 Rule 8 in section 4.
@@ -373,9 +367,72 @@ brief's remaining nice-to-haves.
    - Stale doc comments fixed.
 - **Merge point:** every nice-to-have in the brief is in.
 
-### Later (not planned in detail yet)
-- PR 6 (planned when PR 5 is up): Ed's weeks 5–7 timer defaults and the
-  PR 2 timer follow-ups.
+### PR 6 — Power-endurance timer defaults and timer follow-ups *(behavior change)*
+Stacked on PR 5. Ed's choice for weeks 5–7 plus the two follow-ups from
+the PR 2 review.
+1. [x] **Power-endurance adjustments in program.json.** A progression phase
+   may carry an optional `"timerAdjustments": {"intervalWorkSec": 5,
+   "coreRestBetweenPairsSec": -15}` (validated like every other field:
+   whole numbers, unknown keys warned about). The shipped program sets it on
+   the weeks 5–7 phase. `buildSession` applies it: every interval item's
+   `workSec` range moves by the amount (Day 1 heavy bag 20–30s becomes
+   25–35s, so the timer starts at 35s), and every `core` block's
+   `restSecBetweenPairs` moves by its amount (45–60s becomes 30–45s, and
+   Day 5's 45s becomes 30s), never below the timer's 5s floor. Today's
+   rows show the adjusted numbers with a short "Power endurance: +5s work"
+   / "−15s rest" line, so the text and the timer agree. Explosive rest is
+   unchanged (Ed's decision: the program also allows adding reps instead).
+   Steppers still let Ed change any number before Start.
+2. [x] **Beeps on the audio clock.** On Start, resume and Skip, the cue
+   player schedules every remaining 3-2-1 countdown and boundary beep of
+   the plan on the AudioContext timeline (`osc.start(at)`), instead of
+   waiting for the page's ticks, which a hidden or throttled page delays. Scheduled tones
+   are cancelled on pause, Skip, a stepper change and close; the tick path
+   no longer plays a tone that was already scheduled, so nothing beeps
+   twice. Vibration stays tick-driven (it can't be scheduled) and the
+   display still catches up after the page was hidden, as now.
+3. [x] **Back closes the timer.** Opening a timer (EMOM, interval or rest)
+   pushes a history entry with the same URL; the Back gesture or button
+   then closes the timer instead of leaving the screen or the app. Closing
+   with the timer's own button pops that entry, so Back afterwards behaves
+   as before. Pushing the entry must not fire the hash router.
+   Unit tests for the adjustments, the parsing, and the cue scheduling with
+   a fake AudioContext; E2E for the week 5 defaults and Back closing each
+   timer.
+4. [x] **Fixes from the challenger review.** Decisions taken:
+   - The audio-clock schedule is re-anchored whenever the audio clock and
+     the wall clock disagree: when the page becomes visible again, when the
+     AudioContext changes state (iOS suspends or interrupts it on lock, an
+     app switch or a call), and on each display refresh if they drift by
+     more than a quarter second. Then the queued tones are cancelled, the
+     catch-up plays the latest cue once (as before PR 6), and the rest is
+     queued again. Nothing counts as queued while the context isn't
+     running, so the tick path plays the cues instead. On iOS a hidden page
+     is silenced anyway, so the gain there is mainly a locked-then-woken
+     timer staying right; Android and desktop gain on-time beeps while
+     hidden.
+   - Back: a timer opened while the previous timer's own close is still
+     popping its history entry waits for that pop before pushing its own,
+     so the late Back can't close it. The marker carries a per-page-load id,
+     so an entry left by a reload is never taken for the current one. A
+     hash navigation while a timer is open closes it without leaving a
+     dead Back press behind.
+   - The 5-second timer floor is a shared constant in the program model,
+     used by both the timers and `buildSession`, so program code doesn't
+     import timer code; adjustments are also capped at the steppers'
+     maximums.
+   - Tests for the timer's pause, Skip, close and stepper cancel wiring, a
+     frozen-audio-clock test, Back for the interval timer, and the week 5
+     rest figures; the timer E2E's due times are normalised so a −0 can't
+     fail them.
+5. [x] **Fixes from the Android Chrome pass** (Ed asked for a pass on an
+   Android phone in Chrome). Back (the Android button or gesture) closes
+   the exercise details sheet instead of leaving the log screen, using the
+   same helper as the timers. Tap targets that were 44px tall (the
+   tap-to-type value in the steppers, the check-in's Clear) become at least
+   48px, Android's guideline, which also satisfies Apple's 44pt.
+- **Merge point:** the program's weeks 5–7 changes are reflected in the
+  timers, and the PR 2 follow-ups are done.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
@@ -389,6 +446,8 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 23 Nov | W4 D1 | Deload | Med ball slams 3 × 6; pull-up EMOM 5 min × 6 (week 3's reps); dip mini-dose 1 × 7 |
 | 8 Nov | W1 D7 | Rest | Rest-day card |
 | 21 Dec | W8 D1 | Deload + retest | Pull-up EMOM 5 min × 6 (week 7's 4 + 2, held: no max saved in week 8); after saving a retested max of 15 on 21 Dec, 5 min × 6 (floor(15 × 0.40), no hold) |
+| 30 Nov | W5 D1 | Power endurance | Heavy bag 4–5 rounds × 25–35s work / 30s rest (timer starts 5 × 35s / 30s); core rest between pairs 30–45s (Rest button 30s) |
+| 4 Dec | W5 D5 | Power endurance | Core rest between pairs 30s |
 | 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (the retest card shows on Today) |
 
 A second start date shows the cycle doesn't depend on the weekday: start

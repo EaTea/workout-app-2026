@@ -1,4 +1,5 @@
 import type { Range } from "../program/model";
+import { MAX_INTERVAL_REST_SECONDS, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "../program/model";
 import type { ItemView } from "../program/schedule";
 import { itemDisplayName } from "../program/rotation";
 import { formatRepTarget } from "../ui/format";
@@ -68,9 +69,9 @@ export interface IntervalSettings {
 export const INTERVAL_LIMITS = {
   minRounds: 1,
   maxRounds: 12,
-  minSeconds: 5,
-  maxWorkSec: 180,
-  maxRestSec: 180,
+  minSeconds: MIN_TIMER_SECONDS,
+  maxWorkSec: MAX_INTERVAL_WORK_SECONDS,
+  maxRestSec: MAX_INTERVAL_REST_SECONDS,
   secondsStep: 5,
 } as const;
 
@@ -125,8 +126,8 @@ function shortExerciseName(name: string): string {
 
 /** Sensible limits for the rest timer's seconds stepper; `buildRestPlan` enforces the minimum. */
 export const REST_LIMITS = {
-  minSeconds: 5,
-  maxSeconds: 300,
+  minSeconds: MIN_TIMER_SECONDS,
+  maxSeconds: MAX_REST_SECONDS,
   secondsStep: 5,
 } as const;
 

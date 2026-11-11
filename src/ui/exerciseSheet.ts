@@ -1,4 +1,5 @@
 import type { ItemView } from "../program/schedule";
+import { closeOnBack } from "./backToClose";
 import { element } from "./dom";
 import { formatPrescriptionSummary } from "./format";
 
@@ -9,7 +10,10 @@ import { formatPrescriptionSummary } from "./format";
  *   ⓘ button (log screen) ──click──▶ openExerciseSheet(item, opener)
  *                           ├─ backdrop (tap closes)    ┐ appended to <body>, outside #app,
  *                           └─ dialog (focus moves in)  ┘ so Today re-renders don't remove it
- *   Escape / close button / backdrop / hashchange ──▶ closeSheet ──▶ focus back on `opener`
+ *   Escape / close button / backdrop / hashchange / Back ──▶ closeSheet ──▶ focus back on `opener`
+ *
+ * Back closes the sheet (not the log screen) via `closeOnBack`, as the timer
+ * overlay does: a marker history entry is pushed on open and released on every close path.
  */
 
 /** Shown for exercises whose evidence is "coaching practice" rather than a link. */
@@ -68,8 +72,12 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   }
   document.body.style.overflow = "hidden";
 
-  /** Removes the sheet and listeners, restores the page behind it, then returns focus to the row. */
+  /** Lets the Back button close the sheet; released in closeSheet() on every close path. */
+  const backToClose = closeOnBack(window.history, window, () => closeSheet());
+
+  /** Removes the sheet and listeners, restores the page behind it, releases the Back marker, then returns focus to the row. */
   function closeSheet(): void {
+    backToClose.release();
     for (const region of backgroundRegions) {
       region.inert = false;
     }

@@ -223,12 +223,12 @@ test("a typed broad jump can be emptied to go back to blank", async ({ page }) =
   await expect(card(page).getByRole("button", { name: "Save check-in" })).toBeDisabled();
 });
 
-test("the tap-to-type button is at least 44px tall", async ({ page }) => {
+test("the tap-to-type button is at least 48px tall", async ({ page }) => {
   await seedApp(page);
   await openOn(page, WEEK_3_DAY_1);
 
   const box = await card(page).locator('button[aria-label="Best broad jump"]').boundingBox();
-  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
 });
 
 test("a preview of another date cannot save a check-in, in week 6 with the real date in week 2", async ({ page }) => {

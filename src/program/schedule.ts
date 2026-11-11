@@ -1,5 +1,5 @@
-import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps } from "./model";
-import { DAYS_PER_WEEK } from "./model";
+import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
+import { DAYS_PER_WEEK, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
 import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
@@ -70,6 +70,7 @@ export interface MaxBasis {
  *  - offset: weekly increases to add (see `weeklyIncreaseOffsetForWeek`)
  *  - retestHeldOffset: in a retest week, the previous week's offset, which
  *    EMOMs hold until a retested max is saved (0 outside retest weeks)
+ *  - timerAdjustments: the phase's timer changes, if it has any
  *  - weekStartDate: first calendar day of the program week; a max saved
  *    from that day to the week's last day (Day 7) counts as retested
  */
@@ -78,6 +79,7 @@ interface WeekContext {
   isRetest: boolean;
   offset: number;
   retestHeldOffset: number;
+  timerAdjustments?: TimerAdjustments;
   weekStartDate: string;
 }
 
@@ -108,7 +110,10 @@ export interface ItemView {
   minutes?: number;
   /** Interval rounds; a ranged program value stays a range outside a deload. */
   rounds?: Range;
+  /** Work time per round, already moved by the phase's `intervalWorkSec` adjustment. */
   workSec?: Range;
+  /** The seconds added to `workSec` by the phase (e.g. 5 in power endurance); absent when none were. */
+  workSecAdjustment?: number;
   durationSec?: number;
   perSide: boolean;
   optional: boolean;
@@ -138,7 +143,10 @@ export interface BlockView {
   /** Superset rounds (not halved for warm-ups). */
   rounds?: Range;
   minutes?: number;
+  /** Rest between pairs, already moved by the phase's `coreRestBetweenPairsSec` adjustment. */
   restSecBetweenPairs?: Range;
+  /** The seconds added to `restSecBetweenPairs` by the phase (e.g. -15); absent when none were. */
+  restAdjustment?: number;
   items: ItemView[];
 }
 
@@ -190,6 +198,9 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     isRetest,
     offset: weeklyIncreaseOffsetForWeek(program, week),
     retestHeldOffset: isRetest && week > 1 ? weeklyIncreaseOffsetForWeek(program, week - 1) : 0,
+    // Applied whenever the phase carries it, even if the phase were also a
+    // deload (the shipped program only sets it on weeks 5-7, which are not).
+    timerAdjustments: phase.timerAdjustments,
     // settings.startDate is non-null here: programStatus was "active".
     weekStartDate: addDaysToDate(settings.startDate as string, (week - 1) * DAYS_PER_WEEK),
   };
@@ -264,14 +275,31 @@ function isDeloadPhase(phase: ProgressionPhase): boolean {
 function buildBlock(block: Block, settings: TrainingSettings, week: WeekContext): BlockView {
   const halve = week.isDeload && block.type !== "warmup";
 
+  // Only core blocks take the rest adjustment (the power-endurance "cut core rest").
+  const restAdjustment = week.timerAdjustments?.coreRestBetweenPairsSec ?? 0;
+  const restAdjusted = block.type === "core" && block.restSecBetweenPairs !== undefined && restAdjustment !== 0;
+
   return {
     type: block.type,
     format: block.format,
     rounds: block.rounds && (halve ? halveRange(block.rounds) : block.rounds),
     minutes: block.minutes === undefined ? undefined : halve ? halveRoundingUp(block.minutes) : block.minutes,
-    restSecBetweenPairs: block.restSecBetweenPairs,
+    restSecBetweenPairs: restAdjusted ? shiftRange(block.restSecBetweenPairs as Range, restAdjustment, MAX_REST_SECONDS) : block.restSecBetweenPairs,
+    restAdjustment: restAdjusted ? restAdjustment : undefined,
     items: block.items.map((item) => buildItem(item, settings, halve, week)),
   };
+}
+
+/**
+ * Moves both ends of a range by `seconds`, kept between the timer's floor
+ * (MIN_TIMER_SECONDS) and `ceiling` (the matching stepper maximum), so the
+ * timer can always start from the result. Used for the phase's timer
+ * adjustments (power endurance): work uses MAX_INTERVAL_WORK_SECONDS, rest
+ * between pairs uses MAX_REST_SECONDS.
+ */
+function shiftRange(range: Range, seconds: number, ceiling: number): Range {
+  const clamp = (value: number) => Math.min(ceiling, Math.max(MIN_TIMER_SECONDS, value));
+  return { min: clamp(range.min + seconds), max: clamp(range.max + seconds) };
 }
 
 /**
@@ -281,6 +309,10 @@ function buildBlock(block: Block, settings: TrainingSettings, week: WeekContext)
  */
 function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, week: WeekContext): ItemView {
   const choice = chooseIncrease(item, settings, week);
+
+  // Interval items (heavy bag) take the work adjustment (the power-endurance "longer rounds").
+  const workAdjustment = week.timerAdjustments?.intervalWorkSec ?? 0;
+  const workAdjusted = item.format === "interval" && item.workSec !== undefined && workAdjustment !== 0;
 
   const keptSets = halve ? item.sets.slice(0, Math.ceil(item.sets.length / 2)) : item.sets;
 
@@ -296,7 +328,8 @@ function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, 
     minutes: item.minutes === undefined ? undefined : halve ? halveRoundingUp(item.minutes) : item.minutes,
     // Deload intervals use the low end of the range, halved (4-5 -> 2).
     rounds: item.rounds && (halve ? { min: halveRoundingUp(item.rounds.min), max: halveRoundingUp(item.rounds.min) } : item.rounds),
-    workSec: item.workSec,
+    workSec: workAdjusted ? shiftRange(item.workSec as Range, workAdjustment, MAX_INTERVAL_WORK_SECONDS) : item.workSec,
+    workSecAdjustment: workAdjusted ? workAdjustment : undefined,
     durationSec: item.durationSec,
     perSide: item.perSide,
     optional: item.optional,

@@ -20,7 +20,7 @@ import { logRouteHash } from "./router";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 import { openTimer } from "./timerView";
-import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatShortDate, isAwaitingRetest } from "./format";
+import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatTimerAdjustment, formatShortDate, isAwaitingRetest } from "./format";
 
 /**
  * The Today screen. Rendered by app.ts for `#/today`.
@@ -230,7 +230,7 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, date, log)));
+  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, session.phase, date, log)));
   return parts;
 }
 
@@ -262,8 +262,11 @@ function renderPhaseStrip(program: Program, phaseName: string, isDeload: boolean
   return details;
 }
 
-/** One card for a block: numbered title, then one row per item. */
-function renderBlockCard(program: Program, block: BlockView, position: number, dayNumber: number, date: string, log: WorkoutLog): HTMLElement {
+/**
+ * One card for a block: numbered title, then one row per item. `phase` names
+ * the progression phase for the timer-adjustment lines.
+ */
+function renderBlockCard(program: Program, block: BlockView, position: number, dayNumber: number, phase: string, date: string, log: WorkoutLog): HTMLElement {
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
@@ -278,10 +281,15 @@ function renderBlockCard(program: Program, block: BlockView, position: number, d
       " between pairs",
     ));
     card.append(restRow);
+
+    // Say why the rest differs from the base program (power endurance weeks).
+    if (block.restAdjustment !== undefined) {
+      card.append(element("p", "timer-adjustment", formatTimerAdjustment(phase, block.restAdjustment, "rest")));
+    }
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(program, item, block, dayNumber, date, position, log));
+    card.append(renderItemRow(program, item, block, dayNumber, phase, date, position, log));
   }
   return card;
 }
@@ -301,7 +309,7 @@ function describeSwaps(program: Program): string[] {
  * "Last time (2 Nov): ..." line when the exercise has been logged before (not on warm-ups). When the dose needs a max, the dose is a separate link to
  * Settings instead (a link can't live inside a button).
  */
-function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNumber: number, date: string, blockPosition: number, log: WorkoutLog): HTMLElement {
+function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNumber: number, phase: string, date: string, blockPosition: number, log: WorkoutLog): HTMLElement {
   const row = element("div", "item-row");
   const dose = formatItemDose(item);
 
@@ -316,6 +324,10 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
   const details = formatItemDetails(item);
   if (details.length > 0) {
     text.append(element("span", "item-details", details.join(" · ")));
+  }
+  // The phase's work-time adjustment, so the row's seconds and the timer's defaults are explained.
+  if (item.workSecAdjustment !== undefined) {
+    text.append(element("span", "timer-adjustment", formatTimerAdjustment(phase, item.workSecAdjustment, "work")));
   }
   const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id).length, countSetsForItem(item, block));
   if (progress !== undefined) {
@@ -367,6 +379,7 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
     row.append(renderStartIntervalButton(item));
   }
 
+
   openButton.addEventListener("click", () => {
     window.location.hash = logRouteHash(date, blockPosition, item.exercise.id);
   });
@@ -391,6 +404,7 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      cues,
     });
   });
   return button;
@@ -416,6 +430,7 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
+      cues,
       setup: {
         fields: [
           {

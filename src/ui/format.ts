@@ -309,3 +309,14 @@ export function formatSetsSummary(sets: Pick<LoggedSet, "reps" | "loadKg">[], se
 
   return `${repsText} at ${loadText}`;
 }
+
+/**
+ * The short line for a phase's timer adjustment, e.g. "Power endurance: +5s
+ * work" or "Power endurance: −15s rest", so Today's text explains why the
+ * numbers (and the timer defaults) differ from the program's base figures.
+ * `kind` picks the word. Used by Today for interval rows and core blocks.
+ */
+export function formatTimerAdjustment(phase: string, seconds: number, kind: "work" | "rest"): string {
+  const sign = seconds < 0 ? "\u2212" : "+";
+  return `${phase}: ${sign}${Math.abs(seconds)}s ${kind}`;
+}

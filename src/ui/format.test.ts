@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatLastTime, formatSetsSummary, formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
+  formatLastTime, formatSetsSummary, formatTimerAdjustment, formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
 } from "./format";
 import type { LoggedSet } from "../log/model";
 
@@ -153,5 +153,15 @@ describe("formatSetsSummary", () => {
     expect(formatSetsSummary([{ reps: 6, loadKg: 6 }, { reps: 6, loadKg: 6 }], "set")).toBe("2 × 6 at 6 kg");
     expect(formatSetsSummary([{ reps: 6 }, { reps: 6 }, { reps: 5 }], "set")).toBe("6, 6, 5");
     expect(formatSetsSummary([{}, {}, {}, {}, {}], "round")).toBe("5 rounds");
+  });
+});
+
+describe("formatTimerAdjustment", () => {
+  it("shows a positive change with a plus sign", () => {
+    expect(formatTimerAdjustment("Power endurance", 5, "work")).toBe("Power endurance: +5s work");
+  });
+
+  it("shows a negative change with a true minus sign (U+2212)", () => {
+    expect(formatTimerAdjustment("Power endurance", -15, "rest")).toBe("Power endurance: \u221215s rest");
   });
 });

@@ -256,7 +256,7 @@
   "progression": [
     { "weeks": [1, 2, 3], "phase": "Base", "changes": ["Add 1 rep per set or per EMOM minute each week"] },
     { "weeks": [4], "phase": "Deload", "changes": ["Halve all sets", "Keep intensity", "Keep explosive reps fast"] },
-    { "weeks": [5, 6, 7], "phase": "Power endurance", "changes": [
+    { "weeks": [5, 6, 7], "phase": "Power endurance", "timerAdjustments": { "intervalWorkSec": 5, "coreRestBetweenPairsSec": -15 }, "changes": [
       "Cut explosive rest by 15s, or add 1-2 reps per set, only while every rep stays fast",
       "Cut core-block rest by 15s",
       "Lengthen heavy bag rounds by 5-10s"

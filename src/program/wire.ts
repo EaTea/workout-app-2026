@@ -80,6 +80,17 @@ export interface DayWire {
   blocks: BlockWire[];
 }
 
+/**
+ * Optional per-phase timer changes, in whole seconds (negative allowed).
+ * Either key may be left out, which means "no change".
+ */
+export interface TimerAdjustmentsWire {
+  /** Added to every interval item's `workSec` range (heavy bag). */
+  intervalWorkSec?: number;
+  /** Added to every core block's `restSecBetweenPairs` range. */
+  coreRestBetweenPairsSec?: number;
+}
+
 /** One phase of the 8-week progression. */
 export interface ProgressionPhaseWire {
   weeks: number[];
@@ -87,6 +98,8 @@ export interface ProgressionPhaseWire {
   changes: string[];
   /** True in a retest week: EMOM targets use the current max with no weekly increase or hold. */
   retest?: boolean;
+  /** Optional timer defaults changes for this phase (power endurance). */
+  timerAdjustments?: TimerAdjustmentsWire;
 }
 
 /** The `program` object: name, length and session-wide rules. */

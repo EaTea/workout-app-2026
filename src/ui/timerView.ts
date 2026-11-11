@@ -2,7 +2,9 @@ import {
   createTimerState, describeTimer, formatClock, pauseTimer, resumeTimer, skipSegment, startTimer, tickTimer,
   type TimerEvent, type TimerPlan, type TimerState, type TimerUpdate,
 } from "../timer/engine";
+import type { CuePlayer } from "../timer/cues";
 import { createScreenWakeLock } from "../timer/wakeLock";
+import { closeOnBack } from "./backToClose";
 import { element } from "./dom";
 
 /**
@@ -15,7 +17,9 @@ import { element } from "./dom";
  *        buttons ──start/pause/resume/skip(now)──▶ new state ──render()
  *        engine events (one batch per update) ──▶ options.onEvents (beeps and buzzes)
  *        every tap inside the overlay ──▶ options.onUserTap (unlock/resume audio)
- *   Escape / Close / hashchange ──▶ close() ──▶ loop stopped, page restored
+ *   Escape / Close / hashchange / Back (popstate) ──▶ close() ──▶ loop stopped, page restored
+ *   Opening pushes a same-URL history entry (backToClose.ts) so Back closes the overlay;
+ *   closing any other way pops that entry again.
  *
  * Optional setup row (`options.setup`): before Start, numeric steppers let the
  * user adjust the plan (e.g. rounds); each change asks the caller to rebuild
@@ -79,6 +83,14 @@ export interface TimerViewOptions {
   onUserTap?: () => void;
   /** Called each time the displayed remaining seconds change while running (for the 3-2-1 countdown ticks). */
   onSecondTick?: (remainingSec: number) => void;
+  /**
+   * The cue player behind onEvents/onSecondTick. When given, the overlay also
+   * asks it to schedule tones on the audio clock when the timer starts,
+   * resumes or is skipped, and to cancel them on pause, Skip, a stepper
+   * change and close, so beeps stay on time on a throttled page. It also
+   * re-queues them when the audio clock and the wall clock disagree.
+   */
+  cues?: CuePlayer;
   /** Adjustable numbers shown before Start; locked once the timer has started. */
   setup?: TimerSetup;
   /** Called once, when the user starts the timer from its ready state (after any setup changes were made). */
@@ -192,6 +204,11 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     render();
   }
 
+  /** Queues the running timer's remaining tones on the audio clock; call after every start, resume or skip. */
+  function scheduleCues(): void {
+    options.cues?.scheduleFrom(state);
+  }
+
   /** Moves one setup field a step (within its bounds), rebuilds the plan and shows it, still not started. */
   function changeSetupValue(field: SetupField, direction: 1 | -1): void {
     if (state.status !== "ready" || !options.setup) return;
@@ -199,6 +216,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     if (next === setupValues[field.id]) return;
 
     setupValues[field.id] = next;
+    options.cues?.cancelScheduled();
     const newPlan = options.setup.rebuildPlan({ ...setupValues });
     title.textContent = newPlan.title;
     state = createTimerState(newPlan);
@@ -289,15 +307,44 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     if (state.status === "ready") {
       applyUpdate(startTimer(state, now));
       options.onStart?.();
-    }
-    else if (state.status === "running") applyUpdate(pauseTimer(state, now));
-    else if (state.status === "paused") applyUpdate(resumeTimer(state, now));
-    else close();
+      scheduleCues();
+    } else if (state.status === "running") {
+      // Catch-up events inside pauseTimer are de-duplicated against the still-scheduled tones, then those are cancelled.
+      applyUpdate(pauseTimer(state, now));
+      options.cues?.cancelScheduled();
+    } else if (state.status === "paused") {
+      applyUpdate(resumeTimer(state, now));
+      scheduleCues();
+    } else close();
   }
 
-  /** Advances the clock; also run when the page becomes visible again so a sleeping phone catches up at once. */
+  /**
+   * Skip: first catch up to now (so boundaries the audio clock already
+   * sounded are not replayed), then cancel the schedule, then jump, so the
+   * new segment's start cue plays normally, then schedule from the new spot.
+   */
+  function handleSkip(): void {
+    const now = Date.now();
+    applyUpdate(tickTimer(state, now));
+    options.cues?.cancelScheduled();
+    applyUpdate(skipSegment(state, now));
+    scheduleCues();
+  }
+
+  /**
+   * Advances the clock; also run when the page becomes visible again and when
+   * the audio context changes state, so a sleeping or interrupted phone
+   * catches up at once. If the audio clock can't be trusted any more (context
+   * stopped, or drifted from the wall clock), the queued tones are cancelled
+   * first, so the catch-up plays the latest cue once through the tick path,
+   * and the rest of the plan is queued again afterwards.
+   */
   function refreshFromClock(): void {
+    const mustReschedule = state.status === "running" && options.cues?.isScheduleStale() === true;
+    if (mustReschedule) options.cues?.cancelScheduled();
+
     applyUpdate(tickTimer(state, Date.now()));
+    if (mustReschedule) scheduleCues();
   }
 
   /** Escape closes; Tab stays inside the overlay. */
@@ -329,7 +376,12 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   }
   document.body.style.overflow = "hidden";
 
+  /** Lets the Back button close the overlay; released in close(). Declared before close() runs, so close() may use it. */
+  const backToClose = closeOnBack(window.history, window, () => close());
+
   const refreshLoopId = window.setInterval(refreshFromClock, REFRESH_INTERVAL_MS);
+  /** iOS suspends or interrupts the audio context on lock or a call; re-check the schedule when that changes. */
+  const stopWatchingAudioState = options.cues?.onAudioStateChange(refreshFromClock);
 
   /** Stops the loop, removes listeners and the overlay, restores the page, returns focus, then tells the caller. */
   function close(): void {
@@ -338,9 +390,12 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
 
     window.clearInterval(refreshLoopId);
     screenWakeLock.dispose();
+    options.cues?.cancelScheduled();
+    stopWatchingAudioState?.();
     document.removeEventListener("keydown", handleKeydown);
     document.removeEventListener("visibilitychange", refreshFromClock);
     window.removeEventListener("hashchange", close);
+    backToClose.release();
     for (const region of backgroundRegions) {
       region.inert = false;
     }
@@ -356,10 +411,11 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     stepButton.button.addEventListener("click", () => changeSetupValue(stepButton.field, stepButton.direction));
   }
   // Any tap in the overlay counts as the user gesture that keeps audio alive (resumed if the OS interrupted it).
-  overlay.addEventListener("click", () => options.onUserTap?.());
+  // Capture phase, so the audio is unlocked before the button's own handler schedules tones on it.
+  overlay.addEventListener("click", () => options.onUserTap?.(), true);
   closeButton.addEventListener("click", close);
   toggleButton.addEventListener("click", handleToggle);
-  skipButton.addEventListener("click", () => applyUpdate(skipSegment(state, Date.now())));
+  skipButton.addEventListener("click", handleSkip);
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("visibilitychange", refreshFromClock);
   window.addEventListener("hashchange", close);
@@ -372,6 +428,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   if (options.startImmediately) {
     applyUpdate(startTimer(state, Date.now()));
     options.onStart?.();
+    scheduleCues();
   }
 
   return { close };

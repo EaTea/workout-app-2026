@@ -120,6 +120,17 @@ export interface Day {
   blocks: Block[];
 }
 
+/**
+ * Timer changes a phase makes to the program's seconds, in whole seconds
+ * (negative shortens). A key left out of program.json is 0 here.
+ */
+export interface TimerAdjustments {
+  /** Added to both ends of every interval item's work range. */
+  intervalWorkSec: number;
+  /** Added to both ends of every core block's rest-between-pairs range. */
+  coreRestBetweenPairsSec: number;
+}
+
 /** One phase of the progression (Base, Deload, ...). */
 export interface ProgressionPhase {
   weeks: number[];
@@ -127,6 +138,8 @@ export interface ProgressionPhase {
   changes: string[];
   /** True in a retest week (week 8): EMOM targets use the current saved max, no weekly increase and no hold. Defaults to false. */
   retest: boolean;
+  /** Timer changes for this phase; absent when the phase doesn't adjust any. */
+  timerAdjustments?: TimerAdjustments;
 }
 
 /** Warm-up rotation reminder data. */
@@ -172,3 +185,19 @@ export interface ProgramWarning {
   /** The known field this one is probably a misspelling of, e.g. "weeklyIncrease" for "weeklyIncreese". */
   suggestion?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Timer bounds shared by the schedule and the timers
+// ---------------------------------------------------------------------------
+
+/** Shortest work or rest a timer segment can have; the schedule never adjusts below it and the timers refuse less. Dependency-free so program/ need not import timer/. */
+export const MIN_TIMER_SECONDS = 5;
+
+/** Largest work time the heavy bag stepper offers; adjusted work ranges are capped here so the timer can always start from them. */
+export const MAX_INTERVAL_WORK_SECONDS = 180;
+
+/** Largest interval rest the heavy bag stepper offers. */
+export const MAX_INTERVAL_REST_SECONDS = 180;
+
+/** Largest rest the rest-timer stepper offers; the cap for adjusted rest between pairs. */
+export const MAX_REST_SECONDS = 300;
