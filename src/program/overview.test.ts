@@ -18,7 +18,7 @@ describe("buildProgramOverview: headline numbers", () => {
     expect(overview.goal).toBe(program.goal);
     expect(overview.lengthWeeks).toBe(8);
     expect(overview.trainingDaysPerWeek).toBe(6);
-    expect(overview.weeklyMinutes).toBe(234); // 50+30+32+30+50+42
+    expect(overview.weeklyMinutes).toBe(242); // 50+30+40+30+50+42
     expect(overview.sessionOrder).toEqual(program.sessionOrder);
     expect(overview.currentWeek).toBeUndefined();
   });
