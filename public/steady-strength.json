@@ -36,7 +36,7 @@
     "standing_back_extension": {
       "name": "Standing back extension",
       "category": "warmup",
-      "cues": ["Hands on the small of the back, gently arch", "Stop if it sends pain down a leg", "Skip it if bending back brings on leg pain, heaviness or numbness"],
+      "cues": ["Hands on the small of the back, arch back just a little, to where it feels comfortable", "Stop if it sends pain down a leg", "Skip it if bending back brings on leg pain, heaviness or numbness"],
       "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
     },
     "ankle_pumps": {

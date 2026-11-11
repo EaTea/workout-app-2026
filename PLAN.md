@@ -966,7 +966,7 @@ The Otago warm-up (S2), the same on every main day:
 | --- | --- | --- | --- |
 | Head turns | 5 each side | Turn as far as comfortable | S2 |
 | Neck retraction (chin tuck) | 5 | A hand on the chin guides the head straight back | S2 |
-| Standing back extension | 5 | Hands on the small of the back, gently arch; stop if it sends pain down a leg; skip it if bending back brings on leg pain, heaviness or numbness | S2 |
+| Standing back extension | 5 | Hands on the small of the back, arch back just a little, to where it feels comfortable; stop if it sends pain down a leg; skip it if bending back brings on leg pain, heaviness or numbness | S2 |
 | Ankle pumps, seated | 10 each foot | Pull the foot up, then point it | S2 |
 
 The Otago warm-up also has trunk turns; they're left out because they
