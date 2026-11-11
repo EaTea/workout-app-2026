@@ -1,0 +1,95 @@
+/* History > Progress section: exercise picker, SVG line charts and the data table. */
+.progress-card {
+  padding: 16px;
+}
+
+.progress-picker-label {
+  display: block;
+  margin: 8px 0 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.progress-picker {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+}
+
+.progress-chart-title {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.progress-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.progress-chart-gridline {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.progress-chart-axis-label {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.progress-chart-deload-band {
+  fill: var(--muted);
+  opacity: 0.15;
+}
+
+.progress-chart-deload-label {
+  fill: var(--muted);
+  font-size: 9px;
+  text-anchor: middle;
+}
+
+.progress-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.progress-chart-point {
+  fill: var(--accent);
+  stroke: var(--card);
+  stroke-width: 2;
+}
+
+.progress-table {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.progress-table caption {
+  text-align: left;
+  padding-bottom: 4px;
+}
+
+.progress-table th,
+.progress-table td {
+  padding: 4px 6px 4px 0;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  font-weight: 400;
+}
+
+.progress-table thead th {
+  border-top: 0;
+}

@@ -1,8 +1,11 @@
 import type { Program, ProgramWarning } from "../program/model";
 import { programStatus, toDayNumber, todayLocalDate } from "../program/calendar";
+import { readExportSource } from "../export/source";
+import { rotationBlockStartWeek } from "../program/rotation";
 import type { TrainingSettings } from "../settings/model";
 import { loadSettings, saveSettings } from "../settings/storage";
 import { RETEST_DISMISSED_STORAGE_KEY, applyRetestMax, retestDismissedFromWire, retestDismissedToWire } from "./retest";
+import { ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire, rotationDismissedToWire } from "./rotationCard";
 import { focusRemainingRetestStepper } from "./retestCard";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
@@ -217,6 +220,8 @@ export function startApp(
   let startTodayFailureMessage: string | undefined;
   /** The date "Not today" was tapped on the retest card (kept in localStorage too), or undefined. */
   let retestDismissedDate = loadRetestDismissedDate();
+  /** First weeks of the rotation blocks whose card was dismissed (kept in localStorage too). */
+  let rotationDismissedBlockWeeks = loadStoredValue(ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire) ?? [];
   /** Retest card stepper values by exercise id, kept here so re-renders don't reset an unsaved one. */
   const retestDrafts: Record<string, number | undefined> = {};
   /**
@@ -486,6 +491,23 @@ export function startApp(
     focusMainHeading(); // the Not today button is gone with the card
   }
 
+  /** "Got it" on the warm-up rotation card: hides it for the whole rotation block (keyed by the block's first week), remembered across reloads. */
+  function handleDismissRotation(): void {
+    if (!canSaveOnShownDate()) return; // a ?date= preview changes nothing stored
+
+    const blockStartWeek = rotationBlockStartWeek(program, buildSession(program, settings, shownDate));
+    if (blockStartWeek === undefined) return;
+
+    rotationDismissedBlockWeeks = [...new Set([...rotationDismissedBlockWeeks, blockStartWeek])];
+    try {
+      localStorage.setItem(ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedToWire(rotationDismissedBlockWeeks));
+    } catch {
+      // Storage blocked: the card stays hidden until reload, which is fine for a dismissal.
+    }
+    render();
+    focusMainHeading(); // the Got it button is gone with the card
+  }
+
   /**
    * Moves the shown date forward to the real current date and redraws. Only
    * the new-day banner's button calls this, so the session on screen never
@@ -551,7 +573,7 @@ export function startApp(
       }
       const logTarget = parseLogRoute(window.location.hash);
       if (route === "settings") {
-        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave));
+        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage)));
       } else if (route === "log" && logTarget !== undefined) {
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {
@@ -568,7 +590,7 @@ export function startApp(
           draftForWeek,
           onSave: handleSaveCheckIn,
           onSnooze: handleSnoozeCheckIn,
-        }));
+        }, { dismissedBlockWeeks: rotationDismissedBlockWeeks, canDismiss: canSaveOnShownDate(), onDismiss: handleDismissRotation }));
       }
       // The log screen belongs to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" ? "today" : route));

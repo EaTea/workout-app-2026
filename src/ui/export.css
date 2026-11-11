@@ -1,0 +1,16 @@
+/* Export section of the Settings screen. */
+.export-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.export-section .primary-button:disabled {
+  opacity: 0.45;
+}
+
+.export-note {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.75;
+}

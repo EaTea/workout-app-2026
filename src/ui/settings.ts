@@ -2,6 +2,7 @@ import type { Program } from "../program/model";
 import { toDayNumber } from "../program/calendar";
 import type { TrainingSettings } from "../settings/model";
 import { element } from "./dom";
+import { renderExportSection, type ExportSource } from "./exportSection";
 
 /**
  * The Settings screen: start date plus one tested-max input per exercise the
@@ -104,12 +105,15 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
  * presses Save; `app.ts` persists them, shows "Saved" and navigates.
  * `onSave` returns null on success or a message to show inline (e.g. storage
  * is full or blocked), in which case the user stays on this screen.
+ * `getExportSource`, when given, adds the Export card below the form; it is
+ * called when an export button is pressed so the file holds the latest data.
  */
 export function renderSettingsScreen(
   program: Program,
   current: TrainingSettings,
   today: string,
   onSave: (settings: TrainingSettings) => string | null,
+  getExportSource?: () => ExportSource,
 ): HTMLElement {
   const screen = element("section", "screen");
   screen.append(element("h1", "screen-title", "Settings"));
@@ -193,6 +197,9 @@ export function renderSettingsScreen(
   });
 
   screen.append(form);
+  if (getExportSource !== undefined) {
+    screen.append(renderExportSection(program, getExportSource));
+  }
   return screen;
 }
 

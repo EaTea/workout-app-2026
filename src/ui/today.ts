@@ -5,6 +5,9 @@ import { createCuePlayer } from "../timer/cues";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
 import { element } from "./dom";
 import { retestExercisesToSave } from "./retest";
+import "./rotation.css";
+import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
+import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
 import { checkInWeekToAsk, type CheckInDraft } from "./checkin";
 import { renderCheckInCard } from "./checkinCard";
@@ -40,6 +43,16 @@ export interface RetestOptions {
   /** The date "Not today" was tapped for, or undefined. */
   dismissedDate: string | undefined;
   actions: RetestCardActions;
+}
+
+/** What Today needs to show the warm-up rotation card; supplied by app.ts, which owns the dismissal. */
+export interface RotationOptions {
+  /** First weeks of the rotation blocks whose card was dismissed. */
+  dismissedBlockWeeks: number[];
+
+  /** False in a `?date=` preview: "Got it" is disabled. */
+  canDismiss: boolean;
+  onDismiss: () => void;
 }
 
 /** What Today needs to show the weekly check-in card; supplied by app.ts, which owns the saving and snoozing. */
@@ -81,6 +94,7 @@ export function renderTodayScreen(
   log: WorkoutLog = { sessions: {} },
   retest?: RetestOptions,
   checkIn?: CheckInOptions,
+  rotation?: RotationOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   const session = buildSession(program, settings, date);
@@ -102,6 +116,13 @@ export function renderTodayScreen(
             onSave: checkIn.onSave,
             onSnooze: checkIn.onSnooze,
           }));
+        }
+      }
+      if (rotation !== undefined) {
+        // Shown on every training day of a swapped block until that block is dismissed.
+        const blockStartWeek = rotationBlockStartWeek(program, session);
+        if (blockStartWeek !== undefined && !rotation.dismissedBlockWeeks.includes(blockStartWeek)) {
+          screen.append(renderRotationCard(describeSwaps(program), program.warmupRotation, rotation.onDismiss, rotation.canDismiss));
         }
       }
       screen.append(...renderTrainingDay(program, session, date, log));
@@ -266,6 +287,14 @@ function renderBlockCard(program: Program, block: BlockView, position: number, d
 }
 
 /**
+ * "<original name> → <new name>" for each swap of the warm-up rotation, for
+ * the rotation card; falls back to the exercise id if the library lacks it.
+ */
+function describeSwaps(program: Program): string[] {
+  return program.warmupRotation.swaps.map((swap) => `${program.exercises[swap.out]?.name ?? swap.out} → ${swap.in}`);
+}
+
+/**
  * One exercise row. The name/details/dose are a single button that opens the
  * item's log screen (the details sheet is behind the ⓘ button there), with
  * logging progress ("2/6", "✓ 6/6") under the details once a set is logged, then the muted
@@ -280,7 +309,10 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
   openButton.type = "button";
 
   const text = element("span", "item-text");
-  text.append(element("span", "item-name", item.exercise.name));
+  text.append(element("span", "item-name", itemDisplayName(item)));
+  if (item.rotatedIn !== undefined) {
+    text.append(element("span", "item-rotated-in", `Rotated in for ${item.rotatedIn.originalName}`));
+  }
   const details = formatItemDetails(item);
   if (details.length > 0) {
     text.append(element("span", "item-details", details.join(" · ")));
@@ -327,7 +359,7 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
 
   // Straight-set items with a prescribed rest get a rest button, tapped after each set.
   if (item.format !== "interval" && item.restSec) {
-    row.append(renderStartRestButton(item.restSec, item.exercise.name, restMemoryKey(date, blockPosition, item.exercise.id), item.exercise.name));
+    row.append(renderStartRestButton(item.restSec, itemDisplayName(item), restMemoryKey(date, blockPosition, item.exercise.id), itemDisplayName(item)));
   }
 
   // Heavy bag intervals likewise.
@@ -350,12 +382,12 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
   const button = element("button", "item-start", "Start EMOM");
   button.type = "button";
   // The visible text comes first in the accessible name (WCAG 2.5.3 label in name).
-  button.setAttribute("aria-label", `Start EMOM, ${item.exercise.name}`);
+  button.setAttribute("aria-label", `Start EMOM, ${itemDisplayName(item)}`);
 
   button.addEventListener("click", () => {
     const cues = createCuePlayer();
     openTimer(buildEmomPlan(item), {
-      dialogName: `${item.exercise.name} EMOM timer`,
+      dialogName: `${itemDisplayName(item)} EMOM timer`,
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
@@ -372,7 +404,7 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
 function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
   const button = element("button", "item-start", "Start timer");
   button.type = "button";
-  button.setAttribute("aria-label", `Start timer, ${item.exercise.name}`);
+  button.setAttribute("aria-label", `Start timer, ${itemDisplayName(item)}`);
 
   button.addEventListener("click", () => {
     const defaults = defaultIntervalSettings(item);

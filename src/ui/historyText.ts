@@ -1,6 +1,7 @@
 import type { Program } from "../program/model";
 import type { LoggedSession, LoggedSet } from "../log/model";
 import { itemTracksReps, setNounFor, setWord } from "../log/itemSets";
+import { performedAsName } from "../program/rotation";
 import { formatShortDate } from "./format";
 
 /**
@@ -35,6 +36,17 @@ export function formatSessionHeader(session: LoggedSession, program: Program): s
 /** The exercise's display name from the program's library; an id no longer in program.json is shown as is. */
 export function exerciseDisplayName(program: Program, exerciseId: string): string {
   return program.exercises[exerciseId]?.name ?? exerciseId;
+}
+
+/**
+ * The name a logged exercise was performed as: the rotated-in name for a
+ * warm-up logged in a swapped week (using the week stored on the session and
+ * the program's block type at that position), else `exerciseDisplayName`.
+ * Used for the History rows so they match what Today showed that day.
+ */
+export function performedExerciseName(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string): string {
+  const blockType = session.day === undefined ? undefined : program.days[session.day]?.blocks[blockPosition - 1]?.type;
+  return performedAsName(program, exerciseId, session.programWeek, blockType);
 }
 
 /**

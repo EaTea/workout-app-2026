@@ -27,7 +27,10 @@ exercise details sheet is behind the ⓘ button on the log screen. "Last time"
 hints (last week's same day and block type, else the same kind of block on
 another day) show on Today rows and the log screen. The History tab lists every logged
 session, newest first, with a summary per exercise; tap an exercise to see its
-sets and tap a set to edit or delete it. On every week 8 training day Today opens
+sets and tap a set to edit or delete it. History opens with a Progress card:
+pick a strength exercise to see its best reps per session over weeks 1–8 (and
+the heaviest load, when any was logged), with deload weeks shaded and the same
+numbers in a table below. On every week 8 training day Today opens
 with a "Retest week" card: steppers (starting at your current maxes) and a
 "Save max" button per exercise for pull-ups and dips. Saving stamps the max with
 today's real date and switches week 8's EMOM targets to the new max at once; the
@@ -101,6 +104,32 @@ weekday names). A progression phase can set `"retest": true`; EMOMs in that
 week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
 too); then they use that max with no weekly increase.
+
+## Warm-up rotation
+
+Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the
+exercises as written and the swaps in `program.json` (with the shipped
+program, weeks 5–8 use the swaps). A rotated-in warm-up shows its new name
+with "Rotated in for <original>" and has no details sheet; its sets are
+still logged under the original exercise. Every training day of a rotated
+block shows a "Warm-up rotation" card listing the swaps until you tap "Got
+it" (remembered per block; disabled when previewing another date with
+`?date=`). History shows the name the warm-up was performed as.
+
+## Exporting your log
+
+In Settings, "Export log as CSV" gives one row per logged set (date, week,
+day, block, block type, exercise id, exercise name, performed as, set, reps,
+kg, note) for any spreadsheet; `exercise_name` is the program's name and
+`performed_as` the rotated-in warm-up name, if any. The file starts with a
+UTF-8 byte order mark so Excel reads it correctly. The export reads what is
+stored at the moment you tap the button.
+"Export everything as JSON" gives the log, the weekly checks and your
+settings in a versioned file (`"format": "explosive-endurance-export"`,
+`"version": 1`), plus `corruptLogBackups` if the app ever had to set aside
+unreadable log text. Files are named `explosive-endurance-YYYY-MM-DD.csv` or
+`.json`; they download, or on iPhone open the share sheet so you can save
+them to Files. Nothing is sent anywhere, and there is no import yet.
 
 ## Install on a phone and use offline
 
