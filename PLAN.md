@@ -848,7 +848,7 @@ superset like the Day 1 and Day 5 core blocks:
    blocks or minutes, so it needed no change). Unit tests for the Day 3
    session in W1, W4, W5 and W8 (worked examples below) and the Overview
    total of 242 min.
-2. [ ] E2E: Day 3 on Today shows the core block with both exercises and
+2. [x] E2E (`e2e/dayThreeCore.spec.ts`): Day 3 on Today shows the core block with both exercises and
    the 45–60s Rest button. The Day 3 plan for week 4 shows 2 × 10 and 2 × 6
    with their "Changed" lines, and a set of each can be logged.
 3. [ ] Fixes from the challenger review.
