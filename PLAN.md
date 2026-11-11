@@ -1,6 +1,6 @@
-# PLAN: Explosive Endurance workout app (mobile mockup)
+# PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 12 merged (#3 to #20). PR 13 (Day 3 crab core block) is planned below and waiting for Ed's approval.**
+Status: **PR 1 to PR 12 merged (#3 to #20). PR 13 (Day 3 crab core block) is planned below. PR 14 plans a second program, Steady Strength (for someone aged 75+ with a history of slipped discs), and a program picker; it is waiting for Ed's approval, and PR 15 and PR 16 implement it.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -853,6 +853,313 @@ superset like the Day 1 and Day 5 core blocks:
 3. [ ] Fixes from the challenger review.
 - **Merge point:** Day 3 has a working core block in every week.
 
+### PR 14 — Plan: Steady Strength program and a program picker *(design)*
+Ed asked for a completely different program, in the same `program.json`
+format, for someone aged 75 or over with a history of slipped discs. It
+should prioritise isometric holds, add some light strength work, and keep
+the core, legs, wrists and shoulders stable and strong. The person starting
+the app should be able to choose it, or Explosive Endurance, when they
+begin. This section is that plan; PR 15 and PR 16 implement it.
+
+**Safety first, and it is not medical advice.** The program is general
+exercise guidance written for an app, not a prescription. Its file carries
+a `safety` list that the app shows before anyone starts it (see "What the
+person sees" below), which says:
+
+1. This is not medical advice. Check with your doctor or physiotherapist
+   before starting, and show them this plan, especially with a history of
+   slipped discs, osteoporosis, heart or blood pressure problems, or a
+   recent fall or operation.
+2. Stop and get advice if you feel sharp pain, or pain, numbness, tingling
+   or weakness that spreads into a leg or arm.
+3. Get urgent medical help if you notice numbness around the groin or
+   buttocks, or new problems controlling your bladder or bowels.
+4. Breathe out during the effort and never hold your breath. Holds are
+   short on purpose.
+5. Keep a kitchen counter, a sturdy chair or a wall within reach for
+   every standing exercise.
+
+**How the program protects the back.** These are the program's `rules`,
+and every exercise below was picked to fit them:
+
+- The spine stays in a neutral, "tall" position. No sit-ups, crunches,
+  toe touches, twisting under load or bending forward to lift.
+- No jumping, running or heavy weights. Loads are a resistance band, body
+  weight or something light from the kitchen (a 0.5–1 kg tin or bottle).
+- Isometric holds come first in each session: they build strength and
+  stability around the joints without moving the spine.
+- Effort is about 5 out of 10. Finish every set feeling you could do a few
+  more. Mild muscle tiredness is normal; pain is the signal to stop.
+- Almost everything is standing at a counter, sitting on a chair or
+  leaning on a wall, so nobody has to get down to the floor. The one
+  lying-down hold (the glute bridge) can be done on a bed and has a
+  standing alternative.
+
+**The week.** Same 7-day cycle and 8 weeks as Explosive Endurance (rule 1),
+so the schedule, Today, the day plans and logging work unchanged. Three
+main sessions on alternate days build strength, with short balance-and-walk
+days in between, because balance practice works best little and often and
+strength work needs a day to recover. Day 7 is a full rest.
+
+```
+ Day 1  Legs and core              ~30 min  main session
+ Day 2  Balance and walk           ~15 min  short
+ Day 3  Shoulders, wrists and core ~30 min  main session
+ Day 4  Balance and walk           ~15 min  short
+ Day 5  Whole body                 ~30 min  main session
+ Day 6  Balance and walk           ~15 min  short
+ Day 7  Rest
+                                   about 135 min (2 h 15 min) a week
+```
+
+Each main session runs: warm-up → balance → isometric holds → light
+strength → core → cool-down (`sessionOrder`). The short days are
+balance → walk.
+
+**The exercises.** Holds are interval items (rounds × work seconds / rest
+seconds), so they get the existing interval timer with a beep at each
+change, which is easier than counting seconds. Holds marked "alternate"
+switch sides each round, so the round count is even. Everything else is
+straight sets with a rest timer.
+
+Day 1 · Legs and core
+| Block | Exercise | Weeks 1–3 | Notes and cues |
+| --- | --- | --- | --- |
+| Warm-up (1 round) | March on the spot at the counter | 1 min | Hold the counter, lift the knees a comfortable height |
+| | Shoulder rolls | 10 | Slow, both directions |
+| | Ankle circles, seated | 10 each way, each foot | |
+| Balance | Single-leg stand at the counter | 4 rounds × 20s, 20s rest, alternate legs | Fingertips on the counter; stand tall |
+| Isometric | High wall sit | 3 × 20s, 40s rest | Slide only a little way down the wall (knees bent no more than a quarter); back flat on the wall |
+| | Glute bridge hold | 3 × 15s, 30s rest | On the bed is fine; squeeze the buttocks, don't arch the back. Alternative: standing buttock squeeze, 3 × 20s |
+| | Pallof press hold (band) | 4 × 15s, 20s rest, alternate sides | Band anchored at chest height in a door; arms straight out, don't let the band turn you |
+| Strength | Sit-to-stand from a chair | 3 × 8–10, 60s rest, 3s lowering | Use the chair arms if needed; feet hip-width, chest up |
+| | Heel raises at the counter | 2 × 10–12, 45s rest | Up for 2s, down for 2s |
+| | Side leg raise at the counter | 2 × 10 per side, 30s rest | Small range, toes forward, no leaning |
+| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | Both hands on the counter, slide one leg straight back and hold; hips stay level |
+| Cool-down | Slow walk | 3–5 min | |
+| | Calf stretch at the wall | 2 × 20s per side | Gentle, no bouncing |
+
+Day 3 · Shoulders, wrists and core
+| Block | Exercise | Weeks 1–3 | Notes and cues |
+| --- | --- | --- | --- |
+| Warm-up (1 round) | Shoulder rolls | 10 | |
+| | Wrist circles | 10 each way | |
+| | Chin tucks, seated | 8, 3s hold | Glide the chin straight back, eyes level, no nodding |
+| Balance | Heel-to-toe stand at the counter | 4 rounds × 20s, 20s rest, alternate front foot | One foot directly in front of the other |
+| Isometric | Wall push hold | 3 × 15s, 30s rest | Hands on the wall at shoulder height, fingers spread, lean in to bent elbows and hold |
+| | Shoulder press-out into a door frame | 4 × 15s, 20s rest, alternate arms | Elbow at your side bent to 90°, press the back of the hand into the frame at about half effort (outward rotation) |
+| | Wrist presses | 2 rounds, 10s each direction, each hand | Press the palm into the other hand up, down, in and out without moving |
+| | Grip squeeze | 4 × 10s, 15s rest, alternate hands | Soft ball or rolled towel, about half effort |
+| Strength | Band row | 3 × 10–12, 60s rest, 2s squeeze | Seated or standing, band anchored in a door; shoulders down |
+| | Counter push-up | 2 × 8–10, 60s rest | Hands on the kitchen counter, body in a straight line |
+| | Wrist curl and reverse wrist curl | 2 × 10 each way | Forearm resting on a table, light tin or bottle |
+| | Band pull-apart | 2 × 10–12, 45s rest | At chest height, arms nearly straight |
+| Core | Wall side plank | 4 × 15s, 20s rest, alternate sides | Forearm on the wall, feet a step away, body straight |
+| | Tall sitting hold | 3 × 20s, 20s rest | Sit forward off the chair back, tall, gently brace the tummy and breathe |
+| Cool-down | Slow walk | 3–5 min | |
+| | Doorway chest stretch | 2 × 20s | Gentle |
+
+Day 5 · Whole body
+| Block | Exercise | Weeks 1–3 | Notes and cues |
+| --- | --- | --- | --- |
+| Warm-up (1 round) | March on the spot at the counter | 1 min | |
+| | Shoulder rolls | 10 | |
+| | Wrist circles | 10 each way | |
+| Balance | Heel-to-toe walk along the counter | 3 × 10 steps | One hand on the counter |
+| Isometric | Counter plank | 3 × 15s, 30s rest | Forearms or hands on the counter, body straight from head to heels |
+| | Split-stance hold at the counter | 4 × 15s, 20s rest, alternate legs | One foot ahead, small knee bend in both legs, torso upright |
+| | Suitcase hold | 4 × 20s, 20s rest, alternate hands | A light shopping bag (1–3 kg) in one hand, stand tall and don't lean |
+| Strength | Step-up onto a low step | 2 × 8 per side, 60s rest | Bottom stair with the rail, whole foot on the step |
+| | Sit-to-stand from a chair | 2 × 8–10, 60s rest | |
+| | Band row | 2 × 10–12, 60s rest | |
+| | Wall slide | 2 × 8 | Forearms on the wall, slide up only as high as is comfortable |
+| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | |
+| | Pallof press (band) | 2 × 8 per side, 3s hold at arms' length | |
+| Cool-down | Slow walk | 3–5 min | |
+
+Days 2, 4 and 6 · Balance and walk
+| Block | Exercise | Weeks 1–3 | Notes |
+| --- | --- | --- | --- |
+| Balance | Single-leg stand at the counter | 4 × 20s, 20s rest, alternate legs | |
+| | Heel-to-toe stand at the counter | 4 × 20s, 20s rest, alternate front foot | |
+| | Sit-to-stand from a chair | 1 × 8 | Slow and controlled |
+| Walk | Walk at a comfortable pace | 10–20 min | Indoors or out; you should be able to talk |
+
+`evidence` is `"coaching practice"` for every exercise. The
+implementation may add a study link only after checking it really supports
+the exercise, and never an unchecked URL.
+
+**Progression.** Small, steady steps that the existing rules already
+support, so no new progression code:
+
+```
+ Week        1   2   3   4         5   6   7   8
+ Phase       Settle in    Deload:   Build        Deload:
+                          easy week               easy week
+ Holds       20s 20s 20s  20s       30s 30s 30s  30s     (+10s from week 5)
+ Rounds      full         halved    full         halved  (rounded up)
+ Sets        full         halved    full         halved  (warm-ups never halved)
+```
+
+- Weeks 5 to 8 add 10 seconds to every hold through the existing
+  `timerAdjustments.intervalWorkSec` (so a 20s hold becomes 30s and a 15s
+  hold 25s). Rest stays the same.
+- Weeks 4 and 8 are easy weeks: the existing deload rule halves sets and
+  rounds, rounding up (3 → 2, 4 → 2, 2 → 1), and warm-ups stay whole. The
+  phase names start with "Deload" because that is how the app recognises a
+  deload today (`isDeloadPhase`). Week 8 keeps week 7's 30s holds so the
+  easy week keeps the quality and only cuts the volume.
+- Strength reps don't change in the numbers. Each phase's `changes` say
+  what to do by feel: "Use the top of the rep range once the bottom feels
+  easy" in weeks 1–3, and "If a set felt easy, add 1–2 reps or a little more
+  band tension" in weeks 5–7. That matches "stays short of failure" and
+  avoids pushing an older back by a formula.
+- After week 8 the overview's "Set a new start date" restarts the cycle.
+
+**What the program file leaves out.** No max-tested exercises, no EMOMs, no
+retest week, no warm-up rotation and no weekly fatigue check (the current
+check-in asks for a broad jump and max pull-ups, which don't fit). So
+Steady Strength shows no "Set max", retest card, rotation card, check-in or
+drop banner. A gentle weekly check (for example a 30-second chair stand
+count) is a possible follow-up, not part of this work.
+
+**How the program is chosen at the start.** The app gets a small
+catalogue of programs, and a picker on the first screen:
+
+```
+ First visit (no program chosen yet)
+
+ ┌──────────────────────────────────┐
+ │ CHOOSE YOUR PROGRAM              │
+ │ ┌──────────────────────────────┐ │
+ │ │ Explosive Endurance        › │ │  name, goal and headline numbers
+ │ │ Build explosiveness and …    │ │  read from each program file
+ │ │ 8 weeks · 6 days · ~4 h/week │ │
+ │ └──────────────────────────────┘ │
+ │ ┌──────────────────────────────┐ │
+ │ │ Steady Strength            › │ │
+ │ │ Gentle holds and light …     │ │
+ │ │ 8 weeks · 6 days · ~2¼ h/wk  │ │
+ │ │ Check with your doctor first │ │  first safety line, when present
+ │ └──────────────────────────────┘ │
+ └──────────────────────────────────┘
+          │ tap a card
+          ▼
+ the program overview (PR 11) for that program, with a
+ "Before you start" card listing its safety notes just above the
+ pinned "Start Day 1: Legs and core" button, and a "Switch program"
+ link at the top that goes back to the picker.
+```
+
+- **Address:** the picker is `#/programs`. A first visit with no program
+  chosen opens it instead of the overview.
+- **Ed's phone doesn't change.** If Explosive Endurance already has data
+  (a start date, a log, maxes), that counts as having chosen it: the app
+  keeps opening on Today as now.
+- **Switching never deletes anything.** Each program keeps its own start
+  date, maxes, log and check-ins, so tapping the other program and coming
+  back finds everything as it was. Because of that, tapping a card saves
+  it as the active program straight away, with no confirmation.
+- **Where else it's reachable:** "Switch program" on the overview, and a
+  "Program: Steady Strength · Switch" row in Settings.
+- **Everything follows the active program:** Today, the day plans,
+  logging, history, progress charts and export.
+- **Safety notes stay visible:** the "Before you start" card is on that
+  program's overview every time (not only before starting), and the first
+  line also shows on its picker card. Today gets a small "Safety notes"
+  link under the header that opens the full list in the existing bottom
+  sheet. Explosive Endurance has no `safety` list, so nothing changes for
+  it.
+- **Alternatives considered:** a dropdown in Settings only (hidden from a
+  first-time user, who is exactly who needs to choose), and one shared log
+  for both programs with the start date cleared on a switch (simpler, but
+  a test run of the other program would mix into Ed's history and charts).
+
+**Code shape.**
+
+```
+ public/programs.json  { "programs": [ { "id": "explosive-endurance", "file": "program.json" },
+                                       { "id": "steady-strength",     "file": "steady-strength.json" } ] }
+        │ loadCatalogue()   (CatalogueWire → ProgramCatalogue)
+        ▼
+ each file ──loadProgram()──▶ Program      a file that fails to parse only
+                                            disables its own picker card
+        │
+ active program id  ◀── "workout-app.active-program" (ActiveProgramWire)
+        │
+        ▼
+ storage keys per program:  explosive-endurance.settings / .log / ...  (unchanged)
+                            steady-strength.settings / .log / ...      (new)
+```
+
+- `public/program.json` stays where it is, so Ed's edit habit, the
+  service worker's precache and the project-files copy keep working. The
+  new file is `public/steady-strength.json`, also precached for offline use.
+- `program.safety` is a new optional list of strings. `fatigueCheck`,
+  `warmupRotation` and `coreProgressions` become optional; the app hides
+  the check-in, drop banner and rotation card when they are absent.
+  Explosive Endurance's file still has them, so it behaves exactly as now.
+- New block type labels: Balance, Isometric holds, Strength, Walk and
+  Cool-down, next to the existing ones in `BLOCK_LABELS`. A block type the
+  labels don't know already falls back to the raw id; the new ones get
+  proper names.
+- Storage modules take a program id and build their keys from it; the
+  Explosive keys stay byte-for-byte the same, so no migration. The export
+  file gets a `programId` (export wire v2; a v1 file is read as Explosive
+  Endurance), and importing a backup made for the other program is refused
+  with a message saying which program it belongs to.
+- Settings hides the "Max reps" section when the program has no
+  max-tested exercises.
+- Per CLAUDE.md section 6, the catalogue and the active-program key each
+  get their own wire type and mapping functions.
+- Per CLAUDE.md section 10, a lower-cost subagent implements each step,
+  I review and commit it, and a new higher-reasoning subagent challenges
+  each PR before it opens.
+
+### PR 15 — Program catalogue and per-program storage *(internal refactor)*
+No visible change: Explosive Endurance is the only program in the
+catalogue, and the app behaves exactly as before. This lands the risky
+plumbing (loading, storage keys, export) on its own, so a mistake shows up
+as a broken Explosive flow in review rather than hiding inside the new
+program.
+
+**Steps.**
+1. [ ] `public/programs.json` with one entry, its wire type, parser and
+   loader, and `main.ts` loading the active program through it. Unit
+   tests for the catalogue parser (missing file, duplicate id, bad id).
+2. [ ] Storage keys built from the program id (settings, max history, log,
+   check-ins, snoozes, dismissals), with a unit test that Explosive's keys
+   are unchanged. The active-program key and its wire type.
+3. [ ] Export wire v2 with `programId`, reading v1 as Explosive, and the
+   import refusing another program's backup. Unit tests.
+4. [ ] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
+   the parser, and the UI hiding what depends on them. Unit tests with a
+   cut-down program fixture. The whole E2E suite passes unchanged.
+5. [ ] Fixes from the challenger review.
+- **Merge point:** the app runs from the catalogue with per-program
+  storage, and every existing test still passes.
+
+### PR 16 — Steady Strength program and the program picker *(behavior change)*
+**Steps.**
+1. [ ] `public/steady-strength.json` exactly as tabled above, the
+   `program.safety` field in the parser and model, the new block labels,
+   and the catalogue entry. README program notes. Unit tests for the
+   worked examples below.
+2. [ ] The picker screen at `#/programs`, the first-visit redirect, the
+   "Switch program" links on the overview and in Settings, and the hidden
+   "Max reps" section. README.
+3. [ ] The "Before you start" card on the overview, its first line on the
+   picker card, and the "Safety notes" link and sheet on Today.
+4. [ ] E2E (`e2e/programPicker.spec.ts`): a first visit shows both
+   programs; choosing Steady Strength shows its overview with the safety
+   card, and "Start Day 1: Legs and core" opens Today at Week 1 · Day 1 with
+   the six blocks and no check-in; an interval hold starts the timer;
+   switching to Explosive Endurance and back keeps each program's start
+   date and logged sets. A started Explosive program still opens on Today.
+5. [ ] Fixes from the challenger review.
+- **Merge point:** a first-time user can choose Steady Strength, read its
+  safety notes and train Day 1 from Today.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -883,13 +1190,43 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | Day plan, start 2 Nov, max 12 / 15 | Day 1, W3 → W4 | Deload | Med ball slams 3 × 6 ("Changed: 6 × 6 in week 3"); main strength block "Changed: 9 min in week 3", pull-ups 6 / min held (no item line); dip mini-dose 1 × 7 ("Changed: 2 × 7 in week 3") |
 | Day plan, no start date saved | Day 1, W2 | Base | Same doses as a saved start date would give; max-based rows say "Set max" unless maxes are saved; no start date is saved |
 
+**Steady Strength** (PR 16), start date 2 Nov 2026, no maxes:
+
+| Date | Week / day | Phase | Example figures |
+| --- | --- | --- | --- |
+| 2 Nov | W1 D1 | Settle in | Single-leg stand 4 rounds × 20s / 20s rest; high wall sit 3 × 20s / 40s; sit-to-stand 3 × 8–10, 60s rest; warm-up 1 round; 6 blocks |
+| 3 Nov | W1 D2 | Settle in | Balance and walk, about 15 min: two balance holds 4 × 20s, sit-to-stand 1 × 8, walk 10–20 min |
+| 4 Nov | W1 D3 | Settle in | Wall push hold 3 × 15s / 30s; band row 3 × 10–12 |
+| 8 Nov | W1 D7 | Settle in | Rest-day card |
+| 23 Nov | W4 D1 | Deload: easy week | Single-leg stand 2 × 20s; high wall sit 2 × 20s; sit-to-stand 2 × 8–10; side leg raise 1 × 10 per side; warm-up still 1 round of each |
+| 30 Nov | W5 D1 | Build | Single-leg stand 4 × 30s; high wall sit 3 × 30s / 40s; glute bridge hold 3 × 25s; sit-to-stand 3 × 8–10 (reps unchanged) |
+| 21 Dec | W8 D1 | Deload: easy week | Single-leg stand 2 × 30s; high wall sit 2 × 30s; no retest card, check-in or "Set max" anywhere |
+| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 135 min a week (30+15+30+15+30+15); phases Settle in W1–3, Deload: easy week W4, Build W5–7, Deload: easy week W8; "Before you start" card with the 5 safety notes; CTA "Start Day 1: Legs and core" |
+| Switching | — | — | Explosive started 2 Nov with a logged set, then Steady Strength chosen and started 9 Nov: switching back shows Explosive at its 2 Nov start with the set still logged, and Steady Strength still starts 9 Nov |
+
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
 W2 D1, and 3 Nov is "not started".
 
 ## 7. Open questions
 
-None right now.
+For PR 14 (Steady Strength), each with the answer I'm assuming:
+
+1. **Name.** "Steady Strength", goal "Gentle holds and light strength work
+   to keep the core, legs, wrists and shoulders strong and stable". Happy
+   with that?
+2. **Who uses it.** I'm assuming the person doing the program uses their
+   own phone, and Ed may try it on his. Each program keeps its own data, so
+   either works.
+3. **Which discs.** The plan assumes the lower back. If the slipped discs
+   were in the neck, the chin tucks and the suitcase hold should be
+   checked with their physio first, and I'd add a note to those two.
+4. **Gate on Start.** I'm assuming the safety card is shown but doesn't
+   block Start. A required "I've checked with my doctor" tick box is
+   possible but easy to tap through.
+5. **App name.** The home-screen name and page title still say
+   "Explosive Endurance" / "Endurance". I'm leaving them alone; a neutral
+   name such as "Workouts" would be a small follow-up if Ed wants it.
 
 Resolved:
 
