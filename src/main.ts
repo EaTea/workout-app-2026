@@ -11,7 +11,9 @@ import { showStartupError, startApp } from "./ui/app";
 /**
  * Application entry point (loaded by index.html): loads programs.json, then the
  * active program (the stored choice if the catalogue has it, else the first
- * entry), builds that program's storage keys, loads saved settings, the workout log and the weekly check-ins, then hands them (plus any unknown-field warnings) to the app shell. If program.json
+ * entry), builds that program's storage keys, loads saved settings, the workout
+ * log and the weekly check-ins, then hands them (plus any unknown-field
+ * warnings) to the app shell. If programs.json or the active program file
  * can't be loaded or parsed, the error is shown on screen so Ed can see what
  * broke.
  */

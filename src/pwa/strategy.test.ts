@@ -16,6 +16,10 @@ describe("chooseStrategy", () => {
     expect(chooseStrategy({ method: "GET", mode: "cors", url: `${base}/program.json` }, origin)).toBe("network-first");
   });
 
+  it("serves programs.json cache-first, in step with the precached code that reads it", () => {
+    expect(chooseStrategy({ method: "GET", mode: "cors", url: `${base}/programs.json` }, origin)).toBe("cache-first");
+  });
+
   it("serves hashed assets and icons cache-first", () => {
     expect(chooseStrategy({ method: "GET", mode: "no-cors", url: `${base}/assets/index-abc123.js` }, origin)).toBe("cache-first");
     expect(chooseStrategy({ method: "GET", mode: "no-cors", url: `${base}/icons/icon-192.png` }, origin)).toBe("cache-first");

@@ -72,7 +72,8 @@ under keys that start with its id from `programs.json`: `<programId>.settings`,
 app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
 says which program runs; when it is missing or names a program that is not in
 `programs.json`, the first program listed is used. The service worker's reload
-guard is app-wide too. The keys are built in `src/storage/programKeys.ts`.
+guard is app-wide too, but it lives in `sessionStorage` (not `localStorage`) and
+only lasts for the browser tab. The keys are built in `src/storage/programKeys.ts`.
 
 ## Install
 
@@ -115,24 +116,34 @@ CI runs the same suite; see "Deployment" below.
 
 ## Editing program.json
 
-A program file may leave out `fatigueCheck`, `warmupRotation` and
-`coreProgressions`. Without `fatigueCheck` there is no weekly check-in, drop
-banner or retest broad jump; without `warmupRotation` warm-ups never rotate and
-there is no rotation card. When a section is present it is checked as before.
+`public/program.json` is the Explosive Endurance program. If you break
+something that would make a session wrong (wrong type, missing field, unknown
+exercise id, a week with no progression phase) the app shows an error card
+naming the file and the path; a field the app doesn't recognise is only a
+warning: the field is ignored, the session still loads, and an amber banner on
+Today lists each one. A misspelt field name (say `weeklyIncreese`) is ignored
+too, so that part of the session is missing; the banner suggests the fix ("did
+you mean "weeklyIncrease"?") and opens its list straight away when it spots a
+likely typo.
 
 `public/programs.json` is the catalogue of programs: a list of
 `{ "id": "explosive-endurance", "file": "program.json" }` entries (ids use
 lowercase letters, digits and hyphens; `file` is a plain `.json` file name in
-`public/`). The app loads the catalogue first, then the first entry's file, so
-`public/program.json` is the training program today. A bad catalogue shows the
-same error card, naming the path (e.g. `programs[0].id`). If you break something that would
-make a session wrong (wrong type, missing field, unknown exercise id, a week
-with no progression phase) the app shows an error card naming the path; a field
-the app doesn't recognise is only a warning: the field is ignored, the session
-still loads, and an amber banner on Today lists each one. A misspelt field name
-(say `weeklyIncreese`) is ignored too, so that part of the session is missing;
-the banner suggests the fix ("did you mean "weeklyIncrease"?") and opens its
-list straight away when it spots a likely typo.
+`public/`). The app loads the catalogue first, then the program file of the
+chosen entry. A bad catalogue shows the same error card, naming the file and
+the path (e.g. `./programs.json: programs[0].id`).
+
+**Warning: never change an existing program's `id`.** The id names that
+program's storage keys (`<id>.log` and so on), so renaming it strands the
+program's data under the old keys, and backups made under the old id would be
+refused. Also, the first entry is what opens when no program has been chosen
+(or the chosen one is no longer listed), so reordering the entries can switch a
+phone to another program. Add new programs at the end.
+
+A program file may leave out `fatigueCheck`, `warmupRotation` and
+`coreProgressions`. Without `fatigueCheck` there is no weekly check-in, drop
+banner or retest broad jump; without `warmupRotation` warm-ups never rotate and
+there is no rotation card. When a section is present it is checked as before.
 
 `days[].day` and `restDay` are whole numbers from 1 to 7: Day 1 is the session
 on your start date, and Day 7 is the rest day in the shipped program (not

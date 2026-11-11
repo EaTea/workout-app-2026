@@ -8,7 +8,7 @@
  * because Ed sees that message when he edits programs.json by hand.
  *
  *   unknown ──parseCatalogue──▶ ProgramCatalogue
- *   (loaded by load.ts's loadCatalogue; main.ts uses the first entry)
+ *   (loaded by load.ts's loadCatalogue; main.ts uses the stored choice if listed, else the first entry)
  */
 import type { CatalogueEntryWire, CatalogueWire } from "./catalogueWire";
 

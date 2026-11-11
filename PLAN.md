@@ -1226,11 +1226,41 @@ program.
 4. [x] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
    the parser, and the UI hiding what depends on them. Unit tests with a
    cut-down program fixture. The whole E2E suite passes unchanged.
-5. [ ] Fixes from the challenger review.
+5. [x] Fixes from the challenger review. It compared every screen,
+   storage key, export name and old-backup path with `main` and found no
+   change for Explosive Endurance. Fixed: an E2E import of a version 1
+   file, undo refusing another program's backup and undo of old backups
+   pinned, file names in startup errors, "(missing)" for a missing
+   `programId`, the README warning never to rename an existing program id
+   or reorder the catalogue carelessly, `programs.json` documented and
+   tested as cache-first, and stale comments. Not fixed, on purpose:
+   - The Import card checks the program only after the whole file parses,
+     so another program's broken file shows a section error first. Rare,
+     and the program check still runs before anything is written.
+   - A program with a retest and a max-tested pull-up but no
+     `fatigueCheck` would still record the retest as a weekly check.
+     Neither program has that combination.
 - **Merge point:** the app runs from the catalogue with per-program
   storage, and every existing test still passes.
 
 ### PR 16 — Steady Strength program and the program picker *(behavior change)*
+**Learned from the PR 15 review** (shapes the steps below):
+- **Choosing at startup:** with no stored choice, Explosive Endurance
+  opens when it has saved data (start date, log or maxes); otherwise the
+  picker opens. This goes in `chooseCatalogueEntry`, so the order of
+  `programs.json` stops mattering, and "nothing stored" stays distinct
+  from "stored id not in the catalogue" (which opens the picker).
+- **Loading:** all program files are loaded at startup, so the picker can
+  show each name, goal and weekly numbers, and a file that fails to parse
+  only disables its own card instead of blocking the app.
+- **Switching** saves the active program and reloads the page, because
+  the app shell holds one program's keys and data from startup.
+- **Offline edits:** every program file listed in the catalogue is
+  network-first like `program.json` (`programs.json` itself stays
+  cache-first), so edits to `steady-strength.json` behave the same.
+- **Wording:** the import messages name programs, not ids, and the "not
+  an Explosive Endurance export file" message becomes program-neutral.
+
 **Steps.**
 1. [ ] `public/steady-strength.json` exactly as tabled above (with the
    `evidence` links from the Evidence table), the
