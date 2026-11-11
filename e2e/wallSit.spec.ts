@@ -3,6 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 // Start 2 Nov 2026: week 1 Day 6 is 7 Nov, week 4 Day 6 is 28 Nov (a deload week).
 const WEEK_1_DAY_6 = "2026-11-07";
 const WEEK_4_DAY_6 = "2026-11-28";
+// Week 5 Day 6 (power endurance) is 5 Dec; week 8 Day 6 (deload + retest) is 26 Dec.
+const WEEK_5_DAY_6 = "2026-12-05";
+const WEEK_8_DAY_6 = "2026-12-26";
 
 /** Seeds the settings (start 2 Nov 2026) and fixes the clock at noon on `date`, so logging to that date is allowed. */
 async function seedApp(page: Page, date: string): Promise<void> {
@@ -39,6 +42,7 @@ test("Day 6 ends with the wall sit block, and its timer starts at 5 rounds of 90
   await overlay.getByRole("button", { name: "Start" }).click();
   await page.clock.runFor(91_000);
   await expect(overlay.locator(".timer-phase")).toHaveText("REST");
+  await expect(overlay.locator(".timer-digits")).toHaveText("1:00");
   await expect(overlay.getByText("Round 1 of 5")).toBeVisible();
 });
 
@@ -49,6 +53,10 @@ test("a wall sit round can be ticked in the log", async ({ page }) => {
   await page.locator(".item-row", { hasText: "Wall sit" }).locator(".item-open").click();
   await page.getByRole("button", { name: "✓ Log set" }).click();
   await expect(page.locator(".log-set-row", { hasText: "Round 1" })).toContainText("Done");
+
+  // Back on Today, the row counts the round out of 5.
+  await page.getByRole("link", { name: "Back to Today", exact: true }).click();
+  await expect(page.locator(".item-row", { hasText: "Wall sit" }).locator(".item-progress")).toHaveText("1/5");
 });
 
 test("week 4 (deload) still has 5 rounds of 90s and says it is the same every week", async ({ page }) => {
@@ -66,7 +74,7 @@ test("week 4 (deload) still has 5 rounds of 90s and says it is the same every we
 });
 
 test("week 5 (power endurance) wall sit is not lengthened and says it is the same every week", async ({ page }) => {
-  await seedApp(page, "2026-12-05");
+  await seedApp(page, WEEK_5_DAY_6);
   await page.goto("/");
 
   const wallSitRow = page.locator(".item-row", { hasText: "Wall sit" });
@@ -75,4 +83,18 @@ test("week 5 (power endurance) wall sit is not lengthened and says it is the sam
 
   await page.getByRole("button", { name: "Start timer, Wall sit" }).click();
   await expect(page.getByRole("dialog", { name: "Wall sit timer" }).locator(".timer-digits")).toHaveText("1:30");
+});
+
+test("week 8 (deload + retest) still has 5 rounds of 90s alongside the retest card", async ({ page }) => {
+  await seedApp(page, WEEK_8_DAY_6);
+  await page.goto("/");
+
+  await expect(page.locator(".retest-card").getByRole("heading", { name: "Retest week" })).toBeVisible();
+  await expect(page.getByText("Deload week: sets halved")).toBeVisible();
+  await expect(page.locator(".item-row", { hasText: "Wall sit" })).toContainText("Same every week");
+
+  await page.getByRole("button", { name: "Start timer, Wall sit" }).click();
+  const overlay = page.getByRole("dialog", { name: "Wall sit timer" });
+  await expect(overlay.locator(".timer-title")).toHaveText("Wall sit · 5 rounds");
+  await expect(overlay.locator(".timer-digits")).toHaveText("1:30");
 });

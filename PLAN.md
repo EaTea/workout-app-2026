@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 9 merged (#3 to #13). PR 10 (Day 6 wall sits) is planned below and awaiting Ed's review.**
+Status: **PR 1 to PR 9 merged (#3 to #13), and the PR 10 plan merged as #15. PR 10 (Day 6 wall sits) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -554,19 +554,32 @@ block adds 5 × 90s + 4 × 60s = 11.5 minutes.
   week-by-week changes with `"sameEveryWeek": true`. It is validated like
   any other field. The wall sit sets it, and the heavy bag keeps its +5s
   and its deload halving. Today shows no "Power endurance" line for an
-  opted-out item.
+  opted-out item. In the weeks where other items change (deloads and
+  power endurance), its row says "Same every week" instead, so it doesn't
+  look like a missed adjustment next to the "Deload week: sets halved"
+  note. The flag can't be combined with `weeklyIncrease`, or used in a
+  block with its own `rounds` or `minutes` (a deload halves those for the
+  whole block): the parser refuses both, since neither would really stay
+  the same.
+- **Timer name:** the interval timer's dialog used to be announced as
+  "Heavy bag timer" whatever the item. It now uses the item's name
+  ("Wall sit timer").
 - **Library:** a new `wall_sit` exercise ("Wall sit", category
   `finisher`). Its cues are back flat on the wall, thighs parallel and
   knees over the ankles. The JSON export and import need no change, since
   sets are filed by exercise id like every other item.
 1. [x] `sameEveryWeek` opt-out: wire and internal types, parser,
    `buildSession` (skips the phase timer adjustments and the deload
-   halving), Today's adjustment line, and unit tests (including the W4 D6
-   and W5 D6 examples below).
+   halving), and unit tests on a heavy bag marked with the flag.
 2. [x] Wall sit in `program.json` (exercise, Day 6 finisher block and
-   minutes), plus the README's program notes. Unit tests for the Day 6
-   session in W1, W4 and W5. E2E: Day 6 shows the block, the timer runs
-   5 × 90s / 60s, and a round can be logged.
+   minutes), Today's "Same every week" line, the timer name, and the
+   README's program notes. Unit tests for the Day 6 session in W1, W4, W5
+   and W8. E2E: Day 6 shows the block, the timer runs 5 × 90s / 60s, and a
+   round can be logged.
+3. [x] **Fixes from the challenger review:** the parser refuses the two
+   combinations that would break "same every week", the doc comments and
+   plan steps match the code, and the E2E suite also checks the 60s rest,
+   the 1/5 progress and week 8.
 - **Merge point:** Day 6 has the wall sits with a working timer and log.
 
 ## 6. Worked examples (used as unit-test fixtures)
