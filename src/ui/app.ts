@@ -8,7 +8,7 @@ import { RETEST_DISMISSED_STORAGE_KEY, RETEST_JUMP_SKIPPED_STORAGE_KEY, retestJu
 import { ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire, rotationDismissedToWire } from "./rotationCard";
 import { focusRemainingRetestStepper, focusRetestJumpStepper } from "./retestCard";
 import { element } from "./dom";
-import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
+import { navigateTo, parseLogRoute, parsePlanRoute, routeFromHash, type Route } from "./router";
 import { applyLogChange, loadLog, type LoadLogResult } from "../log/storage";
 import type { WorkoutLog } from "../log/model";
 import type { LogChangeOutcome } from "./logChange";
@@ -21,6 +21,8 @@ import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
 import { buildProgramOverview } from "../program/overview";
 import { renderOverviewScreen } from "./overview";
+import { renderDayPlanScreen } from "./dayPlan";
+import { buildDayPlan } from "../program/dayPlan";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
@@ -56,9 +58,14 @@ import { focusMainHeading, renderWarningBanner } from "./warningBanner";
  * Overview is also reachable at `#/overview` (links on Today and Settings); it
  * has no tab of its own, so Today stays highlighted in the nav for it.
  *
+ * The Overview's training-day rows link to the read-only Day plan at
+ * `#/plan/<day>/<week>` (dayPlan.ts), which also keeps Today highlighted and
+ * shows the preview strip and warnings banner. A plan address outside the
+ * program (week 9, day 8) draws the Overview instead.
+ *
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
- * tests, and by Ed to preview another day). The preview affects Today and
- * the Overview's "Start Day 1" only; max save dates always use the real local date. While
+ * tests, and by Ed to preview another day). The preview affects Today, the
+ * Day plan's current week and the Overview's "Start Day 1" only; max save dates always use the real local date. While
  * one is in the address, Today, the Overview and the log screen show a "Previewing 16 Nov ·
  * back to today" strip, and the log screen refuses to log to a date after the
  * real today (past dates can be backfilled).
@@ -646,13 +653,17 @@ export function startApp(
       // With no start date, Today is replaced by the Overview (first run); the hash stays as it is.
       const requestedRoute = routeFromHash(window.location.hash);
       const isFirstRun = requestedRoute === "today" && settings.startDate === null;
-      const route: Route = isFirstRun ? "overview" : requestedRoute;
+      const planTarget = parsePlanRoute(window.location.hash);
+      // A plan address outside the program (week 9, day 8) falls back to the Overview.
+      const planIsInProgram = requestedRoute === "plan" && planTarget !== undefined
+        && buildDayPlan(program, settings, planTarget.week, planTarget.dayNumber, shownDate) !== undefined;
+      const route: Route = isFirstRun || (requestedRoute === "plan" && !planIsInProgram) ? "overview" : requestedRoute;
       const main = element("main", "app-main");
       const previewDate = previewDateFromSearch(window.location.search);
-      if (previewDate !== undefined && (route === "today" || route === "log" || route === "overview")) {
+      if (previewDate !== undefined && (route === "today" || route === "log" || route === "overview" || route === "plan")) {
         main.append(renderPreviewStrip(previewDate));
       }
-      if ((route === "today" || route === "overview") && warnings.length > 0 && !warningsDismissed) {
+      if ((route === "today" || route === "overview" || route === "plan") && warnings.length > 0 && !warningsDismissed) {
         main.append(renderWarningBanner(warnings, handleDismissWarnings));
       }
       if (route !== "settings" && loadedLog.warning !== undefined && !logWarningDismissed) {
@@ -679,6 +690,9 @@ export function startApp(
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
+      } else if (route === "plan" && planTarget !== undefined) {
+        const planScreen = renderDayPlanScreen(program, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search);
+        if (planScreen !== undefined) main.append(planScreen);
       } else if (route === "overview") {
         const status = programStatus(settings.startDate, program.lengthWeeks, shownDate);
         main.append(renderOverviewScreen(buildProgramOverview(program, status), {
@@ -702,8 +716,8 @@ export function startApp(
           onSnooze: handleSnoozeCheckIn,
         }, { dismissedBlockWeeks: rotationDismissedBlockWeeks, canDismiss: canSaveOnShownDate(), onDismiss: handleDismissRotation }));
       }
-      // The log screen and the Overview belong to Today, so Today stays highlighted in the nav.
-      root.replaceChildren(main, renderNavigationBar(route === "log" || route === "overview" ? "today" : route));
+      // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.
+      root.replaceChildren(main, renderNavigationBar(route === "log" || route === "overview" || route === "plan" ? "today" : route));
       updateSessionWakeLock();
       showNewDayBannerIfNeeded();
     } catch (error) {

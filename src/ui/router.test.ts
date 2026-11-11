@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { logRouteHash, parseLogRoute, routeFromHash } from "./router";
+import { logRouteHash, parseLogRoute, parsePlanRoute, planRouteHash, routeFromHash } from "./router";
 
 describe("routeFromHash", () => {
   it("recognises the settings route", () => {
@@ -51,5 +51,35 @@ describe("parseLogRoute", () => {
 
   it("round-trips with logRouteHash", () => {
     expect(parseLogRoute(logRouteHash("2026-11-10", 4, "dip"))).toEqual({ date: "2026-11-10", blockPosition: 4, exerciseId: "dip" });
+  });
+});
+
+describe("plan route", () => {
+  it("parses #/plan/<day>/<week>", () => {
+    expect(parsePlanRoute("#/plan/1/4")).toEqual({ dayNumber: 1, week: 4 });
+    expect(parsePlanRoute("#/plan/6/12")).toEqual({ dayNumber: 6, week: 12 });
+  });
+
+  it("rejects malformed hashes", () => {
+    for (const hash of ["", "#/plan", "#/plan/1", "#/plan/1/", "#/plan/1/4/5", "#/plan/x/4", "#/plan/1/-2", "#/plan/1.5/4", "#/plan/0/4", "#/plan/1/0", "#/plans/1/4"]) {
+      expect(parsePlanRoute(hash), hash).toBeUndefined();
+    }
+  });
+
+  it("builds the hash and round-trips with the parser", () => {
+    expect(planRouteHash(1, 4)).toBe("#/plan/1/4");
+    expect(parsePlanRoute(planRouteHash(3, 7))).toEqual({ dayNumber: 3, week: 7 });
+  });
+
+  it("is a plan route only when well formed", () => {
+    expect(routeFromHash("#/plan/1/4")).toBe("plan");
+  });
+
+  it("sends malformed plan addresses to the overview, not Today", () => {
+    for (const hash of ["#/plan", "#/plan/1", "#/plan/1/", "#/plan/1/2/", "#/plan/x/4", "#/plan/1/0", "#/plan/-1/2"]) {
+      expect(routeFromHash(hash), hash).toBe("overview");
+    }
+    // Only the plan family is affected; a lookalike prefix is just an unknown address.
+    expect(routeFromHash("#/plans/1/4")).toBe("today");
   });
 });

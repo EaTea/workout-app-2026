@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 11 merged (#3 to #18). The PR 12 plan (day plans by week from the overview) is in review.**
+Status: **PR 1 to PR 11 merged (#3 to #18), and the PR 12 plan merged as #19. PR 12 (day plans by week) is in progress.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -710,8 +710,9 @@ becomes a link to a new read-only **Day plan** screen at
 
 - **Same numbers as Today.** The screen doesn't re-implement any rules.
   It asks the existing `buildSession` for the date that week and day fall
-  on: from the saved start date when there is one, otherwise from a
-  stand-in start date that is used only for this preview and never saved.
+  on: from the saved start date when there is one, otherwise as if the
+  program started today (what the Overview's Start button would give),
+  without saving anything.
   So deloads, the +1 rep per week, the power-endurance timer changes, the
   warm-up rotation and EMOM targets from your maxes all match what Today
   will show. Without saved maxes the max-based rows read "Set max", as on
@@ -748,16 +749,30 @@ weeks 5–8 almost every row would be marked and the week-to-week step
   links; the bottom nav keeps Today highlighted, as for the Overview.
 
 **Steps.**
-1. [ ] `dayPlan.ts` view model and unit tests: the date maths (start
+1. [x] `dayPlan.ts` view model and unit tests: the date maths (start
    2 Nov, Day 1 week 4 = 23 Nov), the stand-in start date when none is
    saved, and the changes between weeks for Day 1 (worked examples below).
-2. [ ] Day plan screen, the `#/plan/<day>/<week>` route (bad or out-of-range
+2. [x] Day plan screen, the `#/plan/<day>/<week>` route (bad or out-of-range
    numbers fall back to the Overview), the week picker, the Overview rows
    as links, styles and README.
-3. [ ] E2E (`e2e/dayPlan.spec.ts`): from the Overview tap Day 1, see all
+3. [x] E2E (`e2e/dayPlan.spec.ts`): from the Overview tap Day 1, see all
    six blocks, pick week 4 and see the halved doses with their "Changed"
    lines, Back returns to the Overview; Day 7 is not a link; a first run
    (no start date) can browse plans without a start date being saved.
+4. [x] **Fixes from the challenger review** (it confirmed every plan
+   figure matches Today for Days 1–6 × weeks 1–8):
+   - [x] "Changed" lines show only what differs: never "Set max" (no
+     maxes saved: "2 sets", "9 min"), no repeated minutes when the block
+     line already reports them, and the week 5 warm-up swaps are marked
+     ("Changed: YTWI raises in week 4"). The block line follows the
+     current figure, and the Overview row chevron is hidden from screen
+     readers.
+   - [x] Any malformed `#/plan/...` address shows the Overview, and
+     focus stays on the week picker after a week is tapped.
+   - **Open question for Ed:** past weeks use the current max (as Today
+     does for past dates), so after a retest earlier weeks show the new
+     targets. Using the max in effect on each date would change
+     `buildSession`; a follow-up if Ed wants it.
 - **Merge point:** every training day's plan can be browsed week by week
   from the Overview.
 
@@ -784,7 +799,7 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 9 Nov (start 2 Nov) | W2 D1 | Base | Overview CTA "Go to today: Week 2 · Day 1"; week 2 highlighted |
 | 8 Nov (start 2 Nov) | W1 D7 | Base | Overview CTA "Go to today: Rest day" |
 | Day plan, start 2 Nov, max 12 / 15 | Day 1, W1 → W2 | Base | Pull-up EMOM 4 → 5 / min ("Changed: 4 / min in week 1"); med ball slams 6 × 6 unchanged, so no line |
-| Day plan, start 2 Nov, max 12 / 15 | Day 1, W3 → W4 | Deload | Med ball slams 3 × 6 ("Changed: 6 × 6 in week 3"); pull-up EMOM 5 min × 6 (minutes changed from 9, reps held at 6); dip mini-dose 1 × 7 (was 2 × 7) |
+| Day plan, start 2 Nov, max 12 / 15 | Day 1, W3 → W4 | Deload | Med ball slams 3 × 6 ("Changed: 6 × 6 in week 3"); main strength block "Changed: 9 min in week 3", pull-ups 6 / min held (no item line); dip mini-dose 1 × 7 ("Changed: 2 × 7 in week 3") |
 | Day plan, no start date saved | Day 1, W2 | Base | Same doses as a saved start date would give; max-based rows say "Set max" unless maxes are saved; no start date is saved |
 
 A second start date shows the cycle doesn't depend on the weekday: start

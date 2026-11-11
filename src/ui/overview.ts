@@ -1,5 +1,6 @@
 import type { CallToAction, DayOverview, PhaseOverview, ProgramOverview } from "../program/overview";
 import { element } from "./dom";
+import { planRouteHash } from "./router";
 import { blockLabel, formatOverviewHeadline, formatShortDate, formatWeekRange } from "./format";
 import "./overview.css";
 
@@ -10,7 +11,7 @@ import "./overview.css";
  *   buildProgramOverview(...) ─▶ ProgramOverview ─▶ renderOverviewScreen
  *      kicker (program name) · h1 · goal · headline numbers
  *      "The 8 weeks"      week strip + one line per phase
- *      "A typical week"   Day 1 to 7 rows
+ *      "A typical week"   Day 1 to 7 rows; training days link to their Day plan (#/plan/<day>/<week>)
  *      "Every session"    block order as labels
  *      call to action     the ONE primary button or link (by `callToAction.kind`)
  *
@@ -81,7 +82,7 @@ export function renderOverviewScreen(overview: ProgramOverview, options: Overvie
   screen.append(
     header,
     renderPhasesSection(overview),
-    renderTypicalWeekSection(overview.days),
+    renderTypicalWeekSection(overview.days, overview.currentWeek ?? FIRST_WEEK),
     renderSessionOrderSection(overview.sessionOrder),
     renderCallToAction(overview.callToAction, options),
   );
@@ -130,13 +131,20 @@ function renderPhaseRow(phase: PhaseOverview): HTMLElement {
   return row;
 }
 
-/** "A typical week": one row per day number, in order. */
-function renderTypicalWeekSection(days: DayOverview[]): HTMLElement {
+/** The week the day rows' plans open on when the program is not running (a current week replaces it). */
+const FIRST_WEEK = 1;
+
+/**
+ * "A typical week": one row per day number, in order. `planWeek` is the
+ * program week the training rows' Day plan links open on (the current week
+ * while the program is active, otherwise week 1).
+ */
+function renderTypicalWeekSection(days: DayOverview[], planWeek: number): HTMLElement {
   const section = renderSection("A typical week");
 
   const list = element("ol", "overview-days");
   for (const day of days) {
-    list.append(renderDayRow(day));
+    list.append(renderDayRow(day, planWeek));
   }
 
   section.append(list);
@@ -144,22 +152,34 @@ function renderTypicalWeekSection(days: DayOverview[]): HTMLElement {
 }
 
 /**
- * One day row. Training days show the focus, "~50 min" and the key exercises
- * joined with " · "; a rest day shows "Rest" in muted text.
+ * One day row. Training days are a whole-row link to that day's Day plan in
+ * `planWeek`, showing the focus, "~50 min", the key exercises joined with
+ * " · " and a "›" chevron; a rest day shows "Rest" in muted text and is not
+ * a link (there is no plan to show).
  */
-function renderDayRow(day: DayOverview): HTMLElement {
-  const row = element("li", day.kind === "rest" ? "overview-day overview-day-rest" : "overview-day");
-  row.append(element("span", "overview-day-number", `Day ${day.dayNumber}`));
-
+function renderDayRow(day: DayOverview, planWeek: number): HTMLElement {
   if (day.kind === "rest") {
-    row.append(element("span", "overview-day-focus", "Rest"));
-    return row;
+    const restRow = element("li", "overview-day overview-day-rest");
+    restRow.append(element("span", "overview-day-number", `Day ${day.dayNumber}`), element("span", "overview-day-focus", "Rest"));
+    return restRow;
   }
 
-  row.append(element("span", "overview-day-focus", day.focus), element("span", "overview-day-minutes", `~${day.targetMinutes} min`));
+  const row = element("li", "overview-day overview-day-training");
+  const link = element("a", "overview-day-link");
+  link.href = planRouteHash(day.dayNumber, planWeek);
+  const chevron = element("span", "overview-day-chevron", "›");
+  chevron.setAttribute("aria-hidden", "true"); // decoration only; the link text already names the day
+  link.append(
+    element("span", "overview-day-number", `Day ${day.dayNumber}`),
+    element("span", "overview-day-focus", day.focus),
+    element("span", "overview-day-minutes", `~${day.targetMinutes} min`),
+    chevron,
+  );
   if (day.keyExercises.length > 0) {
-    row.append(element("span", "overview-day-exercises", day.keyExercises.join(" · ")));
+    link.append(element("span", "overview-day-exercises", day.keyExercises.join(" · ")));
   }
+
+  row.append(link);
   return row;
 }
 
