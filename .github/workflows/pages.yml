@@ -7,15 +7,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: the Pages permissions are granted only to the deploy job.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# One deployment at a time; don't cancel one that is mid-flight.
+# CI runs are grouped per ref: a newer push to a pull request cancels the
+# superseded run, while runs on main are never cancelled. Deployments are
+# serialised separately by the `concurrency` block on the deploy job.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -28,8 +29,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      # Playwright E2E tests are intentionally not run here yet: CI does not
-      # install a browser. Run `npm run test:e2e` locally.
       - run: npm run build
       # Only main builds are deployed; pull requests stop after the checks above.
       - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -37,10 +36,62 @@ jobs:
         with:
           path: dist
 
+  # End-to-end tests (Playwright, Chromium on an iPhone 13 profile). Runs in
+  # parallel with `build`; Playwright's webServer builds and serves the app
+  # itself. The deploy job needs this job too, so a main commit that fails
+  # E2E is never published.
+  #
+  #   checkout -> npm ci -> (cached) browser install -> test:e2e
+  #                                      \-> on failure: upload report + traces
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Read the exact installed @playwright/test version so the browser cache
+      # is invalidated whenever Playwright (and thus its Chromium) is bumped.
+      - id: playwright-version
+        run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      # On a cache hit the browser is already there, so only the OS libraries
+      # Chromium needs are installed; on a miss, the browser is downloaded too.
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npm run test:e2e -- --trace retain-on-failure
+      # failure() alone is false for a cancelled run (e.g. one stopped by the
+      # job timeout), so cancelled() is included to still upload the report.
+      - if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   deploy:
-    needs: build
+    needs: [build, e2e]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # One deployment at a time; don't cancel one that is mid-flight.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

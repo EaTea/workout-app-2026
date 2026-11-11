@@ -92,6 +92,7 @@ npm run test:e2e   # end-to-end tests (Playwright, iPhone 13 profile)
 
 The E2E run builds the app and serves it with `vite preview` automatically.
 It needs a Playwright Chromium browser installed (`npx playwright install chromium`).
+CI runs the same suite; see "Deployment" below.
 
 ## Editing program.json
 
@@ -215,8 +216,17 @@ workers except in `e2e/offline.spec.ts`, which tests them.
 `.github/workflows/pages.yml` ("CI and Pages deploy") runs `npm ci`, the unit
 tests and the build on every pull request to `main` and on every push to
 `main`. Only pushes to `main` (and manual runs on `main`) go on to deploy
-`dist/` to https://eatea.github.io/workout-app-2026/. E2E tests are not run in
-CI yet.
+`dist/` to https://eatea.github.io/workout-app-2026/.
+
+A separate `e2e` job runs in parallel with `build` on the same triggers. It
+installs the pinned Playwright's Chromium (cached by Playwright version) and
+runs `npm run test:e2e -- --trace retain-on-failure` with no retries. The
+`deploy` job needs both `build` and `e2e`, so a failing E2E run blocks
+publishing. When `e2e` fails, open the run's summary page, download the
+`playwright-report` artifact (kept 7 days) and unzip it. It contains two
+folders, `playwright-report/` and `test-results/`. Run
+`npx playwright show-report <unzipped folder>/playwright-report` to see the
+HTML report; the traces of failed tests open from that report.
 
 One-time repository setup: **Settings -> Pages -> Source: GitHub Actions**.
 
