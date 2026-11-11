@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 14 merged (#3 to #23). PR 15 (programs catalogue and per-program storage) is in progress; PR 16 (Steady Strength and the program picker) follows.**
+Status: **PR 1 to PR 15 merged (#3 to #24). PR 16 (Steady Strength and the program picker) is in progress.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1262,11 +1262,18 @@ program.
   an Explosive Endurance export file" message becomes program-neutral.
 
 **Steps.**
-1. [ ] `public/steady-strength.json` exactly as tabled above (with the
+1. [x] `public/steady-strength.json` exactly as tabled above (with the
    `evidence` links from the Evidence table), the
    `program.safety` field in the parser and model, the new block labels,
    and the catalogue entry. README program notes. Unit tests for the
    worked examples below.
+1b. [ ] Show Steady Strength's exercises where the app picks "key" ones:
+   the overview's day rows and the day plan list key exercises only from
+   `explosive` and `mainStrength` blocks, and Progress charts only chart
+   `mainStrength`, `miniDose` and `explosive`. Add `isometric` and
+   `strength` to the key-exercise blocks and `strength` to the charted
+   blocks (holds log no reps, so they have nothing to chart). Explosive
+   Endurance has none of these block types, so it doesn't change.
 2. [ ] The picker screen at `#/programs`, the first-visit redirect, the
    "Switch program" links on the overview and in Settings, and the hidden
    "Max reps" section. README.

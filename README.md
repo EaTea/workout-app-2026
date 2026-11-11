@@ -75,6 +75,33 @@ says which program runs; when it is missing or names a program that is not in
 guard is app-wide too, but it lives in `sessionStorage` (not `localStorage`) and
 only lasts for the browser tab. The keys are built in `src/storage/programKeys.ts`.
 
+## Programs
+
+The app can hold more than one program; `public/programs.json` lists them (see
+"Editing program.json"). Two are shipped:
+
+- **Explosive Endurance** (`public/program.json`): the 8-week explosive and
+  muscular-endurance program described above.
+- **Steady Strength** (`public/steady-strength.json`): a gentle 8-week program
+  for someone aged 75 or over, including people with a history of lower-back
+  disc problems. It favours short isometric holds, balance practice and light
+  strength work with a band, body weight or a kitchen counter, to keep the core,
+  legs, wrists and shoulders strong and stable. The week is three main
+  sessions of about 30 minutes (Day 1 Legs and core, Day 3 Shoulders, wrists and
+  core, Day 5 Whole body), balance and walking sessions of about 15 minutes on
+  Days 2, 4 and 6, and Day 7 rest: about 2 h 15 min a week. Holds are
+  interval items that grow by 5 seconds in weeks 3-5 and 10 seconds in weeks 6-8
+  (phases Settle in, Build and Strengthen); there are no easy weeks. Each
+  exercise's evidence link is a DOI, and the file's `program.safety` list holds
+  the safety notes. **It is general exercise guidance, not medical advice:
+  check with your doctor or physiotherapist before starting, especially after
+  slipped discs, with osteoporosis, heart or blood pressure problems, or after
+  a recent fall or operation.** Until the program picker arrives, the app
+  still opens Explosive Endurance.
+
+`program.safety` is an optional list of non-empty strings in the `program`
+object; a program without it (Explosive Endurance) has no safety notes.
+
 ## Install
 
 Requires Node 22.

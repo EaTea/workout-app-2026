@@ -30,6 +30,11 @@ const BLOCK_LABELS: Record<string, string> = {
   miniDose: "Mini-dose",
   core: "Core",
   finisher: "Finisher",
+  balance: "Balance",
+  isometric: "Isometric holds",
+  strength: "Strength",
+  walk: "Walk",
+  cooldown: "Cool-down",
 };
 
 /** The big right-hand figure of an item row, plus optional extras. */

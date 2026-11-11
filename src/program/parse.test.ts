@@ -372,3 +372,41 @@ describe("the sameEveryWeek item field", () => {
     expect(message).toContain("sameEveryWeek: expected true or false but found");
   });
 });
+
+describe("program.safety", () => {
+  it("is empty for the real program.json, which has no safety list", () => {
+    expect(program.safety).toEqual([]);
+  });
+
+  it("reads a list of safety notes in order, without warnings", () => {
+    const json = readRealProgramJson();
+    json.program.safety = ["Check with your doctor first.", "Stop if you feel sharp pain."];
+
+    const result = parseProgram(json);
+
+    expect(result.program.safety).toEqual(["Check with your doctor first.", "Stop if you feel sharp pain."]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("rejects a safety value that is not a list", () => {
+    expect(errorMessageAfter((json) => (json.program.safety = "Be careful"))).toBe("program.safety: expected a list but found \"Be careful\"");
+  });
+
+  it("rejects a safety note that is not text, naming its position", () => {
+    expect(errorMessageAfter((json) => (json.program.safety = ["ok", 7]))).toBe("program.safety[1]: expected text but found 7");
+  });
+
+  it("rejects an empty safety note", () => {
+    expect(errorMessageAfter((json) => (json.program.safety = ["ok", "  "]))).toBe("program.safety[1]: expected text but found an empty string");
+  });
+
+  it("warns about a misspelt safety field with a suggestion", () => {
+    const json = readRealProgramJson();
+    json.program.saftey = ["x"];
+
+    const result = parseProgram(json);
+
+    expect(result.program.safety).toEqual([]);
+    expect(result.warnings).toEqual([expect.objectContaining({ path: "program.saftey", suggestion: "safety" })]);
+  });
+});

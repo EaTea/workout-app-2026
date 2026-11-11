@@ -33,6 +33,7 @@ describe("dates and titles", () => {
     const block = (overrides: Partial<BlockView>): BlockView => ({ type: "warmup", format: "straight sets", items: [], ...overrides });
     expect(blockLabel("mainStrength")).toBe("Main strength");
     expect(blockLabel("mystery")).toBe("mystery");
+    expect(["balance", "isometric", "strength", "walk", "cooldown"].map(blockLabel)).toEqual(["Balance", "Isometric holds", "Strength", "Walk", "Cool-down"]);
     expect(formatBlockTitle(1, block({ format: "superset", rounds: { min: 2, max: 2 } }))).toBe("1 · Warm-up · 2 rounds");
     expect(formatBlockTitle(3, block({ type: "mainStrength", minutes: 9 }))).toBe("3 · Main strength · 9 min");
     expect(formatBlockTitle(5, block({ type: "core", format: "superset" }))).toBe("5 · Core · superset");

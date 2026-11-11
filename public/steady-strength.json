@@ -1,0 +1,491 @@
+{
+  "program": {
+    "name": "Steady Strength",
+    "goal": "Gentle holds and light strength work to keep the core, legs, wrists and shoulders strong and stable",
+    "lengthWeeks": 8,
+    "restDay": 7,
+    "sessionOrder": ["warmup", "balance", "isometric", "strength", "core", "cooldown", "walk"],
+    "rules": [
+      "Keep the spine neutral and tall. No sit-ups, crunches, toe touches, twisting under load or bending forward to lift, and move slowly and in control.",
+      "No jumping, running or heavy weights. Use a resistance band, body weight or something light from the kitchen (a 0.5-1 kg tin or bottle).",
+      "Effort is 5 to 6 out of 10: finish every set with 2 or 3 reps still in hand. Mild muscle tiredness is normal; pain is the signal to stop.",
+      "Breathe out during the effort and never hold your breath. Holds stay short, at about half effort.",
+      "Almost everything is standing at a counter, sitting on a chair or leaning on a wall, with the supported version first and less support as you progress. The one lying-down hold (the glute bridge) can be done on a bed and has a standing alternative."
+    ],
+    "safety": [
+      "This is not medical advice. Check with your doctor or physiotherapist before starting, and show them this plan, especially with a history of slipped discs in the lower back, osteoporosis, heart or blood pressure problems, or a recent fall or operation.",
+      "Stop and get advice if you feel sharp pain, or pain, numbness, tingling or weakness that spreads into a leg or arm.",
+      "Get urgent medical help if you notice numbness around the groin or buttocks, or new problems controlling your bladder or bowels.",
+      "Breathe out during the effort and never hold your breath. Holds are short on purpose.",
+      "Keep a kitchen counter, a sturdy chair or a wall within reach for every standing exercise."
+    ]
+  },
+  "exercises": {
+    "head_turns": {
+      "name": "Head turns",
+      "category": "warmup",
+      "cues": ["Turn as far as comfortable"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "neck_retraction": {
+      "name": "Neck retraction (chin tuck)",
+      "category": "warmup",
+      "cues": ["A hand on the chin guides the head straight back"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "standing_back_extension": {
+      "name": "Standing back extension",
+      "category": "warmup",
+      "cues": ["Hands on the small of the back, gently arch", "Stop if it sends pain down a leg"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "ankle_pumps": {
+      "name": "Ankle pumps, seated",
+      "category": "warmup",
+      "cues": ["Pull the foot up, then point it"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "single_leg_stand": {
+      "name": "Single-leg stand at the counter",
+      "category": "balance",
+      "cues": ["Hold the counter, then fingertips, then hover", "Keep the standing knee soft, not locked"],
+      "progression": ["Hold the counter", "Fingertips on the counter", "Hands hovering near the counter"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "heel_to_toe_stand": {
+      "name": "Heel-to-toe stand at the counter",
+      "category": "balance",
+      "cues": ["One foot directly in front of the other", "Use less support over the weeks"],
+      "progression": ["Hold the counter", "Fingertips on the counter", "Hands hovering near the counter"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "heel_to_toe_walk": {
+      "name": "Heel-to-toe walk along the counter",
+      "category": "balance",
+      "cues": ["One hand on the counter"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "sideways_walking": {
+      "name": "Sideways walking along the counter",
+      "category": "balance",
+      "cues": ["Moving balance, as Too Fit To Fracture advises after static holds"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "high_wall_sit": {
+      "name": "High wall sit",
+      "category": "isometric",
+      "cues": ["Slide only a little way down (knees bent no more than a quarter)", "Back flat on the wall", "Breathe"],
+      "evidence": "https://doi.org/10.1111/sms.13375"
+    },
+    "glute_bridge_hold": {
+      "name": "Glute bridge hold",
+      "category": "isometric",
+      "cues": ["On the bed is fine", "Squeeze the buttocks, don't arch the back"],
+      "alternative": "Standing buttock squeeze, 3 x 20s",
+      "evidence": "https://doi.org/10.1016/j.apmr.2008.06.026"
+    },
+    "pallof_press_hold": {
+      "name": "Pallof press hold (band)",
+      "category": "isometric",
+      "cues": ["Band anchored at chest height in a door", "Arms straight out, don't let the band turn you"],
+      "evidence": "https://doi.org/10.1136/bjsports-2021-104926"
+    },
+    "wall_push_hold": {
+      "name": "Wall push hold",
+      "category": "isometric",
+      "cues": [
+        "Hands on the wall at shoulder height, fingers spread",
+        "Lean in to bent elbows and hold",
+        "Loads the wrists and shoulders"
+      ],
+      "evidence": "https://doi.org/10.1111/sms.13375"
+    },
+    "grip_squeeze": {
+      "name": "Grip squeeze",
+      "category": "isometric",
+      "cues": ["Soft ball or rolled towel", "About half effort"],
+      "evidence": "https://doi.org/10.3389/fphys.2025.1564988"
+    },
+    "counter_plank": {
+      "name": "Counter plank",
+      "category": "isometric",
+      "cues": ["Forearms or hands on the counter", "Body straight from head to heels"],
+      "evidence": "https://doi.org/10.1016/j.apmr.2008.06.026"
+    },
+    "split_stance_hold": {
+      "name": "Split-stance hold at the counter",
+      "category": "isometric",
+      "cues": ["One foot ahead, small knee bend in both legs", "Torso upright"],
+      "evidence": "https://doi.org/10.1111/sms.13375"
+    },
+    "suitcase_hold": {
+      "name": "Suitcase hold",
+      "category": "isometric",
+      "cues": ["A light shopping bag (1-3 kg) in one hand", "Stand tall and don't lean"],
+      "evidence": "https://doi.org/10.1016/j.apmr.2008.06.026"
+    },
+    "sit_to_stand": {
+      "name": "Sit-to-stand from a chair",
+      "category": "strength",
+      "cues": ["Slow and controlled", "Breathe out as you stand"],
+      "progression": ["Two hands", "One hand", "No hands"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "heel_toe_raises": {
+      "name": "Heel and toe raises at the counter",
+      "category": "strength",
+      "cues": ["Up onto the toes, then rock back onto the heels"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "side_hip_raise": {
+      "name": "Side hip raise at the counter",
+      "category": "strength",
+      "cues": ["Straight leg out to the side, toes forward", "No leaning"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "band_row": {
+      "name": "Band row",
+      "category": "strength",
+      "cues": ["Seated or standing, band anchored in a door", "Shoulders down, 2s squeeze"],
+      "evidence": "https://doi.org/10.1080/09593985.2022.2085219"
+    },
+    "band_outward_rotation": {
+      "name": "Band outward rotation",
+      "category": "strength",
+      "cues": ["Elbow tucked at your side", "Replaces the door-frame press-out"],
+      "evidence": "https://doi.org/10.1080/09593985.2022.2085219"
+    },
+    "counter_push_up": {
+      "name": "Counter push-up",
+      "category": "strength",
+      "cues": ["Hands on the kitchen counter", "Body straight"],
+      "evidence": "https://doi.org/10.1007/s40279-020-01331-7"
+    },
+    "wrist_curl": {
+      "name": "Wrist curl and reverse wrist curl",
+      "category": "strength",
+      "cues": ["Forearm resting on a table", "Light tin or bottle"],
+      "evidence": "https://doi.org/10.3389/fphys.2025.1564988"
+    },
+    "band_pull_apart": {
+      "name": "Band pull-apart",
+      "category": "strength",
+      "cues": ["At chest height", "Arms nearly straight"],
+      "evidence": "https://doi.org/10.1080/09593985.2022.2085219"
+    },
+    "stair_step_up": {
+      "name": "Stair step-up",
+      "category": "strength",
+      "cues": ["Bottom stair with the rail", "Whole foot on the step"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "back_knee_bend": {
+      "name": "Back knee bend at the counter",
+      "category": "strength",
+      "cues": ["Standing, bring the heel towards the bottom", "Replaces the wall slide"],
+      "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
+    },
+    "standing_bird_dog": {
+      "name": "Standing bird dog at the counter",
+      "category": "core",
+      "cues": ["Both hands on the counter, slide one leg straight back and hold", "Hips level"],
+      "evidence": "https://doi.org/10.1016/j.apmr.2008.06.026"
+    },
+    "pallof_press": {
+      "name": "Pallof press (band)",
+      "category": "core",
+      "cues": ["Band anchored at chest height in a door", "Hold at arms' length, don't let the band turn you"],
+      "evidence": "https://doi.org/10.1136/bjsports-2021-104926"
+    },
+    "wall_side_plank": {
+      "name": "Wall side plank",
+      "category": "core",
+      "cues": ["Forearm on the wall, feet a step away", "Body straight"],
+      "evidence": "https://doi.org/10.1016/j.apmr.2008.06.026"
+    },
+    "tall_sitting_hold": {
+      "name": "Tall sitting hold",
+      "category": "core",
+      "cues": ["Sit forward off the chair back, tall", "Gently brace and breathe", "Posture practice"],
+      "evidence": "https://doi.org/10.1007/s00198-017-4109-x"
+    },
+    "slow_walk": { "name": "Slow walk", "category": "cooldown", "evidence": "https://doi.org/10.1136/bjsports-2020-102955" },
+    "calf_stretch": {
+      "name": "Calf stretch at the wall",
+      "category": "cooldown",
+      "cues": ["Gentle, no bouncing"],
+      "evidence": "https://doi.org/10.1093/ptj/81.5.1110"
+    },
+    "doorway_chest_stretch": {
+      "name": "Doorway chest stretch",
+      "category": "cooldown",
+      "cues": ["Gentle"],
+      "evidence": "https://doi.org/10.1093/ptj/81.5.1110"
+    },
+    "comfortable_walk": {
+      "name": "Walk at a comfortable pace",
+      "category": "walk",
+      "cues": ["Indoors or out", "You should be able to talk"],
+      "evidence": "https://doi.org/10.1136/bjsports-2020-102955"
+    }
+  },
+  "days": [
+    {
+      "day": 1,
+      "focus": "Legs and core",
+      "targetMinutes": 30,
+      "blocks": [
+        {
+          "type": "warmup",
+          "format": "superset",
+          "rounds": 1,
+          "items": [
+            { "exercise": "head_turns", "reps": "5 each side" },
+            { "exercise": "neck_retraction", "reps": 5 },
+            { "exercise": "standing_back_extension", "reps": 5 },
+            { "exercise": "ankle_pumps", "reps": "10 each foot" }
+          ]
+        },
+        {
+          "type": "balance",
+          "items": [
+            { "exercise": "single_leg_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate legs each round" }
+          ]
+        },
+        {
+          "type": "isometric",
+          "items": [
+            { "exercise": "high_wall_sit", "format": "interval", "rounds": 3, "workSec": 20, "restSec": 40, "note": "Slide only a little way down; breathe" },
+            { "exercise": "glute_bridge_hold", "format": "interval", "rounds": 3, "workSec": 15, "restSec": 30, "note": "Squeeze the buttocks, don't arch the back" },
+            { "exercise": "pallof_press_hold", "format": "interval", "rounds": 4, "workSec": 15, "restSec": 20, "note": "Alternate sides each round" }
+          ]
+        },
+        {
+          "type": "strength",
+          "items": [
+            { "exercise": "sit_to_stand", "sets": 3, "reps": "8-12", "restSec": 60, "note": "Two hands, then one hand, then no hands" },
+            { "exercise": "heel_toe_raises", "sets": 2, "reps": "10 each", "restSec": 60 },
+            { "exercise": "side_hip_raise", "sets": 2, "reps": 10, "restSec": 60, "perSide": true }
+          ]
+        },
+        {
+          "type": "core",
+          "items": [
+            { "exercise": "standing_bird_dog", "sets": 2, "reps": 6, "perSide": true, "tempo": "5s hold", "note": "Hips level" }
+          ]
+        },
+        {
+          "type": "cooldown",
+          "items": [
+            { "exercise": "slow_walk", "reps": "3-5 min" },
+            { "exercise": "calf_stretch", "durationSec": 60, "perSide": true },
+            { "exercise": "doorway_chest_stretch", "durationSec": 60 }
+          ]
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "focus": "Balance and walk",
+      "targetMinutes": 15,
+      "blocks": [
+        {
+          "type": "balance",
+          "items": [
+            { "exercise": "single_leg_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate legs each round" },
+            { "exercise": "heel_to_toe_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate front foot each round" },
+            { "exercise": "sideways_walking", "sets": 2, "reps": "10 steps each way" },
+            { "exercise": "sit_to_stand", "sets": 1, "reps": 8, "note": "Slow and controlled" }
+          ]
+        },
+        {
+          "type": "walk",
+          "items": [
+            { "exercise": "comfortable_walk", "reps": "10-20 min", "note": "Indoors or out; you should be able to talk" }
+          ]
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "focus": "Shoulders, wrists and core",
+      "targetMinutes": 30,
+      "blocks": [
+        {
+          "type": "warmup",
+          "format": "superset",
+          "rounds": 1,
+          "items": [
+            { "exercise": "head_turns", "reps": "5 each side" },
+            { "exercise": "neck_retraction", "reps": 5 },
+            { "exercise": "standing_back_extension", "reps": 5 },
+            { "exercise": "ankle_pumps", "reps": "10 each foot" }
+          ]
+        },
+        {
+          "type": "balance",
+          "items": [
+            { "exercise": "heel_to_toe_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate front foot each round" }
+          ]
+        },
+        {
+          "type": "isometric",
+          "items": [
+            { "exercise": "wall_push_hold", "format": "interval", "rounds": 3, "workSec": 15, "restSec": 30, "note": "Lean in to bent elbows and hold" },
+            { "exercise": "grip_squeeze", "format": "interval", "rounds": 4, "workSec": 10, "restSec": 15, "note": "Alternate hands each round" }
+          ]
+        },
+        {
+          "type": "strength",
+          "items": [
+            { "exercise": "band_row", "sets": 3, "reps": "8-12", "restSec": 60, "tempo": "2s squeeze" },
+            { "exercise": "band_outward_rotation", "sets": 2, "reps": 10, "restSec": 60, "perSide": true, "tempo": "3s hold at the end", "note": "Elbow tucked at your side" },
+            { "exercise": "counter_push_up", "sets": 2, "reps": "8-12", "restSec": 60 },
+            { "exercise": "wrist_curl", "sets": 2, "reps": "10 each way", "restSec": 60 },
+            { "exercise": "band_pull_apart", "sets": 2, "reps": "10-12", "restSec": 60 }
+          ]
+        },
+        {
+          "type": "core",
+          "items": [
+            { "exercise": "wall_side_plank", "format": "interval", "rounds": 4, "workSec": 15, "restSec": 20, "note": "Alternate sides each round" },
+            { "exercise": "tall_sitting_hold", "format": "interval", "rounds": 3, "workSec": 20, "restSec": 20, "note": "Sit tall, brace gently and breathe" }
+          ]
+        },
+        {
+          "type": "cooldown",
+          "items": [
+            { "exercise": "slow_walk", "reps": "3-5 min" },
+            { "exercise": "calf_stretch", "durationSec": 60, "perSide": true },
+            { "exercise": "doorway_chest_stretch", "durationSec": 60 }
+          ]
+        }
+      ]
+    },
+    {
+      "day": 4,
+      "focus": "Balance and walk",
+      "targetMinutes": 15,
+      "blocks": [
+        {
+          "type": "balance",
+          "items": [
+            { "exercise": "single_leg_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate legs each round" },
+            { "exercise": "heel_to_toe_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate front foot each round" },
+            { "exercise": "sideways_walking", "sets": 2, "reps": "10 steps each way" },
+            { "exercise": "sit_to_stand", "sets": 1, "reps": 8, "note": "Slow and controlled" }
+          ]
+        },
+        {
+          "type": "walk",
+          "items": [
+            { "exercise": "comfortable_walk", "reps": "10-20 min", "note": "Indoors or out; you should be able to talk" }
+          ]
+        }
+      ]
+    },
+    {
+      "day": 5,
+      "focus": "Whole body",
+      "targetMinutes": 30,
+      "blocks": [
+        {
+          "type": "warmup",
+          "format": "superset",
+          "rounds": 1,
+          "items": [
+            { "exercise": "head_turns", "reps": "5 each side" },
+            { "exercise": "neck_retraction", "reps": 5 },
+            { "exercise": "standing_back_extension", "reps": 5 },
+            { "exercise": "ankle_pumps", "reps": "10 each foot" }
+          ]
+        },
+        {
+          "type": "balance",
+          "items": [
+            { "exercise": "heel_to_toe_walk", "sets": 3, "reps": "10 steps", "note": "One hand on the counter" }
+          ]
+        },
+        {
+          "type": "isometric",
+          "items": [
+            { "exercise": "counter_plank", "format": "interval", "rounds": 3, "workSec": 15, "restSec": 30, "note": "Body straight from head to heels" },
+            { "exercise": "split_stance_hold", "format": "interval", "rounds": 4, "workSec": 15, "restSec": 20, "note": "Alternate legs each round" },
+            { "exercise": "suitcase_hold", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate hands each round" }
+          ]
+        },
+        {
+          "type": "strength",
+          "items": [
+            { "exercise": "stair_step_up", "sets": 2, "reps": 8, "restSec": 60, "perSide": true },
+            { "exercise": "sit_to_stand", "sets": 2, "reps": "8-12", "restSec": 60 },
+            { "exercise": "band_row", "sets": 2, "reps": "8-12", "restSec": 60 },
+            { "exercise": "back_knee_bend", "sets": 2, "reps": 10, "restSec": 60, "perSide": true }
+          ]
+        },
+        {
+          "type": "core",
+          "items": [
+            { "exercise": "standing_bird_dog", "sets": 2, "reps": 6, "perSide": true, "tempo": "5s hold" },
+            { "exercise": "pallof_press", "sets": 2, "reps": 8, "perSide": true, "tempo": "3s hold at arms' length" }
+          ]
+        },
+        {
+          "type": "cooldown",
+          "items": [
+            { "exercise": "slow_walk", "reps": "3-5 min" },
+            { "exercise": "calf_stretch", "durationSec": 60, "perSide": true },
+            { "exercise": "doorway_chest_stretch", "durationSec": 60 }
+          ]
+        }
+      ]
+    },
+    {
+      "day": 6,
+      "focus": "Balance and walk",
+      "targetMinutes": 15,
+      "blocks": [
+        {
+          "type": "balance",
+          "items": [
+            { "exercise": "single_leg_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate legs each round" },
+            { "exercise": "heel_to_toe_stand", "format": "interval", "rounds": 4, "workSec": 20, "restSec": 20, "note": "Alternate front foot each round" },
+            { "exercise": "sideways_walking", "sets": 2, "reps": "10 steps each way" },
+            { "exercise": "sit_to_stand", "sets": 1, "reps": 8, "note": "Slow and controlled" }
+          ]
+        },
+        {
+          "type": "walk",
+          "items": [
+            { "exercise": "comfortable_walk", "reps": "10-20 min", "note": "Indoors or out; you should be able to talk" }
+          ]
+        }
+      ]
+    }
+  ],
+  "progression": [
+    {
+      "weeks": [1, 2],
+      "phase": "Settle in",
+      "changes": ["Learn the moves at 5 to 6 out of 10 effort, with plenty of support", "Holds stay at their starting length"]
+    },
+    {
+      "weeks": [3, 4, 5],
+      "phase": "Build",
+      "timerAdjustments": { "intervalWorkSec": 5 },
+      "changes": [
+        "Every hold is 5 seconds longer",
+        "When every set reaches 12 at 5 to 6 out of 10 effort, move to the next support step (for example sit-to-stand: two hands, one hand, no hands) or use a slightly firmer band"
+      ]
+    },
+    {
+      "weeks": [6, 7, 8],
+      "phase": "Strengthen",
+      "timerAdjustments": { "intervalWorkSec": 10 },
+      "changes": [
+        "Every hold is 10 seconds longer than at the start",
+        "When every set reaches 12 at 5 to 6 out of 10 effort, move to the next support step or use a slightly firmer band"
+      ]
+    }
+  ]
+}

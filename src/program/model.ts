@@ -172,6 +172,8 @@ export interface Program {
   restDay: DayNumber;
   sessionOrder: string[];
   rules: string[];
+  /** Safety notes the program asks people to read before starting; empty when the file has none (Explosive Endurance). */
+  safety: string[];
   exercises: Record<string, Exercise>;
   /** Training days keyed by day number (1-7); the rest day has no entry. */
   days: Partial<Record<DayNumber, Day>>;

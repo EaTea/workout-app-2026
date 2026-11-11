@@ -85,7 +85,7 @@ function allowedKeysOf<WireType>() {
 }
 
 const ROOT_KEYS = allowedKeysOf<ProgramWire>()(["program", "exercises", "days", "progression", "coreProgressions", "warmupRotation", "fatigueCheck"]);
-const PROGRAM_INFO_KEYS = allowedKeysOf<ProgramInfoWire>()(["name", "goal", "lengthWeeks", "restDay", "sessionOrder", "rules"]);
+const PROGRAM_INFO_KEYS = allowedKeysOf<ProgramInfoWire>()(["name", "goal", "lengthWeeks", "restDay", "sessionOrder", "rules", "safety"]);
 const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues", "alternative", "evidence", "progression", "maxTested"]);
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
 const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"]);
@@ -244,6 +244,22 @@ function readStringList(record: UnknownRecord, key: string, path: string): strin
     if (typeof entry !== "string") fail(`${listPath}[${index}]`, `expected text but found ${describe(entry)}`);
     return entry;
   });
+}
+
+/**
+ * Reads an optional list of non-empty strings (`program.safety`): absent gives
+ * an empty list, while a present list must hold only text with something in
+ * it, because each entry is shown to the person as a safety note. Called by
+ * `parseProgram`.
+ */
+function readOptionalNonEmptyStringList(record: UnknownRecord, key: string, path: string): string[] {
+  if (record[key] === undefined) return [];
+
+  const notes = readStringList(record, key, path);
+  notes.forEach((note, index) => {
+    if (note.trim() === "") fail(`${child(path, key)}[${index}]`, "expected text but found an empty string");
+  });
+  return notes;
 }
 
 /** Reads a required positive-integer-valued field such as lengthWeeks. */
@@ -655,6 +671,7 @@ export function parseProgram(json: unknown): ParseResult {
     restDay,
     sessionOrder: readStringList(info, "sessionOrder", "program"),
     rules: readStringList(info, "rules", "program"),
+    safety: readOptionalNonEmptyStringList(info, "safety", "program"),
     exercises,
     days,
     progression,
