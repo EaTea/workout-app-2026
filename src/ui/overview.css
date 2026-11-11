@@ -1,0 +1,155 @@
+/* Overview (welcome) screen: header, week strip, phase list, typical week, session order. */
+.overview-header {
+  margin: 4px 0 16px;
+}
+
+.overview-goal {
+  margin: 8px 0 6px;
+  line-height: 1.4;
+}
+
+.overview-headline {
+  margin: 0;
+  color: #aab1bd;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.overview-section-title {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* One cell per week, equal widths so 8 weeks fit a phone. */
+.overview-weeks {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.overview-week {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.overview-week-current {
+  background: var(--accent);
+  color: #fff;
+}
+
+.overview-phases {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overview-phase {
+  padding: 10px 12px;
+  border-left: 3px solid var(--border);
+  border-radius: 4px;
+}
+
+.overview-phase-current {
+  border-left-color: var(--accent);
+  background: var(--field);
+}
+
+.overview-phase-name {
+  font-weight: 700;
+}
+
+.overview-phase-current .overview-phase-name {
+  color: var(--accent-text);
+}
+
+.overview-phase-summary {
+  margin-top: 2px;
+  color: #aab1bd;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.overview-days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Grid: "Day 1" | focus | minutes, with the key exercises on their own line under the focus. */
+.overview-day {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  column-gap: 8px;
+  min-height: 48px;
+  padding: 10px 0;
+  align-items: baseline;
+}
+
+.overview-day + .overview-day {
+  border-top: 1px solid var(--border);
+}
+
+.overview-day-number {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.overview-day-focus {
+  font-weight: 700;
+}
+
+.overview-day-minutes {
+  color: #aab1bd;
+  font-size: 14px;
+}
+
+.overview-day-exercises {
+  grid-column: 2 / -1;
+  margin-top: 2px;
+  color: #aab1bd;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.overview-day-rest .overview-day-focus {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.overview-session-order {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.overview-cta {
+  margin-bottom: 12px;
+}
+
+.overview-starts-on {
+  margin: 0;
+  color: #aab1bd;
+  text-align: center;
+}
+
+/* Small link to the Overview from Today and Settings; 44px tall for an easy tap. */
+.overview-link {
+  display: inline-block;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--accent-text);
+  font-size: 15px;
+}

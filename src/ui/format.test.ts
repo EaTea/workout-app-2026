@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BlockView, ItemView, RepTarget, SetView } from "../program/schedule";
 import {
   blockLabel, formatBlockTitle, formatItemDetails, formatItemDose, formatPrescriptionSummary,
-  formatLastTime, formatSetsSummary, formatTimerAdjustment, formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
+  formatLastTime, formatOverviewHeadline, formatSetsSummary, formatWeekRange, formatWeeklyDuration, formatTimerAdjustment, formatSessionKicker, formatSetBreakdown, formatShortDate, isAwaitingRetest,
 } from "./format";
 import type { LoggedSet } from "../log/model";
 
@@ -163,5 +163,27 @@ describe("formatTimerAdjustment", () => {
 
   it("shows a negative change with a true minus sign (U+2212)", () => {
     expect(formatTimerAdjustment("Power endurance", -15, "rest")).toBe("Power endurance: \u221215s rest");
+  });
+});
+
+describe("Overview wording", () => {
+  it("rounds a weekly total to the nearest half hour with 'about'", () => {
+    expect(formatWeeklyDuration(234)).toBe("about 4 h");
+    expect(formatWeeklyDuration(255)).toBe("about 4.5 h");
+    expect(formatWeeklyDuration(60)).toBe("about 1 h");
+  });
+
+  it("keeps exact minutes under an hour", () => {
+    expect(formatWeeklyDuration(45)).toBe("45 min");
+  });
+
+  it("words the headline from the program's numbers", () => {
+    expect(formatOverviewHeadline(8, 6, 234)).toBe("8 weeks · 6 training days a week · about 4 h a week");
+    expect(formatOverviewHeadline(1, 1, 45)).toBe("1 week · 1 training day a week · 45 min a week");
+  });
+
+  it("labels a phase's weeks as a range or a single week", () => {
+    expect(formatWeekRange(1, 3)).toBe("Weeks 1–3");
+    expect(formatWeekRange(4, 4)).toBe("Week 4");
   });
 });

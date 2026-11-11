@@ -320,3 +320,34 @@ export function formatTimerAdjustment(phase: string, seconds: number, kind: "wor
   const sign = seconds < 0 ? "\u2212" : "+";
   return `${phase}: ${sign}${Math.abs(seconds)}s ${kind}`;
 }
+
+/**
+ * A weekly training time as friendly text for the Overview headline: under an
+ * hour it is exact ("45 min"); otherwise it is rounded to the nearest half
+ * hour and prefixed "about", e.g. 234 min -> "about 4 h", 255 min ->
+ * "about 4.5 h". Used by `formatOverviewHeadline`.
+ */
+export function formatWeeklyDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+
+  const hoursRoundedToHalf = Math.round(minutes / 30) / 2;
+  return `about ${hoursRoundedToHalf} h`;
+}
+
+/**
+ * The Overview's headline under the goal, e.g. "8 weeks · 6 training days a
+ * week · about 4 h a week". All three numbers come from the program via the
+ * overview view model; this only words them (singular/plural included).
+ */
+export function formatOverviewHeadline(lengthWeeks: number, trainingDaysPerWeek: number, weeklyMinutes: number): string {
+  const weeksText = `${lengthWeeks} ${lengthWeeks === 1 ? "week" : "weeks"}`;
+  const daysText = `${trainingDaysPerWeek} training ${trainingDaysPerWeek === 1 ? "day" : "days"} a week`;
+  const timeText = `${formatWeeklyDuration(weeklyMinutes)} a week`;
+
+  return [weeksText, daysText, timeText].join(DOT);
+}
+
+/** "Week 4" for a one-week phase, "Weeks 1–3" otherwise. Labels the Overview's phase list. */
+export function formatWeekRange(firstWeek: number, lastWeek: number): string {
+  return firstWeek === lastWeek ? `Week ${firstWeek}` : `Weeks ${firstWeek}${EN_DASH}${lastWeek}`;
+}

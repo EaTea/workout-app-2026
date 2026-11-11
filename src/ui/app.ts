@@ -19,6 +19,8 @@ import { buildSession, phaseForWeek, retestWeekStartDate } from "../program/sche
 import { createScreenWakeLock } from "../timer/wakeLock";
 import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
+import { buildProgramOverview } from "../program/overview";
+import { renderOverviewScreen } from "./overview";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
@@ -45,12 +47,18 @@ import { focusMainHeading, renderWarningBanner } from "./warningBanner";
  * for the current hash route, and draws the bottom navigation bar.
  *
  *   main.ts ──startApp──▶ render() ◀── hashchange
- *                           ├─ <main> Today | Log screen | History | Settings screen
+ *                           ├─ <main> Today | Overview | Log screen | History | Settings screen
  *                           └─ <nav>  Today | History | Settings
+ *
+ * First run: with no start date, the Today route (the default) draws the
+ * Overview instead (the hash is left alone). Its "Start Day 1" button calls
+ * `handleStartToday`, which saves the start date and moves to Today. The
+ * Overview is also reachable at `#/overview` (links on Today and Settings); it
+ * has no tab of its own, so Today stays highlighted in the nav for it.
  *
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
  * tests, and by Ed to preview another day). The preview affects Today and
- * "Start today" only; max save dates always use the real local date. While
+ * the Overview's "Start Day 1" only; max save dates always use the real local date. While
  * one is in the address, Today and the log screen show a "Previewing 16 Nov ·
  * back to today" strip, and the log screen refuses to log to a date after the
  * real today (past dates can be backfilled).
@@ -170,7 +178,7 @@ export function shouldShowNewDayBanner(
   return route === "today" && !isBannerShown && hasTodayChanged(shownDate, search, now);
 }
 
-/** Inline message on the welcome card when "Start today" cannot be saved. */
+/** Inline message on the Overview when the "Start Day 1" button cannot save the start date. */
 export const START_TODAY_SAVE_FAILED_MESSAGE = "Couldn't save on this device, so the start date won't be remembered.";
 
 /** Inline message shown when settings cannot be written to this device. */
@@ -216,7 +224,7 @@ export function startApp(
   let dropBannerDismissedWeek = loadStoredValue(FATIGUE_WARNING_DISMISSED_STORAGE_KEY, fatigueWarningDismissedFromWire);
   /** Unsaved check-in stepper values, kept here so a re-render does not reset them. */
   let checkInDraft: CheckInDraft | undefined;
-  /** Set when "Start today" could not be saved; shown on the welcome card. */
+  /** Set when "Start Day 1" could not be saved; shown inline on the Overview. */
   let startTodayFailureMessage: string | undefined;
   /** The date "Not today" was tapped on the retest card (kept in localStorage too), or undefined. */
   let retestDismissedDate = loadRetestDismissedDate();
@@ -343,22 +351,33 @@ export function startApp(
     for (const exerciseId of Object.keys(retestDrafts)) delete retestDrafts[exerciseId];
     delete retestJumpDraft.metres;
 
+    showTodayAndFocusHeading();
+    showToast("Imported. You can undo it in Settings.");
+  }
+
+  /**
+   * Shows the Today screen and moves focus to its main heading, whether or not
+   * the address already says `#/today` (changing the hash to the same value
+   * fires no `hashchange`, so that case renders directly). Used after an
+   * import and after the Overview's "Start Day 1" saves the start date.
+   */
+  function showTodayAndFocusHeading(): void {
     if (routeFromHash(window.location.hash) === "today") {
-      render(); // already on #/today: changing the hash fires no hashchange
+      render();
       focusMainHeading();
     } else {
       // The hashchange listener that renders was added first, so this runs after the new screen is drawn.
       window.addEventListener("hashchange", focusMainHeading, { once: true });
       navigateTo("today");
     }
-    showToast("Imported. You can undo it in Settings.");
   }
 
   /**
-   * Handler for the first-run "Start today" button: saves `today` (which
-   * honours the `?date=` override) as the start date, keeping any maxes, and
-   * re-renders Today. A storage failure is shown inline on the welcome card
-   * (the nav stays, and Ed can still pick a date in Settings).
+   * Handler for the Overview's first-run "Start Day 1" button: saves `today`
+   * (which honours the `?date=` override) as the start date, keeping any
+   * maxes, then shows Today (Week 1 · Day 1) with focus on its heading. A
+   * storage failure is shown inline on the Overview (the nav stays, and Ed can
+   * still pick a date in Settings).
    */
   function handleStartToday(): void {
     const today = resolveToday(window.location.search);
@@ -371,7 +390,7 @@ export function startApp(
 
     startTodayFailureMessage = undefined;
     settings = { ...settings, startDate: today };
-    render();
+    showTodayAndFocusHeading();
   }
 
   /**
@@ -622,7 +641,10 @@ export function startApp(
    */
   function render(): void {
     try {
-      const route = routeFromHash(window.location.hash);
+      // With no start date, Today is replaced by the Overview (first run); the hash stays as it is.
+      const requestedRoute = routeFromHash(window.location.hash);
+      const isFirstRun = requestedRoute === "today" && settings.startDate === null;
+      const route: Route = isFirstRun ? "overview" : requestedRoute;
       const main = element("main", "app-main");
       const previewDate = previewDateFromSearch(window.location.search);
       if (previewDate !== undefined && (route === "today" || route === "log")) {
@@ -655,8 +677,15 @@ export function startApp(
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
+      } else if (route === "overview") {
+        const status = programStatus(settings.startDate, program.lengthWeeks, shownDate);
+        main.append(renderOverviewScreen(buildProgramOverview(program, status), {
+          search: window.location.search,
+          onStartToday: handleStartToday,
+          startTodayFailureMessage: startTodayFailureMessage,
+        }));
       } else {
-        main.append(renderTodayScreen(program, settings, shownDate, handleStartToday, startTodayFailureMessage, log, {
+        main.append(renderTodayScreen(program, settings, shownDate, log, {
           dismissedDate: retestDismissedDate,
           actions: { canSave: canSaveOnShownDate(), onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts, jumpDraft: retestJumpDraft, onSaveBroadJump: handleSaveBroadJump, onSkipJump: handleSkipRetestJump },
           history: fatigueHistory,
@@ -671,8 +700,8 @@ export function startApp(
           onSnooze: handleSnoozeCheckIn,
         }, { dismissedBlockWeeks: rotationDismissedBlockWeeks, canDismiss: canSaveOnShownDate(), onDismiss: handleDismissRotation }));
       }
-      // The log screen belongs to Today, so Today stays highlighted in the nav.
-      root.replaceChildren(main, renderNavigationBar(route === "log" ? "today" : route));
+      // The log screen and the Overview belong to Today, so Today stays highlighted in the nav.
+      root.replaceChildren(main, renderNavigationBar(route === "log" || route === "overview" ? "today" : route));
       updateSessionWakeLock();
       showNewDayBannerIfNeeded();
     } catch (error) {

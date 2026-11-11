@@ -6,6 +6,11 @@ describe("routeFromHash", () => {
     expect(routeFromHash("#/settings")).toBe("settings");
   });
 
+  it("recognises the overview route", () => {
+    expect(routeFromHash("#/overview")).toBe("overview");
+    expect(routeFromHash("#/overview/extra")).toBe("today");
+  });
+
   it("recognises the history route", () => {
     expect(routeFromHash("#/history")).toBe("history");
     expect(routeFromHash("#/history/extra")).toBe("today");

@@ -661,7 +661,7 @@ targetMinutes, progression), so no new wire type or parser change.
    W8 Deload + retest), the 7 day rows in order with Day 7 as Rest, weekly
    total minutes, and the CTA for each status (no start date, future start,
    week 2 day 1, rest day, complete).
-2. [ ] Overview screen, `#/overview` route, first-run redirect, CTA wiring
+2. [x] Overview screen, `#/overview` route, first-run redirect, CTA wiring
    (reusing "Start today"), the "Program overview" links on Today and
    Settings, styles, and README. Replaces the old Welcome card and updates
    the E2E tests that used it.
