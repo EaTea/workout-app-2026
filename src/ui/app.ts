@@ -59,7 +59,7 @@ import { focusMainHeading, renderWarningBanner } from "./warningBanner";
  * Optional `?date=YYYY-MM-DD` in the page URL overrides "today" (used by E2E
  * tests, and by Ed to preview another day). The preview affects Today and
  * the Overview's "Start Day 1" only; max save dates always use the real local date. While
- * one is in the address, Today and the log screen show a "Previewing 16 Nov ·
+ * one is in the address, Today, the Overview and the log screen show a "Previewing 16 Nov ·
  * back to today" strip, and the log screen refuses to log to a date after the
  * real today (past dates can be backfilled).
  *
@@ -173,9 +173,10 @@ export function shouldShowNewDayBanner(
   shownDate: string,
   search: string,
   isBannerShown: boolean,
+  hasStartDate: boolean,
   now: Date = new Date(),
 ): boolean {
-  return route === "today" && !isBannerShown && hasTodayChanged(shownDate, search, now);
+  return route === "today" && hasStartDate && !isBannerShown && hasTodayChanged(shownDate, search, now);
 }
 
 /** Inline message on the Overview when the "Start Day 1" button cannot save the start date. */
@@ -613,14 +614,15 @@ export function startApp(
    * Adds the "It's a new day" banner to the top of Today's existing <main>
    * if the real date has moved on from the shown date. Called after every
    * render (so leaving Today and coming back keeps the banner until it is
-   * tapped) and from `handleClockCheck`. Never re-renders, so the current
+   * tapped) and from `handleClockCheck`. Skipped while there is no start date
+   * (the first-run Overview stands in for Today) and on the Overview route. Never re-renders, so the current
    * session, scroll position, focus and any open timer/sheet are untouched.
    */
   function showNewDayBannerIfNeeded(): void {
     const main = root.querySelector("main");
     const isBannerShown = document.querySelector(".new-day-banner") !== null;
     const route = routeFromHash(window.location.hash);
-    if (main === null || !shouldShowNewDayBanner(route, shownDate, window.location.search, isBannerShown)) return;
+    if (main === null || !shouldShowNewDayBanner(route, shownDate, window.location.search, isBannerShown, settings.startDate !== null)) return;
 
     main.prepend(renderNewDayBanner(handleShowNewDay));
   }
@@ -647,10 +649,10 @@ export function startApp(
       const route: Route = isFirstRun ? "overview" : requestedRoute;
       const main = element("main", "app-main");
       const previewDate = previewDateFromSearch(window.location.search);
-      if (previewDate !== undefined && (route === "today" || route === "log")) {
+      if (previewDate !== undefined && (route === "today" || route === "log" || route === "overview")) {
         main.append(renderPreviewStrip(previewDate));
       }
-      if (route === "today" && warnings.length > 0 && !warningsDismissed) {
+      if ((route === "today" || route === "overview") && warnings.length > 0 && !warningsDismissed) {
         main.append(renderWarningBanner(warnings, handleDismissWarnings));
       }
       if (route !== "settings" && loadedLog.warning !== undefined && !logWarningDismissed) {

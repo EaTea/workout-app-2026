@@ -99,3 +99,30 @@ test("Settings links to the overview", async ({ page }) => {
   await page.getByRole("link", { name: "Program overview" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();
 });
+
+test("first run still shows the program.json warnings banner on the overview", async ({ page }) => {
+  await page.route("**/program.json", async (route) => {
+    const response = await route.fetch();
+    const program = await response.json();
+    program.exercises.pull_up.notes = "x";
+    await route.fulfill({ response, json: program });
+  });
+  await page.goto("/?date=2026-11-09");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();
+  await expect(page.locator(".warning-banner")).toContainText("program.json has 1 field the app doesn't recognise");
+});
+
+test("first run with a ?date= preview shows the previewing strip on the overview", async ({ page }) => {
+  await page.goto("/?date=2026-11-09");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();
+  await expect(page.getByText(/Previewing 9 Nov/)).toBeVisible();
+});
+
+test("an explicit #/today with no start date shows the overview and keeps the hash", async ({ page }) => {
+  await page.goto("/?date=2026-11-09#/today");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();
+  expect(new URL(page.url()).hash).toBe("#/today");
+});

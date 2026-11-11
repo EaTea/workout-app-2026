@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 10 merged (#3 to #16). The PR 11 plan (program overview welcome page) is in review.**
+Status: **PR 1 to PR 10 merged (#3 to #16), and the PR 11 plan merged as #17. PR 11 (program overview welcome page) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -669,6 +669,15 @@ targetMinutes, progression), so no new wire type or parser change.
    shows 8 weeks, the four phases and the 7 days, and "Start Day 1: Upper:
    pull" opens Today at Week 1 · Day 1; a started program opens on Today
    and the header link opens the Overview with "Go to today".
+4. [ ] **Fixes from the challenger review:**
+   - [x] The Overview shows the program.json warnings banner and the
+     "Previewing" strip like Today did (first run included), and no
+     new-day banner while there is no start date.
+   - [ ] The start button stays in view: it sits in a bar pinned above
+     the bottom nav, so it is visible on the first screen.
+   - [ ] The start button names Day 1 only when Day 1 trains ("Start the
+     program" otherwise), and each phase lists all its changes, so week 8
+     shows the retest.
 - **Merge point:** a first visit lands on the program overview, and one
   tap starts Day 1.
 
