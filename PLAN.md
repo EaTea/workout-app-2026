@@ -883,14 +883,19 @@ the core, legs, wrists and shoulders stable and strong. The person starting
 the app should be able to choose it, or Explosive Endurance, when they
 begin. This section is that plan; PR 15 and PR 16 implement it.
 
+Ed confirmed (11 Nov) that the slipped discs were in the **lower back**,
+that Start must **not** require a doctor check, and that the evidence
+behind the exercise choices is gathered now, in this plan (see "Evidence"
+below), not during implementation.
+
 **Safety first, and it is not medical advice.** The program is general
 exercise guidance written for an app, not a prescription. Its file carries
-a `safety` list that the app shows before anyone starts it (see "What the
-person sees" below), which says:
+a `safety` list that the app shows before anyone starts it (see "How the
+program is chosen at the start" below), which says:
 
 1. This is not medical advice. Check with your doctor or physiotherapist
    before starting, and show them this plan, especially with a history of
-   slipped discs, osteoporosis, heart or blood pressure problems, or a
+   slipped discs in the lower back, osteoporosis, heart or blood pressure problems, or a
    recent fall or operation.
 2. Stop and get advice if you feel sharp pain, or pain, numbness, tingling
    or weakness that spreads into a leg or arm.
@@ -1007,9 +1012,36 @@ Days 2, 4 and 6 · Balance and walk
 | | Sit-to-stand from a chair | 1 × 8 | Slow and controlled |
 | Walk | Walk at a comfortable pace | 10–20 min | Indoors or out; you should be able to talk |
 
-`evidence` is `"coaching practice"` for every exercise. The
-implementation may add a study link only after checking it really supports
-the exercise, and never an unchecked URL.
+**Evidence.** Gathered and checked during planning (11 Nov). Each
+exercise's `evidence` field gets the DOI link of the source it rests on
+(the app already shows a URL as a link on the exercise sheet), and
+`"coaching practice"` where no study backs that particular exercise. The
+evidence is honest about its limits: most of it is about older adults in
+general or about back pain in general, not about people over 75 with disc
+history, which is another reason for the doctor or physio check.
+
+| # | Source | What it supports here |
+| --- | --- | --- |
+| E1 | Sherrington et al. 2019, *Exercise for preventing falls in older people living in the community*, Cochrane Database Syst Rev. [doi:10.1002/14651858.CD012424.pub2](https://doi.org/10.1002/14651858.CD012424.pub2) | Balance and functional exercise cut the rate of falls by about 24% (high certainty); balance plus resistance work by about 34% (moderate). Resistance alone had too little evidence. Why balance is in every session and why it is combined with strength work. |
+| E2 | Giangregorio et al. 2014, *Too Fit To Fracture: exercise recommendations for individuals with osteoporosis or osteoporotic vertebral fracture*, Osteoporos Int 25:821–835. [doi:10.1007/s00198-013-2523-2](https://doi.org/10.1007/s00198-013-2523-2) | Strength work for all major muscle groups at least twice a week, about 2 × 8–12 reps, starting light; balance practice daily (about 2 h a week); slow, controlled moves and avoiding forward bending and twisting under load. The rules, the dose ranges and the daily balance work. |
+| E3 | Bull et al. 2020, *World Health Organization 2020 guidelines on physical activity and sedentary behaviour*, Br J Sports Med 54:1451–1462. [doi:10.1136/bjsports-2020-102955](https://doi.org/10.1136/bjsports-2020-102955) | Older adults: varied, multicomponent activity with balance and strength on 3 or more days a week, and muscle strengthening on 2 or more. The weekly structure and the walk. |
+| E4 | McGill & Karpowicz 2009, *Exercises for spine stabilization: motion/motor patterns, stability progressions, and clinical technique*, Arch Phys Med Rehabil 2009. [doi:10.1016/j.apmr.2008.06.026](https://doi.org/10.1016/j.apmr.2008.06.026) | Spine-sparing core work (bird dog, side bridge, plank-type holds) and how to start from easier positions and progress. The bird dog, wall side plank and counter plank, done standing or leaning as the easiest starting level. |
+| E5 | Pourahmadi et al. 2022, *Does motor control training improve pain and function in adults with symptomatic lumbar disc herniation? A systematic review and meta-analysis of 861 subjects in 16 trials*, Br J Sports Med 56:1230–1240. [doi:10.1136/bjsports-2021-104926](https://doi.org/10.1136/bjsports-2021-104926) | Trunk control training helped pain and function in people with lumbar disc herniation in the short term (low to very low certainty). Supports the core and anti-rotation holds (bird dog, Pallof hold, tall sitting hold); it does not show they beat other exercise. |
+| E6 | *Effect of elastic resistance training on functional capacity in older adults: a systematic review with meta-analysis*, Physiother Theory Pract 2023. [doi:10.1080/09593985.2022.2085219](https://doi.org/10.1080/09593985.2022.2085219) | Band training improves older adults' functional capacity. The band row, band pull-apart and Pallof press. |
+| E7 | Otago Exercise Program meta-analysis 2025, Front Public Health 13:1522952. [doi:10.3389/fpubh.2025.1522952](https://doi.org/10.3389/fpubh.2025.1522952) | The Otago home programme (lower-limb strength, balance and walking) improves balance, gait and leg strength. The sit-to-stand, heel raises, side leg raise, heel-to-toe stand and walk, and the walk on the short days. |
+| E8 | *Acute blood pressure response to different types of isometric exercise: a systematic review with meta-analysis*, Rev Cardiovasc Med 2023;24(2):60. [doi:10.31083/j.rcm2402060](https://doi.org/10.31083/j.rcm2402060) | Holds with big muscles (legs) raise blood pressure more than small ones (grip), most of all in older adults and people with high blood pressure. Why holds are short (15–30s), at about half effort, with breathing out, why the wall sit stays high, and why the safety notes name blood pressure. |
+| E9 | *Optimal dose of resistance training to improve handgrip strength in older adults with sarcopenia: a systematic review and Bayesian network meta-analysis*, Front Physiol 2025;16:1564988. [doi:10.3389/fphys.2025.1564988](https://doi.org/10.3389/fphys.2025.1564988) | Resistance training improves grip strength in older adults. The grip squeeze and wrist curls. |
+
+Exercise to source: sit-to-stand, heel raises, side leg raise,
+heel-to-toe stand and walk, single-leg stand, walk → E7 (and E1); step-up →
+E1; standing bird dog, wall side plank, counter plank → E4; Pallof hold and
+press, tall sitting hold → E5; band row, band pull-apart → E6; grip squeeze,
+wrist curl → E9; high wall sit, split-stance hold, glute bridge hold,
+suitcase hold, wall push hold, counter push-up → E2 (light strength for the
+major muscle groups); shoulder press-out into a door frame, wrist presses,
+wall slide, chin tucks, warm-ups, stretches and the march → `"coaching
+practice"`. E3 and E8 back the program's structure and rules, not one
+exercise, so they go in the README's program notes.
 
 **Progression.** Small, steady steps that the existing rules already
 support, so no new progression code:
@@ -1163,7 +1195,8 @@ program.
 
 ### PR 16 — Steady Strength program and the program picker *(behavior change)*
 **Steps.**
-1. [ ] `public/steady-strength.json` exactly as tabled above, the
+1. [ ] `public/steady-strength.json` exactly as tabled above (with the
+   `evidence` links from the Evidence table), the
    `program.safety` field in the parser and model, the new block labels,
    and the catalogue entry. README program notes. Unit tests for the
    worked examples below.
@@ -1240,18 +1273,18 @@ For PR 14 (Steady Strength), each with the answer I'm assuming:
 2. **Who uses it.** I'm assuming the person doing the program uses their
    own phone, and Ed may try it on his. Each program keeps its own data, so
    either works.
-3. **Which discs.** The plan assumes the lower back. If the slipped discs
-   were in the neck, the chin tucks and the suitcase hold should be
-   checked with their physio first, and I'd add a note to those two.
-4. **Gate on Start.** I'm assuming the safety card is shown but doesn't
-   block Start. A required "I've checked with my doctor" tick box is
-   possible but easy to tap through.
-5. **App name.** The home-screen name and page title still say
+3. **App name.** The home-screen name and page title still say
    "Explosive Endurance" / "Endurance". I'm leaving them alone; a neutral
    name such as "Workouts" would be a small follow-up if Ed wants it.
 
 Resolved:
 
+- **Which discs (PR 14):** the lower back (Ed, 11 Nov). The plan already
+  keeps the lumbar spine neutral and avoids loaded bending and twisting.
+- **Doctor check on Start (PR 14):** not required (Ed, 11 Nov). The safety
+  card is shown but never blocks Start.
+- **Evidence (PR 14):** gathered during planning, in the Evidence table,
+  not left for implementation (Ed, 11 Nov).
 - **Weekdays:** dropped everywhere in favour of Day 1–7 (rule 1).
 - **Week 8 EMOMs:** hold week 7's reps until a new max is saved during
   week 8, then use it with no hold (rule 3).
