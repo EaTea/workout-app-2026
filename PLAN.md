@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 12 merged (#3 to #20). PR 13 (Day 3 crab core block) is planned below and waiting for Ed's approval.**
+Status: **PR 1 to PR 12 merged (#3 to #20), and the PR 13 plan merged as #21. PR 13 (Day 3 crab core block) is in progress.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -843,8 +843,9 @@ superset like the Day 1 and Day 5 core blocks:
   reads. This PR changes only `public/program.json`.
 
 **Steps.**
-1. [ ] `public/program.json`: the two exercises, the Day 3 core block and
-   `targetMinutes` 40. README program notes. Unit tests for the Day 3
+1. [x] `public/program.json`: the two exercises, the Day 3 core block and
+   `targetMinutes` 40. README program notes (nothing there named Day 3's
+   blocks or minutes, so it needed no change). Unit tests for the Day 3
    session in W1, W4, W5 and W8 (worked examples below) and the Overview
    total of 242 min.
 2. [ ] E2E: Day 3 on Today shows the core block with both exercises and

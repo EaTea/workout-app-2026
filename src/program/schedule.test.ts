@@ -580,3 +580,48 @@ describe("Day 6 wall sits (PLAN.md PR 10)", () => {
     expect(trainingOn("2026-11-07").blocks.map((dayBlock) => dayBlock.type).slice(-2)).toEqual(["miniDose", "finisher"]);
   });
 });
+
+describe("Day 3 crab core block (PLAN.md PR 13)", () => {
+  /**
+   * Asserts the Day 3 core block of the session on `date`: both crab
+   * exercises have the expected number of sets of 10 and 6 reps, the rest
+   * between pairs is `rest`, and Day 3 targets 40 minutes. Shared by the
+   * four worked-example weeks below.
+   */
+  function expectDay3Core(date: string, expectedSets: number, rest: { min: number; max: number }) {
+    const session = trainingOn(date);
+    expect(session.dayNumber).toBe(3);
+    expect(session.targetMinutes).toBe(40);
+
+    const core = block(session.blocks, "core");
+    expect(core.restSecBetweenPairs).toEqual(rest);
+
+    const touches = item(session.blocks, "crab_knee_to_elbow");
+    const sprawls = item(session.blocks, "crab_base_switch_sprawl");
+    expect(touches.sets).toHaveLength(expectedSets);
+    expect(sprawls.sets).toHaveLength(expectedSets);
+    expect(touches.sets.map((set) => set.target)).toEqual(Array(expectedSets).fill({ kind: "fixed", count: 10 }));
+    expect(sprawls.sets.map((set) => set.target)).toEqual(Array(expectedSets).fill({ kind: "fixed", count: 6 }));
+
+    // The core block comes right after the overhead-press mini-dose.
+    const types = session.blocks.map((dayBlock) => dayBlock.type);
+    expect(types[types.indexOf("core") - 1]).toBe("miniDose");
+  }
+
+  it("4 Nov (W1 D3): 3 x 10 and 3 x 6, rest 45-60s, about 40 min", () => {
+    expectDay3Core("2026-11-04", 3, { min: 45, max: 60 });
+  });
+
+  it("25 Nov (W4 deload): 2 sets of each, rest 45-60s", () => {
+    expectDay3Core("2026-11-25", 2, { min: 45, max: 60 });
+  });
+
+  it("2 Dec (W5 power endurance): 3 sets of each, rest cut to 30-45s", () => {
+    expectDay3Core("2026-12-02", 3, { min: 30, max: 45 });
+    expect(block(trainingOn("2026-12-02").blocks, "core").restAdjustment).toBe(-15);
+  });
+
+  it("23 Dec (W8 deload + retest): 2 sets of each, rest 45-60s", () => {
+    expectDay3Core("2026-12-23", 2, { min: 45, max: 60 });
+  });
+});

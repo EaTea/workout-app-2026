@@ -112,6 +112,18 @@
       "category": "finisher",
       "cues": ["Back flat on the wall", "Thighs parallel to the floor", "Knees over the ankles"],
       "evidence": "coaching practice"
+    },
+    "crab_knee_to_elbow": {
+      "name": "Crab knee-to-elbow touch",
+      "category": "core",
+      "cues": ["Hold the crab: hands behind, feet flat, hips up", "Bring one elbow to the opposite knee", "Put both back down, then switch sides", "No crawling"],
+      "evidence": "coaching practice"
+    },
+    "crab_base_switch_sprawl": {
+      "name": "Crab to base switch and sprawl",
+      "category": "core",
+      "cues": ["Post one hand and turn over into a quadruped, knees hovering", "Sprawl fast: legs back, hips to the floor, chest up", "Snap back to the quadruped, then switch into the crab", "Alternate the turn direction each rep"],
+      "evidence": "coaching practice"
     }
   },
 
@@ -167,7 +179,7 @@
     {
       "day": 3,
       "focus": "Upper: push",
-      "targetMinutes": 32,
+      "targetMinutes": 40,
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
           { "exercise": "pallof_press", "reps": "12-15" },
@@ -182,6 +194,10 @@
         ]},
         { "type": "miniDose", "items": [
           { "exercise": "overhead_press", "sets": 2, "reps": "easy, ~50% effort" }
+        ]},
+        { "type": "core", "format": "superset", "restSecBetweenPairs": [45, 60], "items": [
+          { "exercise": "crab_knee_to_elbow", "sets": 3, "reps": 10, "note": "Alternate sides, 5 each. Hips stay up." },
+          { "exercise": "crab_base_switch_sprawl", "sets": 3, "reps": 6, "note": "Alternate the turn direction. Sprawl fast, knees hover in the quadruped." }
         ]}
       ]
     },
