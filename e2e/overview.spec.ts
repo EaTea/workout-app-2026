@@ -126,3 +126,21 @@ test("an explicit #/today with no start date shows the overview and keeps the ha
   await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();
   expect(new URL(page.url()).hash).toBe("#/today");
 });
+
+test("the call to action is pinned in view above the bottom nav without scrolling", async ({ page }) => {
+  await page.goto("/?date=2026-11-09");
+
+  const startButton = page.getByRole("button", { name: "Start Day 1: Upper: pull" });
+  await expect(startButton).toBeVisible();
+  await expect(startButton).toBeInViewport({ ratio: 1 });
+
+  // The button must sit above the nav, not underneath it.
+  const buttonBox = await startButton.boundingBox();
+  const navBox = await page.locator(".bottom-nav").boundingBox();
+  expect(buttonBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(buttonBox!.y + buttonBox!.height).toBeLessThanOrEqual(navBox!.y);
+
+  // The Settings link in the same bar is also reachable on the first screen.
+  await expect(page.getByRole("link", { name: "Or pick another start date in Settings" })).toBeInViewport({ ratio: 1 });
+});

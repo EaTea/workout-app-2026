@@ -673,7 +673,7 @@ targetMinutes, progression), so no new wire type or parser change.
    - [x] The Overview shows the program.json warnings banner and the
      "Previewing" strip like Today did (first run included), and no
      new-day banner while there is no start date.
-   - [ ] The start button stays in view: it sits in a bar pinned above
+   - [x] The start button stays in view: it sits in a bar pinned above
      the bottom nav, so it is visible on the first screen.
    - [ ] The start button names Day 1 only when Day 1 trains ("Start the
      program" otherwise), and each phase lists all its changes, so week 8

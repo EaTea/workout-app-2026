@@ -171,8 +171,10 @@ function renderSessionOrderSection(sessionOrder: string[]): HTMLElement {
 }
 
 /**
- * The single primary call to action, which changes with where the program
- * stands (see `CallToAction`):
+ * The single primary call to action, in a bar that stays pinned just above the
+ * bottom nav (see `.overview-cta` in overview.css) so it is on the first screen
+ * of a phone without scrolling. It changes with where the program stands (see
+ * `CallToAction`):
  *   startToday       a button (saves the start date via app.ts) plus a Settings text link
  *   previewFirstDay  "Program starts 16 Nov" text plus a link previewing Day 1
  *   goToToday        a link to Today
@@ -188,6 +190,7 @@ function renderCallToAction(callToAction: CallToAction, options: OverviewOptions
       button.addEventListener("click", options.onStartToday);
       area.append(button);
 
+      // The failure alert lives in the pinned bar so it is seen next to the button.
       if (options.startTodayFailureMessage !== undefined) {
         const alert = element("p", "field-error", options.startTodayFailureMessage);
         alert.setAttribute("role", "alert");
