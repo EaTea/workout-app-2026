@@ -113,4 +113,20 @@ test("a plan address outside the program shows the overview", async ({ page }) =
 
   await page.goto("/#/plan/1/9");
   await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();
+
+  for (const hash of ["#/plan/1/0", "#/plan/-1/2", "#/plan/1", "#/plan/1/2/", "#/plan/x/4"]) {
+    await page.goto(`/${hash}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Program overview" }), hash).toBeVisible();
+  }
+});
+
+test("a week tap keeps keyboard focus on the new current week", async ({ page }) => {
+  await openDayOnePlanFromOverview(page);
+
+  await page.getByRole("link", { name: "Week 5" }).focus();
+  await page.keyboard.press("Enter");
+
+  const currentWeek = page.locator(".plan-week[aria-current='true']");
+  await expect(currentWeek).toHaveText("5");
+  await expect(currentWeek).toBeFocused();
 });

@@ -91,7 +91,9 @@ function renderRestCard(session: Extract<SessionView, { kind: "rest" }>, lengthW
  * cell carries `data-phase` (the phase's index in program.progression) which
  * the CSS tints. Tapping swaps the plan in place with `location.replace`,
  * so Back still returns to the Overview in one step; the relative "#/plan/.."
- * target keeps the query string (`?date=` preview).
+ * target keeps the query string (`?date=` preview). After a tap that changes
+ * the week, focus moves to the new current-week link (the old element is gone
+ * after the re-render), so keyboard users keep their place.
  */
 function renderWeekPicker(program: Program, dayNumber: number, shownWeek: number, search: string): HTMLElement {
   const picker = element("nav", "plan-weeks");
@@ -109,12 +111,26 @@ function renderWeekPicker(program: Program, dayNumber: number, shownWeek: number
 
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      window.location.replace(planRouteHash(dayNumber, week));
+      const targetHash = planRouteHash(dayNumber, week);
+      if (window.location.hash === targetHash) {
+        // Same week: no hashchange and no re-render, so this link is still the current one.
+        link.focus();
+        return;
+      }
+
+      // app.ts's render listener was added first, so this runs after the new picker is drawn.
+      window.addEventListener("hashchange", focusCurrentWeekLink, { once: true });
+      window.location.replace(targetHash);
     });
     picker.append(link);
   }
 
   return picker;
+}
+
+/** Moves focus to the picker's current-week link; run once after a week tap's re-render has drawn the new picker. */
+function focusCurrentWeekLink(): void {
+  document.querySelector<HTMLElement>('.plan-week[aria-current="true"]')?.focus();
 }
 
 /** Index in program.progression of the phase covering `week` (-1 if none, which the schedule would reject anyway). */

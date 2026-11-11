@@ -759,7 +759,7 @@ weeks 5–8 almost every row would be marked and the week-to-week step
    six blocks, pick week 4 and see the halved doses with their "Changed"
    lines, Back returns to the Overview; Day 7 is not a link; a first run
    (no start date) can browse plans without a start date being saved.
-4. [ ] **Fixes from the challenger review** (it confirmed every plan
+4. [x] **Fixes from the challenger review** (it confirmed every plan
    figure matches Today for Days 1–6 × weeks 1–8):
    - [x] "Changed" lines show only what differs: never "Set max" (no
      maxes saved: "2 sets", "9 min"), no repeated minutes when the block
@@ -767,7 +767,7 @@ weeks 5–8 almost every row would be marked and the week-to-week step
      ("Changed: YTWI raises in week 4"). The block line follows the
      current figure, and the Overview row chevron is hidden from screen
      readers.
-   - [ ] Any malformed `#/plan/...` address shows the Overview, and
+   - [x] Any malformed `#/plan/...` address shows the Overview, and
      focus stays on the week picker after a week is tapped.
    - **Open question for Ed:** past weeks use the current max (as Today
      does for past dates), so after a retest earlier weeks show the new

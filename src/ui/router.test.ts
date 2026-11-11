@@ -73,6 +73,13 @@ describe("plan route", () => {
 
   it("is a plan route only when well formed", () => {
     expect(routeFromHash("#/plan/1/4")).toBe("plan");
-    expect(routeFromHash("#/plan/x/4")).toBe("today");
+  });
+
+  it("sends malformed plan addresses to the overview, not Today", () => {
+    for (const hash of ["#/plan", "#/plan/1", "#/plan/1/", "#/plan/1/2/", "#/plan/x/4", "#/plan/1/0", "#/plan/-1/2"]) {
+      expect(routeFromHash(hash), hash).toBe("overview");
+    }
+    // Only the plan family is affected; a lookalike prefix is just an unknown address.
+    expect(routeFromHash("#/plans/1/4")).toBe("today");
   });
 });

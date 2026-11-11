@@ -6,7 +6,7 @@ import { toDayNumber } from "../program/calendar";
  * `#/log/<date>/<blockPosition>/<exerciseId>` (the log screen for one item of
  * the session on `<date>`, `YYYY-MM-DD`); anything else (including an empty
  * or malformed hash, or an old-form `#/log/<block>/<exercise>` without a
- * date) falls back to Today. The date in the log address is what pins a log
+ * date) falls back to Today (except a malformed `#/plan...` address, which shows the Overview). The date in the log address is what pins a log
  * screen to its session: logging goes to that date even if the clock has
  * passed midnight (PLAN.md rule 8). `app.ts` reads the current route on every
  * render and re-renders on `hashchange`. The `?date=` preview lives in the
@@ -85,13 +85,20 @@ export function planRouteHash(dayNumber: number, week: number): string {
   return `#/plan/${dayNumber}/${week}`;
 }
 
-/** Maps a `location.hash` string such as "#/settings" to a route (default: today). */
+/**
+ * Maps a `location.hash` string such as "#/settings" to a route (default:
+ * today). A hash in the plan family (`#/plan` or `#/plan/...`) that is not a
+ * well-formed `#/plan/<day>/<week>` maps to the Overview, not Today, since a
+ * bad plan address means "no such plan" (PLAN.md); `parsePlanRoute` itself
+ * stays strict. Called by app.ts on every render.
+ */
 export function routeFromHash(hash: string): Route {
   if (hash === "#/settings") return "settings";
   if (hash === "#/history") return "history";
   if (hash === "#/overview") return "overview";
   if (parseLogRoute(hash) !== undefined) return "log";
   if (parsePlanRoute(hash) !== undefined) return "plan";
+  if (hash === "#/plan" || hash.startsWith("#/plan/")) return "overview";
   return "today";
 }
 

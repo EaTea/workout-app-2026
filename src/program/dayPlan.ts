@@ -69,10 +69,10 @@ export function planDateFor(startDate: string, week: number, dayNumber: number):
  * Uses the saved start date; without one it pretends the program starts on
  * `today` (the caller's local calendar date, "YYYY-MM-DD"; exactly what the
  * Overview's Start button would save), in a COPY of the settings, so the
- * caller's settings are never changed or saved. Starting today keeps the
- * stand-in consistent with saved maxes: every max was saved on or before
- * today, so none falls inside the stand-in's week 8 and week 8 shows the held
- * week 7 reps (as Today would), using the latest max in effect.
+ * caller's settings are never changed or saved. The stand-in matches what
+ * Today would show had the program started on that day.
+ * (Under a past `?date=` preview a later real max save can fall inside the
+ * stand-in's week 8; that is accepted, as it is only a preview.)
  */
 export function buildDayPlan(program: Program, settings: TrainingSettings, week: number, dayNumber: number, today: string): SessionView | undefined {
   const weekIsValid = Number.isInteger(week) && week >= 1 && week <= program.lengthWeeks;
