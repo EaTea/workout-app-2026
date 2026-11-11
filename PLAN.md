@@ -1279,7 +1279,7 @@ program.
    "Max reps" section. README.
 3. [x] The "Before you start" card on the overview, its first line on the
    picker card, and the "Safety notes" link and sheet on Today.
-4. [ ] E2E (`e2e/programPicker.spec.ts`): a first visit shows both
+4. [x] E2E (`e2e/programPicker.spec.ts`): a first visit shows both
    programs; choosing Steady Strength shows its overview with the safety
    card, and "Start Day 1: Legs and core" opens Today at Week 1 · Day 1 with
    the six blocks and no check-in; an interval hold starts the timer;
