@@ -12,10 +12,15 @@ import { toDayNumber } from "../program/calendar";
  *                   "savedAt": "2026-11-09T07:30:00.000Z" } ] }
  */
 
-/** Wire form of one check. `savedAt` is an ISO 8601 string. */
+/**
+ * Wire form of one check. `savedAt` is an ISO 8601 string. `programWeek` is
+ * written for older app versions but ignored on read (the week is derived
+ * from the date and the current start date); it is absent for checks that
+ * were never inside the program.
+ */
 export interface FatigueCheckWireV1 {
   date: string;
-  programWeek: number;
+  programWeek?: number;
   broadJumpMetres?: number;
   maxPullUps?: number;
   savedAt: string;
@@ -44,21 +49,21 @@ export interface FatigueFromWireResult {
   problems: FatigueReadProblems;
 }
 
-/** Converts the internal history to the stored shape, oldest week first so the JSON is stable. */
+/** Converts the internal history to the stored shape, oldest date first so the JSON is stable. */
 export function fatigueHistoryToWire(history: FatigueHistory): FatigueHistoryWireV1 {
   const checks = [...history.checks]
-    .sort((first, second) => first.programWeek - second.programWeek)
+    .sort((first, second) => first.date.localeCompare(second.date))
     .map(checkToWire);
   return { version: 1, checks };
 }
 
-/** Maps one internal check to its wire form, omitting skipped measurements and writing the time as ISO text. */
+/** Maps one internal check to its wire form, omitting skipped measurements and the week when unknown, and writing the time as ISO text. */
 function checkToWire(check: FatigueCheck): FatigueCheckWireV1 {
   const wire: FatigueCheckWireV1 = {
     date: check.date,
-    programWeek: check.programWeek,
     savedAt: check.savedAt.toISOString(),
   };
+  if (check.savedProgramWeek !== undefined) wire.programWeek = check.savedProgramWeek;
   if (check.broadJumpMetres !== undefined) wire.broadJumpMetres = check.broadJumpMetres;
   if (check.maxPullUps !== undefined) wire.maxPullUps = check.maxPullUps;
   return wire;
@@ -67,8 +72,8 @@ function checkToWire(check: FatigueCheck): FatigueCheckWireV1 {
 /**
  * Validates untrusted parsed JSON and converts it to a `FatigueHistory`,
  * keeping every valid check and listing the invalid ones in `problems`, like
- * `logFromWire`. A second check for the same week is set aside (the first
- * wins). Throws `FatigueWireError` only when the file as a whole is unusable
+ * `logFromWire`. A second check for the same date is set aside (the first
+ * wins). The stored `programWeek` is kept only as `savedProgramWeek`. Throws `FatigueWireError` only when the file as a whole is unusable
  * (not an object, unknown version, `checks` not an array); `loadFatigueHistory`
  * treats that as corrupt.
  */
@@ -83,7 +88,7 @@ export function fatigueHistoryFromWire(wire: unknown): FatigueFromWireResult {
 
   const problems: FatigueReadProblems = { setAsideCheckCount: 0, messages: [] };
   const checks: FatigueCheck[] = [];
-  const seenWeeks = new Set<number>();
+  const seenDates = new Set<string>();
 
   root.checks.forEach((rawCheck, index) => {
     const path = `fatigue.checks[${index}]`;
@@ -96,12 +101,12 @@ export function fatigueHistoryFromWire(wire: unknown): FatigueFromWireResult {
       return;
     }
 
-    if (seenWeeks.has(check.programWeek)) {
-      problems.messages.push(`${path}.programWeek: duplicate check for week ${check.programWeek}`);
+    if (seenDates.has(check.date)) {
+      problems.messages.push(`${path}.date: duplicate check for ${check.date}`);
       problems.setAsideCheckCount += 1;
       return;
     }
-    seenWeeks.add(check.programWeek);
+    seenDates.add(check.date);
     checks.push(check);
   });
 
@@ -127,9 +132,10 @@ function checkFromWire(raw: unknown, path: string): FatigueCheck {
 
   const check: FatigueCheck = {
     date,
-    programWeek: requireProgramWeek(record.programWeek, `${path}.programWeek`),
     savedAt,
   };
+  // The stored week is only remembered for writing back; a missing or odd value is simply dropped.
+  if (isProgramWeek(record.programWeek)) check.savedProgramWeek = record.programWeek;
   if (record.broadJumpMetres !== undefined) {
     check.broadJumpMetres = requireBroadJumpMetres(record.broadJumpMetres, `${path}.broadJumpMetres`);
   }
@@ -139,12 +145,9 @@ function checkFromWire(raw: unknown, path: string): FatigueCheck {
   return check;
 }
 
-/** Returns `value` as a program week (whole number 1-8) or throws naming `path`. */
-function requireProgramWeek(value: unknown, path: string): number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 8) {
-    throw new FatigueWireError(`${path}: expected a program week from 1 to 8`);
-  }
-  return value;
+/** True when `value` is a whole number from 1 to 8, the weeks an older app version could have stored. */
+function isProgramWeek(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 8;
 }
 
 /** Returns `value` as metres: more than 0, at most 5, at most 2 decimals; or throws naming `path`. */

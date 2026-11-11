@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PRs 7–9 planned, waiting for Ed's go-ahead.**
+Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in progress, stacked on PR 6 (plan in #10); PRs 8–9 approved, to follow.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -104,6 +104,14 @@ the starting point. Revisit them if the app shows they're wrong.
      counts. The week 8 retest card (rule 5) is the usual way to save it;
      Settings works too. Only a date inside week 8 (Day 1 to Day 7) counts,
      so moving the start date can't turn an old save into a retest.
+   - The held figure is worked out with the max that was in effect on the
+     last week 7 day whose session has that EMOM (a max saved that same
+     day counts, since a retest is done before the session), so a max
+     raised later in week 7 doesn't change it (PR 7). Saved maxes are kept
+     as a history for this; clearing a max keeps its history.
+   - Week 4 still uses the current max: a max raised late in week 3
+     changes week 4's held reps. Left as is unless Ed wants week 4 treated
+     like week 8.
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
@@ -111,8 +119,11 @@ the starting point. Revisit them if the app shows they're wrong.
    with a "Retest week" card asking for new max pull-ups and dips (steppers
    pre-filled with the current maxes). Saving either one updates settings
    with today's real date, so week 8's EMOM targets switch from the held
-   week 7 reps to the new max at once (rule 3). The card stays until both
-   maxes have been saved during week 8; "Not today" hides it for that date.
+   week 7 reps to the new max at once (rule 3). It also has an optional
+   best broad jump (PR 7). The card stays until both maxes have been saved
+   during week 8 and then, with only the jump showing, until the jump is
+   saved or "Skip jump" is tapped (remembered for that retest week); "Not
+   today" hides it for that date.
    Before week 8 the prompt never appears. In a `?date=` preview of any day
    other than the real today, the card is shown but can't save (a preview
    save would stamp today's date and change the max for every week).
@@ -136,8 +147,11 @@ the starting point. Revisit them if the app shows they're wrong.
    before each save like the log; if the other copy of the app already
    saved this week's check, the card goes away instead of overwriting it. Saving a check-in never changes the
    EMOM maxes in settings (that's the week 8 retest's job). Week 8's
-   retest card replaces the check-in that week: saving the retest also
-   records the max pull-ups as that week's check.
+   retest card replaces the check-in that week: saving the retested
+   pull-ups or the jump records them in week 8's check, merged whichever is
+   saved first. Checks are keyed by date; a check's week is worked out from
+   the current start date when read (PR 7), and checks dated before the
+   start are kept but don't count.
 7. **Editing `program.json`.** Wrong types, missing fields, unknown
    exercise ids and gaps in the progression block the app with an error
    card, because the session would be wrong. Unknown fields (a typo or a
@@ -438,20 +452,26 @@ the PR 2 review.
 Stacked on PR 6. The brief's must-haves and nice-to-haves are all built;
 these are the follow-ups the PR 1 and PR 4 reviews left open, so that a
 changed start date or a late max doesn't quietly give wrong numbers.
-1. [ ] **Fatigue checks filed by date.** A check keeps its date as the
+1. [x] **Fatigue checks filed by date.** A check keeps its date as the
    key, and its program week is worked out from the current start date
    whenever it is read (the stored `programWeek` is still written, for
    older versions, but ignored on read). A restarted program then can't
    misfile old checks, and checks dated before the start date are kept
    but don't count as "best recent". Unit tests with a changed start date.
-2. [ ] **Broad jump in the week 8 retest.** The retest card gets an
+2. [x] **Broad jump in the week 8 retest.** The retest card gets an
    optional broad jump field (same stepper and blank rules as the weekly
    check-in), saved as week 8's check together with the retested
-   pull-ups, so week 8 has a full check like the other weeks.
-3. [ ] **Held reps from what week 7 showed.** Settings keep a short
-   history of saved maxes (date and value) instead of only the latest,
-   behind a settings wire v3 with a mapping from v2 (the current max
-   becomes the only history entry). Week 8's held EMOM figure (rule 3) is
+   pull-ups, so week 8 has a full check like the other weeks. Once both
+   maxes are saved, the card stays with only the jump until it is saved
+   or "Skip jump" is tapped (remembered for that retest week).
+3. [x] **Held reps from what week 7 showed.** Saved maxes are kept as a
+   history (date and value). *Changed after the review:* the history lives
+   in its own storage key (`explosive-endurance.max-history`, its own wire
+   v1 and mapping) and settings stay in their v2 format, so an older copy
+   of the app (a suspended home-screen app, or the old shell before an
+   update reload) still reads settings correctly and can't wipe them. On
+   read, if settings' latest max disagrees with the history's last entry
+   (an older copy saved a max), that max is added to the history. Week 8's held EMOM figure (rule 3) is
    then worked out with the max that was in effect on the last week 7 day
    that had that EMOM, so it matches what week 7 actually showed, and a
    max raised later in week 7 doesn't change it. Worked example (start
@@ -459,6 +479,14 @@ changed start date or a late max doesn't quietly give wrong numbers.
    pull-up EMOM was on 14 Dec (W7 D1) with max 12, so W8 D1 holds
    floor(12 × 0.40) + 2 = 6, not floor(14 × 0.40) + 2 = 7. A save inside
    week 8 is the retest and replaces the hold, as now.
+4. [x] **Fixes from the challenger review.** Settings back to v2 with the
+   history in its own key (above, pending Ed's confirmation); the stored
+   `programWeek` of every check is re-derived on each save (and dropped
+   outside the program) so older versions and the export see current
+   weeks; the export's settings type accepts every settings version; a
+   week 8 retest merge never deletes a check hidden in the same derived
+   week; test fixtures seed real histories; E2E for the week 8 hold
+   (12 then 14 → W8 D1 shows 6) and for a start-date change moving checks.
 - **Merge point:** checks and held reps stay right after a start-date
   change or a late max.
 
@@ -493,6 +521,7 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 21 Dec | W8 D1 | Deload + retest | Pull-up EMOM 5 min × 6 (week 7's 4 + 2, held: no max saved in week 8); after saving a retested max of 15 on 21 Dec, 5 min × 6 (floor(15 × 0.40), no hold) |
 | 30 Nov | W5 D1 | Power endurance | Heavy bag 4–5 rounds × 25–35s work / 30s rest (timer starts 5 × 35s / 30s); core rest between pairs 30–45s (Rest button 30s) |
 | 4 Dec | W5 D5 | Power endurance | Core rest between pairs 30s |
+| 21 Dec | W8 D1 | Deload + retest | With pull-up max 12 saved 2 Nov and 14 saved 18 Dec (W7 D5): pull-up EMOM holds 6 (week 7's figure with 12, shown on 14 Dec), not 7 |
 | 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (the retest card shows on Today) |
 
 A second start date shows the cycle doesn't depend on the weekday: start

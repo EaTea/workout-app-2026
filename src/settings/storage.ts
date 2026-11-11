@@ -1,4 +1,6 @@
-import type { TrainingSettings } from "./model";
+import type { MaxHistoryEntry, TrainingSettings } from "./model";
+import { withLatestMax } from "./maxHistory";
+import { loadMaxHistory, saveMaxHistory } from "./maxHistoryStorage";
 import { toDayNumber } from "../program/calendar";
 
 /**
@@ -27,41 +29,83 @@ export interface SettingsWireV2 {
   maxSavedOn: Record<string, string>;
 }
 
-/** Every stored shape we can read. Bump `version` if the shape ever changes incompatibly. */
+/**
+ * Every settings shape we can read. v2 is the current (and only written)
+ * format; the max history is NOT part of it, it has its own storage key (see
+ * maxHistoryStorage.ts), so older copies of the app keep reading settings
+ * correctly. Bump `version` if the shape ever changes incompatibly.
+ */
 export type SettingsWire = SettingsWireV1 | SettingsWireV2;
 
 /** What a fresh install (or unreadable stored data) looks like. */
 function defaultSettings(): TrainingSettings {
-  return { startDate: null, maxReps: {}, maxSavedOn: {} };
+  return { startDate: null, maxReps: {}, maxSavedOn: {}, maxHistory: {} };
 }
 
 /**
- * Converts untrusted stored data into internal settings. Tolerant by design:
- * anything missing, malformed or from an unknown version yields defaults for
- * that part rather than an error, so a corrupt entry never bricks the app.
- * Reads v1 (no saved dates, so `maxSavedOn` is empty) and v2.
+ * Converts untrusted stored settings, plus the separately stored max history,
+ * into internal settings. Tolerant by design: anything missing, malformed or
+ * from an unknown version yields defaults for that part rather than an error,
+ * so a corrupt entry never bricks the app.
+ *
+ *   settings key (v1/v2) --settingsFromWire--+
+ *                                            +--> TrainingSettings
+ *   history key (already parsed) ------------+
+ *
+ * The settings' latest max per exercise (`maxReps` + `maxSavedOn`) is
+ * reconciled into the history: if it is not already an entry, it is added
+ * (an older copy of the app may have saved a max without knowing the history).
+ * Nothing in the history is ever removed here, and a cleared max keeps its
+ * history. With no history at all (v1, or a v2 written before the history key
+ * existed) each max becomes the only entry, dated `maxSavedOn` or unknown.
  */
-export function settingsFromWire(wire: unknown): TrainingSettings {
+export function settingsFromWire(wire: unknown, storedHistory: Record<string, MaxHistoryEntry[]> = {}): TrainingSettings {
   if (typeof wire !== "object" || wire === null) {
-    return defaultSettings();
+    return { ...defaultSettings(), maxHistory: storedHistory };
   }
 
   const record = wire as Record<string, unknown>;
   if (record.version !== 1 && record.version !== 2) {
-    return defaultSettings();
+    return { ...defaultSettings(), maxHistory: storedHistory };
   }
 
   const maxReps = validMaxReps(record.maxReps);
+  // v1 has no dates field, so it reads as "no max has a known save date".
+  const maxSavedOn = record.version === 2 ? validMaxSavedOn(record.maxSavedOn, maxReps) : {};
 
   return {
     startDate: validStartDate(record.startDate),
     maxReps,
-    // v1 has no dates field, so it reads as "no max has a known save date".
-    maxSavedOn: record.version === 2 ? validMaxSavedOn(record.maxSavedOn, maxReps) : {},
+    maxSavedOn,
+    maxHistory: reconcileHistory(storedHistory, maxReps, maxSavedOn),
   };
 }
 
-/** Converts internal settings to the stored shape. Always writes the current version (v2). */
+/**
+ * Returns a copy of `history` in which every exercise that has a max also has
+ * that max (and its date) as an entry. Exercises without a max keep their
+ * history untouched (rule: clearing a max never discards its history).
+ */
+function reconcileHistory(
+  history: Record<string, MaxHistoryEntry[]>,
+  maxReps: Record<string, number>,
+  maxSavedOn: Record<string, string>,
+): Record<string, MaxHistoryEntry[]> {
+  const reconciled: Record<string, MaxHistoryEntry[]> = {};
+  for (const [exerciseId, entries] of Object.entries(history)) {
+    reconciled[exerciseId] = [...entries];
+  }
+
+  for (const [exerciseId, reps] of Object.entries(maxReps)) {
+    reconciled[exerciseId] = withLatestMax(reconciled[exerciseId] ?? [], reps, maxSavedOn[exerciseId] ?? null);
+  }
+  return reconciled;
+}
+
+/**
+ * Converts internal settings to the stored settings shape. Always writes the
+ * current version (v2); the history is written separately by `saveSettings`.
+ */
 export function settingsToWire(settings: TrainingSettings): SettingsWireV2 {
   return {
     version: 2,
@@ -118,22 +162,31 @@ function validMaxSavedOn(value: unknown, maxReps: Record<string, number>): Recor
 }
 
 /**
- * Reads settings from `storage`. Never throws: missing, unparsable or
- * inaccessible storage gives defaults. `storage` is injectable for tests.
+ * Reads settings from `storage`: the settings key and the max-history key,
+ * merged by `settingsFromWire`. Never throws: missing, unparsable or
+ * inaccessible storage gives defaults (the history is read independently, so
+ * a damaged settings entry doesn't lose it). `storage` is injectable for tests.
  */
 export function loadSettings(storage: Storage = localStorage): TrainingSettings {
+  const storedHistory = loadMaxHistory(storage);
+
   try {
     const stored = storage.getItem(SETTINGS_STORAGE_KEY);
     if (stored === null) {
-      return defaultSettings();
+      return settingsFromWire(null, storedHistory);
     }
-    return settingsFromWire(JSON.parse(stored));
+    return settingsFromWire(JSON.parse(stored), storedHistory);
   } catch {
-    return defaultSettings();
+    return settingsFromWire(null, storedHistory);
   }
 }
 
-/** Writes settings to `storage` as JSON. May throw if storage is full or blocked. */
+/**
+ * Writes settings (v2) and the max history (its own key) to `storage`. The
+ * history is written first and includes the current maxes, so if the second
+ * write fails nothing is lost. May throw if storage is full or blocked.
+ */
 export function saveSettings(settings: TrainingSettings, storage: Storage = localStorage): void {
+  saveMaxHistory(reconcileHistory(settings.maxHistory, settings.maxReps, settings.maxSavedOn), storage);
   storage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsToWire(settings)));
 }

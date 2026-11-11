@@ -4,9 +4,9 @@ import { readExportSource } from "../export/source";
 import { rotationBlockStartWeek } from "../program/rotation";
 import type { TrainingSettings } from "../settings/model";
 import { loadSettings, saveSettings } from "../settings/storage";
-import { RETEST_DISMISSED_STORAGE_KEY, applyRetestMax, retestDismissedFromWire, retestDismissedToWire } from "./retest";
+import { RETEST_DISMISSED_STORAGE_KEY, RETEST_JUMP_SKIPPED_STORAGE_KEY, retestJumpSkippedFromWire, retestJumpSkippedToWire, applyRetestMax, mergeRetestCheck, retestDismissedFromWire, retestDismissedToWire } from "./retest";
 import { ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire, rotationDismissedToWire } from "./rotationCard";
-import { focusRemainingRetestStepper } from "./retestCard";
+import { focusRemainingRetestStepper, focusRetestJumpStepper } from "./retestCard";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
 import { applyLogChange, type LoadLogResult } from "../log/storage";
@@ -15,14 +15,14 @@ import type { LogChangeOutcome } from "./logChange";
 import { renderLogScreen } from "./logScreen";
 import { renderHistoryScreen } from "./history";
 import { isSessionInProgress } from "../log/sessionProgress";
-import { buildSession, phaseForWeek } from "../program/schedule";
+import { buildSession, phaseForWeek, retestWeekStartDate } from "../program/schedule";
 import { createScreenWakeLock } from "../timer/wakeLock";
 import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
 import { applyFatigueChange, type LoadFatigueHistoryResult } from "../fatigue/storage";
-import { checkForWeek, recordCheck } from "../fatigue/operations";
+import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
 import type { FatigueCheck } from "../fatigue/model";
 import {
   CHECKIN_SNOOZED_STORAGE_KEY,
@@ -220,10 +220,15 @@ export function startApp(
   let startTodayFailureMessage: string | undefined;
   /** The date "Not today" was tapped on the retest card (kept in localStorage too), or undefined. */
   let retestDismissedDate = loadRetestDismissedDate();
+  /** First date of the retest week whose broad jump was skipped (kept in localStorage too), or undefined. */
+  let retestJumpSkippedWeekStart = loadStoredValue(RETEST_JUMP_SKIPPED_STORAGE_KEY, retestJumpSkippedFromWire);
   /** First weeks of the rotation blocks whose card was dismissed (kept in localStorage too). */
   let rotationDismissedBlockWeeks = loadStoredValue(ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire) ?? [];
   /** Retest card stepper values by exercise id, kept here so re-renders don't reset an unsaved one. */
   const retestDrafts: Record<string, number | undefined> = {};
+
+  /** The retest card's broad jump stepper value (undefined = blank), kept here for the same reason. */
+  const retestJumpDraft: { metres?: number } = {};
   /**
    * The pinned session date: what Today shows. Set once here and moved only by
    * `handleShowNewDay` (the banner button), so a session left open past
@@ -369,7 +374,7 @@ export function startApp(
     settings = newSettings;
 
     if (exerciseId === RETEST_PULL_UP_ID) {
-      recordRetestPullUpsAsCheck(newMax);
+      recordRetestCheck({ maxPullUps: newMax }); // a failure only keeps the check in memory; the max itself is saved
     }
 
     render();
@@ -379,35 +384,48 @@ export function startApp(
 
   /**
    * Rule 6: week 8's retest replaces the weekly check-in, so saving the
-   * pull-up retest also records the max pull-ups as that week's check. It only
+   * pull-up retest or the retest card's broad jump records week 8's check.
+   * `values` holds only the field being saved; `mergeRetestCheck` keeps the
+   * other field (and the date) of any check already stored for the week, so
+   * the two saves can come in either order without wiping each other. It only
    * records when the REAL save date is inside the retest week (a save made
-   * outside it, e.g. after the program ended, files nothing under a week it
-   * doesn't belong to). Only the pull-up value is written; an existing check
-   * for the week (e.g. one with a broad jump) keeps its other values and its
-   * date. The settings were already saved, so a failure here only keeps the
-   * check in memory (the retest card has no spot for a second error); dips
-   * never touch this.
+   * outside it files nothing under a week it doesn't belong to) and returns a
+   * message in that case. Returns null on success, else the message for the
+   * card; on a write failure the check is still kept in memory. Dips never
+   * touch this.
    */
-  function recordRetestPullUpsAsCheck(maxPullUps: number): void {
+  function recordRetestCheck(values: { broadJumpMetres?: number; maxPullUps?: number }): string | null {
     const realToday = todayLocalDate();
     const status = programStatus(settings.startDate, program.lengthWeeks, realToday);
-    if (status.kind !== "active" || !phaseForWeek(program, status.week).retest) return;
+    if (status.kind !== "active" || !phaseForWeek(program, status.week).retest) return "The retest week is not today";
     const week = status.week;
 
     const now = new Date();
     const result = applyFatigueChange(localStorage, (freshHistory) => {
-      const existing = checkForWeek(freshHistory, week);
-      const merged: FatigueCheck = {
-        date: existing?.date ?? realToday,
-        programWeek: week,
-        broadJumpMetres: existing?.broadJumpMetres,
-        maxPullUps,
-        savedAt: now,
-      };
-      return recordCheck(freshHistory, merged);
+      const existing = checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week);
+      return recordCheck(freshHistory, mergeRetestCheck(existing, values, realToday, now), settings.startDate, program.lengthWeeks);
     }, now);
 
     if (result.history !== undefined) fatigueHistory = result.history;
+    return result.saved ? null : result.error;
+  }
+
+  /**
+   * Save handler for the retest card's optional broad jump ("Save jump").
+   * Refuses in a preview. Records week 8's check with the jump (merged with
+   * any retested pull-ups), re-renders Today (the card shows the saved value)
+   * and keeps focus on the jump stepper. Returns null on success or the
+   * message to show inline.
+   */
+  function handleSaveBroadJump(metres: number): string | null {
+    if (!canSaveOnShownDate()) return PREVIEW_SAVING_OFF_MESSAGE;
+
+    const failureMessage = recordRetestCheck({ broadJumpMetres: metres });
+    if (failureMessage !== null) return failureMessage;
+
+    render();
+    focusRetestJumpStepper();
+    return null;
   }
 
   /**
@@ -429,14 +447,14 @@ export function startApp(
     const week = checkInWeekToAsk(program, settings, shownDate, fatigueHistory, undefined);
     if (week === undefined) return "No check-in is due for this day";
 
-    const check: FatigueCheck = { date: shownDate, programWeek: week, savedAt: new Date(), ...values };
+    const check: FatigueCheck = { date: shownDate, savedAt: new Date(), ...values };
     let foundExistingCheck = false;
     const result = applyFatigueChange(localStorage, (freshHistory) => {
-      if (checkForWeek(freshHistory, week) !== undefined) {
+      if (checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week) !== undefined) {
         foundExistingCheck = true;
         return freshHistory; // keep the other copy's check untouched
       }
-      return recordCheck(freshHistory, check);
+      return recordCheck(freshHistory, check, settings.startDate, program.lengthWeeks);
     });
     if (result.history !== undefined) fatigueHistory = result.history;
     if (!result.saved) return result.error;
@@ -477,6 +495,27 @@ export function startApp(
       checkInDraft = createCheckInDraft(week);
     }
     return checkInDraft;
+  }
+
+  /**
+   * "Skip jump" on the jump-only retest card: remembers (across reloads) that
+   * the broad jump is skipped for the shown date's retest week, and re-renders
+   * so the card goes. Does nothing in a preview or outside a retest week.
+   */
+  function handleSkipRetestJump(): void {
+    if (!canSaveOnShownDate()) return;
+
+    const weekStartDate = retestWeekStartDate(program, settings, shownDate);
+    if (weekStartDate === undefined) return;
+
+    retestJumpSkippedWeekStart = weekStartDate;
+    try {
+      localStorage.setItem(RETEST_JUMP_SKIPPED_STORAGE_KEY, retestJumpSkippedToWire(weekStartDate));
+    } catch {
+      // Storage blocked: stays skipped until reload.
+    }
+    render();
+    focusMainHeading();
   }
 
   /** "Not today" on the retest card: hides it for the shown date, remembered across reloads, and re-renders. */
@@ -581,7 +620,9 @@ export function startApp(
       } else {
         main.append(renderTodayScreen(program, settings, shownDate, handleStartToday, startTodayFailureMessage, log, {
           dismissedDate: retestDismissedDate,
-          actions: { canSave: canSaveOnShownDate(), onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts },
+          actions: { canSave: canSaveOnShownDate(), onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts, jumpDraft: retestJumpDraft, onSaveBroadJump: handleSaveBroadJump, onSkipJump: handleSkipRetestJump },
+          history: fatigueHistory,
+          jumpSkippedWeekStart: retestJumpSkippedWeekStart,
         }, {
           history: fatigueHistory,
           snoozedDate: checkInSnoozedDate,

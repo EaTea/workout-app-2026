@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { addDaysToDate } from "../program/calendar";
 import { parseProgram } from "../program/parse";
 import type { TrainingSettings } from "../settings/model";
 import type { FatigueCheck, FatigueHistory } from "../fatigue/model";
@@ -22,12 +23,12 @@ const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf
 
 // Start Mon 2 Nov: week 1 = 2-8 Nov, week 3 = 16-22 Nov, week 8 = 21-27 Dec.
 // Program day 7 is the rest day (program.restDay).
-const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
+const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
 const emptyHistory: FatigueHistory = { checks: [] };
 
-/** A saved check for a week with the given values. */
-function check(programWeek: number, values: { broadJumpMetres?: number; maxPullUps?: number }): FatigueCheck {
-  return { date: "2026-11-02", programWeek, savedAt: new Date("2026-11-02T07:00:00.000Z"), ...values };
+/** A stored check dated on the first day of program `week` (start 2 Nov) with the given values. */
+function check(week: number, values: { broadJumpMetres?: number; maxPullUps?: number }): FatigueCheck {
+  return { date: addDaysToDate("2026-11-02", 7 * (week - 1)), savedAt: new Date("2026-11-02T07:00:00.000Z"), ...values };
 }
 
 describe("checkInWeekToAsk", () => {
@@ -57,6 +58,36 @@ describe("checkInWeekToAsk", () => {
   it("is snoozed on the date it was snoozed and back on a later date of the same week", () => {
     expect(checkInWeekToAsk(program, settings, "2026-11-16", emptyHistory, "2026-11-16")).toBeUndefined();
     expect(checkInWeekToAsk(program, settings, "2026-11-17", emptyHistory, "2026-11-16")).toBe(3);
+  });
+});
+
+describe("checks follow the current start date", () => {
+  // Checks saved with start 2 Nov: 5 Nov (week 1) and 10 Nov (week 2).
+  const savedHistory: FatigueHistory = {
+    checks: [
+      { date: "2026-11-05", maxPullUps: 12, savedAt: new Date("2026-11-05T07:00:00.000Z") },
+      { date: "2026-11-10", maxPullUps: 9, savedAt: new Date("2026-11-10T07:00:00.000Z") },
+    ],
+  };
+  const movedStart: TrainingSettings = { ...settings, startDate: "2026-11-09" };
+
+  it("after the start moves to 9 Nov, the 10 Nov check is week 1's, so week 1 asks nothing and week 2 asks again", () => {
+    expect(checkInWeekToAsk(program, movedStart, "2026-11-11", savedHistory, undefined)).toBeUndefined();
+    expect(checkInWeekToAsk(program, movedStart, "2026-11-16", savedHistory, undefined)).toBe(2);
+  });
+
+  it("the 5 Nov check is ignored: it neither answers week 1 nor counts as best recent", () => {
+    expect(checkInWeekToAsk(program, settings, "2026-11-04", { checks: [savedHistory.checks[0]!] }, undefined)).toBeUndefined();
+    expect(checkInWeekToAsk(program, movedStart, "2026-11-10", { checks: [savedHistory.checks[0]!] }, undefined)).toBe(1);
+
+    // Week 2 (10 pull-ups on 17 Nov) is compared with 9 Nov-start week 1 (10 Nov, 9), not with the ignored 5 Nov 12.
+    const withWeekTwo: FatigueHistory = { checks: [...savedHistory.checks, { date: "2026-11-17", maxPullUps: 9, savedAt: new Date("2026-11-17T07:00:00.000Z") }] };
+    expect(dropWarningForShownDate(program, movedStart, "2026-11-17", withWeekTwo).warnings).toEqual([]);
+    expect(dropWarningForShownDate(program, settings, "2026-11-10", withWeekTwo).warnings).toHaveLength(1);
+  });
+
+  it("with no start date no check counts", () => {
+    expect(dropWarningForShownDate(program, { ...settings, startDate: null }, "2026-11-10", savedHistory).warnings).toEqual([]);
   });
 });
 

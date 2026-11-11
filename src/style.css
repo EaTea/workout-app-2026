@@ -1279,6 +1279,15 @@ body {
   cursor: pointer;
 }
 
+/* Optional broad jump block under the max rows: Save jump sits under its stepper. */
+.retest-jump {
+  margin-bottom: 12px;
+}
+
+.retest-jump .retest-save {
+  margin-top: 10px;
+}
+
 .retest-save {
   background: var(--accent);
   color: #fff;
@@ -1414,7 +1423,8 @@ body {
   font-size: 14px;
 }
 
-.retest-save:disabled {
+.retest-save:disabled,
+.retest-skip-jump:disabled {
   opacity: 0.4;
   cursor: default;
 }

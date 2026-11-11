@@ -6,11 +6,28 @@ import type { BlockView, ItemView, SessionView } from "./schedule";
 import { buildSession } from "./schedule";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
-const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} };
+
+/**
+ * Gives every exercise that has a max but no history the one-entry history a
+ * real load would give it (loadSettings reconciles settings with the history,
+ * so settings with a max and no history entry never reach the schedule).
+ * Histories a test spells out are kept as they are.
+ */
+function withMatchingHistory(raw: TrainingSettings): TrainingSettings {
+  const maxHistory = { ...raw.maxHistory };
+  for (const [exerciseId, reps] of Object.entries(raw.maxReps)) {
+    maxHistory[exerciseId] ??= [{ savedOn: raw.maxSavedOn[exerciseId] ?? null, reps }];
+  }
+  return { ...raw, maxHistory };
+}
+
+const settings: TrainingSettings = withMatchingHistory({ startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} });
 
 /** Builds a session and asserts it is a training day, so tests can read its fields. */
 function trainingOn(date: string, overrides: Partial<TrainingSettings> = {}) {
-  const session: SessionView = buildSession(program, { ...settings, ...overrides }, date);
+  // An override that changes a max or its date must not keep the base history for that exercise.
+  const merged: TrainingSettings = { ...settings, ...overrides, maxHistory: overrides.maxHistory ?? {} };
+  const session: SessionView = buildSession(program, withMatchingHistory(merged), date);
   if (session.kind !== "training") throw new Error(`expected training on ${date}, got ${session.kind}`);
   return session;
 }
@@ -136,39 +153,81 @@ describe("further schedule rules", () => {
     });
   });
 
+  it("holds week 8 with the max in effect on the last week 7 pull-up EMOM day, not a max raised later (14 vs 18 Dec)", () => {
+    // Pull-up max 12 saved 2 Nov, 14 saved 18 Dec (W7 D5). The W7 pull-up EMOM was on 14 Dec (W7 D1) with max 12.
+    const raisedLate = {
+      maxReps: { pull_up: 14, dip: 15 },
+      maxSavedOn: { pull_up: "2026-12-18" },
+      maxHistory: {
+        pull_up: [
+          { savedOn: "2026-11-02", reps: 12 },
+          { savedOn: "2026-12-18", reps: 14 },
+        ],
+      },
+    };
+
+    // Current-week targets still use the latest max (14 -> 5 + 2 = 7); only the week 8 hold looks back.
+    expect(item(trainingOn("2026-12-14", raisedLate).blocks, "pull_up").target).toMatchObject({ count: 7 });
+
+    // W8 D1 holds floor(12 x 0.40) + 2 = 6, not floor(14 x 0.40) + 2 = 7.
+    expect(item(trainingOn("2026-12-21", raisedLate).blocks, "pull_up").target).toMatchObject({
+      kind: "fixed", count: 6, basis: { max: 12, weeklyIncrease: 2, heldForDeload: true, awaitingRetest: true },
+    });
+  });
+
+  it("falls back to the earliest history entry when every entry is dated after the last week 7 EMOM day", () => {
+    const savedLate = {
+      maxReps: { pull_up: 14, dip: 15 },
+      maxSavedOn: { pull_up: "2026-12-18" },
+      maxHistory: { pull_up: [{ savedOn: "2026-12-18", reps: 14 }] },
+    };
+    expect(item(trainingOn("2026-12-21", savedLate).blocks, "pull_up").target).toMatchObject({ count: 7, basis: { max: 14 } });
+  });
+
+  it("a max saved inside week 8 replaces the hold even when the history held an older max", () => {
+    const retested = {
+      maxReps: { pull_up: 15, dip: 15 },
+      maxSavedOn: { pull_up: "2026-12-21" },
+      maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }, { savedOn: "2026-12-21", reps: 15 }] },
+    };
+    expect(item(trainingOn("2026-12-21", retested).blocks, "pull_up").target).toMatchObject({
+      count: 6, basis: { max: 15, usesRetestedMax: true },
+    });
+  });
+
   it("follows a pull-up max saved on 21 Dec straight away (max 15 -> 5 min x 6 via floor(15 x 0.4), retested)", () => {
-    const session = trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" } });
+    const session = trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} });
     expect(item(session.blocks, "pull_up").target).toMatchObject({
       kind: "fixed", count: 6, basis: { max: 15, weeklyIncrease: 0, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false },
     });
   });
 
   it("counts a max saved on the week's first day (21 Dec) but not the day before (20 Dec, week 7)", () => {
-    const saved = (date: string) => trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: date } });
+    const saved = (date: string) => trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: date }, maxHistory: {} });
     expect(item(saved("2026-12-20").blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
     expect(item(saved("2026-12-21").blocks, "pull_up").target).toMatchObject({ count: 6, basis: { usesRetestedMax: true } });
   });
 
   it("counts a max saved on the week's last day (27 Dec, Day 7) but not the day after (28 Dec)", () => {
-    const saved = (date: string) => trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: date } });
+    const saved = (date: string) => trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: date }, maxHistory: {} });
     expect(item(saved("2026-12-27").blocks, "pull_up").target).toMatchObject({ count: 6, basis: { usesRetestedMax: true } });
     expect(item(saved("2026-12-28").blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
   });
 
   it("does not turn an old save into a retest when the start date moves later (21 Dec is now before week 8)", () => {
     // Start 9 Nov: week 8 is 28 Dec - 3 Jan. A max saved on 21 Dec (week 7 now) is not a retest.
-    const moved = { startDate: "2026-11-09", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" } };
+    const moved = withMatchingHistory({ startDate: "2026-11-09", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} });
     expect(item(trainingOn("2026-12-28", moved).blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
   });
 
   it("does not turn an old save into a retest when the start date moves earlier (21 Dec is now after week 8)", () => {
     // Start 26 Oct: week 8 is 14-20 Dec. A max saved on 21 Dec (after the program) is not a retest.
-    const moved = { startDate: "2026-10-26", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" } };
+    const moved = withMatchingHistory({ startDate: "2026-10-26", maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} });
     expect(item(trainingOn("2026-12-14", moved).blocks, "pull_up").target).toMatchObject({ count: 8, basis: { awaitingRetest: true } });
   });
 
   it("still holds when the max was saved on 14 Dec (week 7): floor(15 x 0.4) + 2 = 8", () => {
-    const session = trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-14" } });
+    const session = trainingOn("2026-12-21", { maxReps: { pull_up: 15, dip: 15 }, maxSavedOn: { pull_up: "2026-12-14" }, maxHistory: {} });
     expect(item(session.blocks, "pull_up").target).toMatchObject({
       kind: "fixed", count: 8, basis: { weeklyIncrease: 2, heldForDeload: true, usesRetestedMax: false, awaitingRetest: true },
     });
@@ -180,13 +239,13 @@ describe("further schedule rules", () => {
   });
 
   it("holds W8 D3 dips (23 Dec, max 15: 6-7 + 2 = 8-9) when only the pull-up max was saved", () => {
-    const session = trainingOn("2026-12-23", { maxSavedOn: { pull_up: "2026-12-21" } });
+    const session = trainingOn("2026-12-23", { maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} });
     expect(session.week).toBe(8);
     expect(item(session.blocks, "dip").target).toMatchObject({ kind: "range", min: 8, max: 9, basis: { weeklyIncrease: 2, awaitingRetest: true } });
   });
 
   it("uses the retested dip max on W8 D3 once it is saved (23 Dec: 6-7 retested)", () => {
-    const session = trainingOn("2026-12-23", { maxSavedOn: { dip: "2026-12-23" } });
+    const session = trainingOn("2026-12-23", { maxSavedOn: { dip: "2026-12-23" }, maxHistory: {} });
     expect(item(session.blocks, "dip").target).toMatchObject({ kind: "range", min: 6, max: 7, basis: { weeklyIncrease: 0, usesRetestedMax: true, awaitingRetest: false } });
   });
 
@@ -195,7 +254,7 @@ describe("further schedule rules", () => {
   });
 
   it("is not affected by saved dates outside a retest week (W4 stays held, W3 normal)", () => {
-    const dated = { maxSavedOn: { pull_up: "2026-12-21" } };
+    const dated = { maxSavedOn: { pull_up: "2026-12-21" }, maxHistory: {} };
     expect(item(trainingOn("2026-11-23", dated).blocks, "pull_up").target).toMatchObject({ count: 6, basis: { heldForDeload: true } });
     expect(item(trainingOn("2026-11-16", dated).blocks, "pull_up").target).toMatchObject({ count: 6, basis: { weeklyIncrease: 2, heldForDeload: false } });
   });
@@ -253,11 +312,11 @@ describe("further schedule rules", () => {
 
 describe("edge cases", () => {
   it("reports noStartDate", () => {
-    expect(buildSession(program, { startDate: null, maxReps: {}, maxSavedOn: {} }, "2026-11-02")).toEqual({ kind: "noStartDate" });
+    expect(buildSession(program, { startDate: null, maxReps: {}, maxSavedOn: {}, maxHistory: {} }, "2026-11-02")).toEqual({ kind: "noStartDate" });
   });
 
   it("reports notStarted before a mid-week start date, then week 2 seven days after the start", () => {
-    const midWeek = { startDate: "2026-11-04", maxReps: settings.maxReps, maxSavedOn: {} };
+    const midWeek = withMatchingHistory({ startDate: "2026-11-04", maxReps: settings.maxReps, maxSavedOn: {}, maxHistory: {} });
     expect(buildSession(program, midWeek, "2026-11-02")).toEqual({ kind: "notStarted", startsOn: "2026-11-04" });
     expect(buildSession(program, midWeek, "2026-11-11")).toMatchObject({ kind: "training", week: 2 });
   });
@@ -327,7 +386,7 @@ describe("percent-of-max rounding survives floating point", () => {
         return json;
       })(),
     ).program;
-    const session = buildSession(custom, { startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 }, maxSavedOn: {} }, "2026-11-02");
+    const session = buildSession(custom, withMatchingHistory({ startDate: "2026-11-02", maxReps: { pull_up: max, dip: 15 }, maxSavedOn: {}, maxHistory: {} }), "2026-11-02");
     if (session.kind !== "training") throw new Error("expected training");
     expect(item(session.blocks, "pull_up").target).toMatchObject({ kind: "fixed", count: expected });
   });

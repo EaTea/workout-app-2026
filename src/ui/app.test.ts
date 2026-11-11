@@ -32,7 +32,7 @@ describe("previewDateFromSearch", () => {
 });
 
 describe("persistSettings", () => {
-  const settings = { startDate: "2026-11-02", maxReps: {}, maxSavedOn: {} };
+  const settings = { startDate: "2026-11-02", maxReps: {}, maxSavedOn: {}, maxHistory: {} };
 
   it("returns null when the write succeeds", () => {
     const storage = { setItem: () => undefined } as unknown as Storage;

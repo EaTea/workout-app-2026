@@ -1,4 +1,4 @@
-import type { FatigueField, FatigueHistory } from "../fatigue/model";
+import type { FatigueField, WeeklyFatigueHistory } from "../fatigue/model";
 import { bestRecent, compareToBest, type Comparison, type FatigueWarning } from "../fatigue/operations";
 import { element } from "./dom";
 import { renderStepper, STEPPER_REFRESH_EVENT, type StepperNumberRules } from "./setEditor";
@@ -87,7 +87,7 @@ const PULL_UP_RULES: StepperNumberRules = {
  */
 export function renderCheckInCard(
   week: number,
-  history: FatigueHistory,
+  history: WeeklyFatigueHistory,
   ruleText: string,
   actions: CheckInCardActions,
 ): HTMLElement {
@@ -126,21 +126,12 @@ export function renderCheckInCard(
     error.textContent = "";
   }
 
-  const broadJumpSection = renderFieldSection({
-    heading: "Best broad jump",
-    field: "broadJumpMetres",
-    stepperName: "Best broad jump",
-    unit: "m",
+  const broadJumpSection = renderBroadJumpField(
     history,
     week,
-    read: () => draft.broadJumpMetres,
-    write: (value) => { draft.broadJumpMetres = value; refreshSummary(); },
-    minimum: MINIMUM_BROAD_JUMP_METRES,
-    step: BROAD_JUMP_STEP_METRES,
-    rules: BROAD_JUMP_RULES,
-    defaultStart: DEFAULT_BROAD_JUMP_METRES,
-    allowTyping: true,
-  });
+    () => draft.broadJumpMetres,
+    (value) => { draft.broadJumpMetres = value; refreshSummary(); },
+  );
   const pullUpSection = renderFieldSection({
     heading: "Max pull-ups",
     field: "maxPullUps",
@@ -165,7 +156,7 @@ export function renderCheckInCard(
     element("p", "checkin-kicker", `Week ${week} · Weekly check-in`),
     element("h2", "card-title", "How are you tracking?"),
     element("p", "checkin-intro", "Takes 2 minutes, before today's warm-up."),
-    broadJumpSection.element,
+    broadJumpSection,
     pullUpSection.element,
     warning,
     error,
@@ -185,13 +176,44 @@ export function renderCheckInCard(
   return card;
 }
 
+/**
+ * The broad jump field (heading with Clear, stepper with percentage pill,
+ * "Best recent" line) with the blank, stepper and Clear rules shared by the
+ * weekly check-in card above and the week 8 retest card (retestCard.ts), so
+ * both behave identically. `read`/`write` access the caller's draft value
+ * (undefined is blank); `week` is the program week, so only earlier checks
+ * count as "Best recent".
+ */
+export function renderBroadJumpField(
+  history: WeeklyFatigueHistory,
+  week: number,
+  read: () => number | undefined,
+  write: (value: number | undefined) => void,
+): HTMLElement {
+  return renderFieldSection({
+    heading: "Best broad jump",
+    field: "broadJumpMetres",
+    stepperName: "Best broad jump",
+    unit: "m",
+    history,
+    week,
+    read,
+    write,
+    minimum: MINIMUM_BROAD_JUMP_METRES,
+    step: BROAD_JUMP_STEP_METRES,
+    rules: BROAD_JUMP_RULES,
+    defaultStart: DEFAULT_BROAD_JUMP_METRES,
+    allowTyping: true,
+  }).element;
+}
+
 /** Everything `renderFieldSection` needs for one measurement. */
 interface FieldSectionOptions {
   heading: string;
   field: FatigueField;
   stepperName: string;
   unit: string;
-  history: FatigueHistory;
+  history: WeeklyFatigueHistory;
   week: number;
   read: () => number | undefined;
   write: (value: number | undefined) => void;

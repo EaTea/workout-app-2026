@@ -36,7 +36,11 @@ with a "Retest week" card: steppers (starting at your current maxes) and a
 "Save max" button per exercise for pull-ups and dips. Saving stamps the max with
 today's real date and switches week 8's EMOM targets to the new max at once; the
 card stays until both are saved that week, and "Not today" hides it for that
-date only. In a `?date=` preview of another day both cards show but can't
+date only. The card also has an optional "Best broad jump" field (same
+stepper, blank and Clear rules as the weekly check-in, with "Best recent") and
+its own "Save jump" button. It does not hold the card while a max is still to
+do, but once both maxes are saved the card stays with only the jump block until
+a jump is saved that week; "Skip jump" there hides it for the rest of the week. In a `?date=` preview of another day both cards show but can't
 save. On other training days (weeks 1-7), until the week's check is saved,
 Today opens with a "Weekly check-in" card: best broad jump (metres, 0.01 steps
 or tap the number to type it) and max pull-ups, either of which may be left
@@ -46,7 +50,8 @@ the previous 3 checks that recorded it) and a percentage pill; a drop of more th
 program's `fatigueCheck.rule` text as a warning on the card, and after saving
 as a dismissible banner on Today for the rest of that week. "Remind me
 tomorrow" hides the card for that date only. Saving the week 8 retest of
-pull-ups also records them as that week's check. Checks are stored in
+pull-ups and/or the broad jump records them as that week's check, whichever is
+saved first, the other merging into it later. Checks are stored in
 `localStorage` under `explosive-endurance.fatigue`. It is a static site
 (Vite + TypeScript, no UI framework).
 
@@ -104,7 +109,12 @@ on your start date, and Day 7 is the rest day in the shipped program (not
 weekday names). A progression phase can set `"retest": true`; EMOMs in that
 week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
-too); then they use that max with no weekly increase.
+too); then they use that max with no weekly increase. The held reps use the
+max that was in effect on the last week 7 day with that EMOM (every saved max is kept as a
+dated history in its own `localStorage` key, `explosive-endurance.max-history`,
+separate from `explosive-endurance.settings` so an older copy of the app can't
+wipe it; clearing a max keeps its history), so a max raised later in week 7
+doesn't change them.
 
 A progression phase can also set `"timerAdjustments"`, whole seconds (negative
 allowed, either key optional): `"intervalWorkSec"` is added to every interval
