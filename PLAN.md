@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 11 merged (#3 to #18). The PR 12 plan (day plans by week from the overview) is in review.**
+Status: **PR 1 to PR 11 merged (#3 to #18), and the PR 12 plan merged as #19. PR 12 (day plans by week) is in progress.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -710,8 +710,9 @@ becomes a link to a new read-only **Day plan** screen at
 
 - **Same numbers as Today.** The screen doesn't re-implement any rules.
   It asks the existing `buildSession` for the date that week and day fall
-  on: from the saved start date when there is one, otherwise from a
-  stand-in start date that is used only for this preview and never saved.
+  on: from the saved start date when there is one, otherwise as if the
+  program started today (what the Overview's Start button would give),
+  without saving anything.
   So deloads, the +1 rep per week, the power-endurance timer changes, the
   warm-up rotation and EMOM targets from your maxes all match what Today
   will show. Without saved maxes the max-based rows read "Set max", as on
@@ -748,7 +749,7 @@ weeks 5–8 almost every row would be marked and the week-to-week step
   links; the bottom nav keeps Today highlighted, as for the Overview.
 
 **Steps.**
-1. [ ] `dayPlan.ts` view model and unit tests: the date maths (start
+1. [x] `dayPlan.ts` view model and unit tests: the date maths (start
    2 Nov, Day 1 week 4 = 23 Nov), the stand-in start date when none is
    saved, and the changes between weeks for Day 1 (worked examples below).
 2. [ ] Day plan screen, the `#/plan/<day>/<week>` route (bad or out-of-range
