@@ -168,9 +168,16 @@ describe("formatTimerAdjustment", () => {
 });
 
 describe("Overview wording", () => {
-  it("rounds a weekly total to the nearest half hour with 'about'", () => {
+  it("rounds a weekly total to the nearest 15 minutes with 'about'", () => {
     expect(formatWeeklyDuration(234)).toBe("about 4 h");
-    expect(formatWeeklyDuration(255)).toBe("about 4.5 h");
+    expect(formatWeeklyDuration(255)).toBe("about 4 h 15 min");
+    expect(formatWeeklyDuration(242)).toBe("about 4 h");
+    expect(formatWeeklyDuration(135)).toBe("about 2 h 15 min");
+    expect(formatWeeklyDuration(150)).toBe("about 2 h 30 min");
+    expect(formatWeeklyDuration(142)).toBe("about 2 h 15 min");
+    expect(formatWeeklyDuration(59)).toBe("59 min");
+    expect(formatWeeklyDuration(62)).toBe("about 1 h");
+    expect(formatWeeklyDuration(68)).toBe("about 1 h 15 min");
     expect(formatWeeklyDuration(60)).toBe("about 1 h");
   });
 
