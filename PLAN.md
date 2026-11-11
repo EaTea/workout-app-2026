@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1, 1b and 2 merged (#3, #4, #5). PR 3 (logging) in review as #6. PR 4 in review as #7, stacked on PR 3. PR 5 in review, stacked on PR 4. PR 6 in review, stacked on PR 5. PR 7 in review as #11, stacked on the plan PR #10. PR 8 in review as #12, stacked on PR 7. PR 9 in review, stacked on PR 8.**
+Status: **PR 1 to PR 9 merged (#3 to #13). PR 10 (Day 6 wall sits) is planned below and awaiting Ed's review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -109,9 +109,8 @@ the starting point. Revisit them if the app shows they're wrong.
      day counts, since a retest is done before the session), so a max
      raised later in week 7 doesn't change it (PR 7). Saved maxes are kept
      as a history for this; clearing a max keeps its history.
-   - Week 4 still uses the current max: a max raised late in week 3
-     changes week 4's held reps. Left as is unless Ed wants week 4 treated
-     like week 8.
+   - Week 4 uses the current max: a max raised late in week 3 changes
+     week 4's held reps. Ed confirmed this is fine (11 Nov).
 4. **Ranges** (`restSec: [30, 45]`, `rounds: [4, 5]`, `workSec: [20, 30]`)
    display as ranges. Timers default to the **low end of rest** and the
    **high end of work**, editable before starting.
@@ -535,6 +534,41 @@ installs the pinned Playwright's Chromium and runs `npm run test:e2e`
    published.
 - **Merge point:** every PR into main is checked end to end.
 
+### PR 10 — Day 6 wall sits *(behavior change)*
+Ed asked for 5 × 90s wall sits with 60s rest between sets on Day 6.
+Day 6 (Lower: ankle) has no finisher, so the wall sits go in a new
+`finisher` block after the Zercher split-squat mini-dose. The program's
+`sessionOrder` already puts finishers last, so the bounds and calf raises
+are done fresh. Day 6's `targetMinutes` goes from 30 to 42, because the
+block adds 5 × 90s + 4 × 60s = 11.5 minutes.
+- **Shape:** it is an interval item, like the heavy bag
+  (`"format": "interval", "rounds": 5, "workSec": 90, "restSec": 60`).
+  Its timer is the existing work/rest interval timer with beeps, titled
+  "Wall sit · 5 rounds". Its rounds are ticked in the log like bag rounds
+  (no reps or kg, an optional note). A `note` replaces
+  the timer's "Go hard" work label with a cue.
+- **Same every week (Ed's decision):** 5 rounds of 90s work with 60s
+  rest in all 8 weeks. The weeks 5–7 +5s work adjustment doesn't apply,
+  and neither does the deload halving in weeks 4 and 8. Right now both
+  rules hit every interval item, so an item can now opt out of all the
+  week-by-week changes with `"sameEveryWeek": true`. It is validated like
+  any other field. The wall sit sets it, and the heavy bag keeps its +5s
+  and its deload halving. Today shows no "Power endurance" line for an
+  opted-out item.
+- **Library:** a new `wall_sit` exercise ("Wall sit", category
+  `finisher`). Its cues are back flat on the wall, thighs parallel and
+  knees over the ankles. The JSON export and import need no change, since
+  sets are filed by exercise id like every other item.
+1. [ ] `sameEveryWeek` opt-out: wire and internal types, parser,
+   `buildSession` (skips the phase timer adjustments and the deload
+   halving), Today's adjustment line, and unit tests (including the W4 D6
+   and W5 D6 examples below).
+2. [ ] Wall sit in `program.json` (exercise, Day 6 finisher block and
+   minutes), plus the README's program notes. Unit tests for the Day 6
+   session in W1, W4 and W5. E2E: Day 6 shows the block, the timer runs
+   5 × 90s / 60s, and a round can be logged.
+- **Merge point:** Day 6 has the wall sits with a working timer and log.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -550,7 +584,10 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 30 Nov | W5 D1 | Power endurance | Heavy bag 4–5 rounds × 25–35s work / 30s rest (timer starts 5 × 35s / 30s); core rest between pairs 30–45s (Rest button 30s) |
 | 4 Dec | W5 D5 | Power endurance | Core rest between pairs 30s |
 | 21 Dec | W8 D1 | Deload + retest | With pull-up max 12 saved 2 Nov and 14 saved 18 Dec (W7 D5): pull-up EMOM holds 6 (week 7's figure with 12, shown on 14 Dec), not 7 |
-| 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (the retest card shows on Today) |
+| 7 Nov | W1 D6 | Base | Wall sit finisher 5 rounds × 90s work / 60s rest; Day 6 about 42 min |
+| 28 Nov | W4 D6 | Deload | Wall sit 5 rounds × 90s / 60s, not halved; skater bounds still halved to 3 × 6 per side |
+| 5 Dec | W5 D6 | Power endurance | Wall sit 5 × 90s / 60s, unchanged (no "+5s work" line); W5 D1 heavy bag still 25–35s |
+| 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side; wall sit 5 × 90s / 60s (the retest card shows on Today) |
 
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
