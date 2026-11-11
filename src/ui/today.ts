@@ -6,6 +6,7 @@ import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIM
 import { element } from "./dom";
 import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
+import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
@@ -29,7 +30,9 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *   buildSession(...) ─▶ SessionView
  *        training  ─▶ header, phase strip, deload note, one card per block
  *                       └ item row (button) ─▶ log screen (#/log/<date>/..., pinned to the date shown), which has the details sheet
- *        rest / notStarted / complete / noStartDate ─▶ a single message card
+ *        rest / notStarted / complete ─▶ a single message card
+ *        (noStartDate never reaches Today: app.ts shows the Overview instead)
+ *        every screen carries a small "Program overview" link (#/overview)
  *
  * It renders exactly what `buildSession` returns; all numbers are final. On
  * a retest-week training day a "Retest week" card (retestCard.ts) goes above
@@ -87,17 +90,14 @@ export interface CheckInOptions {
 }
 
 /**
- * Builds the Today screen for `date` ("YYYY-MM-DD"). `onStartToday` is called
- * when Ed taps "Start today" on the first-run card; app.ts saves `date` as the
- * start date and re-renders. `startTodayFailureMessage`, if given, is shown
- * as an inline alert on that card (the save failed).
+ * Builds the Today screen for `date` ("YYYY-MM-DD"). Starting the program is
+ * no longer done here: with no start date app.ts shows the Overview instead
+ * (see overview.ts), so Today never has a first-run card.
  */
 export function renderTodayScreen(
   program: Program,
   settings: TrainingSettings,
   date: string,
-  onStartToday: () => void = () => undefined,
-  startTodayFailureMessage?: string,
   log: WorkoutLog = { sessions: {} },
   retest?: RetestOptions,
   checkIn?: CheckInOptions,
@@ -140,35 +140,29 @@ export function renderTodayScreen(
       screen.append(...renderTrainingDay(program, session, date, log));
       break;
     default:
-      screen.append(renderMessageCard(session, program.lengthWeeks, date, onStartToday, startTodayFailureMessage));
+      screen.append(renderMessageCard(session, program.lengthWeeks, date));
   }
 
   return screen;
 }
 
-/** A single card for sessions with nothing to train: first run, not started, rest day, finished. */
+/**
+ * A single card for sessions with nothing to train: not started, rest day,
+ * finished. Each ends with the small "Program overview" link. The
+ * `noStartDate` case is only here to keep the switch exhaustive: app.ts never
+ * renders Today without a start date (it shows the Overview), so the card just
+ * points there.
+ */
 function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
   lengthWeeks: number,
   date: string,
-  onStartToday: () => void,
-  startTodayFailureMessage?: string,
 ): HTMLElement {
   const card = element("div", "card message-card");
 
   switch (session.kind) {
     case "noStartDate":
-      card.append(
-        element("h2", "card-title", "Welcome"),
-        element("p", undefined, "Set your program start date to see today's session."),
-        startTodayButton(onStartToday),
-      );
-      if (startTodayFailureMessage !== undefined) {
-        const alert = element("p", "field-error", startTodayFailureMessage);
-        alert.setAttribute("role", "alert");
-        card.append(alert);
-      }
-      card.append(settingsLink("Or set a different date in Settings"));
+      card.append(element("h2", "card-title", "Program not started"));
       break;
 
     case "notStarted":
@@ -195,22 +189,8 @@ function renderMessageCard(
       break;
   }
 
+  card.append(renderProgramOverviewLink());
   return card;
-}
-
-/** Big primary button on the first-run card: begin the program with today as day 1. */
-function startTodayButton(onStartToday: () => void): HTMLButtonElement {
-  const button = element("button", "primary-button", "Start today");
-  button.type = "button";
-  button.addEventListener("click", onStartToday);
-  return button;
-}
-
-/** Plain text link to Settings, used beside "Start today" for picking another date. */
-function settingsLink(label: string): HTMLAnchorElement {
-  const link = element("a", "text-link", label);
-  link.href = "#/settings";
-  return link;
 }
 
 /** Link styled as the big blue button, pointing at Settings. */
@@ -232,6 +212,7 @@ function renderTrainingDay(
     element("div", "kicker", formatSessionKicker(date, session.week, program.lengthWeeks, session.dayNumber)),
     element("h1", "today-title", session.focus),
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
+    renderProgramOverviewLink(),
   );
 
   const parts: HTMLElement[] = [header, renderPhaseStrip(program, session.phase, session.isDeload)];

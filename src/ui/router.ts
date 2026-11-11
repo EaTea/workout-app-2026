@@ -1,7 +1,7 @@
 import { toDayNumber } from "../program/calendar";
 
 /**
- * Minimal hash router. Screens are addressed as `#/today`, `#/history`, `#/settings` and
+ * Minimal hash router. Screens are addressed as `#/today`, `#/overview`, `#/history`, `#/settings` and
  * `#/log/<date>/<blockPosition>/<exerciseId>` (the log screen for one item of
  * the session on `<date>`, `YYYY-MM-DD`); anything else (including an empty
  * or malformed hash, or an old-form `#/log/<block>/<exercise>` without a
@@ -13,7 +13,7 @@ import { toDayNumber } from "../program/calendar";
  */
 
 /** The screens the app can show. */
-export type Route = "today" | "history" | "settings" | "log";
+export type Route = "today" | "overview" | "history" | "settings" | "log";
 
 /** Which item the log screen is for: its session date, the block's 1-based position on Today, and the exercise id. */
 export interface LogRouteTarget {
@@ -57,11 +57,15 @@ export function logRouteHash(date: string, blockPosition: number, exerciseId: st
 export function routeFromHash(hash: string): Route {
   if (hash === "#/settings") return "settings";
   if (hash === "#/history") return "history";
+  if (hash === "#/overview") return "overview";
   if (parseLogRoute(hash) !== undefined) return "log";
   return "today";
 }
 
-/** Changes the address bar to a top-level screen, which fires `hashchange` and so a re-render. */
-export function navigateTo(route: "today" | "history" | "settings"): void {
+/**
+ * Changes the address bar to a top-level screen, which fires `hashchange` and
+ * so a re-render. "overview" is the program overview (welcome) screen.
+ */
+export function navigateTo(route: "today" | "overview" | "history" | "settings"): void {
   window.location.hash = `#/${route}`;
 }

@@ -63,7 +63,7 @@ test("export, clear the browser data, import: the log, checks and settings come 
 
   await expect(page.locator(".toast")).toContainText("Imported. You can undo it in Settings.");
   await expect(page).toHaveURL(/#\/today$/);
-  await expect(page.getByText("Set your program start date")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Program overview" })).toHaveCount(0);
 
   await page.goto("/#/history");
   await expect(page.getByText("2026-11-04").or(page.getByText("4 Nov")).first()).toBeVisible();

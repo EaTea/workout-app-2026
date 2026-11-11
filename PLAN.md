@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 10 merged (#3 to #16). The PR 11 plan (program overview welcome page) is in review.**
+Status: **PR 1 to PR 10 merged (#3 to #16), and the PR 11 plan merged as #17. PR 11 (program overview welcome page) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -596,7 +596,7 @@ from `program.json` (nothing hard-coded, per the brief), top to bottom:
  │ EXPLOSIVE ENDURANCE PROGRAM      │  program.name
  │ Build explosiveness and …        │  program.goal
  │ 8 weeks · 6 training days a week │  lengthWeeks, days (restDay excluded)
- │ · about 4 h a week               │  sum of targetMinutes (242 min)
+ │ · about 4 h a week               │  sum of targetMinutes (234 min)
  ├──────────────────────────────────┤
  │ THE 8 WEEKS                      │  progression[], one segment per week
  │ [1][2][3][4][5][6][7][8]         │  Base · Deload · Power endurance ·
@@ -612,7 +612,7 @@ from `program.json` (nothing hard-coded, per the brief), top to bottom:
  │ EVERY SESSION                    │  sessionOrder as labels: Warm-up →
  │ Warm-up → Explosive → …          │  Explosive → Main strength → …
  ├──────────────────────────────────┤
- │ [ Start Day 1: Upper: pull ]     │  the one primary CTA
+ │ [ Start Day 1: Upper: pull ]     │  the one primary CTA, pinned above the nav
  │  or pick another start date      │  small text link to Settings
  └──────────────────────────────────┘
 ```
@@ -656,19 +656,28 @@ targetMinutes, progression), so no new wire type or parser change.
   the Overview on every launch (costs a tap at every session).
 
 **Steps.**
-1. [ ] `buildProgramOverview` view model and its unit tests: phases
+1. [x] `buildProgramOverview` view model and its unit tests: phases
    grouped from `progression` (W1–3 Base, W4 Deload, W5–7 Power endurance,
    W8 Deload + retest), the 7 day rows in order with Day 7 as Rest, weekly
    total minutes, and the CTA for each status (no start date, future start,
    week 2 day 1, rest day, complete).
-2. [ ] Overview screen, `#/overview` route, first-run redirect, CTA wiring
+2. [x] Overview screen, `#/overview` route, first-run redirect, CTA wiring
    (reusing "Start today"), the "Program overview" links on Today and
    Settings, styles, and README. Replaces the old Welcome card and updates
    the E2E tests that used it.
-3. [ ] E2E (`e2e/overview.spec.ts`): first visit lands on the Overview,
+3. [x] E2E (`e2e/overview.spec.ts`): first visit lands on the Overview,
    shows 8 weeks, the four phases and the 7 days, and "Start Day 1: Upper:
    pull" opens Today at Week 1 · Day 1; a started program opens on Today
    and the header link opens the Overview with "Go to today".
+4. [x] **Fixes from the challenger review:**
+   - [x] The Overview shows the program.json warnings banner and the
+     "Previewing" strip like Today did (first run included), and no
+     new-day banner while there is no start date.
+   - [x] The start button stays in view: it sits in a bar pinned above
+     the bottom nav, so it is visible on the first screen.
+   - [x] The start button names Day 1 only when Day 1 trains ("Start the
+     program" otherwise), and each phase lists all its changes, so week 8
+     shows the retest.
 - **Merge point:** a first visit lands on the program overview, and one
   tap starts Day 1.
 
@@ -691,7 +700,7 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 28 Nov | W4 D6 | Deload | Wall sit 5 rounds × 90s / 60s, not halved; skater bounds still halved to 3 × 6 per side |
 | 5 Dec | W5 D6 | Power endurance | Wall sit 5 × 90s / 60s, unchanged (no "+5s work" line); W5 D1 heavy bag still 25–35s |
 | 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side; wall sit 5 × 90s / 60s (the retest card shows on Today) |
-| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 242 min a week (50+30+32+30+50+42 from the shipped `program.json`); phases Base W1–3, Deload W4, Power endurance W5–7, Deload + retest W8; CTA "Start Day 1: Upper: pull" |
+| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 234 min a week (50+30+32+30+50+42 from the shipped `program.json`); phases Base W1–3, Deload W4, Power endurance W5–7, Deload + retest W8; CTA "Start Day 1: Upper: pull" |
 | 9 Nov (start 2 Nov) | W2 D1 | Base | Overview CTA "Go to today: Week 2 · Day 1"; week 2 highlighted |
 | 8 Nov (start 2 Nov) | W1 D7 | Base | Overview CTA "Go to today: Rest day" |
 

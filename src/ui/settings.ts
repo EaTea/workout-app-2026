@@ -4,6 +4,7 @@ import type { MaxHistoryEntry, TrainingSettings } from "../settings/model";
 import { recordMax } from "../settings/maxHistory";
 import { element } from "./dom";
 import { renderExportSection, type ExportSource } from "./exportSection";
+import { renderProgramOverviewLink } from "./overview";
 import { renderImportSection, type ImportSectionOptions } from "./importSection";
 
 /**
@@ -38,7 +39,7 @@ export type SettingsValidation =
  * saved before dates were recorded); a cleared max loses its date. Saving only
  * the start date edits no max field, so it stamps nothing. Called by the Save
  * handler after validation, with `today` the real local date (never the
- * `?date=` preview). "Start today" does not go through here.
+ * `?date=` preview). The Overview's "Start Day 1" does not go through here.
  */
 export function stampMaxSavedDates(
   previous: Pick<TrainingSettings, "maxSavedOn">,
@@ -153,7 +154,7 @@ export function renderSettingsScreen(
   importOptions?: ImportSectionOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
-  screen.append(element("h1", "screen-title", "Settings"));
+  screen.append(element("h1", "screen-title", "Settings"), renderProgramOverviewLink());
 
   const form = element("form", "card settings-form");
   form.noValidate = true; // we show our own inline errors

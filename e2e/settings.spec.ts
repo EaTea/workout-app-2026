@@ -2,9 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 test("first run prompts for a start date; settings save, drive Today and persist", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("Set your program start date")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Program overview" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Or set a different date in Settings" }).click();
+  await page.getByRole("link", { name: "Or pick another start date in Settings" }).click();
   await page.getByLabel("Start date").fill("2026-11-02");
   await page.getByLabel("Max reps: Pull-ups").fill("12");
   await page.getByLabel("Max reps: Dips").fill("15");
@@ -25,30 +25,31 @@ test("first run prompts for a start date; settings save, drive Today and persist
   await expect(page.getByLabel("Max reps: Dips")).toHaveValue("15");
 });
 
-test("Start today on first run saves today as day 1 and survives a reload", async ({ page }) => {
+test("Start Day 1 on first run saves today as day 1 and survives a reload", async ({ page }) => {
   // 4 Nov: a mid-week start is day 1 and shows the program's first session.
   await page.goto("/?date=2026-11-04");
-  await page.getByRole("button", { name: "Start today" }).click();
+  await page.getByRole("button", { name: "Start Day 1: Upper: pull" }).click();
 
   await expect(page.getByText("Week 1 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeFocused();
 
   await page.reload();
   await expect(page.getByText("Week 1 of 8 · Day 1")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
 });
 
-test("Start today shows an inline alert and keeps the nav when saving fails", async ({ page }) => {
+test("Start Day 1 shows an inline alert and keeps the nav when saving fails", async ({ page }) => {
   await page.goto("/?date=2026-11-04");
   await page.evaluate(() => {
     Storage.prototype.setItem = () => {
       throw new Error("storage is full");
     };
   });
-  await page.getByRole("button", { name: "Start today" }).click();
+  await page.getByRole("button", { name: "Start Day 1: Upper: pull" }).click();
 
   await expect(page.getByRole("alert")).toHaveText("Couldn't save on this device, so the start date won't be remembered.");
-  await expect(page.getByRole("button", { name: "Start today" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start Day 1: Upper: pull" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
 });
 

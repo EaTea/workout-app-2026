@@ -68,22 +68,30 @@ describe("shouldShowNewDayBanner", () => {
   const afterMidnight = new Date(2026, 10, 10, 0, 1);
 
   it("shows on Today once the date has changed", () => {
-    expect(shouldShowNewDayBanner("today", "2026-11-09", "", false, afterMidnight)).toBe(true);
+    expect(shouldShowNewDayBanner("today", "2026-11-09", "", false, true, afterMidnight)).toBe(true);
   });
 
   it("does not show while the date is unchanged", () => {
-    expect(shouldShowNewDayBanner("today", "2026-11-10", "", false, afterMidnight)).toBe(false);
+    expect(shouldShowNewDayBanner("today", "2026-11-10", "", false, true, afterMidnight)).toBe(false);
   });
 
   it("does not show twice", () => {
-    expect(shouldShowNewDayBanner("today", "2026-11-09", "", true, afterMidnight)).toBe(false);
+    expect(shouldShowNewDayBanner("today", "2026-11-09", "", true, true, afterMidnight)).toBe(false);
   });
 
   it("does not show on Settings", () => {
-    expect(shouldShowNewDayBanner("settings", "2026-11-09", "", false, afterMidnight)).toBe(false);
+    expect(shouldShowNewDayBanner("settings", "2026-11-09", "", false, true, afterMidnight)).toBe(false);
+  });
+
+  it("does not show on the Overview", () => {
+    expect(shouldShowNewDayBanner("overview", "2026-11-09", "", false, true, afterMidnight)).toBe(false);
+  });
+
+  it("does not show before a start date exists (first-run Overview)", () => {
+    expect(shouldShowNewDayBanner("today", "2026-11-09", "", false, false, afterMidnight)).toBe(false);
   });
 
   it("never shows for a ?date= preview", () => {
-    expect(shouldShowNewDayBanner("today", "2026-11-09", "?date=2026-11-09", false, afterMidnight)).toBe(false);
+    expect(shouldShowNewDayBanner("today", "2026-11-09", "?date=2026-11-09", false, true, afterMidnight)).toBe(false);
   });
 });

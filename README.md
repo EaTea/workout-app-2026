@@ -4,7 +4,11 @@ A mobile-first web app for following an 8-week "Explosive Endurance" training
 program. Today it shows today's session from `public/program.json` (with
 deload weeks applied), turns max-based reps into concrete targets from your
 tested maxes, shows exercise details (cues, alternative, evidence,
-progression) and has a settings screen. EMOM rows have a "Start EMOM" button
+progression) and has a settings screen. The first time you open it (no start
+date yet) it shows a program overview instead: the 8 weeks and their phases, a
+typical week, the order of every session, and one "Start Day 1: Upper: pull"
+button that saves today as Day 1 and opens Today. Later the overview is one tap
+away from the "Program overview" link on Today and in Settings. EMOM rows have a "Start EMOM" button
 that opens a full-screen timer with a beep and vibration each minute and a
 3-2-1 countdown (the beeps ask Safari 16.4+ to play through an iPhone's
 silent switch; older iOS versions may still mute them, and iOS Safari has no
@@ -71,7 +75,7 @@ npm run dev
 
 To preview another day, add `?date=YYYY-MM-DD` to the URL (e.g.
 `http://localhost:5173/?date=2026-11-09`); it previews that day on the Today
-screen and also sets the start date when you tap Start today, but never changes
+screen and also sets the start date when you tap Start Day 1 on the overview, but never changes
 when maxes count as saved. A "Previewing 16 Nov · back to today" strip shows on
 Today and the log screen while it is in use; past dates can be logged to
 (backfilling), future ones cannot. E2E tests use it too.
