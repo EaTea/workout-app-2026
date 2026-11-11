@@ -624,4 +624,8 @@ describe("Day 3 crab core block (PLAN.md PR 13)", () => {
   it("23 Dec (W8 deload + retest): 2 sets of each, rest 45-60s", () => {
     expectDay3Core("2026-12-23", 2, { min: 45, max: 60 });
   });
+
+  it("tells Ed to end a sprawl set once the reps slow down, as the program's explosive rule asks", () => {
+    expect(item(trainingOn("2026-11-04").blocks, "crab_base_switch_sprawl").note).toContain("End the set if the sprawls slow down");
+  });
 });

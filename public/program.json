@@ -197,7 +197,7 @@
         ]},
         { "type": "core", "format": "superset", "restSecBetweenPairs": [45, 60], "items": [
           { "exercise": "crab_knee_to_elbow", "sets": 3, "reps": 10, "note": "Alternate sides, 5 each. Hips stay up." },
-          { "exercise": "crab_base_switch_sprawl", "sets": 3, "reps": 6, "note": "Alternate the turn direction. Sprawl fast, knees hover in the quadruped." }
+          { "exercise": "crab_base_switch_sprawl", "sets": 3, "reps": 6, "note": "Alternate the turn direction. Sprawl fast, knees hover in the quadruped. End the set if the sprawls slow down." }
         ]}
       ]
     },

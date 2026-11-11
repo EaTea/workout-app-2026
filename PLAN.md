@@ -816,7 +816,10 @@ superset like the Day 1 and Day 5 core blocks:
   `crab_knee_to_elbow` (`"sets": 3, "reps": 10, "note": "Alternate sides,
   5 each. Hips stay up."`) and `crab_base_switch_sprawl` (`"sets": 3,
   "reps": 6, "note": "Alternate the turn direction. Sprawl fast, knees
-  hover in the quadruped."`).
+  hover in the quadruped. End the set if the sprawls slow down."`). The
+  last sentence applies the program's rule that explosive sets end when
+  rep speed drops, since the sprawl is explosive even though the block
+  sits after the strength work.
 - **Weekly progression:** the same as the other core blocks, with nothing
   new in the code. Deload weeks (4 and 8) halve the sets, rounding up
   (3 → 2). Weeks 5–7 cut the rest between pairs by 15s through the
