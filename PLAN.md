@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 11 merged (#3 to #18), and the PR 12 plan merged as #19. PR 12 (day plans by week) is in progress.**
+Status: **PR 1 to PR 12 merged (#3 to #20). PR 13 (Day 3 crab core block) is planned below and waiting for Ed's approval.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -681,7 +681,7 @@ targetMinutes, progression), so no new wire type or parser change.
 - **Merge point:** a first visit lands on the program overview, and one
   tap starts Day 1.
 
-### PR 12 — Day plans by week from the overview *(behavior change)*
+### PR 12 — Day plans by week from the overview *(behavior change)* — merged as PR #20
 Ed asked to tap a day on the Overview and see that day's whole workout,
 and to pick a week to see what would be different for the same day.
 
@@ -776,6 +776,83 @@ weeks 5–8 almost every row would be marked and the week-to-week step
 - **Merge point:** every training day's plan can be browsed week by week
   from the Overview.
 
+### PR 13 — Day 3 crab core block *(behavior change)*
+Ed asked for a small amount of the core work from a video to go on Day 3.
+Day 3 (Upper: push, 32 min) is the only upper-body day without a core
+block. Ed described the two exercises, and they were agreed from
+stick-figure animations (an artifact shared in the project thread):
+
+1. **Crab knee-to-elbow touch.** Hold the crab position in place (hands
+   behind, feet flat, hips up in a tabletop). Lift one hand and bring that
+   elbow forward to meet the opposite knee, then put both back down and
+   switch sides. No crawling.
+2. **Crab to base switch and sprawl.** From the crab, post one hand and
+   turn over into a quadruped with the knees hovering just off the floor
+   (hands under shoulders, knees under hips). Sprawl explosively (legs shoot
+   back, hips drop to the floor, chest up), snap back to the hovering
+   quadruped, then switch back into the crab. Alternate the turn direction
+   each rep.
+
+**What goes on Day 3.** A new `core` block after the overhead-press
+mini-dose, which is where `sessionOrder` already puts core work. It is a
+superset like the Day 1 and Day 5 core blocks:
+
+```
+ Day 3 · Upper: push                 W1–3   W4 (deload)  W5–7     W8 (deload)
+ 1 warm-up    (unchanged)
+ 2 explosive  plyo push-ups          (unchanged)
+ 3 main       dip EMOM               (unchanged)
+ 4 mini-dose  overhead press         (unchanged)
+ 5 core  ◀ new, superset
+     crab knee-to-elbow touch        3 × 10 2 × 10       3 × 10   2 × 10
+       (alternating, 5 per side)
+     crab to base switch + sprawl    3 × 6  2 × 6        3 × 6    2 × 6
+       (alternating turn direction)
+     rest between pairs              45–60s 45–60s       30–45s   45–60s
+```
+
+- **Shape in `program.json`:** `{"type": "core", "format": "superset",
+  "restSecBetweenPairs": [45, 60], "items": [...]}` with
+  `crab_knee_to_elbow` (`"sets": 3, "reps": 10, "note": "Alternate sides,
+  5 each. Hips stay up."`) and `crab_base_switch_sprawl` (`"sets": 3,
+  "reps": 6, "note": "Alternate the turn direction. Sprawl fast, knees
+  hover in the quadruped."`).
+- **Weekly progression:** the same as the other core blocks, with nothing
+  new in the code. Deload weeks (4 and 8) halve the sets, rounding up
+  (3 → 2). Weeks 5–7 cut the rest between pairs by 15s through the
+  existing `coreRestBetweenPairsSec` adjustment (45–60s → 30–45s). Reps
+  stay at 10 and 6 every week. The other core items don't add reps each
+  week either, and a fixed count keeps the sprawls fast.
+- **Time:** about 8 minutes (3 rounds of roughly 40s + 30s of work and
+  about 50s rest, plus setting up), so Day 3's `targetMinutes` goes from 32
+  to 40. The Overview's weekly total goes from about 234 to about 242
+  minutes.
+- **Library:** two new exercises, both category `core`, with cues taken
+  from the descriptions above. `evidence` is `"coaching practice"`, like
+  the other core items without a study behind them.
+- **No code change expected.** The parser, `buildSession`, Today, the day
+  plan and the JSON export already handle a core superset on any day.
+  If the implementation finds otherwise, it stops and this plan is
+  updated before any code changes.
+- **Alternatives considered:** a timed block (for example 3 × 30s each)
+  instead of reps. Reps match the other core blocks and Ed's description
+  of single touches and sprawls. A third, optional exercise, which would
+  push Day 3 past the "small amount" Ed asked for.
+- **Not in scope:** the copy of `program.json` in the project files has
+  already drifted from `public/program.json`, which is the one the app
+  reads. This PR changes only `public/program.json`.
+
+**Steps.**
+1. [ ] `public/program.json`: the two exercises, the Day 3 core block and
+   `targetMinutes` 40. README program notes. Unit tests for the Day 3
+   session in W1, W4, W5 and W8 (worked examples below) and the Overview
+   total of 242 min.
+2. [ ] E2E: Day 3 on Today shows the core block with both exercises and
+   the 45–60s Rest button. The Day 3 plan for week 4 shows 2 × 10 and 2 × 6
+   with their "Changed" lines, and a set of each can be logged.
+3. [ ] Fixes from the challenger review.
+- **Merge point:** Day 3 has a working core block in every week.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -795,7 +872,11 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 28 Nov | W4 D6 | Deload | Wall sit 5 rounds × 90s / 60s, not halved; skater bounds still halved to 3 × 6 per side |
 | 5 Dec | W5 D6 | Power endurance | Wall sit 5 × 90s / 60s, unchanged (no "+5s work" line); W5 D1 heavy bag still 25–35s |
 | 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side; wall sit 5 × 90s / 60s (the retest card shows on Today) |
-| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 234 min a week (50+30+32+30+50+42 from the shipped `program.json`); phases Base W1–3, Deload W4, Power endurance W5–7, Deload + retest W8; CTA "Start Day 1: Upper: pull" |
+| 4 Nov | W1 D3 | Base | Core superset: crab knee-to-elbow 3 × 10, crab to base switch and sprawl 3 × 6, rest 45–60s between pairs; Day 3 about 40 min |
+| 25 Nov | W4 D3 | Deload | Core: 2 × 10 and 2 × 6, rest 45–60s |
+| 2 Dec | W5 D3 | Power endurance | Core: 3 × 10 and 3 × 6, rest 30–45s (Rest button 30s) |
+| 23 Dec | W8 D3 | Deload + retest | Core: 2 × 10 and 2 × 6, rest 45–60s |
+| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 242 min a week (50+30+40+30+50+42 from the shipped `program.json`, after PR 13); phases Base W1–3, Deload W4, Power endurance W5–7, Deload + retest W8; CTA "Start Day 1: Upper: pull" |
 | 9 Nov (start 2 Nov) | W2 D1 | Base | Overview CTA "Go to today: Week 2 · Day 1"; week 2 highlighted |
 | 8 Nov (start 2 Nov) | W1 D7 | Base | Overview CTA "Go to today: Rest day" |
 | Day plan, start 2 Nov, max 12 / 15 | Day 1, W1 → W2 | Base | Pull-up EMOM 4 → 5 / min ("Changed: 4 / min in week 1"); med ball slams 6 × 6 unchanged, so no line |
