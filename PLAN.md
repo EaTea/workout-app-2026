@@ -547,21 +547,22 @@ block adds 5 × 90s + 4 × 60s = 11.5 minutes.
   "Wall sit · 5 rounds". Its rounds are ticked in the log like bag rounds
   (no reps or kg, an optional note). A `note` replaces
   the timer's "Go hard" work label with a cue.
-- **Weeks 5–7 (Ed's decision):** the times stay at 90s work and 60s rest.
-  At the moment the phase's `intervalWorkSec` adjustment lengthens every
-  interval item. So an item can now opt out with `"phaseAdjustments": false`,
-  which is validated like any other field. The wall sit sets it, and the
-  heavy bag keeps its +5s. Today shows no "Power endurance" line for an
+- **Same every week (Ed's decision):** 5 rounds of 90s work with 60s
+  rest in all 8 weeks. The weeks 5–7 +5s work adjustment doesn't apply,
+  and neither does the deload halving in weeks 4 and 8. Right now both
+  rules hit every interval item, so an item can now opt out of all the
+  week-by-week changes with `"sameEveryWeek": true`. It is validated like
+  any other field. The wall sit sets it, and the heavy bag keeps its +5s
+  and its deload halving. Today shows no "Power endurance" line for an
   opted-out item.
-- **Deloads (weeks 4 and 8):** the existing "halve all sets" rule applies,
-  giving 3 rounds (5 halved, rounded up), still at 90s / 60s.
 - **Library:** a new `wall_sit` exercise ("Wall sit", category
   `finisher`). Its cues are back flat on the wall, thighs parallel and
   knees over the ankles. The JSON export and import need no change, since
   sets are filed by exercise id like every other item.
-1. [ ] `phaseAdjustments` opt-out: wire and internal types, parser,
-   `buildSession`, Today's adjustment line, and unit tests (including the
-   W5 D6 example below).
+1. [ ] `sameEveryWeek` opt-out: wire and internal types, parser,
+   `buildSession` (skips the phase timer adjustments and the deload
+   halving), Today's adjustment line, and unit tests (including the W4 D6
+   and W5 D6 examples below).
 2. [ ] Wall sit in `program.json` (exercise, Day 6 finisher block and
    minutes), plus the README's program notes. Unit tests for the Day 6
    session in W1, W4 and W5. E2E: Day 6 shows the block, the timer runs
@@ -584,9 +585,9 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 4 Dec | W5 D5 | Power endurance | Core rest between pairs 30s |
 | 21 Dec | W8 D1 | Deload + retest | With pull-up max 12 saved 2 Nov and 14 saved 18 Dec (W7 D5): pull-up EMOM holds 6 (week 7's figure with 12, shown on 14 Dec), not 7 |
 | 7 Nov | W1 D6 | Base | Wall sit finisher 5 rounds × 90s work / 60s rest; Day 6 about 42 min |
-| 28 Nov | W4 D6 | Deload | Wall sit 3 rounds × 90s / 60s |
+| 28 Nov | W4 D6 | Deload | Wall sit 5 rounds × 90s / 60s, not halved; skater bounds still halved to 3 × 6 per side |
 | 5 Dec | W5 D6 | Power endurance | Wall sit 5 × 90s / 60s, unchanged (no "+5s work" line); W5 D1 heavy bag still 25–35s |
-| 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side (the retest card shows on Today) |
+| 26 Dec | W8 D6 | Deload + retest | Skater bounds 3 × 6 per side; wall sit 5 × 90s / 60s (the retest card shows on Today) |
 
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
