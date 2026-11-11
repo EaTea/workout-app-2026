@@ -1,5 +1,6 @@
 import type { Range } from "../program/model";
 import type { BlockView, ItemView, MaxBasis, RepTarget, SetView } from "../program/schedule";
+import { itemDisplayName } from "../program/rotation";
 import type { LastTime } from "../log/lastTime";
 import type { LoggedSet } from "../log/model";
 
@@ -101,24 +102,72 @@ export function formatBlockTitle(position: number, block: BlockView): string {
 }
 
 /**
- * The "Changed" line under an item on the Day plan: the previous week's
- * figure, e.g. "Changed: 6 × 6 in week 3" or "Changed: 4 / min · 9 min in
- * week 1" (an EMOM's reps and minutes). When the dose itself is the same in
- * both weeks and only a detail differs (e.g. the rest), the previous week's
- * details are shown instead so the line still names what changed.
+ * The dose of an item described from its structure only, never "Set max":
+ * used by `formatItemChange` so a previous week's needs-max row is still
+ * described ("2 sets", "9 min") rather than as the prompt to enter a max.
+ * Items with a missing max get "N sets" (set count) or, for an EMOM, no main
+ * text and just the minutes; everything else is the normal dose.
+ */
+function describeDoseStructure(item: ItemView): ItemDose {
+  if (missingMaxExerciseId(item) === undefined) {
+    return formatItemDose(item);
+  }
+  if (item.format === "emom" && item.minutes !== undefined) {
+    return { text: "", subtext: `${item.minutes} min` };
+  }
+  if (item.sets.length > 0) {
+    return { text: item.sets.length === 1 ? "1 set" : `${item.sets.length} sets` };
+  }
+  return { text: "" };
+}
+
+/**
+ * The "Changed" line under an item on the Day plan: only the parts of the
+ * previous week's figure that differ, e.g. "Changed: 6 × 6 in week 3" or
+ * "Changed: 4 / min in week 1" (an EMOM whose minutes held). The dose's main
+ * text and sub text (an EMOM's minutes) are compared separately. Items that
+ * need a max are described by structure ("2 sets", "9 min"), never "Set max".
+ * A different display name (a rotated warm-up) is reported as the previous
+ * name, "Changed: YTWI raises in week 4". When the dose is the same and only a
+ * detail differs (e.g. rest), the previous details are shown instead.
+ *
+ * `blockReportsFigures` is true when the block's own "Changed" line already
+ * reports its minutes/rounds; an item sub text (minutes) is then not repeated,
+ * and the result is undefined when that was the only difference (no line).
  * `previous` is the earlier week's item, `current` this week's.
  */
-export function formatItemChange(previous: ItemView, current: ItemView, previousWeek: number): string {
-  const previousDose = formatItemDose(previous);
-  const currentDose = formatItemDose(current);
-  const dosesMatch = previousDose.text === currentDose.text && previousDose.subtext === currentDose.subtext;
-  const previousDetails = formatItemDetails(previous);
+export function formatItemChange(previous: ItemView, current: ItemView, previousWeek: number, blockReportsFigures = false): string | undefined {
+  const needsStructure = missingMaxExerciseId(previous) !== undefined || missingMaxExerciseId(current) !== undefined;
+  const previousDose = needsStructure ? describeDoseStructure(previous) : formatItemDose(previous);
+  const currentDose = needsStructure ? describeDoseStructure(current) : formatItemDose(current);
 
-  const figure = dosesMatch && previousDetails.length > 0
-    ? previousDetails.join(DOT)
-    : [previousDose.text, previousDose.subtext].filter((part) => part !== undefined && part !== "").join(DOT);
+  const mainDiffers = previousDose.text !== currentDose.text;
+  const subDiffers = (previousDose.subtext ?? "") !== (currentDose.subtext ?? "");
 
-  return `Changed: ${figure} in week ${previousWeek}`;
+  const parts: string[] = [];
+  if (mainDiffers && previousDose.text !== "") {
+    parts.push(previousDose.text);
+  }
+  if (subDiffers && !blockReportsFigures && previousDose.subtext) {
+    parts.push(previousDose.subtext);
+  }
+
+  if (parts.length === 0) {
+    if (itemDisplayName(previous) !== itemDisplayName(current)) {
+      parts.push(itemDisplayName(previous));
+    } else if (mainDiffers || subDiffers) {
+      // The only difference is figures the block line already reports.
+      return undefined;
+    } else {
+      const previousDetails = formatItemDetails(previous);
+      if (previousDetails.length === 0) {
+        return undefined;
+      }
+      parts.push(previousDetails.join(DOT));
+    }
+  }
+
+  return `Changed: ${parts.join(DOT)} in week ${previousWeek}`;
 }
 
 /**

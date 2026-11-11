@@ -167,11 +167,13 @@ function renderDayRow(day: DayOverview, planWeek: number): HTMLElement {
   const row = element("li", "overview-day overview-day-training");
   const link = element("a", "overview-day-link");
   link.href = planRouteHash(day.dayNumber, planWeek);
+  const chevron = element("span", "overview-day-chevron", "›");
+  chevron.setAttribute("aria-hidden", "true"); // decoration only; the link text already names the day
   link.append(
     element("span", "overview-day-number", `Day ${day.dayNumber}`),
     element("span", "overview-day-focus", day.focus),
     element("span", "overview-day-minutes", `~${day.targetMinutes} min`),
-    element("span", "overview-day-chevron", "›"),
+    chevron,
   );
   if (day.keyExercises.length > 0) {
     link.append(element("span", "overview-day-exercises", day.keyExercises.join(" · ")));

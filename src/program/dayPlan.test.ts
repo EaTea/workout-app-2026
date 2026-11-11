@@ -137,6 +137,12 @@ describe("compareWithPreviousWeek", () => {
     expect(changeFor(5, 6, "wall_sit")).toBeUndefined();
   });
 
+  it("Day 1 W5 vs W4: the warm-up swap is a change; W6 vs W5 is not", () => {
+    const swapped = changesFor(5, 1).items.find((change) => change.previous.rotatedIn === undefined && change.current.rotatedIn !== undefined);
+    expect(swapped).toBeDefined();
+    expect(changesFor(6, 1).items.filter((change) => change.current.rotatedIn !== undefined || change.previous.rotatedIn !== undefined)).toEqual([]);
+  });
+
   it("reports the previous week number", () => {
     expect(changesFor(4, 1).previousWeek).toBe(3);
   });

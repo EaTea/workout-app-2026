@@ -38,7 +38,7 @@ test("tapping Day 1 on the overview shows that day's plan for the current week",
 
   // Pull-ups went up from week 1; med ball slams did not change.
   await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("5 / min");
-  await expect(row(page, "Pull-ups").locator(".plan-changed")).toContainText(/^Changed: 4 \/ min.* in week 1$/);
+  await expect(row(page, "Pull-ups").locator(".plan-changed")).toHaveText("Changed: 4 / min in week 1");
   await expect(row(page, "Med ball slams").locator(".plan-changed")).toHaveCount(0);
 });
 
@@ -88,6 +88,12 @@ test("before the program is started the plan previews week 1 and saves nothing",
 
   await expect(page.locator(".kicker")).toHaveText("Day 1 · Week 1 of 8 · Base");
   await expect(row(page, "Pull-ups").locator(".item-dose-main")).toHaveText("Set max");
+
+  // Without maxes, week 4 must describe the previous dose by structure, never "Set max".
+  await page.getByRole("link", { name: "Week 4" }).click();
+  await expect(row(page, "Dips").locator(".plan-changed")).toHaveText("Changed: 2 sets in week 3");
+  await expect(row(page, "Pull-ups").locator(".plan-changed")).toHaveCount(0);
+  await expect(page.locator(".plan-changed", { hasText: "Set max" })).toHaveCount(0);
 
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();

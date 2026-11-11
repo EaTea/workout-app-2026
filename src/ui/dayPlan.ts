@@ -1,4 +1,4 @@
-import type { Program } from "../program/model";
+import type { Program, Range } from "../program/model";
 import { compareWithPreviousWeek, buildDayPlan, type DayPlanChanges } from "../program/dayPlan";
 import { itemDisplayName } from "../program/rotation";
 import type { BlockView, ItemView, SessionView } from "../program/schedule";
@@ -139,16 +139,13 @@ function renderPhaseChanges(program: Program, session: Extract<SessionView, { ki
   return card;
 }
 
-/** One block card: numbered title, an optional "Changed" line, the between-pairs rest, then the item rows. */
+/** One block card: numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
 function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
   const position = blockIndex + 1;
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
   const blockChange = changes?.blocks.find((change) => change.blockIndex === blockIndex);
-  if (changes !== undefined && blockChange !== undefined) {
-    card.append(element("p", "plan-changed", formatBlockChange(position, blockChange.previous, changes.previousWeek)));
-  }
 
   if (block.restSecBetweenPairs) {
     card.append(element("p", "plan-block-rest", `Rest ${formatRange(block.restSecBetweenPairs)}s between pairs`));
@@ -157,13 +154,25 @@ function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<
     }
   }
 
+  // After the current figures, so the previous figure reads as a note on them.
+  if (changes !== undefined && blockChange !== undefined) {
+    card.append(element("p", "plan-changed", formatBlockChange(position, blockChange.previous, changes.previousWeek)));
+  }
+
   block.items.forEach((item, itemIndex) => {
     const itemChange = changes?.items.find((change) => change.blockIndex === blockIndex && change.itemIndex === itemIndex);
-    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, changes.previousWeek) : undefined;
+    // The block line already reports changed minutes/rounds; the item line must not repeat them.
+    const blockReportsFigures = blockChange !== undefined && (blockChange.previous.minutes !== block.minutes || !sameRange(blockChange.previous.rounds, block.rounds));
+    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, changes.previousWeek, blockReportsFigures) : undefined;
     card.append(renderPlanItemRow(item, session.phase, changedText));
   });
 
   return card;
+}
+
+/** True when two optional ranges are both absent or have equal bounds. */
+function sameRange(first: Range | undefined, second: Range | undefined): boolean {
+  return first === undefined || second === undefined ? first === second : first.min === second.min && first.max === second.max;
 }
 
 /**

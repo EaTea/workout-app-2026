@@ -3,6 +3,7 @@ import { DAYS_PER_WEEK } from "./model";
 import { addDaysToDate } from "./calendar";
 import type { BlockView, ItemView, RepTarget, SessionView } from "./schedule";
 import { buildSession } from "./schedule";
+import { itemDisplayName } from "./rotation";
 import type { TrainingSettings } from "../settings/model";
 
 /**
@@ -93,8 +94,8 @@ export function buildDayPlan(program: Program, settings: TrainingSettings, week:
  * none is saved). Returns undefined when there is nothing to compare: week 1,
  * invalid input, or either week's day is not a training day (rest day).
  *
- * An item only in one of the two weeks (e.g. a rotated warm-up has the same
- * exercise id, so it matches) is skipped. Compared figures are those Today
+ * An item only in one of the two weeks is skipped. A rotated warm-up has the
+ * same exercise id, so it matches and its display-name change is reported. Compared figures are those Today
  * shows (see `itemSignature`), so a change here is always visible on screen.
  */
 export function compareWithPreviousWeek(program: Program, settings: TrainingSettings, week: number, dayNumber: number, today: string): DayPlanChanges | undefined {
@@ -142,9 +143,9 @@ function blockSignature(block: BlockView): string {
 /**
  * A string of every item figure Today displays: set targets, item target,
  * rest, EMOM minutes, rounds, work time (and its phase adjustment), hold
- * time, per-side and load. Deliberately leaves out text that doesn't change
- * by week (name, note, tempo) and display-only flags (the same-every-week
- * note, the warm-up rotation name), which are not figures.
+ * time, per-side and load, plus the display name (a rotated-in warm-up
+ * exercise changes the name Today shows). Deliberately leaves out text that
+ * doesn't change by week (note, tempo) and the same-every-week note.
  */
 function itemSignature(item: ItemView): string {
   return JSON.stringify([
@@ -157,6 +158,7 @@ function itemSignature(item: ItemView): string {
     item.workSecAdjustment,
     item.durationSec,
     item.load,
+    itemDisplayName(item),
   ]);
 }
 

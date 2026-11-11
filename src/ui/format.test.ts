@@ -199,10 +199,31 @@ describe("Day plan wording", () => {
     expect(formatItemChange(slamsWeek3, slamsWeek4, 3)).toBe("Changed: 6 × 6 in week 3");
   });
 
-  it("includes an EMOM's minutes", () => {
-    const before = item({ format: "emom", minutes: 9, target: { kind: "fixed", count: 6 } });
-    const after = item({ format: "emom", minutes: 5, target: { kind: "fixed", count: 6 } });
-    expect(formatItemChange(before, after, 3)).toBe("Changed: 6 / min · 9 min in week 3");
+  it("shows only the EMOM parts that differ", () => {
+    const emom = (count: number, minutes: number) => item({ format: "emom", minutes, target: { kind: "fixed", count } });
+    expect(formatItemChange(emom(4, 9), emom(5, 9), 1)).toBe("Changed: 4 / min in week 1");
+    expect(formatItemChange(emom(6, 9), emom(6, 5), 3)).toBe("Changed: 9 min in week 3");
+    expect(formatItemChange(emom(6, 9), emom(5, 6), 3)).toBe("Changed: 6 / min · 9 min in week 3");
+  });
+
+  it("leaves out minutes the block line already reports, and gives no line if that was all", () => {
+    const emom = (count: number, minutes: number) => item({ format: "emom", minutes, target: { kind: "fixed", count } });
+    expect(formatItemChange(emom(6, 9), emom(6, 5), 3, true)).toBeUndefined();
+    expect(formatItemChange(emom(6, 9), emom(5, 5), 3, true)).toBe("Changed: 6 / min in week 3");
+  });
+
+  it("describes a needs-max previous dose by structure, never as Set max", () => {
+    const needsMax: RepTarget = { kind: "needsMax", exerciseId: "dip", percentMin: 60, percentMax: 70 };
+    expect(formatItemChange(item({ sets: sets(2, needsMax) }), item({ sets: sets(1, needsMax) }), 3)).toBe("Changed: 2 sets in week 3");
+    expect(formatItemChange(item({ sets: sets(1, needsMax) }), item({ sets: sets(2, needsMax) }), 4)).toBe("Changed: 1 set in week 4");
+    const emom = (minutes: number) => item({ format: "emom", minutes, target: needsMax });
+    expect(formatItemChange(emom(9), emom(5), 3)).toBe("Changed: 9 min in week 3");
+  });
+
+  it("reports a changed display name as the previous name", () => {
+    const before = item({ exercise: { ...item().exercise, name: "YTWI raises" } });
+    const after = item({ exercise: { ...item().exercise, name: "YTWI raises" }, rotatedIn: { displayName: "Reverse fly", originalName: "YTWI raises" } });
+    expect(formatItemChange(before, after, 4)).toBe("Changed: YTWI raises in week 4");
   });
 
   it("falls back to the previous details when only a detail changed", () => {
