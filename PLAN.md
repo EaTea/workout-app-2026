@@ -914,7 +914,7 @@ every exercise was picked to fit them:
   toe touches, twisting under load or bending forward to lift, and moves
   are slow and controlled (S3).
 - No jumping, running or heavy weights. Loads are a resistance band, body
-  weight or something light from the kitchen (a 0.5–1 kg tin or bottle).
+  weight or something light (a 0.5–1 kg tin or bottle, or a 1–2 kg bag for the suitcase hold).
   Light-to-moderate strength work is effective and safe for people over
   75 (S7) and for band training (S10).
 - Effort is 5 to 6 out of 10: finish every set with 2 or 3 reps still in
@@ -966,7 +966,7 @@ The Otago warm-up (S2), the same on every main day:
 | --- | --- | --- | --- |
 | Head turns | 5 each side | Turn as far as comfortable | S2 |
 | Neck retraction (chin tuck) | 5 | A hand on the chin guides the head straight back | S2 |
-| Standing back extension | 5 | Hands on the small of the back, gently arch; stop if it sends pain down a leg | S2 |
+| Standing back extension | 5 | Hands on the small of the back, gently arch; stop if it sends pain down a leg; skip it if bending back brings on leg pain, heaviness or numbness | S2 |
 | Ankle pumps, seated | 10 each foot | Pull the foot up, then point it | S2 |
 
 The Otago warm-up also has trunk turns; they're left out because they
@@ -976,8 +976,8 @@ Day 1 · Legs and core
 | Block | Exercise | Weeks 1–2 | Notes and cues | Source |
 | --- | --- | --- | --- | --- |
 | Balance | Single-leg stand at the counter | 4 rounds × 20s, 20s rest, alternate legs | Hold the counter, then fingertips, then hover (progression) | S2, S1 |
-| Isometric | High wall sit | 3 × 20s, 40s rest | Slide only a little way down (knees bent no more than a quarter); back flat on the wall; breathe | S13, S12, S14 |
-| | Glute bridge hold | 3 × 15s, 30s rest | On the bed is fine; squeeze the buttocks, don't arch the back. Alternative: standing buttock squeeze, 3 × 20s | S8, S13 |
+| Isometric | High wall sit | 3 × 20s, 40s rest | Slide only a little way down (knees bent no more than a quarter); back flat on the wall; breathe; about half effort | S13, S12, S14 |
+| | Glute bridge hold | 3 × 15s, 30s rest | On the bed is fine; squeeze the buttocks, don't arch the back. Alternative: standing buttock squeeze, 3 × 20s, on the same timer as the bridge | S8, S13 |
 | | Pallof press hold (band) | 4 × 15s, 20s rest, alternate sides | Band anchored at chest height in a door; arms straight out, don't let the band turn you | S9, S10 |
 | Strength | Sit-to-stand from a chair | 3 × 8–12, 60s rest | Two hands, then one hand, then no hands (progression) | S2, S7 |
 | | Heel and toe raises at the counter | 2 × 10 each, 60s rest | Up onto the toes, then rock back onto the heels | S2 |
@@ -1009,8 +1009,8 @@ Day 5 · Whole body
 | --- | --- | --- | --- | --- |
 | Balance | Heel-to-toe walk along the counter | 3 × 10 steps | One hand on the counter | S2 |
 | Isometric | Counter plank | 3 × 15s, 30s rest | Forearms or hands on the counter, body straight from head to heels | S8 |
-| | Split-stance hold at the counter | 4 × 15s, 20s rest, alternate legs | One foot ahead, small knee bend in both legs, torso upright | S13, S7 |
-| | Suitcase hold | 4 × 20s, 20s rest, alternate hands | A light shopping bag (1–3 kg) in one hand, stand tall and don't lean | S8, S11 |
+| | Split-stance hold at the counter | 4 × 15s, 20s rest, alternate legs | One foot ahead, small knee bend in both legs, torso upright; about half effort | S13, S7 |
+| | Suitcase hold | 4 × 20s, 20s rest, alternate hands | A light bag (1–2 kg) in one hand; pick it up from a counter or chair seat, never from the floor; stand tall and don't lean; about half effort | S8, S11 |
 | Strength | Stair step-up | 2 × 8 per side, 60s rest | Bottom stair with the rail, whole foot on the step | S2 |
 | | Sit-to-stand from a chair | 2 × 8–12, 60s rest | | S2, S7 |
 | | Band row | 2 × 8–12, 60s rest | | S10 |
@@ -1026,7 +1026,7 @@ Days 2, 4 and 6 · Balance and walk
 | --- | --- | --- | --- | --- |
 | Balance | Single-leg stand at the counter | 4 × 20s, 20s rest, alternate legs | | S2 |
 | | Heel-to-toe stand at the counter | 4 × 20s, 20s rest, alternate front foot | | S2 |
-| | Sideways walking along the counter | 2 × 10 steps each way | Moving balance, as Too Fit To Fracture advises after static holds | S2, S3 |
+| | Sideways walking along the counter | 2 × 10 steps each way | Side-step along the counter, one hand on it, feet don't cross | S2, S3 |
 | | Sit-to-stand from a chair | 1 × 8 | Slow and controlled | S2 |
 | Walk | Walk at a comfortable pace | 10–20 min | Indoors or out; you should be able to talk | S4, S2 |
 

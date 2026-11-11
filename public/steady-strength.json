@@ -7,7 +7,7 @@
     "sessionOrder": ["warmup", "balance", "isometric", "strength", "core", "cooldown", "walk"],
     "rules": [
       "Keep the spine neutral and tall. No sit-ups, crunches, toe touches, twisting under load or bending forward to lift, and move slowly and in control.",
-      "No jumping, running or heavy weights. Use a resistance band, body weight or something light from the kitchen (a 0.5-1 kg tin or bottle).",
+      "No jumping, running or heavy weights. Use a resistance band, body weight or something light (a 0.5–1 kg tin or bottle, or a 1–2 kg bag for the suitcase hold).",
       "Effort is 5 to 6 out of 10: finish every set with 2 or 3 reps still in hand. Mild muscle tiredness is normal; pain is the signal to stop.",
       "Breathe out during the effort and never hold your breath. Holds stay short, at about half effort.",
       "Almost everything is standing at a counter, sitting on a chair or leaning on a wall, with the supported version first and less support as you progress. The one lying-down hold (the glute bridge) can be done on a bed and has a standing alternative."
@@ -36,7 +36,7 @@
     "standing_back_extension": {
       "name": "Standing back extension",
       "category": "warmup",
-      "cues": ["Hands on the small of the back, gently arch", "Stop if it sends pain down a leg"],
+      "cues": ["Hands on the small of the back, gently arch", "Stop if it sends pain down a leg", "Skip it if bending back brings on leg pain, heaviness or numbness"],
       "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
     },
     "ankle_pumps": {
@@ -68,20 +68,20 @@
     "sideways_walking": {
       "name": "Sideways walking along the counter",
       "category": "balance",
-      "cues": ["Moving balance, as Too Fit To Fracture advises after static holds"],
+      "cues": ["Side-step along the counter, one hand on it, feet don't cross"],
       "evidence": "https://doi.org/10.1136/bmj.315.7115.1065"
     },
     "high_wall_sit": {
       "name": "High wall sit",
       "category": "isometric",
-      "cues": ["Slide only a little way down (knees bent no more than a quarter)", "Back flat on the wall", "Breathe"],
+      "cues": ["Slide only a little way down (knees bent no more than a quarter)", "Back flat on the wall", "Breathe", "About half effort"],
       "evidence": "https://doi.org/10.1111/sms.13375"
     },
     "glute_bridge_hold": {
       "name": "Glute bridge hold",
       "category": "isometric",
       "cues": ["On the bed is fine", "Squeeze the buttocks, don't arch the back"],
-      "alternative": "Standing buttock squeeze, 3 x 20s",
+      "alternative": "Standing buttock squeeze, 3 × 20s, on the same timer as the bridge",
       "evidence": "https://doi.org/10.1016/j.apmr.2008.06.026"
     },
     "pallof_press_hold": {
@@ -115,13 +115,13 @@
     "split_stance_hold": {
       "name": "Split-stance hold at the counter",
       "category": "isometric",
-      "cues": ["One foot ahead, small knee bend in both legs", "Torso upright"],
+      "cues": ["One foot ahead, small knee bend in both legs", "Torso upright", "About half effort"],
       "evidence": "https://doi.org/10.1111/sms.13375"
     },
     "suitcase_hold": {
       "name": "Suitcase hold",
       "category": "isometric",
-      "cues": ["A light shopping bag (1-3 kg) in one hand", "Stand tall and don't lean"],
+      "cues": ["A light bag (1–2 kg) in one hand", "Pick the bag up from a counter or chair seat, never from the floor", "Stand tall and don't lean", "About half effort"],
       "evidence": "https://doi.org/10.1016/j.apmr.2008.06.026"
     },
     "sit_to_stand": {
