@@ -8,6 +8,7 @@ import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
 import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
+import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
 import { checkInWeekToAsk, trainingWeekOf, type CheckInDraft } from "./checkin";
@@ -142,7 +143,7 @@ export function renderTodayScreen(
       screen.append(...renderTrainingDay(program, session, date, log));
       break;
     default:
-      screen.append(renderMessageCard(session, program.lengthWeeks, date));
+      screen.append(renderMessageCard(session, program.lengthWeeks, date, program.safety));
   }
 
   return screen;
@@ -153,12 +154,15 @@ export function renderTodayScreen(
  * finished. Each ends with the small "Program overview" link. The
  * `noStartDate` case is only here to keep the switch exhaustive: app.ts never
  * renders Today without a start date (it shows the Overview), so the card just
- * points there.
+ * points there. A program with safety notes keeps the "Safety notes" link on
+ * these cards too (as on a training day), so the notes are one tap away on
+ * rest days as well.
  */
 function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
   lengthWeeks: number,
   date: string,
+  safetyNotes: string[],
 ): HTMLElement {
   const card = element("div", "card message-card");
 
@@ -192,6 +196,9 @@ function renderMessageCard(
   }
 
   card.append(renderProgramOverviewLink());
+  if (safetyNotes.length > 0) {
+    card.append(renderSafetyNotesLink(safetyNotes));
+  }
   return card;
 }
 
@@ -216,6 +223,10 @@ function renderTrainingDay(
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
     renderProgramOverviewLink(),
   );
+  // A program with safety notes keeps them one tap away; the sheet is shared with the exercise details.
+  if (program.safety.length > 0) {
+    header.append(renderSafetyNotesLink(program.safety));
+  }
 
   const parts: HTMLElement[] = [header, renderPhaseStrip(program, session.phase, session.isDeload)];
 

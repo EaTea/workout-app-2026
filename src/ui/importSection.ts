@@ -1,5 +1,5 @@
 import "./export.css";
-import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, wrongProgramMessage, type ImportSummary } from "../export/import";
+import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, wrongProgramMessage, type ImportSummary, type ProgramNames } from "../export/import";
 import { applyImport, undoLastImport } from "../export/importApply";
 import { listImportBackups } from "../export/importBackup";
 import { todayLocalDate } from "../program/calendar";
@@ -50,6 +50,9 @@ export interface ImportSectionOptions {
 
   /** The active program's storage keys: which stored data an import replaces and where its backups go. */
   storageKeys: ProgramStorageKeys;
+
+  /** Display names of the loaded programs by id, so the "wrong program" refusal names programs rather than ids. */
+  programNames: ProgramNames;
 
   /** How many sessions are logged right now, for the preview's "You have N sessions now". */
   currentSessionCount: () => number;
@@ -158,7 +161,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
         "This puts back the data you had before your last import. Your current data is first kept as a backup, so you can undo this too.",
       ),
       actionButton("primary-button", "Yes, undo the import", () => {
-        const outcome = undoLastImport(options.storage, options.storageKeys);
+        const outcome = undoLastImport(options.storage, options.storageKeys, new Date(), options.programNames);
         if (outcome.ok) {
           options.onImported(outcome.backupKey);
         } else {
@@ -190,7 +193,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
         return;
       }
 
-      const wrongProgram = wrongProgramMessage(result.data.programId, options.storageKeys.programId);
+      const wrongProgram = wrongProgramMessage(result.data.programId, options.storageKeys.programId, options.programNames);
       if (wrongProgram !== null) {
         showMessage(wrongProgram, true);
         return;
@@ -231,7 +234,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
     preview.append(
       actionButton("primary-button", "Replace my data", () => {
         showConfirmation(importedText, () => {
-          const outcome = applyImport(options.storage, options.storageKeys, result.data);
+          const outcome = applyImport(options.storage, options.storageKeys, result.data, new Date(), options.programNames);
           if (outcome.ok) {
             options.onImported(outcome.backupKey);
           } else {

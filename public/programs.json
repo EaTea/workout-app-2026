@@ -1,5 +1,6 @@
 {
   "programs": [
-    { "id": "explosive-endurance", "file": "program.json" }
+    { "id": "explosive-endurance", "file": "program.json" },
+    { "id": "steady-strength", "file": "steady-strength.json" }
   ]
 }

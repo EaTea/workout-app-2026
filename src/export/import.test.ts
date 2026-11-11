@@ -183,7 +183,7 @@ describe("parseImport", () => {
     for (const text of ["[]", "null", "42", '{"format":"something-else","version":1}', '{"version":1}']) {
       const result = parseImport(text);
       expect(result.ok).toBe(false);
-      expect(!result.ok && result.error).toContain("not an Explosive Endurance export");
+      expect(!result.ok && result.error).toContain("not an export file from this app");
     }
   });
 
@@ -260,9 +260,23 @@ describe("wrongProgramMessage", () => {
     expect(wrongProgramMessage("explosive-endurance", "explosive-endurance")).toBeNull();
   });
 
-  it("names both programs and says what to do when they differ", () => {
+  it("names both programs by id when no display names are known, and says what to do", () => {
     expect(wrongProgramMessage("steady-strength", "explosive-endurance")).toContain(
       'This backup is for "steady-strength", but you\'re using "explosive-endurance". Switch program first, then import it.',
+    );
+  });
+
+  it("names both programs by their display names when known", () => {
+    const names = { "explosive-endurance": "Explosive Endurance", "steady-strength": "Steady Strength" };
+
+    expect(wrongProgramMessage("steady-strength", "explosive-endurance", names)).toContain(
+      'This backup is for "Steady Strength", but you\'re using "Explosive Endurance". Switch program first, then import it.',
+    );
+  });
+
+  it("falls back to the id for a program that is not loaded", () => {
+    expect(wrongProgramMessage("removed-program", "explosive-endurance", { "explosive-endurance": "Explosive Endurance" })).toContain(
+      'This backup is for "removed-program", but you\'re using "Explosive Endurance".',
     );
   });
 });

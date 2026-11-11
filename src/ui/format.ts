@@ -30,6 +30,11 @@ const BLOCK_LABELS: Record<string, string> = {
   miniDose: "Mini-dose",
   core: "Core",
   finisher: "Finisher",
+  balance: "Balance",
+  isometric: "Isometric holds",
+  strength: "Strength",
+  walk: "Walk",
+  cooldown: "Cool-down",
 };
 
 /** The big right-hand figure of an item row, plus optional extras. */
@@ -416,16 +421,20 @@ export function formatTimerAdjustment(phase: string, seconds: number, kind: "wor
 }
 
 /**
- * A weekly training time as friendly text for the Overview headline: under an
- * hour it is exact ("45 min"); otherwise it is rounded to the nearest half
- * hour and prefixed "about", e.g. 234 min -> "about 4 h", 255 min ->
- * "about 4.5 h". Used by `formatOverviewHeadline`.
+ * A weekly training time as friendly text for the Overview headline and the
+ * picker cards: under an hour it is exact ("45 min"); otherwise it is rounded
+ * to the nearest 15 minutes and prefixed "about", e.g. 242 min -> "about 4 h",
+ * 135 min -> "about 2 h 15 min". Whole hours print without minutes. Used by
+ * `formatOverviewHeadline`.
  */
 export function formatWeeklyDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
 
-  const hoursRoundedToHalf = Math.round(minutes / 30) / 2;
-  return `about ${hoursRoundedToHalf} h`;
+  const roundedMinutes = Math.round(minutes / 15) * 15;
+  const hours = Math.floor(roundedMinutes / 60);
+  const leftoverMinutes = roundedMinutes % 60;
+
+  return leftoverMinutes === 0 ? `about ${hours} h` : `about ${hours} h ${leftoverMinutes} min`;
 }
 
 /**

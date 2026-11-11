@@ -1,4 +1,5 @@
-import { parseCatalogue, type ProgramCatalogue } from "./catalogue";
+import { parseCatalogue, type CatalogueEntry, type ProgramCatalogue } from "./catalogue";
+import type { Program, ProgramWarning } from "./model";
 import { parseProgram, type ParseResult } from "./parse";
 
 /** Describes a caught value for a message. */
@@ -67,4 +68,47 @@ export async function loadProgram(url = "./program.json"): Promise<ParseResult> 
 export async function loadCatalogue(url = "./programs.json"): Promise<ProgramCatalogue> {
   const contents = await fetchJson(url);
   return parseNamingFile(url, contents, parseCatalogue);
+}
+
+/** How one catalogue program's file turned out: parsed, or broken with a readable reason (which already names the file). */
+export type CatalogueProgramOutcome =
+  | { kind: "loaded"; program: Program; warnings: ProgramWarning[] }
+  | { kind: "broken"; error: string };
+
+/** One catalogue entry together with what loading its file gave. */
+export interface LoadedCatalogueEntry {
+  entry: CatalogueEntry;
+  outcome: CatalogueProgramOutcome;
+}
+
+/**
+ * Loads every program file the catalogue lists, in parallel, and never
+ * rejects: a file that can't be fetched or parsed becomes a "broken" outcome
+ * carrying the error message (which names the file), so one bad program file
+ * disables only its own picker card instead of stopping the app. The result
+ * keeps catalogue order.
+ *
+ *   catalogue.entries ──▶ loadProgram(each, in parallel) ──▶ LoadedCatalogueEntry[]
+ *                                  │ throws
+ *                                  ▼
+ *                         { kind: "broken", error }
+ *
+ * Called once at startup by main.ts; the result feeds `chooseStartup`, the
+ * program picker and the import messages (display names). `loadOne` is
+ * injectable for tests.
+ */
+export async function loadAllPrograms(
+  catalogue: ProgramCatalogue,
+  loadOne: (url: string) => Promise<ParseResult> = loadProgram,
+): Promise<LoadedCatalogueEntry[]> {
+  return Promise.all(
+    catalogue.entries.map(async (entry): Promise<LoadedCatalogueEntry> => {
+      try {
+        const { program, warnings } = await loadOne(entry.programUrl);
+        return { entry, outcome: { kind: "loaded", program, warnings } };
+      } catch (error) {
+        return { entry, outcome: { kind: "broken", error: describeError(error) } };
+      }
+    }),
+  );
 }

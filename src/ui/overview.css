@@ -203,3 +203,11 @@
   color: var(--accent-text);
   font-size: 15px;
 }
+
+/* Program name on the left, "Switch program" link on the right. */
+.overview-program-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}

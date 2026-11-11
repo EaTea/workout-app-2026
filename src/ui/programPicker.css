@@ -1,0 +1,94 @@
+/* Program picker ("Choose your program"): one large tappable card per program. */
+.program-picker-intro {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.program-card {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 12px;
+  border: 2px solid transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.program-card:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.program-card-current {
+  border-color: var(--accent);
+}
+
+.program-card-name {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.program-card-goal {
+  display: block;
+  margin: 0 0 6px;
+  line-height: 1.4;
+}
+
+.program-card-headline {
+  display: block;
+  margin: 0;
+  color: #aab1bd;
+  font-size: 15px;
+}
+
+.program-card-current-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.program-card-error {
+  display: block;
+  margin: 0;
+  color: var(--danger);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* "Switch program" link, next to the program name on the Overview and in Settings. */
+.switch-program-link {
+  display: inline-block;
+  min-height: 48px;
+  padding: 12px 0;
+  color: var(--accent-text);
+  font-size: 15px;
+}
+
+.settings-program-row {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* The program's first safety note as a calm amber notice line at the foot of its card. */
+.program-card-safety {
+  display: block;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #2a2216;
+  color: #ffd08a;
+  font-size: 14px;
+  line-height: 1.4;
+}

@@ -1,4 +1,4 @@
-import type { Program } from "../program/model";
+import type { Exercise, Program } from "../program/model";
 import { toDayNumber } from "../program/calendar";
 import type { MaxHistoryEntry, TrainingSettings } from "../settings/model";
 import { recordMax } from "../settings/maxHistory";
@@ -6,6 +6,7 @@ import { element } from "./dom";
 import { renderExportSection, type ExportSource } from "./exportSection";
 import { renderProgramOverviewLink } from "./overview";
 import { renderImportSection, type ImportSectionOptions } from "./importSection";
+import { renderSwitchProgramLink } from "./programPicker";
 
 /**
  * The Settings screen: start date plus one tested-max input per exercise the
@@ -98,6 +99,15 @@ export function updateMaxHistory(
 }
 
 /**
+ * The exercises that get a "Max reps" field: those the program flags
+ * `maxTested`. A program with none (Steady Strength) gets no max fields at
+ * all, so Settings shows only the start date. Used by `renderSettingsScreen`.
+ */
+export function maxTestedExercises(program: Program): Exercise[] {
+  return Object.values(program.exercises).filter((exercise) => exercise.maxTested);
+}
+
+/**
  * Checks raw form text and converts it to the form's settings fields. Called by the
  * Save handler; the error messages are shown inline under each field.
  */
@@ -154,7 +164,7 @@ export function renderSettingsScreen(
   importOptions?: ImportSectionOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
-  screen.append(element("h1", "screen-title", "Settings"), renderProgramOverviewLink());
+  screen.append(element("h1", "screen-title", "Settings"), renderProgramOverviewLink(), renderProgramRow(program.name));
 
   const form = element("form", "card settings-form");
   form.noValidate = true; // we show our own inline errors
@@ -175,10 +185,7 @@ export function renderSettingsScreen(
   const maxErrors: Record<string, HTMLElement> = {};
   /** Max fields typed in during this visit; any `input` event counts, even if the value ends up the same. */
   const editedExerciseIds = new Set<string>();
-  for (const exercise of Object.values(program.exercises)) {
-    if (!exercise.maxTested) {
-      continue;
-    }
+  for (const exercise of maxTestedExercises(program)) {
     const input = element("input");
     // Deliberately type="text": a type="number" input reports "" for junk like
     // "1e", which would silently read as "not tested" and wipe the stored max.
@@ -243,6 +250,13 @@ export function renderSettingsScreen(
     screen.append(renderImportSection(importOptions));
   }
   return screen;
+}
+
+/** "Program: <name> · Switch program": which program Settings (and so the data) belongs to, with the way to change it. */
+function renderProgramRow(programName: string): HTMLElement {
+  const row = element("p", "settings-program-row");
+  row.append(`Program: ${programName} \u00b7 `, renderSwitchProgramLink());
+  return row;
 }
 
 /** Wraps a labelled input with optional hint text and an error slot. */

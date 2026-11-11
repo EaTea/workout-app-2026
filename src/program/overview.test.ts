@@ -165,3 +165,44 @@ describe("buildProgramOverview: nothing is hard-coded", () => {
     expect(buildProgramOverview(smallProgram, { kind: "active", week: 1, dayNumber: 2 }).callToAction.label).toBe("Go to today: Week 1 · Day 2");
   });
 });
+
+describe("buildProgramOverview: Steady Strength key exercises", () => {
+  const steadyStrength = parseProgram(JSON.parse(readFileSync("public/steady-strength.json", "utf-8"))).program;
+
+  it("lists the first isometric hold and the first strength exercise on days with those blocks, and none on walk days", () => {
+    const rows = buildProgramOverview(steadyStrength, noStartDate).days;
+    const keyExercisesOf = (dayNumber: number) => {
+      const row = rows.find((candidate) => candidate.dayNumber === dayNumber);
+      return row?.kind === "training" ? row.keyExercises : undefined;
+    };
+
+    expect(keyExercisesOf(1)).toEqual(["High wall sit", "Sit-to-stand from a chair"]);
+    expect(keyExercisesOf(2)).toEqual([]);
+    expect(keyExercisesOf(3)).toEqual(["Wall push hold", "Band row"]);
+    expect(keyExercisesOf(4)).toEqual([]);
+    expect(keyExercisesOf(5)).toEqual(["Counter plank", "Stair step-up"]);
+    expect(keyExercisesOf(6)).toEqual([]);
+  });
+});
+
+describe("buildProgramOverview: safety notes", () => {
+  const steadyStrength = parseProgram(JSON.parse(readFileSync("public/steady-strength.json", "utf-8"))).program;
+
+  it("carries all of Steady Strength's safety notes, in order, for the Before you start card", () => {
+    const overview = buildProgramOverview(steadyStrength, noStartDate);
+
+    expect(overview.safetyNotes).toEqual(steadyStrength.safety);
+    expect(overview.safetyNotes).toHaveLength(5);
+    expect(overview.safetyNotes[0]).toMatch(/^This is not medical advice\./);
+  });
+
+  it("has no safety notes (so no card) for Explosive Endurance", () => {
+    expect(buildProgramOverview(program, noStartDate).safetyNotes).toEqual([]);
+  });
+
+  it("shows the notes in every status, not only before starting", () => {
+    const active: ProgramStatus = { kind: "active", week: 2, dayNumber: 3 };
+
+    expect(buildProgramOverview(steadyStrength, active).safetyNotes).toHaveLength(5);
+  });
+});

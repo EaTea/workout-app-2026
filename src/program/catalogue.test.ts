@@ -13,10 +13,13 @@ function errorMessageFor(json: unknown): string {
 }
 
 describe("parseCatalogue", () => {
-  it("reads the real public/programs.json: Explosive Endurance, loaded from program.json", () => {
+  it("reads the real public/programs.json: Explosive Endurance first, then Steady Strength", () => {
     const catalogue = parseCatalogue(JSON.parse(readFileSync("public/programs.json", "utf-8")));
 
-    expect(catalogue.entries).toEqual([{ programId: "explosive-endurance", programUrl: "./program.json" }]);
+    expect(catalogue.entries).toEqual([
+      { programId: "explosive-endurance", programUrl: "./program.json" },
+      { programId: "steady-strength", programUrl: "./steady-strength.json" },
+    ]);
   });
 
   it("keeps the order of several entries", () => {

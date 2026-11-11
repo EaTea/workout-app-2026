@@ -112,6 +112,8 @@ export interface ProgramInfoWire {
   restDay: number;
   sessionOrder: string[];
   rules: string[];
+  /** Optional: short safety notes a program shows before anyone starts it (each non-empty). */
+  safety?: string[];
 }
 
 /** One warm-up swap: replace exercise id `out` with free text `in`. */
