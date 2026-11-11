@@ -20,12 +20,6 @@ import { checkForWeek, fatigueWarnings, weeklyChecksFor, type FatigueWarning } f
  *   this week's drops over 10% (empty = no banner)
  */
 
-/** localStorage key holding the date ("YYYY-MM-DD") on which "Remind me tomorrow" was last tapped. */
-export const CHECKIN_SNOOZED_STORAGE_KEY = "explosive-endurance.checkin-snoozed";
-
-/** localStorage key holding the program week whose drop banner was dismissed. */
-export const FATIGUE_WARNING_DISMISSED_STORAGE_KEY = "explosive-endurance.fatigue-warning-dismissed";
-
 /** Broad jump limits (metres): more than 0 and at most 5, two decimals. Same as the stored check's rules. */
 export const MINIMUM_BROAD_JUMP_METRES = 0.01;
 export const MAXIMUM_BROAD_JUMP_METRES = 5;
@@ -52,7 +46,8 @@ export const PREVIEW_SAVING_OFF_MESSAGE = "Previewing — saving is off on this 
  * check-in then), no check is saved for the week and "Remind me tomorrow" was
  * not tapped on this very date. A snooze made on an earlier date therefore
  * ends by itself: the card returns on the next date of the same week.
- * Called by `renderTodayScreen` on every render, and by app.ts when saving.
+ * A program without a `fatigueCheck` never asks. Called by
+ * `renderTodayScreen` on every render, and by app.ts when saving.
  */
 export function checkInWeekToAsk(
   program: Program,
@@ -61,6 +56,8 @@ export function checkInWeekToAsk(
   history: FatigueHistory,
   snoozedDate: string | undefined,
 ): number | undefined {
+  if (program.fatigueCheck === undefined) return undefined;
+
   const week = trainingWeekOf(program, settings, date);
   if (week === undefined || phaseForWeek(program, week).retest) return undefined;
   const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks);
@@ -85,7 +82,8 @@ export function trainingWeekOf(program: Program, settings: TrainingSettings, dat
  * The drops over 10% in the check saved for the program week of `date`
  * (any day of an active program, including the rest day), with that week.
  * Empty `warnings` when the date is outside the program or the week has no
- * drop. Drives the Today banner, "for the rest of that week".
+ * drop. A program without a `fatigueCheck` never has one. Drives the Today
+ * banner, "for the rest of that week".
  */
 export function dropWarningForShownDate(
   program: Program,
@@ -93,6 +91,8 @@ export function dropWarningForShownDate(
   date: string,
   history: FatigueHistory,
 ): { week: number; warnings: FatigueWarning[] } {
+  if (program.fatigueCheck === undefined) return { week: 0, warnings: [] };
+
   const status = programStatus(settings.startDate, program.lengthWeeks, date);
   if (status.kind !== "active") return { week: 0, warnings: [] };
 

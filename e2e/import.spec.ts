@@ -106,6 +106,68 @@ test("importing keeps the replaced data as a backup that the next export carries
   expect(JSON.parse(exported.importBackups[0].text).log.sessions).toHaveLength(2);
 });
 
+test("a backup of another program is refused with a message naming it, and nothing changes", async ({ page }, testInfo) => {
+  await seedData(page);
+  const file = testInfo.outputPath("export.json");
+  await exportTo(page, file);
+  const exported = JSON.parse(readFileSync(file, "utf-8"));
+  expect(exported.version).toBe(2);
+  expect(exported.programId).toBe("explosive-endurance");
+
+  const otherProgramFile = testInfo.outputPath("steady.json");
+  writeFileSync(otherProgramFile, JSON.stringify({ ...exported, programId: "steady-strength" }));
+  const before = await page.evaluate(() => JSON.stringify(window.localStorage));
+
+  await page.getByLabel("Import from JSON").setInputFiles(otherProgramFile);
+
+  await expect(page.locator(".import-error")).toContainText(
+    'This backup is for "steady-strength", but you\'re using "explosive-endurance". Switch program first, then import it.',
+  );
+  await expect(page.getByRole("button", { name: "Replace my data" })).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.stringify(window.localStorage))).toBe(before);
+});
+
+test("a version 1 export file (from before programs had ids) imports into Explosive Endurance", async ({ page }, testInfo) => {
+  // Hand-written in the shape the version 1 app exported: no programId, no maxHistory block.
+  const version1File = testInfo.outputPath("version1.json");
+  writeFileSync(
+    version1File,
+    JSON.stringify({
+      format: "explosive-endurance-export",
+      version: 1,
+      exportedAt: "2026-11-05T08:00:00.000Z",
+      settings: { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" } },
+      log: {
+        version: 1,
+        sessions: [
+          {
+            date: "2026-11-02", programWeek: 1, day: 1,
+            sets: [{ exerciseId: "pull_up", blockPosition: 3, setNumber: 1, reps: 5, loggedAt: "2026-11-02T18:00:00.000Z" }],
+          },
+        ],
+      },
+      fatigueChecks: { version: 1, checks: [{ date: "2026-11-09", maxPullUps: 10, savedAt: "2026-11-09T07:30:00.000Z" }] },
+    }),
+  );
+
+  await page.goto("/#/settings");
+  await page.getByLabel("Import from JSON").setInputFiles(version1File);
+  await expect(page.getByText("1 session", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Replace my data" }).click();
+  await page.getByRole("button", { name: "Yes, replace my data" }).click();
+  await expect(page.locator(".toast")).toContainText("Imported. You can undo it in Settings.");
+
+  const stored = await page.evaluate(() => ({
+    log: JSON.parse(window.localStorage.getItem("explosive-endurance.log") ?? "null"),
+    fatigue: JSON.parse(window.localStorage.getItem("explosive-endurance.fatigue") ?? "null"),
+    settings: JSON.parse(window.localStorage.getItem("explosive-endurance.settings") ?? "null"),
+  }));
+  expect(stored.log.sessions).toHaveLength(1);
+  expect(stored.fatigue.checks).toHaveLength(1);
+  expect(stored.settings.startDate).toBe("2026-11-02");
+});
+
 test("Cancel leaves everything as it was", async ({ page }, testInfo) => {
   await seedData(page);
   const file = testInfo.outputPath("export.json");
@@ -128,7 +190,7 @@ test("a file that is not an export is refused with a message and nothing changes
   const wrongFormat = testInfo.outputPath("other.json");
   writeFileSync(wrongFormat, JSON.stringify({ hello: "world" }));
   const futureVersion = testInfo.outputPath("future.json");
-  writeFileSync(futureVersion, JSON.stringify({ format: "explosive-endurance-export", version: 2 }));
+  writeFileSync(futureVersion, JSON.stringify({ format: "explosive-endurance-export", version: 3 }));
 
   await page.getByLabel("Import from JSON").setInputFiles(notJson);
   await expect(page.locator(".import-error")).toContainText("could not be read as JSON");
@@ -137,7 +199,7 @@ test("a file that is not an export is refused with a message and nothing changes
   await expect(page.locator(".import-error")).toContainText("not an Explosive Endurance export");
 
   await page.getByLabel("Import from JSON").setInputFiles(futureVersion);
-  await expect(page.locator(".import-error")).toContainText("version 2");
+  await expect(page.locator(".import-error")).toContainText("version 3");
 
   await expect(page.getByRole("button", { name: "Replace my data" })).toHaveCount(0);
   const logText = await page.evaluate(() => window.localStorage.getItem("explosive-endurance.log"));

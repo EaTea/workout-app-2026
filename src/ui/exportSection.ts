@@ -19,6 +19,8 @@ import { element } from "./dom";
 
 /** The data an export reads, read fresh from storage at click time (`export/source.ts` `readExportSource`, supplied by `app.ts`). */
 export interface ExportSource {
+  /** The active program's catalogue id; names the files and is written into the JSON. */
+  programId: string;
   settings: TrainingSettings;
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
@@ -50,13 +52,15 @@ export function renderExportSection(program: Program, getSource: () => ExportSou
   csvButton.disabled = logIsEmpty;
 
   csvButton.addEventListener("click", () => {
-    const csv = logToCsv(getSource().log, program);
-    void saveExportFile(exportFileName("csv"), csv, "text/csv;charset=utf-8");
+    const source = getSource();
+    const csv = logToCsv(source.log, program);
+    void saveExportFile(exportFileName(source.programId, "csv"), csv, "text/csv;charset=utf-8");
   });
 
   jsonButton.addEventListener("click", () => {
     const source = getSource();
     const wire = exportToWire({
+      programId: source.programId,
       exportedAt: new Date(),
       settings: source.settings,
       log: source.log,
@@ -64,7 +68,7 @@ export function renderExportSection(program: Program, getSource: () => ExportSou
       corruptLogBackups: source.corruptLogBackups,
       importBackups: source.importBackups,
     });
-    void saveExportFile(exportFileName("json"), serializeExport(wire), "application/json");
+    void saveExportFile(exportFileName(source.programId, "json"), serializeExport(wire), "application/json");
   });
 
   section.append(csvButton);

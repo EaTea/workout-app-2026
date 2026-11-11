@@ -176,9 +176,12 @@ export interface Program {
   /** Training days keyed by day number (1-7); the rest day has no entry. */
   days: Partial<Record<DayNumber, Day>>;
   progression: ProgressionPhase[];
+  /** Empty when the program file has no `coreProgressions` section. */
   coreProgressions: Record<string, string>;
-  warmupRotation: WarmupRotation;
-  fatigueCheck: FatigueCheck;
+  /** Undefined when the program has no warm-up rotation: warm-ups are never swapped and no rotation card shows. */
+  warmupRotation?: WarmupRotation;
+  /** Undefined when the program has no fatigue check: no weekly check-in card, no drop banner, no broad jump on the retest card. */
+  fatigueCheck?: FatigueCheck;
 }
 
 /**

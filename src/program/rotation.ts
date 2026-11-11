@@ -44,6 +44,9 @@ export function rotatedName(exerciseId: string, rotation: WarmupRotation): strin
 export function rotationBlockStartWeek(program: Program, session: SessionView): number | undefined {
   if (session.kind !== "training") return undefined;
 
+  // No rotation in the program: no swapped block, so no card.
+  if (program.warmupRotation === undefined) return undefined;
+
   const everyWeeks = program.warmupRotation.everyWeeks;
   if (!isRotatedWeek(session.week, everyWeeks)) return undefined;
 
@@ -56,10 +59,11 @@ export function rotationBlockStartWeek(program: Program, session: SessionView): 
  * marked `rotatedIn` (the new display name and the original's name) when
  * `week` is a swapped week; otherwise the blocks unchanged. Only the display
  * changes: `item.exercise` stays the original so logging keeps its id.
- * Called by `buildSession`.
+ * `rotation` is undefined for a program with no warm-up rotation, which
+ * leaves the blocks unchanged. Called by `buildSession`.
  */
-export function applyRotationToBlocks(blocks: BlockView[], week: number, rotation: WarmupRotation): BlockView[] {
-  if (!isRotatedWeek(week, rotation.everyWeeks)) return blocks;
+export function applyRotationToBlocks(blocks: BlockView[], week: number, rotation: WarmupRotation | undefined): BlockView[] {
+  if (rotation === undefined || !isRotatedWeek(week, rotation.everyWeeks)) return blocks;
 
   return blocks.map((block) => {
     if (block.type !== "warmup") return block;
@@ -97,6 +101,7 @@ export function performedAsName(
 ): string {
   const ownName = program.exercises[exerciseId]?.name ?? exerciseId;
   if (week === undefined || blockType !== "warmup") return ownName;
+  if (program.warmupRotation === undefined) return ownName;
   if (!isRotatedWeek(week, program.warmupRotation.everyWeeks)) return ownName;
 
   return rotatedName(exerciseId, program.warmupRotation) ?? ownName;

@@ -59,8 +59,21 @@ as a dismissible banner on Today for the rest of that week. "Remind me
 tomorrow" hides the card for that date only. Saving the week 8 retest of
 pull-ups and/or the broad jump records them as that week's check, whichever is
 saved first, the other merging into it later. Checks are stored in
-`localStorage` under `explosive-endurance.fatigue`. It is a static site
+`localStorage` under `<programId>.fatigue` (`explosive-endurance.fatigue` for Explosive Endurance). It is a static site
 (Vite + TypeScript, no UI framework).
+
+**Where data is kept.** Every program keeps its own data in `localStorage`
+under keys that start with its id from `programs.json`: `<programId>.settings`,
+`.max-history`, `.log`, `.fatigue`, `.checkin-snoozed`,
+`.fatigue-warning-dismissed`, `.rotation-dismissed`, `.retest-dismissed`,
+`.retest-jump-skipped`, plus the backup keys `.log.corrupt-<time>`,
+`.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
+(`explosive-endurance`) these are the keys the app has always used. One key is
+app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
+says which program runs; when it is missing or names a program that is not in
+`programs.json`, the first program listed is used. The service worker's reload
+guard is app-wide too, but it lives in `sessionStorage` (not `localStorage`) and
+only lasts for the browser tab. The keys are built in `src/storage/programKeys.ts`.
 
 ## Install
 
@@ -103,14 +116,34 @@ CI runs the same suite; see "Deployment" below.
 
 ## Editing program.json
 
-`public/program.json` is the training program. If you break something that would
-make a session wrong (wrong type, missing field, unknown exercise id, a week
-with no progression phase) the app shows an error card naming the path; a field
-the app doesn't recognise is only a warning: the field is ignored, the session
-still loads, and an amber banner on Today lists each one. A misspelt field name
-(say `weeklyIncreese`) is ignored too, so that part of the session is missing;
-the banner suggests the fix ("did you mean "weeklyIncrease"?") and opens its
-list straight away when it spots a likely typo.
+`public/program.json` is the Explosive Endurance program. If you break
+something that would make a session wrong (wrong type, missing field, unknown
+exercise id, a week with no progression phase) the app shows an error card
+naming the file and the path; a field the app doesn't recognise is only a
+warning: the field is ignored, the session still loads, and an amber banner on
+Today lists each one. A misspelt field name (say `weeklyIncreese`) is ignored
+too, so that part of the session is missing; the banner suggests the fix ("did
+you mean "weeklyIncrease"?") and opens its list straight away when it spots a
+likely typo.
+
+`public/programs.json` is the catalogue of programs: a list of
+`{ "id": "explosive-endurance", "file": "program.json" }` entries (ids use
+lowercase letters, digits and hyphens; `file` is a plain `.json` file name in
+`public/`). The app loads the catalogue first, then the program file of the
+chosen entry. A bad catalogue shows the same error card, naming the file and
+the path (e.g. `./programs.json: programs[0].id`).
+
+**Warning: never change an existing program's `id`.** The id names that
+program's storage keys (`<id>.log` and so on), so renaming it strands the
+program's data under the old keys, and backups made under the old id would be
+refused. Also, the first entry is what opens when no program has been chosen
+(or the chosen one is no longer listed), so reordering the entries can switch a
+phone to another program. Add new programs at the end.
+
+A program file may leave out `fatigueCheck`, `warmupRotation` and
+`coreProgressions`. Without `fatigueCheck` there is no weekly check-in, drop
+banner or retest broad jump; without `warmupRotation` warm-ups never rotate and
+there is no rotation card. When a section is present it is checked as before.
 
 `days[].day` and `restDay` are whole numbers from 1 to 7: Day 1 is the session
 on your start date, and Day 7 is the rest day in the shipped program (not
@@ -119,8 +152,8 @@ week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
 too); then they use that max with no weekly increase. The held reps use the
 max that was in effect on the last week 7 day with that EMOM (every saved max is kept as a
-dated history in its own `localStorage` key, `explosive-endurance.max-history`,
-separate from `explosive-endurance.settings` so an older copy of the app can't
+dated history in its own `localStorage` key, `<programId>.max-history`,
+separate from `<programId>.settings` so an older copy of the app can't
 wipe it; clearing a max keeps its history), so a max raised later in week 7
 doesn't change them.
 
@@ -166,10 +199,12 @@ UTF-8 byte order mark so Excel reads it correctly. The export reads what is
 stored at the moment you tap the button.
 "Export everything as JSON" gives the log, the weekly checks, your
 settings and the max history (every max you saved, under `maxHistory`) in a
-versioned file (`"format": "explosive-endurance-export"`, `"version": 1`),
+versioned file (`"format": "explosive-endurance-export"`, `"version": 2`, and
+`"programId"`, the catalogue id of the program the data belongs to),
 plus `corruptLogBackups` if the app ever had to set aside unreadable log text,
 and `importBackups` if an import ever replaced data (see below). Files are
-named `explosive-endurance-YYYY-MM-DD.csv` or `.json`; they download, or on
+named `<programId>-YYYY-MM-DD.csv` or `.json` (for example
+`explosive-endurance-2026-11-09.json`); they download, or on
 iPhone open the share sheet so you can save them to Files. Nothing is sent
 anywhere.
 
@@ -181,16 +216,22 @@ holds (sessions, sets, weekly checks, the dates logged and the start date)
 before changing anything. "Replace my data" then asks once more ("Yes,
 replace my data"); "Cancel" leaves everything as it was.
 
-- A file that is not an export, is not valid JSON, is a version other than 1,
-  or has no readable log, check-ins or settings section is refused with a
-  message. The preview also shows when the file was exported and how many
+- A file that is not an export, is not valid JSON, is a version other than 1
+  or 2, has a version 2 `programId` that is not a valid program id, or has no
+  readable log, check-ins or settings section is refused with a message.
+  Version 1 files (from before programs had ids) are read as belonging to
+  `explosive-endurance`.
+- A backup that belongs to another program than the one you are using is
+  refused before anything is shown or changed: "This backup is for
+  "steady-strength", but you're using "explosive-endurance". Switch program
+  first, then import it." The preview also shows when the file was exported and how many
   sessions you have now. A file with a few unreadable sets or checks is accepted the way the
   stored data is: the readable ones are kept and the preview lists what was
   left out. Files exported before the max history was added (no `maxHistory`)
   and files with older settings versions still import.
 - Importing replaces the log, weekly checks, settings and max history. Before
   anything is written, the current data is saved as a backup in the browser
-  (key `explosive-endurance.import-backup-<time>`), itself a complete export
+  (key `<programId>.import-backup-<time>`), itself a complete export
   file (written compactly, with the exact stored text of each key inside). The
   next "Export everything as JSON" carries these under `importBackups`.
 - **Undo:** while a backup exists, the Import card has "Undo last import". It

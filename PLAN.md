@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 13 merged (#3 to #22). PR 14 plans a second program, Steady Strength (for someone aged 75+ with a history of slipped discs), and a program picker; it is waiting for Ed's approval, and PR 15 and PR 16 implement it.**
+Status: **PR 1 to PR 14 merged (#3 to #23). PR 15 (programs catalogue and per-program storage) is in progress; PR 16 (Steady Strength and the program picker) follows.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1215,22 +1215,52 @@ as a broken Explosive flow in review rather than hiding inside the new
 program.
 
 **Steps.**
-1. [ ] `public/programs.json` with one entry, its wire type, parser and
+1. [x] `public/programs.json` with one entry, its wire type, parser and
    loader, and `main.ts` loading the active program through it. Unit
    tests for the catalogue parser (missing file, duplicate id, bad id).
-2. [ ] Storage keys built from the program id (settings, max history, log,
+2. [x] Storage keys built from the program id (settings, max history, log,
    check-ins, snoozes, dismissals), with a unit test that Explosive's keys
    are unchanged. The active-program key and its wire type.
-3. [ ] Export wire v2 with `programId`, reading v1 as Explosive, and the
+3. [x] Export wire v2 with `programId`, reading v1 as Explosive, and the
    import refusing another program's backup. Unit tests.
-4. [ ] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
+4. [x] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
    the parser, and the UI hiding what depends on them. Unit tests with a
    cut-down program fixture. The whole E2E suite passes unchanged.
-5. [ ] Fixes from the challenger review.
+5. [x] Fixes from the challenger review. It compared every screen,
+   storage key, export name and old-backup path with `main` and found no
+   change for Explosive Endurance. Fixed: an E2E import of a version 1
+   file, undo refusing another program's backup and undo of old backups
+   pinned, file names in startup errors, "(missing)" for a missing
+   `programId`, the README warning never to rename an existing program id
+   or reorder the catalogue carelessly, `programs.json` documented and
+   tested as cache-first, and stale comments. Not fixed, on purpose:
+   - The Import card checks the program only after the whole file parses,
+     so another program's broken file shows a section error first. Rare,
+     and the program check still runs before anything is written.
+   - A program with a retest and a max-tested pull-up but no
+     `fatigueCheck` would still record the retest as a weekly check.
+     Neither program has that combination.
 - **Merge point:** the app runs from the catalogue with per-program
   storage, and every existing test still passes.
 
 ### PR 16 — Steady Strength program and the program picker *(behavior change)*
+**Learned from the PR 15 review** (shapes the steps below):
+- **Choosing at startup:** with no stored choice, Explosive Endurance
+  opens when it has saved data (start date, log or maxes); otherwise the
+  picker opens. This goes in `chooseCatalogueEntry`, so the order of
+  `programs.json` stops mattering, and "nothing stored" stays distinct
+  from "stored id not in the catalogue" (which opens the picker).
+- **Loading:** all program files are loaded at startup, so the picker can
+  show each name, goal and weekly numbers, and a file that fails to parse
+  only disables its own card instead of blocking the app.
+- **Switching** saves the active program and reloads the page, because
+  the app shell holds one program's keys and data from startup.
+- **Offline edits:** every program file listed in the catalogue is
+  network-first like `program.json` (`programs.json` itself stays
+  cache-first), so edits to `steady-strength.json` behave the same.
+- **Wording:** the import messages name programs, not ids, and the "not
+  an Explosive Endurance export file" message becomes program-neutral.
+
 **Steps.**
 1. [ ] `public/steady-strength.json` exactly as tabled above (with the
    `evidence` links from the Evidence table), the

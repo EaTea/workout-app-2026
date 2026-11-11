@@ -92,7 +92,8 @@ test("Export everything as JSON downloads the versioned export with every set", 
   expect(name).toMatch(/^explosive-endurance-\d{4}-\d{2}-\d{2}\.json$/);
   const exported = JSON.parse(text);
   expect(exported.format).toBe("explosive-endurance-export");
-  expect(exported.version).toBe(1);
+  expect(exported.version).toBe(2);
+  expect(exported.programId).toBe("explosive-endurance");
   expect(exported.settings.startDate).toBe("2026-11-02");
   const setCount = exported.log.sessions.reduce((total: number, session: { sets: unknown[] }) => total + session.sets.length, 0);
   expect(setCount).toBe(5);

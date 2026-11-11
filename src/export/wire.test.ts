@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { exportToWire, serializeExport, type ExportBundle, type ExportWireV1 } from "./wire";
 
 const bundle: ExportBundle = {
+  programId: "explosive-endurance",
   exportedAt: new Date("2026-11-09T08:00:00.000Z"),
   settings: { startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" }, maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] } },
   log: {
@@ -21,7 +22,8 @@ describe("exportToWire", () => {
   it("maps every part to its wire form with format, version and ISO timestamps", () => {
     expect(exportToWire(bundle)).toEqual({
       format: "explosive-endurance-export",
-      version: 1,
+      version: 2,
+      programId: "explosive-endurance",
       exportedAt: "2026-11-09T08:00:00.000Z",
       settings: { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" } },
       maxHistory: { version: 1, maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] } },

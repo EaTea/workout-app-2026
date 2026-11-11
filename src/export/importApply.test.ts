@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { FATIGUE_STORAGE_KEY } from "../fatigue/storage";
-import { LOG_STORAGE_KEY } from "../log/storage";
-import { MAX_HISTORY_STORAGE_KEY } from "../settings/maxHistoryStorage";
-import { SETTINGS_STORAGE_KEY } from "../settings/storage";
 import { parseImport, type ImportedData } from "./import";
 import { applyImport, undoLastImport } from "./importApply";
-import { IMPORT_BACKUP_PREFIX, MAX_IMPORT_BACKUPS, listImportBackups, type ImportBackup } from "./importBackup";
+import { MAX_IMPORT_BACKUPS, listImportBackups, type ImportBackup } from "./importBackup";
 import { readExportSource } from "./source";
 import { FakeStorage } from "./testStorage";
+import { storageKeysForProgram } from "../storage/programKeys";
+
+/** Explosive Endurance's keys, the ones the app has always used. */
+const KEYS = storageKeysForProgram("explosive-endurance");
 
 const NOW = new Date("2026-11-10T09:00:00.000Z");
-const BACKUP_KEY = `${IMPORT_BACKUP_PREFIX}2026-11-10T09:00:00.000Z`;
+const BACKUP_KEY = `${KEYS.importBackupPrefix}2026-11-10T09:00:00.000Z`;
 
 const importedData: ImportedData = {
+  programId: "explosive-endurance",
   settings: { startDate: "2026-11-02", maxReps: { pull_up: 14 }, maxSavedOn: { pull_up: "2026-12-18" }, maxHistory: { pull_up: [{ savedOn: "2026-12-18", reps: 14 }] } },
   log: {
     sessions: {
@@ -28,30 +29,30 @@ const importedData: ImportedData = {
 /** Storage holding some older data under all four keys. */
 function storageWithOldData(): FakeStorage {
   return new FakeStorage({
-    [SETTINGS_STORAGE_KEY]: JSON.stringify({ version: 2, startDate: "2026-10-01", maxReps: { dip: 9 }, maxSavedOn: { dip: "2026-10-01" } }),
-    [MAX_HISTORY_STORAGE_KEY]: JSON.stringify({ version: 1, maxHistory: { dip: [{ savedOn: "2026-10-01", reps: 9 }] } }),
-    [LOG_STORAGE_KEY]: JSON.stringify({
+    [KEYS.settings]: JSON.stringify({ version: 2, startDate: "2026-10-01", maxReps: { dip: 9 }, maxSavedOn: { dip: "2026-10-01" } }),
+    [KEYS.maxHistory]: JSON.stringify({ version: 1, maxHistory: { dip: [{ savedOn: "2026-10-01", reps: 9 }] } }),
+    [KEYS.log]: JSON.stringify({
       version: 1,
       sessions: [{ date: "2026-10-01", programWeek: 1, day: 1, sets: [{ exerciseId: "dip", blockPosition: 3, setNumber: 1, reps: 6, loggedAt: "2026-10-01T18:00:00.000Z" }] }],
     }),
-    [FATIGUE_STORAGE_KEY]: JSON.stringify({ version: 1, checks: [{ date: "2026-10-05", maxPullUps: 8, savedAt: "2026-10-05T07:00:00.000Z" }] }),
+    [KEYS.fatigue]: JSON.stringify({ version: 1, checks: [{ date: "2026-10-05", maxPullUps: 8, savedAt: "2026-10-05T07:00:00.000Z" }] }),
   });
 }
 
 /** The four data keys' current raw text. */
 function dataKeys(storage: FakeStorage): Record<string, string | null> {
-  return Object.fromEntries([LOG_STORAGE_KEY, FATIGUE_STORAGE_KEY, SETTINGS_STORAGE_KEY, MAX_HISTORY_STORAGE_KEY].map((key) => [key, storage.getItem(key)]));
+  return Object.fromEntries([KEYS.log, KEYS.fatigue, KEYS.settings, KEYS.maxHistory].map((key) => [key, storage.getItem(key)]));
 }
 
 describe("applyImport", () => {
   it("backs up first, then replaces every key; reading the stored data gives the imported data", () => {
     const storage = storageWithOldData();
 
-    const result = applyImport(storage, importedData, NOW);
+    const result = applyImport(storage, KEYS, importedData, NOW);
 
     expect(result).toEqual({ ok: true, backupKey: BACKUP_KEY });
     expect(storage.writeLog[0]).toBe(BACKUP_KEY);
-    const source = readExportSource(storage);
+    const source = readExportSource(storage, KEYS);
     expect(source.settings).toEqual(importedData.settings);
     expect(source.log).toEqual(importedData.log);
     expect(source.fatigueHistory).toEqual(importedData.fatigueHistory);
@@ -60,20 +61,46 @@ describe("applyImport", () => {
   it("keeps the replaced data in the backup as an export file that imports back to it", () => {
     const storage = storageWithOldData();
 
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
 
-    const [backup] = listImportBackups(storage) as [ImportBackup];
+    const [backup] = listImportBackups(storage, KEYS) as [ImportBackup];
     expect(backup.storageKey).toBe(BACKUP_KEY);
     const restored = parseImport(backup.exportText);
     expect(restored.ok && restored.summary).toMatchObject({ sessionCount: 1, setCount: 1, checkCount: 1, startDate: "2026-10-01" });
     expect(restored.ok && restored.data.settings.maxHistory).toEqual({ dip: [{ savedOn: "2026-10-01", reps: 9 }] });
   });
 
+  it("refuses data of another program and leaves storage untouched", () => {
+    const storage = storageWithOldData();
+    const before = dataKeys(storage);
+    storage.writeLog.length = 0;
+
+    const result = applyImport(storage, KEYS, { ...importedData, programId: "steady-strength" }, NOW);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain('This backup is for "steady-strength", but you\'re using "explosive-endurance"');
+    expect(dataKeys(storage)).toEqual(before);
+    expect(storage.writeLog).toEqual([]);
+    expect(listImportBackups(storage, KEYS)).toEqual([]);
+  });
+
+  it("imports data of the matching program, and its backup is stamped with that program", () => {
+    const steadyKeys = storageKeysForProgram("steady-strength");
+    const storage = new FakeStorage();
+
+    const result = applyImport(storage, steadyKeys, { ...importedData, programId: "steady-strength" }, NOW);
+
+    expect(result.ok).toBe(true);
+    expect(readExportSource(storage, steadyKeys).programId).toBe("steady-strength");
+    const [backup] = listImportBackups(storage, steadyKeys) as [ImportBackup];
+    expect(JSON.parse(backup.exportText)).toMatchObject({ version: 2, programId: "steady-strength" });
+  });
+
   it("works on a fresh phone with nothing stored", () => {
     const storage = new FakeStorage();
 
-    expect(applyImport(storage, importedData, NOW).ok).toBe(true);
-    expect(readExportSource(storage).log).toEqual(importedData.log);
+    expect(applyImport(storage, KEYS, importedData, NOW).ok).toBe(true);
+    expect(readExportSource(storage, KEYS).log).toEqual(importedData.log);
   });
 
   it("changes nothing when the backup cannot be written", () => {
@@ -81,7 +108,7 @@ describe("applyImport", () => {
     const before = dataKeys(storage);
     storage.failingKeys.add(BACKUP_KEY);
 
-    const result = applyImport(storage, importedData, NOW);
+    const result = applyImport(storage, KEYS, importedData, NOW);
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toContain("nothing was changed");
@@ -89,12 +116,12 @@ describe("applyImport", () => {
   });
 
   it("puts the old data back when a later key fails to write", () => {
-    for (const failingKey of [LOG_STORAGE_KEY, FATIGUE_STORAGE_KEY, MAX_HISTORY_STORAGE_KEY, SETTINGS_STORAGE_KEY]) {
+    for (const failingKey of [KEYS.log, KEYS.fatigue, KEYS.maxHistory, KEYS.settings]) {
       const storage = storageWithOldData();
       const before = dataKeys(storage);
       storage.failingKeys.add(failingKey);
 
-      const result = applyImport(storage, importedData, NOW);
+      const result = applyImport(storage, KEYS, importedData, NOW);
 
       expect(result.ok).toBe(false);
       expect(!result.ok && result.error).toContain("previous data was put back");
@@ -105,53 +132,53 @@ describe("applyImport", () => {
 
   it("removes keys that did not exist before when rolling back", () => {
     const storage = new FakeStorage();
-    storage.failingKeys.add(SETTINGS_STORAGE_KEY);
+    storage.failingKeys.add(KEYS.settings);
 
-    const result = applyImport(storage, importedData, NOW);
+    const result = applyImport(storage, KEYS, importedData, NOW);
 
     expect(result.ok).toBe(false);
-    expect(dataKeys(storage)).toEqual({ [LOG_STORAGE_KEY]: null, [FATIGUE_STORAGE_KEY]: null, [SETTINGS_STORAGE_KEY]: null, [MAX_HISTORY_STORAGE_KEY]: null });
+    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
   });
 
   it("says where the data is when even the rollback fails", () => {
     const storage = storageWithOldData();
-    storage.failingKeys.add(SETTINGS_STORAGE_KEY);
+    storage.failingKeys.add(KEYS.settings);
     // Writing the old log text back also fails (storage is now refusing it).
     const realSetItem = storage.setItem.bind(storage);
     let logWrites = 0;
     storage.setItem = (key: string, value: string) => {
-      if (key === LOG_STORAGE_KEY && ++logWrites === 2) throw new Error("disk full");
+      if (key === KEYS.log && ++logWrites === 2) throw new Error("disk full");
       realSetItem(key, value);
     };
 
-    const result = applyImport(storage, importedData, NOW);
+    const result = applyImport(storage, KEYS, importedData, NOW);
 
     expect(result.ok).toBe(false);
-    expect(!result.ok && result.error).toContain(LOG_STORAGE_KEY);
+    expect(!result.ok && result.error).toContain(KEYS.log);
     expect(!result.ok && result.error).toContain(BACKUP_KEY);
     expect(storage.getItem(BACKUP_KEY)).not.toBeNull(); // the only full copy of the old data stays
   });
 
   it("leaves no backups after three failed attempts that each rolled back", () => {
     const storage = storageWithOldData();
-    storage.failingKeys.add(SETTINGS_STORAGE_KEY);
+    storage.failingKeys.add(KEYS.settings);
 
     for (const minute of [1, 2, 3]) {
-      applyImport(storage, importedData, new Date(NOW.getTime() + minute * 60_000));
+      applyImport(storage, KEYS, importedData, new Date(NOW.getTime() + minute * 60_000));
     }
 
-    expect(listImportBackups(storage)).toEqual([]);
+    expect(listImportBackups(storage, KEYS)).toEqual([]);
   });
 
   it("writes the backup as compact JSON that holds the raw text of the four keys", () => {
     const storage = storageWithOldData();
     const before = dataKeys(storage);
 
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
 
     const backupText = storage.getItem(BACKUP_KEY) as string;
     expect(backupText).not.toContain("\n");
-    const [backup] = listImportBackups(storage) as [ImportBackup];
+    const [backup] = listImportBackups(storage, KEYS) as [ImportBackup];
     expect(Object.fromEntries((backup.rawStoredTexts ?? []).map((raw) => [raw.storageKey, raw.text]))).toEqual(before);
   });
 
@@ -159,23 +186,23 @@ describe("applyImport", () => {
     const storage = storageWithOldData();
 
     for (const minute of [1, 2, 3, 4, 5]) {
-      expect(applyImport(storage, importedData, new Date(NOW.getTime() + minute * 60_000)).ok).toBe(true);
+      expect(applyImport(storage, KEYS, importedData, new Date(NOW.getTime() + minute * 60_000)).ok).toBe(true);
     }
 
-    const keys = listImportBackups(storage).map((backup) => backup.storageKey);
+    const keys = listImportBackups(storage, KEYS).map((backup) => backup.storageKey);
     expect(keys).toHaveLength(MAX_IMPORT_BACKUPS);
-    expect(keys).toEqual([3, 4, 5].map((minute) => `${IMPORT_BACKUP_PREFIX}${new Date(NOW.getTime() + minute * 60_000).toISOString()}`));
+    expect(keys).toEqual([3, 4, 5].map((minute) => `${KEYS.importBackupPrefix}${new Date(NOW.getTime() + minute * 60_000).toISOString()}`));
   });
 
   it("refuses, writing nothing, when the stored log cannot be read at all", () => {
     const storage = storageWithOldData();
     storage.getItem = (key: string) => {
-      if (key === LOG_STORAGE_KEY) throw new Error("blocked");
+      if (key === KEYS.log) throw new Error("blocked");
       return FakeStorage.prototype.getItem.call(storage, key);
     };
     storage.writeLog.length = 0;
 
-    const result = applyImport(storage, importedData, NOW);
+    const result = applyImport(storage, KEYS, importedData, NOW);
 
     expect(result.ok).toBe(false);
     expect(storage.writeLog).toEqual([]);
@@ -183,9 +210,9 @@ describe("applyImport", () => {
 
   it("keeps unreadable stored log text under the loaders' own corrupt key before replacing it", () => {
     const storage = storageWithOldData();
-    storage.setItem(LOG_STORAGE_KEY, "{broken");
+    storage.setItem(KEYS.log, "{broken");
 
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
 
     expect(storage.getItem("explosive-endurance.log.corrupt-2026-11-10T09:00:00.000Z")).toBe("{broken");
   });
@@ -194,9 +221,9 @@ describe("applyImport", () => {
 describe("export after an import", () => {
   it("lists the import backups in the export source, apart from the corrupt-log backups", () => {
     const storage = storageWithOldData();
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
 
-    const source = readExportSource(storage);
+    const source = readExportSource(storage, KEYS);
 
     expect(source.importBackups.map((backup) => backup.storageKey)).toEqual([BACKUP_KEY]);
     expect(source.corruptLogBackups).toEqual([]);
@@ -206,11 +233,11 @@ describe("export after an import", () => {
 describe("undoLastImport", () => {
   it("puts back the exact previous key texts, including settings the loaders cannot read", () => {
     const storage = storageWithOldData();
-    storage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ version: 99, startDate: "2026-10-01" }));
+    storage.setItem(KEYS.settings, JSON.stringify({ version: 99, startDate: "2026-10-01" }));
     const before = dataKeys(storage);
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
 
-    const result = undoLastImport(storage, new Date(NOW.getTime() + 60_000));
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
 
     expect(result.ok).toBe(true);
     expect(dataKeys(storage)).toEqual(before);
@@ -218,11 +245,11 @@ describe("undoLastImport", () => {
 
   it("backs up the data it replaces, so the undo can be undone", () => {
     const storage = storageWithOldData();
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
     const importedKeys = dataKeys(storage);
 
-    undoLastImport(storage, new Date(NOW.getTime() + 60_000));
-    const second = undoLastImport(storage, new Date(NOW.getTime() + 120_000));
+    undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+    const second = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 120_000));
 
     expect(second.ok).toBe(true);
     expect(dataKeys(storage)).toEqual(importedKeys);
@@ -230,31 +257,81 @@ describe("undoLastImport", () => {
 
   it("removes keys that were absent before the import", () => {
     const storage = new FakeStorage();
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
 
-    undoLastImport(storage, new Date(NOW.getTime() + 60_000));
+    undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
 
-    expect(dataKeys(storage)).toEqual({ [LOG_STORAGE_KEY]: null, [FATIGUE_STORAGE_KEY]: null, [SETTINGS_STORAGE_KEY]: null, [MAX_HISTORY_STORAGE_KEY]: null });
+    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
   });
 
   it("falls back to reading an older backup that has no raw texts", () => {
     const storage = storageWithOldData();
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
     const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
     delete backupText.rawStoredTexts;
     storage.setItem(BACKUP_KEY, JSON.stringify(backupText, null, 2));
 
-    const result = undoLastImport(storage, new Date(NOW.getTime() + 60_000));
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
 
     expect(result.ok).toBe(true);
-    expect(readExportSource(storage).log.sessions["2026-10-01"]).toBeDefined();
+    expect(readExportSource(storage, KEYS).log.sessions["2026-10-01"]).toBeDefined();
+  });
+
+  it("refuses, changing nothing, a backup that belongs to another program", () => {
+    const storage = storageWithOldData();
+    applyImport(storage, KEYS, importedData, NOW);
+    const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
+    backupText.programId = "steady-strength";
+    storage.setItem(BACKUP_KEY, JSON.stringify(backupText));
+    const before = dataKeys(storage);
+
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain('"steady-strength"');
+    expect(dataKeys(storage)).toEqual(before);
+    expect(listImportBackups(storage, KEYS)).toHaveLength(1);
+  });
+
+  describe("a backup stored in the old version 1 format (no programId)", () => {
+    /** Rewrites the stored backup as the version 1 app wrote it: no programId, version 1; raw texts kept only when asked. */
+    function downgradeBackupToVersion1(storage: FakeStorage, keepRawTexts: boolean): void {
+      const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
+      backupText.version = 1;
+      delete backupText.programId;
+      if (!keepRawTexts) delete backupText.rawStoredTexts;
+      storage.setItem(BACKUP_KEY, JSON.stringify(backupText));
+    }
+
+    it("is undone from its raw texts when it has them", () => {
+      const storage = storageWithOldData();
+      const before = dataKeys(storage);
+      applyImport(storage, KEYS, importedData, NOW);
+      downgradeBackupToVersion1(storage, true);
+
+      const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+      expect(result.ok).toBe(true);
+      expect(dataKeys(storage)).toEqual(before);
+    });
+
+    it("is undone by reading it like an import file when it has no raw texts", () => {
+      const storage = storageWithOldData();
+      applyImport(storage, KEYS, importedData, NOW);
+      downgradeBackupToVersion1(storage, false);
+
+      const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+      expect(result.ok).toBe(true);
+      expect(readExportSource(storage, KEYS).log.sessions["2026-10-01"]).toBeDefined();
+    });
   });
 
   it("says so, changing nothing, when there is no backup", () => {
     const storage = storageWithOldData();
     const before = dataKeys(storage);
 
-    const result = undoLastImport(storage, NOW);
+    const result = undoLastImport(storage, KEYS, NOW);
 
     expect(result.ok).toBe(false);
     expect(dataKeys(storage)).toEqual(before);
@@ -262,14 +339,14 @@ describe("undoLastImport", () => {
 
   it("restores the old data and removes its own backup when a write fails", () => {
     const storage = storageWithOldData();
-    applyImport(storage, importedData, NOW);
+    applyImport(storage, KEYS, importedData, NOW);
     const importedKeys = dataKeys(storage);
-    storage.failingKeys.add(SETTINGS_STORAGE_KEY);
+    storage.failingKeys.add(KEYS.settings);
 
-    const result = undoLastImport(storage, new Date(NOW.getTime() + 60_000));
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
 
     expect(result.ok).toBe(false);
     expect(dataKeys(storage)).toEqual(importedKeys);
-    expect(listImportBackups(storage)).toHaveLength(1);
+    expect(listImportBackups(storage, KEYS)).toHaveLength(1);
   });
 });

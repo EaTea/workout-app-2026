@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { FatigueHistory } from "./model";
 import { recordCheck } from "./operations";
-import { applyFatigueChange, FATIGUE_CORRUPT_BACKUP_PREFIX, FATIGUE_STORAGE_KEY, loadFatigueHistory, saveFatigueHistory, type FatigueStorage } from "./storage";
+import { applyFatigueChange, loadFatigueHistory, saveFatigueHistory, type FatigueStorage } from "./storage";
 import { fatigueHistoryFromWire, fatigueHistoryToWire } from "./wire";
+import { storageKeysForProgram } from "../storage/programKeys";
+
+/** Explosive Endurance's keys, the ones the app has always used. */
+const KEYS = storageKeysForProgram("explosive-endurance");
 
 /** In-memory stand-in for localStorage; `failWrites` simulates a full or blocked store. */
 function fakeStorage(initial: Record<string, string> = {}, failWrites = false): FatigueStorage & { data: Map<string, string> } {
@@ -141,36 +145,36 @@ describe("fatigue mapping", () => {
 
 describe("loadFatigueHistory", () => {
   const now = new Date("2026-11-09T12:00:00.000Z");
-  const backupKey = `${FATIGUE_CORRUPT_BACKUP_PREFIX}2026-11-09T12:00:00.000Z`;
+  const backupKey = `${KEYS.fatigueCorruptBackupPrefix}2026-11-09T12:00:00.000Z`;
 
   it("returns an empty history with no warning when nothing is stored", () => {
-    expect(loadFatigueHistory(fakeStorage(), now)).toEqual({ history: { checks: [] } });
+    expect(loadFatigueHistory(fakeStorage(), KEYS, now)).toEqual({ history: { checks: [] } });
   });
 
   it("loads a saved history", () => {
     const storage = fakeStorage();
-    saveFatigueHistory(storage, sampleHistory);
-    const loaded = loadFatigueHistory(storage, now);
+    saveFatigueHistory(storage, KEYS, sampleHistory);
+    const loaded = loadFatigueHistory(storage, KEYS, now);
 
     expect(loaded.warning).toBeUndefined();
     expect(loaded.history.checks).toHaveLength(2);
   });
 
   it("warns and keeps a backup for corrupt JSON, leaving the original untouched", () => {
-    const storage = fakeStorage({ [FATIGUE_STORAGE_KEY]: "{not json" });
-    const result = loadFatigueHistory(storage, now);
+    const storage = fakeStorage({ [KEYS.fatigue]: "{not json" });
+    const result = loadFatigueHistory(storage, KEYS, now);
 
     expect(result.history).toEqual({ checks: [] });
     expect(result.warning).toContain("could not be read");
     expect(storage.data.get(backupKey)).toBe("{not json");
-    expect(storage.data.get(FATIGUE_STORAGE_KEY)).toBe("{not json");
+    expect(storage.data.get(KEYS.fatigue)).toBe("{not json");
   });
 
   it("warns and keeps a backup for an unknown version", () => {
     const text = JSON.stringify({ version: 2, checks: [] });
-    const storage = fakeStorage({ [FATIGUE_STORAGE_KEY]: text });
+    const storage = fakeStorage({ [KEYS.fatigue]: text });
 
-    expect(loadFatigueHistory(storage, now).warning).toContain("version");
+    expect(loadFatigueHistory(storage, KEYS, now).warning).toContain("version");
     expect(storage.data.get(backupKey)).toBe(text);
   });
 
@@ -178,9 +182,9 @@ describe("loadFatigueHistory", () => {
     const wire = validWire();
     wire.checks.push({ date: "2026-11-16", programWeek: 2, maxPullUps: "ten", savedAt: "2026-11-16T07:00:00.000Z" } as never);
     const text = JSON.stringify(wire);
-    const storage = fakeStorage({ [FATIGUE_STORAGE_KEY]: text });
+    const storage = fakeStorage({ [KEYS.fatigue]: text });
 
-    const result = loadFatigueHistory(storage, now);
+    const result = loadFatigueHistory(storage, KEYS, now);
 
     expect(result.history.checks.map((entry) => entry.savedProgramWeek)).toEqual([1]);
     expect(result.warning).toContain("1 weekly check-in could not be read and was set aside");
@@ -190,21 +194,21 @@ describe("loadFatigueHistory", () => {
   });
 
   it("different incidents get different backup keys", () => {
-    const storage = fakeStorage({ [FATIGUE_STORAGE_KEY]: "bad" });
-    loadFatigueHistory(storage, new Date("2026-11-09T12:00:00.000Z"));
-    loadFatigueHistory(storage, new Date("2026-11-10T12:00:00.000Z"));
-    expect([...storage.data.keys()].filter((key) => key.startsWith(FATIGUE_CORRUPT_BACKUP_PREFIX))).toHaveLength(2);
+    const storage = fakeStorage({ [KEYS.fatigue]: "bad" });
+    loadFatigueHistory(storage, KEYS, new Date("2026-11-09T12:00:00.000Z"));
+    loadFatigueHistory(storage, KEYS, new Date("2026-11-10T12:00:00.000Z"));
+    expect([...storage.data.keys()].filter((key) => key.startsWith(KEYS.fatigueCorruptBackupPrefix))).toHaveLength(2);
   });
 
   it("refuses saving when the backup cannot be written", () => {
-    const result = loadFatigueHistory(fakeStorage({ [FATIGUE_STORAGE_KEY]: "bad" }, true), now);
+    const result = loadFatigueHistory(fakeStorage({ [KEYS.fatigue]: "bad" }, true), KEYS, now);
     expect(result.history).toEqual({ checks: [] });
     expect(result.warning).toContain("backup copy could not be made");
     expect(result.saveRefusedReason).toBeDefined();
   });
 
   it("returns an empty history with a warning, and refuses saving, when reading throws", () => {
-    const result = loadFatigueHistory(blockedReadStorage(), now);
+    const result = loadFatigueHistory(blockedReadStorage(), KEYS, now);
     expect(result.history).toEqual({ checks: [] });
     expect(result.warning).toContain("blocked");
     expect(result.saveRefusedReason).toContain("blocked");
@@ -214,12 +218,12 @@ describe("loadFatigueHistory", () => {
 describe("saveFatigueHistory", () => {
   it("stores the wire JSON under the fatigue key", () => {
     const storage = fakeStorage();
-    expect(saveFatigueHistory(storage, sampleHistory)).toEqual({ ok: true });
-    expect(JSON.parse(storage.data.get(FATIGUE_STORAGE_KEY) as string)).toEqual(fatigueHistoryToWire(sampleHistory));
+    expect(saveFatigueHistory(storage, KEYS, sampleHistory)).toEqual({ ok: true });
+    expect(JSON.parse(storage.data.get(KEYS.fatigue) as string)).toEqual(fatigueHistoryToWire(sampleHistory));
   });
 
   it("reports failure instead of throwing when storage is full", () => {
-    expect(saveFatigueHistory(fakeStorage({}, true), sampleHistory)).toEqual({ ok: false, error: "QuotaExceededError" });
+    expect(saveFatigueHistory(fakeStorage({}, true), KEYS, sampleHistory)).toEqual({ ok: false, error: "QuotaExceededError" });
   });
 });
 
@@ -230,26 +234,26 @@ describe("applyFatigueChange", () => {
 
   it("applies the change to the fresh stored history and saves it", () => {
     const storage = fakeStorage();
-    const result = applyFatigueChange(storage, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
 
     expect(result.saved).toBe(true);
-    expect(loadFatigueHistory(storage, now).history.checks).toEqual([weekOne]);
+    expect(loadFatigueHistory(storage, KEYS, now).history.checks).toEqual([weekOne]);
   });
 
   it("two open copies of the app do not wipe each other's checks", () => {
     const storage = fakeStorage();
-    const tabBStartupHistory = loadFatigueHistory(storage, now).history;
-    applyFatigueChange(storage, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const tabBStartupHistory = loadFatigueHistory(storage, KEYS, now).history;
+    applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
 
     expect(tabBStartupHistory.checks).toEqual([]);
-    applyFatigueChange(storage, (fresh) => recordCheck(fresh, weekTwo, "2026-11-09", 8), now);
+    applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekTwo, "2026-11-09", 8), now);
 
-    expect(loadFatigueHistory(storage, now).history.checks.map((entry) => entry.date)).toEqual(["2026-11-09", "2026-11-16"]);
+    expect(loadFatigueHistory(storage, KEYS, now).history.checks.map((entry) => entry.date)).toEqual(["2026-11-09", "2026-11-16"]);
   });
 
   it("refuses, writing nothing, when the stored history cannot be read", () => {
     const storage = blockedReadStorage();
-    const result = applyFatigueChange(storage, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
 
     expect(result).toMatchObject({ saved: false, error: expect.stringContaining("blocked") });
     expect(result).not.toHaveProperty("history");
@@ -257,24 +261,24 @@ describe("applyFatigueChange", () => {
   });
 
   it("refuses when unreadable data could not be backed up, leaving the original in place", () => {
-    const storage = fakeStorage({ [FATIGUE_STORAGE_KEY]: "{not json" }, true);
-    const result = applyFatigueChange(storage, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const storage = fakeStorage({ [KEYS.fatigue]: "{not json" }, true);
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
 
     expect(result.saved).toBe(false);
-    expect(storage.data.get(FATIGUE_STORAGE_KEY)).toBe("{not json");
+    expect(storage.data.get(KEYS.fatigue)).toBe("{not json");
   });
 
   it("after backing up unreadable data it saves the change over it", () => {
-    const storage = fakeStorage({ [FATIGUE_STORAGE_KEY]: "{not json" });
-    const result = applyFatigueChange(storage, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const storage = fakeStorage({ [KEYS.fatigue]: "{not json" });
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
 
     expect(result.saved).toBe(true);
-    expect(storage.data.get(`${FATIGUE_CORRUPT_BACKUP_PREFIX}2026-11-09T12:00:00.000Z`)).toBe("{not json");
-    expect(loadFatigueHistory(storage, now).warning).toBeUndefined();
+    expect(storage.data.get(`${KEYS.fatigueCorruptBackupPrefix}2026-11-09T12:00:00.000Z`)).toBe("{not json");
+    expect(loadFatigueHistory(storage, KEYS, now).warning).toBeUndefined();
   });
 
   it("keeps the change in the returned history when the write fails", () => {
-    const result = applyFatigueChange(fakeStorage({}, true), (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(fakeStorage({}, true), KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
 
     expect(result.saved).toBe(false);
     expect(result.saved === false && result.error).toContain("QuotaExceededError");

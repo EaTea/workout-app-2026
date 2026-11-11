@@ -1,3 +1,4 @@
+import type { ProgramStorageKeys } from "../storage/programKeys";
 import type { WorkoutLog } from "./model";
 import { logFromWire, logToWire, type LogFromWireResult } from "./wire";
 
@@ -7,15 +8,11 @@ import { logFromWire, logToWire, type LogFromWireResult } from "./wire";
  * Storage is injected (a minimal Storage-like object) so tests need no DOM.
  */
 
-/** localStorage key holding the JSON-encoded `LogWireV1`. */
-export const LOG_STORAGE_KEY = "explosive-endurance.log";
-
-/**
- * Prefix of the keys unreadable log text is copied to. One key per incident
- * (`<prefix><ISO timestamp>`), so a second corruption never overwrites the
- * first backup.
- */
-export const LOG_CORRUPT_BACKUP_PREFIX = "explosive-endurance.log.corrupt-";
+// Every function here takes the active program's `ProgramStorageKeys`:
+//   keys.log                    holds the JSON-encoded `LogWireV1`
+//   keys.logCorruptBackupPrefix prefix of the keys unreadable log text is copied
+//                               to, one key per incident (`<prefix><ISO timestamp>`),
+//                               so a second corruption never overwrites the first backup.
 
 /** The subset of the Web Storage API this module uses. */
 export interface LogStorage {
@@ -59,10 +56,10 @@ export type SaveLogResult = { ok: true } | { ok: false; error: string };
  * save cannot destroy it. A read error (storage blocked) gives an empty log
  * with `saveRefusedReason` set. `now` is injectable for tests.
  */
-export function loadLog(storage: LogStorage, now: Date = new Date()): LoadLogResult {
+export function loadLog(storage: LogStorage, keys: ProgramStorageKeys, now: Date = new Date()): LoadLogResult {
   let storedText: string | null;
   try {
-    storedText = storage.getItem(LOG_STORAGE_KEY);
+    storedText = storage.getItem(keys.log);
   } catch (error) {
     const reason = describeError(error);
     return {
@@ -80,7 +77,7 @@ export function loadLog(storage: LogStorage, now: Date = new Date()): LoadLogRes
   try {
     readable = logFromWire(JSON.parse(storedText));
   } catch (error) {
-    return setAsideCorruptLog(storage, storedText, now, { sessions: {} }, `Your saved workout log could not be read (${describeError(error)}) and starts empty.`);
+    return setAsideCorruptLog(storage, keys, storedText, now, { sessions: {} }, `Your saved workout log could not be read (${describeError(error)}) and starts empty.`);
   }
 
   if (readable.problems.messages.length === 0) {
@@ -91,7 +88,7 @@ export function loadLog(storage: LogStorage, now: Date = new Date()): LoadLogRes
   const subject = setAsideSetCount === 0
     ? "Some unreadable details of your saved workout log were set aside."
     : `${setAsideSetCount} ${setAsideSetCount === 1 ? "set" : "sets"} of your saved workout log could not be read and ${setAsideSetCount === 1 ? "was" : "were"} set aside.`;
-  return setAsideCorruptLog(storage, storedText, now, readable.log, `${subject} (First problem: ${messages[0]}.)`);
+  return setAsideCorruptLog(storage, keys, storedText, now, readable.log, `${subject} (First problem: ${messages[0]}.)`);
 }
 
 /**
@@ -99,8 +96,8 @@ export function loadLog(storage: LogStorage, now: Date = new Date()): LoadLogRes
  * it: `readableLog` plus a warning that says what happened and where the copy
  * is. If the copy cannot be made, saving is refused so the original survives.
  */
-function setAsideCorruptLog(storage: LogStorage, storedText: string, now: Date, readableLog: WorkoutLog, problemText: string): LoadLogResult {
-  const backupKey = `${LOG_CORRUPT_BACKUP_PREFIX}${now.toISOString()}`;
+function setAsideCorruptLog(storage: LogStorage, keys: ProgramStorageKeys, storedText: string, now: Date, readableLog: WorkoutLog, problemText: string): LoadLogResult {
+  const backupKey = `${keys.logCorruptBackupPrefix}${now.toISOString()}`;
 
   try {
     storage.setItem(backupKey, storedText);
@@ -133,13 +130,13 @@ export interface CorruptLogBackup {
  * file instead of being stranded in localStorage. Never throws: a storage
  * error gives what was found so far.
  */
-export function listCorruptLogBackups(storage: KeyListingStorage): CorruptLogBackup[] {
+export function listCorruptLogBackups(storage: KeyListingStorage, keys: ProgramStorageKeys): CorruptLogBackup[] {
   const backups: CorruptLogBackup[] = [];
 
   try {
     for (let index = 0; index < storage.length; index++) {
       const storageKey = storage.key(index);
-      if (storageKey === null || !storageKey.startsWith(LOG_CORRUPT_BACKUP_PREFIX)) continue;
+      if (storageKey === null || !storageKey.startsWith(keys.logCorruptBackupPrefix)) continue;
 
       const originalText = storage.getItem(storageKey);
       if (originalText !== null) backups.push({ storageKey, originalText });
@@ -179,16 +176,17 @@ export type ApplyLogChangeResult =
  */
 export function applyLogChange(
   storage: LogStorage,
+  keys: ProgramStorageKeys,
   operation: (freshLog: WorkoutLog) => WorkoutLog,
   now: Date = new Date(),
 ): ApplyLogChangeResult {
-  const freshRead = loadLog(storage, now);
+  const freshRead = loadLog(storage, keys, now);
   if (freshRead.saveRefusedReason !== undefined) {
     return { saved: false, error: freshRead.saveRefusedReason };
   }
 
   const changedLog = operation(freshRead.log);
-  const saveResult = saveLog(storage, changedLog);
+  const saveResult = saveLog(storage, keys, changedLog);
   if (!saveResult.ok) {
     return { saved: false, error: `${LOG_SAVE_FAILED_MESSAGE} (${saveResult.error})`, log: changedLog };
   }
@@ -196,9 +194,9 @@ export function applyLogChange(
 }
 
 /** Writes the log as JSON. Never throws: quota or blocked storage returns `{ ok: false, error }`. */
-export function saveLog(storage: LogStorage, log: WorkoutLog): SaveLogResult {
+export function saveLog(storage: LogStorage, keys: ProgramStorageKeys, log: WorkoutLog): SaveLogResult {
   try {
-    storage.setItem(LOG_STORAGE_KEY, JSON.stringify(logToWire(log)));
+    storage.setItem(keys.log, JSON.stringify(logToWire(log)));
     return { ok: true };
   } catch (error) {
     return { ok: false, error: describeError(error) };

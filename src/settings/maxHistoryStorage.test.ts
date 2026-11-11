@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { loadMaxHistory, MAX_HISTORY_STORAGE_KEY, maxHistoryFromWire, maxHistoryToWire, saveMaxHistory } from "./maxHistoryStorage";
+import { loadMaxHistory, maxHistoryFromWire, maxHistoryToWire, saveMaxHistory } from "./maxHistoryStorage";
+import { storageKeysForProgram } from "../storage/programKeys";
+
+/** Explosive Endurance's keys, the ones the app has always used. */
+const KEYS = storageKeysForProgram("explosive-endurance");
 
 /** Minimal in-memory stand-in for localStorage. */
 function fakeStorage(initial: Record<string, string> = {}): Storage {
@@ -51,14 +55,14 @@ describe("max history mapping", () => {
 
 describe("loadMaxHistory / saveMaxHistory", () => {
   it("is empty when nothing is stored or the text is corrupt", () => {
-    expect(loadMaxHistory(fakeStorage())).toEqual({});
-    expect(loadMaxHistory(fakeStorage({ [MAX_HISTORY_STORAGE_KEY]: "{oops" }))).toEqual({});
+    expect(loadMaxHistory(fakeStorage(), KEYS)).toEqual({});
+    expect(loadMaxHistory(fakeStorage({ [KEYS.maxHistory]: "{oops" }), KEYS)).toEqual({});
   });
 
   it("saves and reloads", () => {
     const storage = fakeStorage();
     const history = { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] };
-    saveMaxHistory(history, storage);
-    expect(loadMaxHistory(storage)).toEqual(history);
+    saveMaxHistory(history, storage, KEYS);
+    expect(loadMaxHistory(storage, KEYS)).toEqual(history);
   });
 });

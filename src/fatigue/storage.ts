@@ -1,3 +1,4 @@
+import type { ProgramStorageKeys } from "../storage/programKeys";
 import type { FatigueHistory } from "./model";
 import { fatigueHistoryFromWire, fatigueHistoryToWire, type FatigueFromWireResult } from "./wire";
 
@@ -8,11 +9,10 @@ import { fatigueHistoryFromWire, fatigueHistoryToWire, type FatigueFromWireResul
  * Storage-like object) so tests need no DOM.
  */
 
-/** localStorage key holding the JSON-encoded `FatigueHistoryWireV1`. */
-export const FATIGUE_STORAGE_KEY = "explosive-endurance.fatigue";
-
-/** Prefix of the keys unreadable text is copied to (`<prefix><ISO timestamp>`), one per incident. */
-export const FATIGUE_CORRUPT_BACKUP_PREFIX = "explosive-endurance.fatigue.corrupt-";
+// Every function here takes the active program's `ProgramStorageKeys`:
+//   keys.fatigue                    holds the JSON-encoded `FatigueHistoryWireV1`
+//   keys.fatigueCorruptBackupPrefix prefix of the keys unreadable text is copied to
+//                                   (`<prefix><ISO timestamp>`), one per incident.
 
 /** The subset of the Web Storage API this module uses. */
 export interface FatigueStorage {
@@ -59,10 +59,10 @@ export type ApplyFatigueChangeResult =
  * gives the readable checks (or none) plus a warning; a read error gives an
  * empty history with `saveRefusedReason`. `now` is injectable for tests.
  */
-export function loadFatigueHistory(storage: FatigueStorage, now: Date = new Date()): LoadFatigueHistoryResult {
+export function loadFatigueHistory(storage: FatigueStorage, keys: ProgramStorageKeys, now: Date = new Date()): LoadFatigueHistoryResult {
   let storedText: string | null;
   try {
-    storedText = storage.getItem(FATIGUE_STORAGE_KEY);
+    storedText = storage.getItem(keys.fatigue);
   } catch (error) {
     const reason = describeError(error);
     return {
@@ -80,7 +80,7 @@ export function loadFatigueHistory(storage: FatigueStorage, now: Date = new Date
   try {
     readable = fatigueHistoryFromWire(JSON.parse(storedText));
   } catch (error) {
-    return setAsideCorruptHistory(storage, storedText, now, { checks: [] }, `Your saved weekly check-ins could not be read (${describeError(error)}) and start empty.`);
+    return setAsideCorruptHistory(storage, keys, storedText, now, { checks: [] }, `Your saved weekly check-ins could not be read (${describeError(error)}) and start empty.`);
   }
 
   if (readable.problems.messages.length === 0) {
@@ -89,7 +89,7 @@ export function loadFatigueHistory(storage: FatigueStorage, now: Date = new Date
 
   const { setAsideCheckCount, messages } = readable.problems;
   const subject = `${setAsideCheckCount} weekly ${setAsideCheckCount === 1 ? "check-in" : "check-ins"} could not be read and ${setAsideCheckCount === 1 ? "was" : "were"} set aside.`;
-  return setAsideCorruptHistory(storage, storedText, now, readable.history, `${subject} (First problem: ${messages[0]}.)`);
+  return setAsideCorruptHistory(storage, keys, storedText, now, readable.history, `${subject} (First problem: ${messages[0]}.)`);
 }
 
 /**
@@ -97,8 +97,8 @@ export function loadFatigueHistory(storage: FatigueStorage, now: Date = new Date
  * readable history plus a warning saying where the copy is. If the copy
  * fails, saving is refused so the original survives.
  */
-function setAsideCorruptHistory(storage: FatigueStorage, storedText: string, now: Date, readableHistory: FatigueHistory, problemText: string): LoadFatigueHistoryResult {
-  const backupKey = `${FATIGUE_CORRUPT_BACKUP_PREFIX}${now.toISOString()}`;
+function setAsideCorruptHistory(storage: FatigueStorage, keys: ProgramStorageKeys, storedText: string, now: Date, readableHistory: FatigueHistory, problemText: string): LoadFatigueHistoryResult {
+  const backupKey = `${keys.fatigueCorruptBackupPrefix}${now.toISOString()}`;
 
   try {
     storage.setItem(backupKey, storedText);
@@ -122,16 +122,17 @@ function setAsideCorruptHistory(storage: FatigueStorage, storedText: string, now
  */
 export function applyFatigueChange(
   storage: FatigueStorage,
+  keys: ProgramStorageKeys,
   operation: (freshHistory: FatigueHistory) => FatigueHistory,
   now: Date = new Date(),
 ): ApplyFatigueChangeResult {
-  const freshRead = loadFatigueHistory(storage, now);
+  const freshRead = loadFatigueHistory(storage, keys, now);
   if (freshRead.saveRefusedReason !== undefined) {
     return { saved: false, error: freshRead.saveRefusedReason };
   }
 
   const changedHistory = operation(freshRead.history);
-  const saveResult = saveFatigueHistory(storage, changedHistory);
+  const saveResult = saveFatigueHistory(storage, keys, changedHistory);
   if (!saveResult.ok) {
     return { saved: false, error: `${FATIGUE_SAVE_FAILED_MESSAGE} (${saveResult.error})`, history: changedHistory };
   }
@@ -139,9 +140,9 @@ export function applyFatigueChange(
 }
 
 /** Writes the history as JSON. Never throws: quota or blocked storage returns `{ ok: false, error }`. */
-export function saveFatigueHistory(storage: FatigueStorage, history: FatigueHistory): SaveFatigueHistoryResult {
+export function saveFatigueHistory(storage: FatigueStorage, keys: ProgramStorageKeys, history: FatigueHistory): SaveFatigueHistoryResult {
   try {
-    storage.setItem(FATIGUE_STORAGE_KEY, JSON.stringify(fatigueHistoryToWire(history)));
+    storage.setItem(keys.fatigue, JSON.stringify(fatigueHistoryToWire(history)));
     return { ok: true };
   } catch (error) {
     return { ok: false, error: describeError(error) };

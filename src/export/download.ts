@@ -34,9 +34,9 @@ export function isIosPlatform(userAgent: string, platform: string, maxTouchPoint
   return /iPhone|iPad|iPod/.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
 }
 
-/** The export file name, e.g. `explosive-endurance-2026-11-09.csv`, using the real local date. */
-export function exportFileName(extension: "csv" | "json", now: Date = new Date()): string {
-  return `explosive-endurance-${todayLocalDate(now)}.${extension}`;
+/** The export file name, e.g. `explosive-endurance-2026-11-09.csv`: the program id, then the real local date. Called by the Export card. */
+export function exportFileName(programId: string, extension: "csv" | "json", now: Date = new Date()): string {
+  return `${programId}-${todayLocalDate(now)}.${extension}`;
 }
 
 /** Whether an error from `navigator.share` means the user simply closed the sheet. */

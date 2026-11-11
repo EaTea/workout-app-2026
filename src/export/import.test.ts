@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseImport } from "./import";
+import { parseImport, wrongProgramMessage } from "./import";
 import { exportToWire, serializeExport, type ExportBundle } from "./wire";
 
 const bundle: ExportBundle = {
+  programId: "explosive-endurance",
   exportedAt: new Date("2026-11-09T08:00:00.000Z"),
   settings: {
     startDate: "2026-11-02",
@@ -43,7 +44,7 @@ describe("parseImport", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data).toEqual({ settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
+    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
     expect(result.problems).toEqual([]);
   });
 
@@ -168,7 +169,7 @@ describe("parseImport", () => {
       file.importBackups = [{ key: "explosive-endurance.import-backup-x", text: "{}" }];
     }));
 
-    expect(result.ok && result.data).toEqual({ settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
+    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
   });
 
   it("refuses text that is not JSON", () => {
@@ -187,13 +188,54 @@ describe("parseImport", () => {
   });
 
   it("refuses an unknown version, naming it", () => {
-    for (const version of [2, 0, "1", null]) {
+    for (const version of [3, 0, "1", "2", null]) {
       const result = parseImport(fileText((file) => void (file.version = version)));
       expect(result.ok).toBe(false);
       expect(!result.ok && result.error).toContain(`version ${JSON.stringify(version)}`);
     }
     const missing = parseImport(fileText((file) => void delete file.version));
     expect(missing.ok).toBe(false);
+  });
+
+  it("round trips the program id of a version 2 file", () => {
+    const result = parseImport(fileText((file) => void (file.programId = "steady-strength")));
+
+    expect(result.ok && result.data.programId).toBe("steady-strength");
+    expect(parseImport(fileText()).ok && parseImport(fileText())).toMatchObject({ data: { programId: "explosive-endurance" } });
+  });
+
+  it("reads a version 1 file (no programId) as belonging to explosive-endurance", () => {
+    const result = parseImport(
+      fileText((file) => {
+        file.version = 1;
+        delete file.programId;
+      }),
+    );
+
+    expect(result.ok && result.data.programId).toBe("explosive-endurance");
+    expect(result.ok && result.summary.sessionCount).toBe(2);
+  });
+
+  it("ignores a stray programId in a version 1 file", () => {
+    const result = parseImport(fileText((file) => void ((file.version = 1), (file.programId = "steady-strength"))));
+
+    expect(result.ok && result.data.programId).toBe("explosive-endurance");
+  });
+
+  it("refuses a version 2 file whose programId is missing or not a valid id, changing nothing", () => {
+    for (const programId of [undefined, null, 5, "", "Steady Strength", "../x", "-a"]) {
+      const result = parseImport(
+        fileText((file) => {
+          if (programId === undefined) delete file.programId;
+          else file.programId = programId;
+        }),
+      );
+      expect(result.ok).toBe(false);
+      expect(!result.ok && result.error).toContain('"programId"');
+      expect(!result.ok && result.error).not.toContain("undefined");
+      if (programId === undefined) expect(!result.ok && result.error).toContain("(missing)");
+      expect(!result.ok && result.error).toContain("Nothing was changed");
+    }
   });
 
   it("refuses a file whose log, check-ins or settings section is missing or unreadable", () => {
@@ -210,5 +252,17 @@ describe("parseImport", () => {
     const wrongChecksShape = parseImport(fileText((file) => void (file.fatigueChecks = { version: 1, checks: "x" })));
     expect(wrongChecksShape.ok).toBe(false);
     expect(!wrongChecksShape.ok && wrongChecksShape.error).toContain("check-ins");
+  });
+});
+
+describe("wrongProgramMessage", () => {
+  it("is null when the backup is for the active program", () => {
+    expect(wrongProgramMessage("explosive-endurance", "explosive-endurance")).toBeNull();
+  });
+
+  it("names both programs and says what to do when they differ", () => {
+    expect(wrongProgramMessage("steady-strength", "explosive-endurance")).toContain(
+      'This backup is for "steady-strength", but you\'re using "explosive-endurance". Switch program first, then import it.',
+    );
   });
 });

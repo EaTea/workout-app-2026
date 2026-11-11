@@ -14,7 +14,8 @@ import { maxHistoryToWire, type MaxHistoryWireV1 } from "../settings/maxHistoryS
  * `JSON.stringify`; the result is handed to `download.ts`. The way back is
  * `import.ts` (`parseImport`), which has its own wire-to-internal mapping.
  *
- *   ExportBundle (internal) ──exportToWire──▶ ExportWireV1 (file)
+ *   ExportBundle (internal) ──exportToWire──▶ ExportWireV2 (file)
+ *       programId ─────────────▶ programId
  *       settings ─settingsToWire─▶ settings
  *       settings.maxHistory ─maxHistoryToWire─▶ maxHistory
  *       log ─────logToWire──────▶ log
@@ -23,11 +24,24 @@ import { maxHistoryToWire, type MaxHistoryWireV1 } from "../settings/maxHistoryS
  *       import backups ─────▶ importBackups (only when any)
  */
 
-/** Identifies the file as ours so a future import can refuse anything else. */
+/**
+ * Identifies the file as ours so an import can refuse anything else. It is a
+ * format marker checked by `parseImport`, not a program name, so it stays the
+ * same for every program (changing it would make old files unreadable).
+ */
 export const EXPORT_FORMAT_NAME = "explosive-endurance-export";
+
+/**
+ * The program a version 1 file belongs to. Version 1 was written when
+ * Explosive Endurance was the only program, so it carries no `programId`;
+ * `parseImport` reads such a file as this program.
+ */
+export const VERSION_1_PROGRAM_ID = "explosive-endurance";
 
 /** What the export holds, in internal types. Never serialised directly. */
 export interface ExportBundle {
+  /** The catalogue id of the program the data belongs to. */
+  programId: string;
   exportedAt: Date;
   settings: TrainingSettings;
   log: WorkoutLog;
@@ -40,7 +54,11 @@ export interface ExportBundle {
   importBackups: ImportBackup[];
 }
 
-/** The exported JSON file, version 1. `exportedAt` is an ISO 8601 string. */
+/**
+ * The exported JSON file, version 1: it has no `programId`. The importer
+ * still reads it (as `VERSION_1_PROGRAM_ID`); the app no longer writes it.
+ * `exportedAt` is an ISO 8601 string.
+ */
 export interface ExportWireV1 {
   format: typeof EXPORT_FORMAT_NAME;
   version: 1;
@@ -69,6 +87,16 @@ export interface ExportWireV1 {
   importBackups?: ImportBackupWire[];
 }
 
+/**
+ * The exported JSON file, version 2: version 1 plus `programId`, the catalogue
+ * id of the program the data belongs to, so an import can refuse a backup of
+ * another program. This is what the app writes.
+ */
+export interface ExportWireV2 extends Omit<ExportWireV1, "version"> {
+  version: 2;
+  programId: string;
+}
+
 /** One import backup in the file: the localStorage key it was kept under and its export-file text. */
 export interface ImportBackupWire {
   key: string;
@@ -92,10 +120,11 @@ function importBackupToWire(backup: ImportBackup): ImportBackupWire {
 }
 
 /** Maps the internal bundle to the file shape, reusing each part's own wire mapping; `corruptLogBackups` is left out when there are none. */
-export function exportToWire(bundle: ExportBundle): ExportWireV1 {
-  const wire: ExportWireV1 = {
+export function exportToWire(bundle: ExportBundle): ExportWireV2 {
+  const wire: ExportWireV2 = {
     format: EXPORT_FORMAT_NAME,
-    version: 1,
+    version: 2,
+    programId: bundle.programId,
     exportedAt: bundle.exportedAt.toISOString(),
     settings: settingsToWire(bundle.settings),
     maxHistory: maxHistoryToWire(bundle.settings.maxHistory),
@@ -115,6 +144,6 @@ export function exportToWire(bundle: ExportBundle): ExportWireV1 {
 }
 
 /** Renders the wire object as the pretty-printed (2-space) text of the .json file. */
-export function serializeExport(wire: ExportWireV1): string {
+export function serializeExport(wire: ExportWireV2): string {
   return JSON.stringify(wire, null, 2) + "\n";
 }

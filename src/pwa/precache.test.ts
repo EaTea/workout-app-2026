@@ -3,8 +3,8 @@ import { buildCacheName, buildPrecacheList } from "./precache.ts";
 
 describe("buildPrecacheList", () => {
   it("lists index.html as './', drops sw.js and source maps, and sorts", () => {
-    const list = buildPrecacheList(["program.json", "index.html", "assets/index-1.js", "assets/index-1.js.map", "sw.js", "icons/icon-192.png"]);
-    expect(list).toEqual(["./", "assets/index-1.js", "icons/icon-192.png", "program.json"]);
+    const list = buildPrecacheList(["program.json", "programs.json", "index.html", "assets/index-1.js", "assets/index-1.js.map", "sw.js", "icons/icon-192.png"]);
+    expect(list).toEqual(["./", "assets/index-1.js", "icons/icon-192.png", "program.json", "programs.json"]);
   });
 });
 

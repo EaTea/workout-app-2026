@@ -34,6 +34,12 @@ export interface RequestFacts {
  * edits show up as soon as Ed is online; everything else the app owns
  * (hashed JS/CSS, icons) is immutable per build, so the precache wins.
  *
+ * programs.json (the catalogue) is deliberately NOT network-first: it falls
+ * under "everything else", cache-first, so it stays in step with the precached
+ * JS that reads it (a catalogue newer than the app's code could name program
+ * files or ids that code does not expect). A new catalogue arrives with a new
+ * deploy, while program.json is network-first as above.
+ *
  * This function is inlined into sw.js via `toString()`, so it must stay
  * self-contained (no imports or helpers from outside its own body).
  *

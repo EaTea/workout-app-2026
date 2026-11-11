@@ -1,8 +1,9 @@
 import "./export.css";
-import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, type ImportSummary } from "../export/import";
+import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, wrongProgramMessage, type ImportSummary } from "../export/import";
 import { applyImport, undoLastImport } from "../export/importApply";
 import { listImportBackups } from "../export/importBackup";
 import { todayLocalDate } from "../program/calendar";
+import type { ProgramStorageKeys } from "../storage/programKeys";
 import { element } from "./dom";
 
 /**
@@ -10,7 +11,7 @@ import { element } from "./dom";
  * JSON export file, see what it holds, confirm, and the data is replaced.
  *
  *   [Import from JSON] ─file chosen─▶ parseImport ─refused──▶ inline message
- *                                          │ ok
+ *                                          │ ok, same program (else refused too)
  *                                          ▼
  *                      preview (counts, dates, problems)
  *                      [Replace my data] [Cancel]
@@ -46,6 +47,9 @@ export interface ImportSectionOptions {
 
   /** Where the data lives; `localStorage` in the app. */
   storage: Storage;
+
+  /** The active program's storage keys: which stored data an import replaces and where its backups go. */
+  storageKeys: ProgramStorageKeys;
 
   /** How many sessions are logged right now, for the preview's "You have N sessions now". */
   currentSessionCount: () => number;
@@ -154,7 +158,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
         "This puts back the data you had before your last import. Your current data is first kept as a backup, so you can undo this too.",
       ),
       actionButton("primary-button", "Yes, undo the import", () => {
-        const outcome = undoLastImport(options.storage);
+        const outcome = undoLastImport(options.storage, options.storageKeys);
         if (outcome.ok) {
           options.onImported(outcome.backupKey);
         } else {
@@ -183,6 +187,12 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
       const result = parseImport(await file.text());
       if (!result.ok) {
         showMessage(result.error, true);
+        return;
+      }
+
+      const wrongProgram = wrongProgramMessage(result.data.programId, options.storageKeys.programId);
+      if (wrongProgram !== null) {
+        showMessage(wrongProgram, true);
         return;
       }
 
@@ -221,7 +231,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
     preview.append(
       actionButton("primary-button", "Replace my data", () => {
         showConfirmation(importedText, () => {
-          const outcome = applyImport(options.storage, result.data);
+          const outcome = applyImport(options.storage, options.storageKeys, result.data);
           if (outcome.ok) {
             options.onImported(outcome.backupKey);
           } else {
@@ -242,7 +252,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
   });
 
   section.append(fileButton);
-  if (listImportBackups(options.storage).length > 0) {
+  if (listImportBackups(options.storage, options.storageKeys).length > 0) {
     const undoButton = actionButton("import-secondary-button", "Undo last import", showUndoConfirmation);
     undoButton.disabled = options.isPreview;
     section.append(undoButton);

@@ -21,8 +21,12 @@ describe("isIosPlatform", () => {
 
 describe("exportFileName", () => {
   it("uses the local date and the extension", () => {
-    expect(exportFileName("csv", new Date(2026, 10, 9, 23, 59))).toBe("explosive-endurance-2026-11-09.csv");
-    expect(exportFileName("json", new Date(2026, 0, 5, 0, 1))).toBe("explosive-endurance-2026-01-05.json");
+    expect(exportFileName("explosive-endurance", "csv", new Date(2026, 10, 9, 23, 59))).toBe("explosive-endurance-2026-11-09.csv");
+    expect(exportFileName("explosive-endurance", "json", new Date(2026, 0, 5, 0, 1))).toBe("explosive-endurance-2026-01-05.json");
+  });
+
+  it("starts with the program id", () => {
+    expect(exportFileName("steady-strength", "json", new Date(2026, 0, 5, 0, 1))).toBe("steady-strength-2026-01-05.json");
   });
 });
 

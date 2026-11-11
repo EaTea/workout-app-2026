@@ -5,7 +5,8 @@ import { logFromWire } from "../log/wire";
 import type { TrainingSettings } from "../settings/model";
 import { maxHistoryFromWire } from "../settings/maxHistoryStorage";
 import { settingsFromWire } from "../settings/storage";
-import { EXPORT_FORMAT_NAME } from "./wire";
+import { PROGRAM_ID_PATTERN } from "../program/catalogue";
+import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
 
 /**
  * Reading an "Export everything as JSON" file back in. The counterpart of
@@ -19,7 +20,8 @@ import { EXPORT_FORMAT_NAME } from "./wire";
  *                                    └─ fatigueChecks ▶ fatigueHistoryFromWire ▶ FatigueHistory
  *
  * What is refused (nothing is read at all): text that is not JSON, a file
- * that is not our format, a version other than 1, and a missing or
+ * that is not our format, a version other than 1 or 2, a version 2 file whose `programId` is not a valid
+ * program id, and a missing or
  * wholly unreadable `settings`, `log` or `fatigueChecks` section, a
  * `settings` section of a version this app does not know and a `maxHistory`
  * block that is not version 1 (replacing the athlete's data with defaults
@@ -29,6 +31,11 @@ import { EXPORT_FORMAT_NAME } from "./wire";
  * throws: anything unexpected becomes "could not be read".
  * `corruptLogBackups` and `importBackups` in the file are ignored: they are
  * not part of the data an import restores.
+ *
+ * A version 1 file has no `programId` and is read as `VERSION_1_PROGRAM_ID`
+ * (Explosive Endurance, the only program then). Whether the file's program
+ * is the active one is NOT decided here (parsing does not know the active
+ * program): `wrongProgramMessage` does, and callers use it before writing.
  *
  * Called by `ui/importSection.ts` when a file is chosen; nothing here touches
  * storage (`importApply.ts` does that after the athlete confirms).
@@ -42,6 +49,8 @@ export const FILE_TOO_LARGE_MESSAGE = "This file is larger than 10 MB, so it is 
 
 /** The data an import would write, in internal types. */
 export interface ImportedData {
+  /** The catalogue id of the program the file belongs to (`VERSION_1_PROGRAM_ID` for a version 1 file). */
+  programId: string;
   settings: TrainingSettings;
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
@@ -99,12 +108,15 @@ function parseImportUnguarded(fileText: string): ImportParseResult {
   if (!isRecord(parsed) || parsed.format !== EXPORT_FORMAT_NAME) {
     return { ok: false, error: "This is not an Explosive Endurance export file. Choose a file made by \"Export everything as JSON\". Nothing was changed." };
   }
-  if (parsed.version !== 1) {
+  if (parsed.version !== 1 && parsed.version !== 2) {
     return {
       ok: false,
-      error: `This export is version ${JSON.stringify(parsed.version)}, and this app can only import version 1. Nothing was changed.`,
+      error: `This export is version ${JSON.stringify(parsed.version)}, and this app can only import versions 1 and 2. Nothing was changed.`,
     };
   }
+
+  const programIdResult = readProgramId(parsed);
+  if (!programIdResult.ok) return programIdResult;
 
   for (const section of ["settings", "log", "fatigueChecks"] as const) {
     if (!isRecord(parsed[section])) {
@@ -136,8 +148,37 @@ function parseImportUnguarded(fileText: string): ImportParseResult {
   if (!settingsResult.ok) return settingsResult;
   const settings = settingsResult.settings;
 
-  const data: ImportedData = { settings, log, fatigueHistory };
+  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory };
   return { ok: true, data, summary: summarize(data, parsed.exportedAt), problems };
+}
+
+/**
+ * Reads which program the file belongs to: version 1 has no `programId` and
+ * means Explosive Endurance; version 2 must carry a string shaped like a
+ * catalogue id, otherwise the file is refused like any other malformed field.
+ */
+function readProgramId(file: Record<string, unknown>): { ok: true; programId: string } | { ok: false; error: string } {
+  if (file.version === 1) return { ok: true, programId: VERSION_1_PROGRAM_ID };
+
+  const programId = file.programId;
+  if (typeof programId !== "string" || !PROGRAM_ID_PATTERN.test(programId)) {
+    // JSON.stringify(undefined) is undefined, which would print as "(undefined)".
+    const shown = programId === undefined ? "missing" : JSON.stringify(programId);
+    return { ok: false, error: `This export has no readable "programId" (${shown}), so it was not imported. Nothing was changed.` };
+  }
+  return { ok: true, programId };
+}
+
+/**
+ * The refusal shown when a backup belongs to another program than the active
+ * one, or null when they match. Used by the Import card (at the preview, so
+ * the athlete is told before any confirm) and by `applyImport` (so nothing is
+ * ever written for the wrong program). Program ids are shown as they are:
+ * display names would need every program file loaded.
+ */
+export function wrongProgramMessage(backupProgramId: string, activeProgramId: string): string | null {
+  if (backupProgramId === activeProgramId) return null;
+  return `This backup is for "${backupProgramId}", but you're using "${activeProgramId}". Switch program first, then import it. Nothing was changed.`;
 }
 
 /**

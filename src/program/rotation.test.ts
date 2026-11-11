@@ -22,8 +22,8 @@ describe("isRotatedWeek", () => {
 
 describe("rotatedName", () => {
   it("returns the swap's in name, or undefined", () => {
-    expect(rotatedName("ytwi", program.warmupRotation)).toBe("Reverse fly");
-    expect(rotatedName("lateral_raise", program.warmupRotation)).toBeUndefined();
+    expect(rotatedName("ytwi", program.warmupRotation!)).toBe("Reverse fly");
+    expect(rotatedName("lateral_raise", program.warmupRotation!)).toBeUndefined();
   });
 });
 

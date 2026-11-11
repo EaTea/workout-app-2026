@@ -141,7 +141,10 @@ export interface ProgramWire {
   exercises: Record<string, ExerciseWire>;
   days: DayWire[];
   progression: ProgressionPhaseWire[];
-  coreProgressions: Record<string, string>;
-  warmupRotation: WarmupRotationWire;
-  fatigueCheck: FatigueCheckWire;
+  /** Optional: a program without core progressions simply omits the section. */
+  coreProgressions?: Record<string, string>;
+  /** Optional: omitted by programs that never swap warm-ups. */
+  warmupRotation?: WarmupRotationWire;
+  /** Optional: omitted by programs without a weekly fatigue check-in. */
+  fatigueCheck?: FatigueCheckWire;
 }
