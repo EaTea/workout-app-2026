@@ -1218,7 +1218,7 @@ program.
 1. [x] `public/programs.json` with one entry, its wire type, parser and
    loader, and `main.ts` loading the active program through it. Unit
    tests for the catalogue parser (missing file, duplicate id, bad id).
-2. [ ] Storage keys built from the program id (settings, max history, log,
+2. [x] Storage keys built from the program id (settings, max history, log,
    check-ins, snoozes, dismissals), with a unit test that Explosive's keys
    are unchanged. The active-program key and its wire type.
 3. [ ] Export wire v2 with `programId`, reading v1 as Explosive, and the

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { hasTodayChanged, previewDateFromSearch, shouldShowNewDayBanner, persistSettings, resolveToday, SAVE_FAILED_MESSAGE } from "./app";
+import { storageKeysForProgram } from "../storage/programKeys";
+
+/** Explosive Endurance's keys, the ones the app has always used. */
+const KEYS = storageKeysForProgram("explosive-endurance");
 
 describe("resolveToday", () => {
   const now = new Date(2026, 10, 9, 12, 0);
@@ -36,7 +40,7 @@ describe("persistSettings", () => {
 
   it("returns null when the write succeeds", () => {
     const storage = { setItem: () => undefined } as unknown as Storage;
-    expect(persistSettings(settings, storage)).toBeNull();
+    expect(persistSettings(settings, storage, KEYS)).toBeNull();
   });
 
   it("returns an error message when storage throws", () => {
@@ -45,7 +49,7 @@ describe("persistSettings", () => {
         throw new Error("QuotaExceededError");
       },
     } as unknown as Storage;
-    expect(persistSettings(settings, storage)).toBe(SAVE_FAILED_MESSAGE);
+    expect(persistSettings(settings, storage, KEYS)).toBe(SAVE_FAILED_MESSAGE);
   });
 });
 

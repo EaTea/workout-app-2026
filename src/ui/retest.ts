@@ -19,9 +19,6 @@ import { stampMaxSavedDates, updateMaxHistory } from "./settings";
  *   exercises still to retest (empty list = no card)
  */
 
-/** localStorage key holding the date ("YYYY-MM-DD") on which "Not today" was last tapped. */
-export const RETEST_DISMISSED_STORAGE_KEY = "explosive-endurance.retest-dismissed";
-
 /**
  * Which max-tested exercises the retest card should still ask for on `date`.
  * Empty (no card) unless `date` is a retest-week training day, the card was
@@ -45,9 +42,6 @@ export function retestExercisesToSave(
     (exercise) => exercise.maxTested && !wasMaxSavedDuringWeek(settings, exercise.id, weekStartDate),
   );
 }
-
-/** localStorage key holding the first date ("YYYY-MM-DD") of the retest week whose broad jump was skipped with "Skip jump". */
-export const RETEST_JUMP_SKIPPED_STORAGE_KEY = "explosive-endurance.retest-jump-skipped";
 
 /**
  * True when the retest card should still show on `date` for the broad jump

@@ -2,6 +2,7 @@ import type { MaxHistoryEntry, TrainingSettings } from "./model";
 import { withLatestMax } from "./maxHistory";
 import { loadMaxHistory, saveMaxHistory } from "./maxHistoryStorage";
 import { toDayNumber } from "../program/calendar";
+import type { ProgramStorageKeys } from "../storage/programKeys";
 
 /**
  * Settings persistence. The wire type (`SettingsWire`) is exactly what is
@@ -11,8 +12,8 @@ import { toDayNumber } from "../program/calendar";
  * settings screen calls `saveSettings`.
  */
 
-/** localStorage key holding the JSON-encoded `SettingsWire`. */
-export const SETTINGS_STORAGE_KEY = "explosive-endurance.settings";
+// The settings JSON (`SettingsWire`) lives under `keys.settings` of the active
+// program's `ProgramStorageKeys`; the max history under `keys.maxHistory`.
 
 /** Format v1: start date and maxes only. Still readable; never written any more. */
 export interface SettingsWireV1 {
@@ -170,11 +171,11 @@ function validMaxSavedOn(value: unknown, maxReps: Record<string, number>): Recor
  * inaccessible storage gives defaults (the history is read independently, so
  * a damaged settings entry doesn't lose it). `storage` is injectable for tests.
  */
-export function loadSettings(storage: Storage = localStorage): TrainingSettings {
-  const storedHistory = loadMaxHistory(storage);
+export function loadSettings(storage: Storage, keys: ProgramStorageKeys): TrainingSettings {
+  const storedHistory = loadMaxHistory(storage, keys);
 
   try {
-    const stored = storage.getItem(SETTINGS_STORAGE_KEY);
+    const stored = storage.getItem(keys.settings);
     if (stored === null) {
       return settingsFromWire(null, storedHistory);
     }
@@ -189,7 +190,7 @@ export function loadSettings(storage: Storage = localStorage): TrainingSettings 
  * history is written first and includes the current maxes, so if the second
  * write fails nothing is lost. May throw if storage is full or blocked.
  */
-export function saveSettings(settings: TrainingSettings, storage: Storage = localStorage): void {
-  saveMaxHistory(reconcileHistory(settings.maxHistory, settings.maxReps, settings.maxSavedOn), storage);
-  storage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsToWire(settings)));
+export function saveSettings(settings: TrainingSettings, storage: Storage, keys: ProgramStorageKeys): void {
+  saveMaxHistory(reconcileHistory(settings.maxHistory, settings.maxReps, settings.maxSavedOn), storage, keys);
+  storage.setItem(keys.settings, JSON.stringify(settingsToWire(settings)));
 }

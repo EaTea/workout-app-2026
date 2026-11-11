@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { LoggedSet, WorkoutLog } from "./model";
 import { logSet } from "./operations";
-import { applyLogChange, LOG_CORRUPT_BACKUP_PREFIX, LOG_STORAGE_KEY, listCorruptLogBackups, loadLog, saveLog, type LogStorage } from "./storage";
+import { applyLogChange, listCorruptLogBackups, loadLog, saveLog, type LogStorage } from "./storage";
 import { logFromWire, logToWire } from "./wire";
+import { storageKeysForProgram } from "../storage/programKeys";
+
+/** Explosive Endurance's keys, the ones the app has always used. */
+const KEYS = storageKeysForProgram("explosive-endurance");
 
 /** In-memory stand-in for localStorage; `failWrites` simulates a full or blocked store. */
 function fakeStorage(initial: Record<string, string> = {}, failWrites = false): LogStorage & { data: Map<string, string> } {
@@ -168,54 +172,54 @@ describe("loadLog", () => {
   const now = new Date("2026-11-09T12:00:00.000Z");
 
   it("returns an empty log with no warning when nothing is stored", () => {
-    expect(loadLog(fakeStorage(), now)).toEqual({ log: { sessions: {} } });
+    expect(loadLog(fakeStorage(), KEYS, now)).toEqual({ log: { sessions: {} } });
   });
 
   it("loads a saved log", () => {
     const storage = fakeStorage();
-    saveLog(storage, sampleLog);
-    expect(loadLog(storage, now)).toEqual({ log: sampleLog });
+    saveLog(storage, KEYS, sampleLog);
+    expect(loadLog(storage, KEYS, now)).toEqual({ log: sampleLog });
   });
 
   it("warns and keeps a backup for corrupt JSON, leaving the original untouched", () => {
-    const storage = fakeStorage({ [LOG_STORAGE_KEY]: "{not json" });
-    const result = loadLog(storage, now);
+    const storage = fakeStorage({ [KEYS.log]: "{not json" });
+    const result = loadLog(storage, KEYS, now);
 
     expect(result.log).toEqual({ sessions: {} });
     expect(result.warning).toContain("could not be read");
-    expect(storage.data.get(`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-09T12:00:00.000Z`)).toBe("{not json");
-    expect(storage.data.get(LOG_STORAGE_KEY)).toBe("{not json");
+    expect(storage.data.get(`${KEYS.logCorruptBackupPrefix}2026-11-09T12:00:00.000Z`)).toBe("{not json");
+    expect(storage.data.get(KEYS.log)).toBe("{not json");
   });
 
   it("warns and keeps a backup for an unknown version", () => {
     const text = JSON.stringify({ version: 2, sessions: [] });
-    const storage = fakeStorage({ [LOG_STORAGE_KEY]: text });
-    const result = loadLog(storage, now);
+    const storage = fakeStorage({ [KEYS.log]: text });
+    const result = loadLog(storage, KEYS, now);
 
     expect(result.warning).toContain("version");
-    expect(storage.data.get(`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-09T12:00:00.000Z`)).toBe(text);
+    expect(storage.data.get(`${KEYS.logCorruptBackupPrefix}2026-11-09T12:00:00.000Z`)).toBe(text);
   });
 
   it("keeps the readable sets of a log with one bad set, says how many were set aside, and backs up the original text", () => {
     const wire = validWire();
     wire.sessions[0]!.sets.push({ exerciseId: "dip", blockPosition: 4, setNumber: 1, reps: "six", loggedAt: "2026-11-02T18:10:00.000Z" } as never);
     const text = JSON.stringify(wire);
-    const storage = fakeStorage({ [LOG_STORAGE_KEY]: text });
+    const storage = fakeStorage({ [KEYS.log]: text });
 
-    const result = loadLog(storage, now);
+    const result = loadLog(storage, KEYS, now);
 
     expect(result.log.sessions["2026-11-02"]?.sets.map((set) => set.exerciseId)).toEqual(["pull_up"]);
     expect(result.warning).toContain("1 set of your saved workout log could not be read and was set aside");
     expect(result.warning).toContain("reps");
     expect(result.saveRefusedReason).toBeUndefined();
-    expect(storage.data.get(`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-09T12:00:00.000Z`)).toBe(text);
-    expect(storage.data.get(LOG_STORAGE_KEY)).toBe(text);
+    expect(storage.data.get(`${KEYS.logCorruptBackupPrefix}2026-11-09T12:00:00.000Z`)).toBe(text);
+    expect(storage.data.get(KEYS.log)).toBe(text);
   });
 
   it("says 'sets' for several and refuses to save when the original cannot be copied aside", () => {
     const wire = validWire();
     wire.sessions[0]!.sets.push({ exerciseId: "dip", blockPosition: 4, setNumber: 0, reps: 1, loggedAt: "2026-11-02T18:10:00.000Z" }, { exerciseId: "dip", blockPosition: 4, setNumber: -1, reps: 1, loggedAt: "2026-11-02T18:10:00.000Z" });
-    const result = loadLog(fakeStorage({ [LOG_STORAGE_KEY]: JSON.stringify(wire) }, true), now);
+    const result = loadLog(fakeStorage({ [KEYS.log]: JSON.stringify(wire) }, true), KEYS, now);
 
     expect(result.warning).toContain("2 sets of your saved workout log could not be read and were set aside");
     expect(result.log.sessions["2026-11-02"]?.sets).toHaveLength(1);
@@ -223,22 +227,22 @@ describe("loadLog", () => {
   });
 
   it("different incidents get different backup keys", () => {
-    const storage = fakeStorage({ [LOG_STORAGE_KEY]: "bad" });
-    loadLog(storage, new Date("2026-11-09T12:00:00.000Z"));
-    loadLog(storage, new Date("2026-11-10T12:00:00.000Z"));
-    expect([...storage.data.keys()].filter((key) => key.startsWith(LOG_CORRUPT_BACKUP_PREFIX))).toHaveLength(2);
+    const storage = fakeStorage({ [KEYS.log]: "bad" });
+    loadLog(storage, KEYS, new Date("2026-11-09T12:00:00.000Z"));
+    loadLog(storage, KEYS, new Date("2026-11-10T12:00:00.000Z"));
+    expect([...storage.data.keys()].filter((key) => key.startsWith(KEYS.logCorruptBackupPrefix))).toHaveLength(2);
   });
 
   it("still returns an empty log with a warning, and refuses saving, when the backup cannot be written", () => {
-    const storage = fakeStorage({ [LOG_STORAGE_KEY]: "bad" }, true);
-    const result = loadLog(storage, now);
+    const storage = fakeStorage({ [KEYS.log]: "bad" }, true);
+    const result = loadLog(storage, KEYS, now);
     expect(result.log).toEqual({ sessions: {} });
     expect(result.warning).toContain("backup copy could not be made");
     expect(result.saveRefusedReason).toBeDefined();
   });
 
   it("returns an empty log with a warning, and refuses saving, when reading throws", () => {
-    const result = loadLog(blockedReadStorage(), now);
+    const result = loadLog(blockedReadStorage(), KEYS, now);
     expect(result.log).toEqual({ sessions: {} });
     expect(result.warning).toContain("blocked");
     expect(result.saveRefusedReason).toContain("blocked");
@@ -248,12 +252,12 @@ describe("loadLog", () => {
 describe("saveLog", () => {
   it("stores the wire JSON under the log key", () => {
     const storage = fakeStorage();
-    expect(saveLog(storage, sampleLog)).toEqual({ ok: true });
-    expect(JSON.parse(storage.data.get(LOG_STORAGE_KEY) as string)).toEqual(logToWire(sampleLog));
+    expect(saveLog(storage, KEYS, sampleLog)).toEqual({ ok: true });
+    expect(JSON.parse(storage.data.get(KEYS.log) as string)).toEqual(logToWire(sampleLog));
   });
 
   it("reports failure instead of throwing when storage is full", () => {
-    expect(saveLog(fakeStorage({}, true), sampleLog)).toEqual({ ok: false, error: "QuotaExceededError" });
+    expect(saveLog(fakeStorage({}, true), KEYS, sampleLog)).toEqual({ ok: false, error: "QuotaExceededError" });
   });
 });
 
@@ -267,31 +271,31 @@ describe("applyLogChange", () => {
 
   it("applies the change to the fresh stored log and saves it", () => {
     const storage = fakeStorage();
-    const result = applyLogChange(storage, (fresh) => logSet(fresh, "2026-11-09", setOf("med_ball_slam", 2)), now);
+    const result = applyLogChange(storage, KEYS, (fresh) => logSet(fresh, "2026-11-09", setOf("med_ball_slam", 2)), now);
 
     expect(result.saved).toBe(true);
-    expect(loadLog(storage, now).log.sessions["2026-11-09"]?.sets.map((set) => set.exerciseId)).toEqual(["med_ball_slam"]);
+    expect(loadLog(storage, KEYS, now).log.sessions["2026-11-09"]?.sets.map((set) => set.exerciseId)).toEqual(["med_ball_slam"]);
   });
 
   it("two open copies of the app do not wipe each other's sets", () => {
     const storage = fakeStorage();
 
     // Tab B loaded (an empty log) before tab A logged anything.
-    const tabBStartupLog = loadLog(storage, now).log;
-    applyLogChange(storage, (fresh) => logSet(fresh, "2026-11-09", setOf("med_ball_slam", 2)), now);
+    const tabBStartupLog = loadLog(storage, KEYS, now).log;
+    applyLogChange(storage, KEYS, (fresh) => logSet(fresh, "2026-11-09", setOf("med_ball_slam", 2)), now);
 
     // Tab B's own copy does not know about the slams, but its change is applied to the stored log.
     expect(tabBStartupLog.sessions).toEqual({});
-    const tabBResult = applyLogChange(storage, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
+    const tabBResult = applyLogChange(storage, KEYS, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
 
-    const stored = loadLog(storage, now).log.sessions["2026-11-09"]?.sets.map((set) => set.exerciseId);
+    const stored = loadLog(storage, KEYS, now).log.sessions["2026-11-09"]?.sets.map((set) => set.exerciseId);
     expect(stored).toEqual(["med_ball_slam", "pull_up"]);
-    expect(tabBResult).toEqual({ saved: true, log: loadLog(storage, now).log });
+    expect(tabBResult).toEqual({ saved: true, log: loadLog(storage, KEYS, now).log });
   });
 
   it("refuses, writing nothing, when the stored log cannot be read", () => {
     const storage = blockedReadStorage();
-    const result = applyLogChange(storage, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
+    const result = applyLogChange(storage, KEYS, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
 
     expect(result).toMatchObject({ saved: false, error: expect.stringContaining("blocked") });
     expect(result).not.toHaveProperty("log");
@@ -299,25 +303,25 @@ describe("applyLogChange", () => {
   });
 
   it("refuses when an unreadable log could not be backed up, leaving the original in place", () => {
-    const storage = fakeStorage({ [LOG_STORAGE_KEY]: "{not json" }, true);
-    const result = applyLogChange(storage, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
+    const storage = fakeStorage({ [KEYS.log]: "{not json" }, true);
+    const result = applyLogChange(storage, KEYS, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
 
     expect(result.saved).toBe(false);
-    expect(storage.data.get(LOG_STORAGE_KEY)).toBe("{not json");
+    expect(storage.data.get(KEYS.log)).toBe("{not json");
   });
 
   it("after backing up an unreadable log it saves the change over it", () => {
-    const storage = fakeStorage({ [LOG_STORAGE_KEY]: "{not json" });
-    const result = applyLogChange(storage, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
+    const storage = fakeStorage({ [KEYS.log]: "{not json" });
+    const result = applyLogChange(storage, KEYS, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
 
     expect(result.saved).toBe(true);
-    expect(storage.data.get(`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-09T12:00:00.000Z`)).toBe("{not json");
-    expect(loadLog(storage, now).warning).toBeUndefined();
+    expect(storage.data.get(`${KEYS.logCorruptBackupPrefix}2026-11-09T12:00:00.000Z`)).toBe("{not json");
+    expect(loadLog(storage, KEYS, now).warning).toBeUndefined();
   });
 
   it("keeps the change in the returned log when the write fails", () => {
     const storage = fakeStorage({}, true);
-    const result = applyLogChange(storage, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
+    const result = applyLogChange(storage, KEYS, (fresh) => logSet(fresh, "2026-11-09", setOf("pull_up", 3)), now);
 
     expect(result.saved).toBe(false);
     expect(result.saved === false && result.error).toContain("QuotaExceededError");
@@ -339,18 +343,19 @@ describe("listCorruptLogBackups", () => {
   it("returns only the log's corrupt backups, oldest first", () => {
     const backups = listCorruptLogBackups(
       listingStorage({
-        [`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-09T08:00:00.000Z`]: "second",
-        [LOG_STORAGE_KEY]: "{}",
-        [`${LOG_CORRUPT_BACKUP_PREFIX}2026-11-02T08:00:00.000Z`]: "first",
+        [`${KEYS.logCorruptBackupPrefix}2026-11-09T08:00:00.000Z`]: "second",
+        [KEYS.log]: "{}",
+        [`${KEYS.logCorruptBackupPrefix}2026-11-02T08:00:00.000Z`]: "first",
         "explosive-endurance.fatigue.corrupt-2026-11-01T00:00:00.000Z": "other",
       }),
+      KEYS,
     );
 
     expect(backups.map((backup) => backup.originalText)).toEqual(["first", "second"]);
   });
 
   it("returns an empty list when there are none or storage throws", () => {
-    expect(listCorruptLogBackups(listingStorage({}))).toEqual([]);
-    expect(listCorruptLogBackups({ length: 1, key: () => { throw new Error("blocked"); }, getItem: () => null })).toEqual([]);
+    expect(listCorruptLogBackups(listingStorage({}), KEYS)).toEqual([]);
+    expect(listCorruptLogBackups({ length: 1, key: () => { throw new Error("blocked"); }, getItem: () => null }, KEYS)).toEqual([]);
   });
 });

@@ -1,11 +1,12 @@
 import type { KeyListingStorage } from "../log/storage";
+import type { ProgramStorageKeys } from "../storage/programKeys";
 import type { ExportWireV1 } from "./wire";
 
 /**
  * Import backups: before an import replaces anything, the current data is
  * saved under its own localStorage key so the import can be undone.
  *
- *   key   explosive-endurance.import-backup-<ISO timestamp>
+ *   key   <programId>.import-backup-<ISO timestamp>   (keys.importBackupPrefix + timestamp)
  *   value a whole export file (`ExportWireV1`, written compactly) of what was
  *         there, plus `rawStoredTexts`: the exact stored text of the four data
  *         keys, so an undo puts back even settings or history the loaders
@@ -20,9 +21,6 @@ import type { ExportWireV1 } from "./wire";
  * successful import or undo); a failed import whose rollback worked removes
  * its own backup, so repeated failures never pile up copies of the data.
  */
-
-/** Prefix of the keys import backups are kept under (`<prefix><ISO timestamp>`). */
-export const IMPORT_BACKUP_PREFIX = "explosive-endurance.import-backup-";
 
 /** How many import backups are kept; older ones are deleted after a successful import or undo. */
 export const MAX_IMPORT_BACKUPS = 3;
@@ -89,8 +87,8 @@ export function rawStoredTextsFromBackupText(backupText: string): RawStoredText[
 }
 
 /** The key a backup taken at `now` is kept under; one per moment, so a second import never overwrites the first backup. */
-export function importBackupKey(now: Date): string {
-  return `${IMPORT_BACKUP_PREFIX}${now.toISOString()}`;
+export function importBackupKey(keys: ProgramStorageKeys, now: Date): string {
+  return `${keys.importBackupPrefix}${now.toISOString()}`;
 }
 
 /**
@@ -99,13 +97,13 @@ export function importBackupKey(now: Date): string {
  * JSON export carries them. Never throws: a storage error gives what was
  * found so far.
  */
-export function listImportBackups(storage: KeyListingStorage): ImportBackup[] {
+export function listImportBackups(storage: KeyListingStorage, keys: ProgramStorageKeys): ImportBackup[] {
   const backups: ImportBackup[] = [];
 
   try {
     for (let index = 0; index < storage.length; index++) {
       const storageKey = storage.key(index);
-      if (storageKey === null || !storageKey.startsWith(IMPORT_BACKUP_PREFIX)) continue;
+      if (storageKey === null || !storageKey.startsWith(keys.importBackupPrefix)) continue;
 
       const exportText = storage.getItem(storageKey);
       if (exportText !== null) backups.push({ storageKey, exportText, rawStoredTexts: rawStoredTextsFromBackupText(exportText) });
@@ -122,8 +120,8 @@ export function listImportBackups(storage: KeyListingStorage): ImportBackup[] {
  * and `undoLastImport` after a successful write. Never throws: a key that
  * cannot be removed is simply left.
  */
-export function pruneImportBackups(storage: Storage, keep: number = MAX_IMPORT_BACKUPS): void {
-  const backups = listImportBackups(storage); // oldest first
+export function pruneImportBackups(storage: Storage, keys: ProgramStorageKeys, keep: number = MAX_IMPORT_BACKUPS): void {
+  const backups = listImportBackups(storage, keys); // oldest first
   const surplusCount = Math.max(0, backups.length - keep);
 
   for (const backup of backups.slice(0, surplusCount)) {

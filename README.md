@@ -59,8 +59,20 @@ as a dismissible banner on Today for the rest of that week. "Remind me
 tomorrow" hides the card for that date only. Saving the week 8 retest of
 pull-ups and/or the broad jump records them as that week's check, whichever is
 saved first, the other merging into it later. Checks are stored in
-`localStorage` under `explosive-endurance.fatigue`. It is a static site
+`localStorage` under `<programId>.fatigue` (`explosive-endurance.fatigue` for Explosive Endurance). It is a static site
 (Vite + TypeScript, no UI framework).
+
+**Where data is kept.** Every program keeps its own data in `localStorage`
+under keys that start with its id from `programs.json`: `<programId>.settings`,
+`.max-history`, `.log`, `.fatigue`, `.checkin-snoozed`,
+`.fatigue-warning-dismissed`, `.rotation-dismissed`, `.retest-dismissed`,
+`.retest-jump-skipped`, plus the backup keys `.log.corrupt-<time>`,
+`.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
+(`explosive-endurance`) these are the keys the app has always used. One key is
+app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
+says which program runs; when it is missing or names a program that is not in
+`programs.json`, the first program listed is used. The service worker's reload
+guard is app-wide too. The keys are built in `src/storage/programKeys.ts`.
 
 ## Install
 
@@ -124,8 +136,8 @@ week hold the previous week's reps until you save a new max for that exercise
 during the week (Today shows a retest card for it in week 8; Settings works
 too); then they use that max with no weekly increase. The held reps use the
 max that was in effect on the last week 7 day with that EMOM (every saved max is kept as a
-dated history in its own `localStorage` key, `explosive-endurance.max-history`,
-separate from `explosive-endurance.settings` so an older copy of the app can't
+dated history in its own `localStorage` key, `<programId>.max-history`,
+separate from `<programId>.settings` so an older copy of the app can't
 wipe it; clearing a max keeps its history), so a max raised later in week 7
 doesn't change them.
 
@@ -195,7 +207,7 @@ replace my data"); "Cancel" leaves everything as it was.
   and files with older settings versions still import.
 - Importing replaces the log, weekly checks, settings and max history. Before
   anything is written, the current data is saved as a backup in the browser
-  (key `explosive-endurance.import-backup-<time>`), itself a complete export
+  (key `<programId>.import-backup-<time>`), itself a complete export
   file (written compactly, with the exact stored text of each key inside). The
   next "Export everything as JSON" carries these under `importBackups`.
 - **Undo:** while a backup exists, the Import card has "Undo last import". It

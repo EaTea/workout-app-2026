@@ -3,6 +3,7 @@ import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, type Import
 import { applyImport, undoLastImport } from "../export/importApply";
 import { listImportBackups } from "../export/importBackup";
 import { todayLocalDate } from "../program/calendar";
+import type { ProgramStorageKeys } from "../storage/programKeys";
 import { element } from "./dom";
 
 /**
@@ -46,6 +47,9 @@ export interface ImportSectionOptions {
 
   /** Where the data lives; `localStorage` in the app. */
   storage: Storage;
+
+  /** The active program's storage keys: which stored data an import replaces and where its backups go. */
+  storageKeys: ProgramStorageKeys;
 
   /** How many sessions are logged right now, for the preview's "You have N sessions now". */
   currentSessionCount: () => number;
@@ -154,7 +158,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
         "This puts back the data you had before your last import. Your current data is first kept as a backup, so you can undo this too.",
       ),
       actionButton("primary-button", "Yes, undo the import", () => {
-        const outcome = undoLastImport(options.storage);
+        const outcome = undoLastImport(options.storage, options.storageKeys);
         if (outcome.ok) {
           options.onImported(outcome.backupKey);
         } else {
@@ -221,7 +225,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
     preview.append(
       actionButton("primary-button", "Replace my data", () => {
         showConfirmation(importedText, () => {
-          const outcome = applyImport(options.storage, result.data);
+          const outcome = applyImport(options.storage, options.storageKeys, result.data);
           if (outcome.ok) {
             options.onImported(outcome.backupKey);
           } else {
@@ -242,7 +246,7 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
   });
 
   section.append(fileButton);
-  if (listImportBackups(options.storage).length > 0) {
+  if (listImportBackups(options.storage, options.storageKeys).length > 0) {
     const undoButton = actionButton("import-secondary-button", "Undo last import", showUndoConfirmation);
     undoButton.disabled = options.isPreview;
     section.append(undoButton);

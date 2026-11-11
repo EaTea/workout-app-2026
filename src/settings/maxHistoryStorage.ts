@@ -1,6 +1,7 @@
 import type { MaxHistoryEntry } from "./model";
 import { recordMax, sortedHistory } from "./maxHistory";
 import { toDayNumber } from "../program/calendar";
+import type { ProgramStorageKeys } from "../storage/programKeys";
 
 /**
  * Persistence of the max history (every max the athlete ever saved) in its own
@@ -10,8 +11,8 @@ import { toDayNumber } from "../program/calendar";
  * reads the settings correctly, and whatever it writes there can never wipe
  * the history.
  *
- *   explosive-endurance.settings      (v2: startDate, maxReps, maxSavedOn)
- *   explosive-endurance.max-history   (v1: per exercise, entries oldest first)
+ *   <programId>.settings      (v2: startDate, maxReps, maxSavedOn)
+ *   <programId>.max-history   (v1: per exercise, entries oldest first)
  *            \                               /
  *             `-- loadSettings merges them --'  (see storage.ts)
  *
@@ -20,8 +21,8 @@ import { toDayNumber } from "../program/calendar";
  * `maxHistoryToWire` convert between them.
  */
 
-/** localStorage key holding the JSON-encoded `MaxHistoryWireV1`. */
-export const MAX_HISTORY_STORAGE_KEY = "explosive-endurance.max-history";
+// The JSON-encoded `MaxHistoryWireV1` lives under `keys.maxHistory` of the
+// active program's `ProgramStorageKeys`.
 
 /** One saved max on the wire; `savedOn` is null when the date is unknown. */
 export interface MaxHistoryEntryWire {
@@ -117,9 +118,9 @@ function validHistoryEntry(raw: unknown): MaxHistoryEntry | undefined {
  * Reads the history from `storage`. Never throws: missing, unparsable or
  * inaccessible storage gives an empty history. Called by `loadSettings`.
  */
-export function loadMaxHistory(storage: Storage = localStorage): Record<string, MaxHistoryEntry[]> {
+export function loadMaxHistory(storage: Storage, keys: ProgramStorageKeys): Record<string, MaxHistoryEntry[]> {
   try {
-    const stored = storage.getItem(MAX_HISTORY_STORAGE_KEY);
+    const stored = storage.getItem(keys.maxHistory);
     if (stored === null) {
       return {};
     }
@@ -130,6 +131,6 @@ export function loadMaxHistory(storage: Storage = localStorage): Record<string, 
 }
 
 /** Writes the history to `storage` as JSON. May throw if storage is full or blocked. Called by `saveSettings`. */
-export function saveMaxHistory(history: Record<string, MaxHistoryEntry[]>, storage: Storage = localStorage): void {
-  storage.setItem(MAX_HISTORY_STORAGE_KEY, JSON.stringify(maxHistoryToWire(history)));
+export function saveMaxHistory(history: Record<string, MaxHistoryEntry[]>, storage: Storage, keys: ProgramStorageKeys): void {
+  storage.setItem(keys.maxHistory, JSON.stringify(maxHistoryToWire(history)));
 }

@@ -20,9 +20,6 @@ import { element } from "./dom";
  * dismissal.
  */
 
-/** localStorage key holding the rotation blocks whose card was dismissed. */
-export const ROTATION_DISMISSED_STORAGE_KEY = "explosive-endurance.rotation-dismissed";
-
 /**
  * Wire type for the dismissal: stored text. Written as a JSON array of the
  * dismissed blocks' first weeks (for example "[5]"); an older build wrote just

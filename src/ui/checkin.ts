@@ -20,12 +20,6 @@ import { checkForWeek, fatigueWarnings, weeklyChecksFor, type FatigueWarning } f
  *   this week's drops over 10% (empty = no banner)
  */
 
-/** localStorage key holding the date ("YYYY-MM-DD") on which "Remind me tomorrow" was last tapped. */
-export const CHECKIN_SNOOZED_STORAGE_KEY = "explosive-endurance.checkin-snoozed";
-
-/** localStorage key holding the program week whose drop banner was dismissed. */
-export const FATIGUE_WARNING_DISMISSED_STORAGE_KEY = "explosive-endurance.fatigue-warning-dismissed";
-
 /** Broad jump limits (metres): more than 0 and at most 5, two decimals. Same as the stored check's rules. */
 export const MINIMUM_BROAD_JUMP_METRES = 0.01;
 export const MAXIMUM_BROAD_JUMP_METRES = 5;

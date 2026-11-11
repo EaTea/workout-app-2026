@@ -4,8 +4,9 @@ import { readExportSource } from "../export/source";
 import { rotationBlockStartWeek } from "../program/rotation";
 import type { TrainingSettings } from "../settings/model";
 import { loadSettings, saveSettings } from "../settings/storage";
-import { RETEST_DISMISSED_STORAGE_KEY, RETEST_JUMP_SKIPPED_STORAGE_KEY, retestJumpSkippedFromWire, retestJumpSkippedToWire, applyRetestMax, mergeRetestCheck, retestDismissedFromWire, retestDismissedToWire } from "./retest";
-import { ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire, rotationDismissedToWire } from "./rotationCard";
+import type { ProgramStorageKeys } from "../storage/programKeys";
+import { retestJumpSkippedFromWire, retestJumpSkippedToWire, applyRetestMax, mergeRetestCheck, retestDismissedFromWire, retestDismissedToWire } from "./retest";
+import { rotationDismissedFromWire, rotationDismissedToWire } from "./rotationCard";
 import { focusRemainingRetestStepper, focusRetestJumpStepper } from "./retestCard";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, parsePlanRoute, routeFromHash, type Route } from "./router";
@@ -29,8 +30,6 @@ import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult }
 import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
 import type { FatigueCheck } from "../fatigue/model";
 import {
-  CHECKIN_SNOOZED_STORAGE_KEY,
-  FATIGUE_WARNING_DISMISSED_STORAGE_KEY,
   checkInSnoozedFromWire,
   checkInSnoozedToWire,
   checkInWeekToAsk,
@@ -197,9 +196,9 @@ export const SAVE_FAILED_MESSAGE = "Couldn't save on this device";
  * `SAVE_FAILED_MESSAGE` if the browser refuses (storage full or blocked).
  * Used by `handleSave` in `startApp`; split out so it can be unit tested.
  */
-export function persistSettings(newSettings: TrainingSettings, storage: Storage = localStorage): string | null {
+export function persistSettings(newSettings: TrainingSettings, storage: Storage, keys: ProgramStorageKeys): string | null {
   try {
-    saveSettings(newSettings, storage);
+    saveSettings(newSettings, storage, keys);
     return null;
   } catch {
     return SAVE_FAILED_MESSAGE;
@@ -207,7 +206,8 @@ export function persistSettings(newSettings: TrainingSettings, storage: Storage 
 }
 
 /**
- * Shows the app inside `root`. Re-renders on every hash change; settings
+ * Shows the app inside `root`. `storageKeys` are the localStorage keys of the
+ * active program (main.ts builds them from the program id). Re-renders on every hash change; settings
  * edits go through `saveSettings`, update the in-memory copy and return to Today.
  * `warnings` (unknown program.json fields) appear as a dismissible banner on
  * Today; dismissing hides it until the page is reloaded.
@@ -215,6 +215,7 @@ export function persistSettings(newSettings: TrainingSettings, storage: Storage 
 export function startApp(
   root: HTMLElement,
   program: Program,
+  storageKeys: ProgramStorageKeys,
   initialSettings: TrainingSettings,
   warnings: ProgramWarning[] = [],
   loadedLog: LoadLogResult = { log: { sessions: {} } },
@@ -227,19 +228,19 @@ export function startApp(
   let fatigueHistory = loadedFatigue.history;
   let fatigueLoadWarningDismissed = false;
   /** The date "Remind me tomorrow" was tapped on the check-in card (kept in localStorage too), or undefined. */
-  let checkInSnoozedDate = loadStoredValue(CHECKIN_SNOOZED_STORAGE_KEY, checkInSnoozedFromWire);
+  let checkInSnoozedDate = loadStoredValue(storageKeys.checkInSnoozed, checkInSnoozedFromWire);
   /** The program week whose drop banner was dismissed (kept in localStorage too), or undefined. */
-  let dropBannerDismissedWeek = loadStoredValue(FATIGUE_WARNING_DISMISSED_STORAGE_KEY, fatigueWarningDismissedFromWire);
+  let dropBannerDismissedWeek = loadStoredValue(storageKeys.fatigueWarningDismissed, fatigueWarningDismissedFromWire);
   /** Unsaved check-in stepper values, kept here so a re-render does not reset them. */
   let checkInDraft: CheckInDraft | undefined;
   /** Set when "Start Day 1" could not be saved; shown inline on the Overview. */
   let startTodayFailureMessage: string | undefined;
   /** The date "Not today" was tapped on the retest card (kept in localStorage too), or undefined. */
-  let retestDismissedDate = loadRetestDismissedDate();
+  let retestDismissedDate = loadRetestDismissedDate(storageKeys);
   /** First date of the retest week whose broad jump was skipped (kept in localStorage too), or undefined. */
-  let retestJumpSkippedWeekStart = loadStoredValue(RETEST_JUMP_SKIPPED_STORAGE_KEY, retestJumpSkippedFromWire);
+  let retestJumpSkippedWeekStart = loadStoredValue(storageKeys.retestJumpSkipped, retestJumpSkippedFromWire);
   /** First weeks of the rotation blocks whose card was dismissed (kept in localStorage too). */
-  let rotationDismissedBlockWeeks = loadStoredValue(ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire) ?? [];
+  let rotationDismissedBlockWeeks = loadStoredValue(storageKeys.rotationDismissed, rotationDismissedFromWire) ?? [];
   /** Retest card stepper values by exercise id, kept here so re-renders don't reset an unsaved one. */
   const retestDrafts: Record<string, number | undefined> = {};
 
@@ -311,7 +312,7 @@ export function startApp(
    * (the stored log could not be read safely; nothing changes).
    */
   function changeLog(operation: (freshLog: WorkoutLog) => WorkoutLog): LogChangeOutcome {
-    const result = applyLogChange(localStorage, operation);
+    const result = applyLogChange(localStorage, storageKeys, operation);
     if (result.log !== undefined) {
       log = result.log;
     }
@@ -326,7 +327,7 @@ export function startApp(
    * On failure returns a message for the screen to show inline and stays put.
    */
   function handleSave(newSettings: TrainingSettings): string | null {
-    const failureMessage = persistSettings(newSettings);
+    const failureMessage = persistSettings(newSettings, localStorage, storageKeys);
     if (failureMessage !== null) {
       return failureMessage;
     }
@@ -348,10 +349,10 @@ export function startApp(
    * as they were.
    */
   function handleImported(): void {
-    settings = loadSettings();
-    loadedLog = loadLog(localStorage);
+    settings = loadSettings(localStorage, storageKeys);
+    loadedLog = loadLog(localStorage, storageKeys);
     log = loadedLog.log;
-    loadedFatigue = loadFatigueHistory(localStorage);
+    loadedFatigue = loadFatigueHistory(localStorage, storageKeys);
     fatigueHistory = loadedFatigue.history;
     logWarningDismissed = false;
     fatigueLoadWarningDismissed = false;
@@ -389,7 +390,7 @@ export function startApp(
    */
   function handleStartToday(): void {
     const today = resolveToday(window.location.search);
-    const failureMessage = persistSettings({ ...settings, startDate: today });
+    const failureMessage = persistSettings({ ...settings, startDate: today }, localStorage, storageKeys);
     if (failureMessage !== null) {
       startTodayFailureMessage = START_TODAY_SAVE_FAILED_MESSAGE;
       render();
@@ -425,9 +426,9 @@ export function startApp(
   function handleSaveRetestMax(exerciseId: string, newMax: number): string | null {
     if (!canSaveOnShownDate()) return PREVIEW_SAVING_OFF_MESSAGE;
 
-    const newSettings = applyRetestMax(loadSettings(), exerciseId, newMax, todayLocalDate());
+    const newSettings = applyRetestMax(loadSettings(localStorage, storageKeys), exerciseId, newMax, todayLocalDate());
 
-    const failureMessage = persistSettings(newSettings);
+    const failureMessage = persistSettings(newSettings, localStorage, storageKeys);
     if (failureMessage !== null) {
       return failureMessage;
     }
@@ -461,7 +462,7 @@ export function startApp(
     const week = status.week;
 
     const now = new Date();
-    const result = applyFatigueChange(localStorage, (freshHistory) => {
+    const result = applyFatigueChange(localStorage, storageKeys, (freshHistory) => {
       const existing = checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week);
       return recordCheck(freshHistory, mergeRetestCheck(existing, values, realToday, now), settings.startDate, program.lengthWeeks);
     }, now);
@@ -509,7 +510,7 @@ export function startApp(
 
     const check: FatigueCheck = { date: shownDate, savedAt: new Date(), ...values };
     let foundExistingCheck = false;
-    const result = applyFatigueChange(localStorage, (freshHistory) => {
+    const result = applyFatigueChange(localStorage, storageKeys, (freshHistory) => {
       if (checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week) !== undefined) {
         foundExistingCheck = true;
         return freshHistory; // keep the other copy's check untouched
@@ -530,7 +531,7 @@ export function startApp(
   function handleSnoozeCheckIn(): void {
     checkInSnoozedDate = shownDate;
     try {
-      localStorage.setItem(CHECKIN_SNOOZED_STORAGE_KEY, checkInSnoozedToWire(shownDate));
+      localStorage.setItem(storageKeys.checkInSnoozed, checkInSnoozedToWire(shownDate));
     } catch {
       // Storage blocked: hidden until reload, which is fine for a snooze.
     }
@@ -542,7 +543,7 @@ export function startApp(
   function handleDismissDropBanner(week: number): void {
     dropBannerDismissedWeek = week;
     try {
-      localStorage.setItem(FATIGUE_WARNING_DISMISSED_STORAGE_KEY, fatigueWarningDismissedToWire(week));
+      localStorage.setItem(storageKeys.fatigueWarningDismissed, fatigueWarningDismissedToWire(week));
     } catch {
       // Storage blocked: stays dismissed until reload.
     }
@@ -570,7 +571,7 @@ export function startApp(
 
     retestJumpSkippedWeekStart = weekStartDate;
     try {
-      localStorage.setItem(RETEST_JUMP_SKIPPED_STORAGE_KEY, retestJumpSkippedToWire(weekStartDate));
+      localStorage.setItem(storageKeys.retestJumpSkipped, retestJumpSkippedToWire(weekStartDate));
     } catch {
       // Storage blocked: stays skipped until reload.
     }
@@ -582,7 +583,7 @@ export function startApp(
   function handleDismissRetest(): void {
     retestDismissedDate = shownDate;
     try {
-      localStorage.setItem(RETEST_DISMISSED_STORAGE_KEY, retestDismissedToWire(shownDate));
+      localStorage.setItem(storageKeys.retestDismissed, retestDismissedToWire(shownDate));
     } catch {
       // Storage blocked: the card stays hidden until reload, which is fine for a dismissal.
     }
@@ -599,7 +600,7 @@ export function startApp(
 
     rotationDismissedBlockWeeks = [...new Set([...rotationDismissedBlockWeeks, blockStartWeek])];
     try {
-      localStorage.setItem(ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedToWire(rotationDismissedBlockWeeks));
+      localStorage.setItem(storageKeys.rotationDismissed, rotationDismissedToWire(rotationDismissedBlockWeeks));
     } catch {
       // Storage blocked: the card stays hidden until reload, which is fine for a dismissal.
     }
@@ -680,9 +681,10 @@ export function startApp(
       }
       const logTarget = parseLogRoute(window.location.hash);
       if (route === "settings") {
-        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage), {
+        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage, storageKeys), {
           isPreview: previewDateFromSearch(window.location.search) !== undefined,
           storage: localStorage,
+          storageKeys,
           currentSessionCount: () => Object.keys(log.sessions).length,
           onImported: handleImported,
         }));
@@ -740,9 +742,9 @@ export function startApp(
  * (through `retestDismissedFromWire`); undefined if absent, corrupt or if
  * storage cannot be read.
  */
-function loadRetestDismissedDate(): string | undefined {
+function loadRetestDismissedDate(storageKeys: ProgramStorageKeys): string | undefined {
   try {
-    return retestDismissedFromWire(localStorage.getItem(RETEST_DISMISSED_STORAGE_KEY));
+    return retestDismissedFromWire(localStorage.getItem(storageKeys.retestDismissed));
   } catch {
     return undefined;
   }

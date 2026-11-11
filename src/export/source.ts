@@ -2,6 +2,7 @@ import { loadFatigueHistory, type FatigueStorage } from "../fatigue/storage";
 import { listCorruptLogBackups, loadLog, type KeyListingStorage, type LogStorage } from "../log/storage";
 import { listImportBackups } from "./importBackup";
 import { loadSettings } from "../settings/storage";
+import type { ProgramStorageKeys } from "../storage/programKeys";
 import type { ExportSource } from "../ui/exportSection";
 
 /**
@@ -38,15 +39,15 @@ function readOnlyView(storage: ExportReadStorage): ExportReadStorage {
   });
 }
 
-/** Reads settings (with the max history), log, fatigue checks, corrupt-log backups and import backups fresh from `storage`. Never throws. */
-export function readExportSource(storage: ExportReadStorage): ExportSource {
+/** Reads settings (with the max history), log, fatigue checks, corrupt-log backups and import backups of the active program (`keys`) fresh from `storage`. Never throws. */
+export function readExportSource(storage: ExportReadStorage, keys: ProgramStorageKeys): ExportSource {
   const readOnlyStorage = readOnlyView(storage);
 
   return {
-    settings: loadSettings(readOnlyStorage),
-    log: loadLog(readOnlyStorage).log,
-    fatigueHistory: loadFatigueHistory(readOnlyStorage).history,
-    corruptLogBackups: listCorruptLogBackups(readOnlyStorage),
-    importBackups: listImportBackups(readOnlyStorage),
+    settings: loadSettings(readOnlyStorage, keys),
+    log: loadLog(readOnlyStorage, keys).log,
+    fatigueHistory: loadFatigueHistory(readOnlyStorage, keys).history,
+    corruptLogBackups: listCorruptLogBackups(readOnlyStorage, keys),
+    importBackups: listImportBackups(readOnlyStorage, keys),
   };
 }

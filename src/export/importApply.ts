@@ -1,7 +1,7 @@
-import { loadFatigueHistory, saveFatigueHistory, FATIGUE_STORAGE_KEY } from "../fatigue/storage";
-import { loadLog, saveLog, LOG_STORAGE_KEY } from "../log/storage";
-import { MAX_HISTORY_STORAGE_KEY } from "../settings/maxHistoryStorage";
-import { loadSettings, saveSettings, SETTINGS_STORAGE_KEY } from "../settings/storage";
+import { loadFatigueHistory, saveFatigueHistory } from "../fatigue/storage";
+import { loadLog, saveLog } from "../log/storage";
+import { loadSettings, saveSettings } from "../settings/storage";
+import type { ProgramStorageKeys } from "../storage/programKeys";
 import { parseImport, type ImportedData } from "./import";
 import { backupToText, importBackupKey, listImportBackups, pruneImportBackups, type RawStoredText } from "./importBackup";
 import { exportToWire } from "./wire";
@@ -19,7 +19,7 @@ import { exportToWire } from "./wire";
  *      history), for step 5.
  *   3. BACKUP FIRST: write the current data as a whole export file (compact
  *      JSON, with the raw texts of step 2 inside) under
- *      `explosive-endurance.import-backup-<ISO timestamp>`. If this fails,
+ *      `<programId>.import-backup-<ISO timestamp>`. If this fails,
  *      stop; nothing was changed.
  *   4. Write the new data key by key with the existing savers, in this order:
  *      log, check-ins, max history, settings. Each `setItem` either stores the
@@ -45,8 +45,10 @@ import { exportToWire } from "./wire";
 /** Outcome of `applyImport`: the backup key on success, or a readable reason (nothing half-written). */
 export type ApplyImportResult = { ok: true; backupKey: string } | { ok: false; error: string };
 
-/** The four keys an import replaces, in the order they are written (settings last; `saveSettings` writes max history before it). */
-const REPLACED_KEYS = [LOG_STORAGE_KEY, FATIGUE_STORAGE_KEY, MAX_HISTORY_STORAGE_KEY, SETTINGS_STORAGE_KEY] as const;
+/** The four keys of the active program an import replaces, in the order they are written (settings last; `saveSettings` writes max history before it). */
+function replacedKeys(keys: ProgramStorageKeys): string[] {
+  return [keys.log, keys.fatigue, keys.maxHistory, keys.settings];
+}
 
 /** Describes a caught value for a message. */
 function describeError(error: unknown): string {
@@ -58,8 +60,8 @@ function describeError(error: unknown): string {
  * after backing the current ones up (see the file comment for the steps).
  * `storage` and `now` are injectable for tests. Never throws.
  */
-export function applyImport(storage: Storage, data: ImportedData, now: Date = new Date()): ApplyImportResult {
-  return replaceStoredData(storage, now, () => writeParsedData(storage, data));
+export function applyImport(storage: Storage, keys: ProgramStorageKeys, data: ImportedData, now: Date = new Date()): ApplyImportResult {
+  return replaceStoredData(storage, keys, now, () => writeParsedData(storage, keys, data));
 }
 
 /**
@@ -69,34 +71,34 @@ export function applyImport(storage: Storage, data: ImportedData, now: Date = ne
  * without them is read like an import file. The current data is backed up
  * first like in any import, so an undo can itself be undone. Never throws.
  */
-export function undoLastImport(storage: Storage, now: Date = new Date()): ApplyImportResult {
-  const backups = listImportBackups(storage);
+export function undoLastImport(storage: Storage, keys: ProgramStorageKeys, now: Date = new Date()): ApplyImportResult {
+  const backups = listImportBackups(storage, keys);
   const newest = backups[backups.length - 1];
   if (newest === undefined) {
     return { ok: false, error: "There is no import to undo. Nothing was changed." };
   }
 
-  const rawTexts = newest.rawStoredTexts?.filter((raw) => (REPLACED_KEYS as readonly string[]).includes(raw.storageKey));
+  const rawTexts = newest.rawStoredTexts?.filter((raw) => replacedKeys(keys).includes(raw.storageKey));
   if (rawTexts !== undefined && rawTexts.length > 0) {
-    return replaceStoredData(storage, now, () => writeRawTexts(storage, rawTexts));
+    return replaceStoredData(storage, keys, now, () => writeRawTexts(storage, rawTexts));
   }
 
   const parsed = parseImport(newest.exportText);
   if (!parsed.ok) {
     return { ok: false, error: `The backup could not be read. ${parsed.error}` };
   }
-  return replaceStoredData(storage, now, () => writeParsedData(storage, parsed.data));
+  return replaceStoredData(storage, keys, now, () => writeParsedData(storage, keys, parsed.data));
 }
 
 /** Writes imported data with the normal savers (log, check-ins, then max history and settings). Throws on failure; the caller rolls back. */
-function writeParsedData(storage: Storage, data: ImportedData): void {
-  const logResult = saveLog(storage, data.log);
+function writeParsedData(storage: Storage, keys: ProgramStorageKeys, data: ImportedData): void {
+  const logResult = saveLog(storage, keys, data.log);
   if (!logResult.ok) throw new Error(logResult.error);
 
-  const fatigueResult = saveFatigueHistory(storage, data.fatigueHistory);
+  const fatigueResult = saveFatigueHistory(storage, keys, data.fatigueHistory);
   if (!fatigueResult.ok) throw new Error(fatigueResult.error);
 
-  saveSettings(data.settings, storage); // max history, then settings; throws on failure
+  saveSettings(data.settings, storage, keys); // max history, then settings; throws on failure
 }
 
 /** Puts raw stored texts back key by key (an absent key is removed). Throws on failure; the caller rolls back. */
@@ -115,22 +117,22 @@ function writeRawTexts(storage: Storage, rawTexts: RawStoredText[]): void {
  * 1 to 6): read, note the raw texts, back up, run `writeNewData`, roll back
  * on failure, prune old backups on success.
  */
-function replaceStoredData(storage: Storage, now: Date, writeNewData: () => void): ApplyImportResult {
+function replaceStoredData(storage: Storage, keys: ProgramStorageKeys, now: Date, writeNewData: () => void): ApplyImportResult {
   // Step 1: what is stored now.
-  const currentLog = loadLog(storage, now);
+  const currentLog = loadLog(storage, keys, now);
   if (currentLog.saveRefusedReason !== undefined) {
     return { ok: false, error: `${currentLog.saveRefusedReason} Nothing was changed.` };
   }
-  const currentFatigue = loadFatigueHistory(storage, now);
+  const currentFatigue = loadFatigueHistory(storage, keys, now);
   if (currentFatigue.saveRefusedReason !== undefined) {
     return { ok: false, error: `${currentFatigue.saveRefusedReason} Nothing was changed.` };
   }
-  const currentSettings = loadSettings(storage);
+  const currentSettings = loadSettings(storage, keys);
 
   // Step 2: raw text per key, to restore on failure and to keep in the backup.
   const previousTexts = new Map<string, string | null>();
   try {
-    for (const key of REPLACED_KEYS) {
+    for (const key of replacedKeys(keys)) {
       previousTexts.set(key, storage.getItem(key));
     }
   } catch (error) {
@@ -138,7 +140,7 @@ function replaceStoredData(storage: Storage, now: Date, writeNewData: () => void
   }
 
   // Step 3: backup first.
-  const backupKey = importBackupKey(now);
+  const backupKey = importBackupKey(keys, now);
   try {
     const backupWire = exportToWire({
       exportedAt: now,
@@ -163,7 +165,7 @@ function replaceStoredData(storage: Storage, now: Date, writeNewData: () => void
   }
 
   // Step 6: keep only the newest backups.
-  pruneImportBackups(storage);
+  pruneImportBackups(storage, keys);
   return { ok: true, backupKey };
 }
 
