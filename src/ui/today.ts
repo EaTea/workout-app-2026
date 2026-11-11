@@ -143,7 +143,7 @@ export function renderTodayScreen(
       screen.append(...renderTrainingDay(program, session, date, log));
       break;
     default:
-      screen.append(renderMessageCard(session, program.lengthWeeks, date));
+      screen.append(renderMessageCard(session, program.lengthWeeks, date, program.safety));
   }
 
   return screen;
@@ -154,12 +154,15 @@ export function renderTodayScreen(
  * finished. Each ends with the small "Program overview" link. The
  * `noStartDate` case is only here to keep the switch exhaustive: app.ts never
  * renders Today without a start date (it shows the Overview), so the card just
- * points there.
+ * points there. A program with safety notes keeps the "Safety notes" link on
+ * these cards too (as on a training day), so the notes are one tap away on
+ * rest days as well.
  */
 function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
   lengthWeeks: number,
   date: string,
+  safetyNotes: string[],
 ): HTMLElement {
   const card = element("div", "card message-card");
 
@@ -193,6 +196,9 @@ function renderMessageCard(
   }
 
   card.append(renderProgramOverviewLink());
+  if (safetyNotes.length > 0) {
+    card.append(renderSafetyNotesLink(safetyNotes));
+  }
   return card;
 }
 

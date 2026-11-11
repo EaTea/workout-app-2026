@@ -58,7 +58,7 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
 /**
  * Opens a bottom sheet showing `content` under the grab bar and Close button.
  * Shared by the exercise details sheet above and the "Safety notes" sheet on
- * Today (see safetySheet.ts), so both get the same behaviour: the page behind
+ * Today (see safetyNotes.ts), so both get the same behaviour: the page behind
  * is inert, Escape / Close / backdrop / Back all close it, and focus returns
  * to `opener`. The content should include an element with id "sheet-title",
  * which labels the dialog.

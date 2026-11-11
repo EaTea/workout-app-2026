@@ -39,7 +39,8 @@ export function renderSafetyNotesCard(notes: string[]): HTMLElement {
  * Today's small "Safety notes" link-styled button. Opens the full list in the
  * bottom sheet; the sheet's Close button, Escape, the backdrop and the Back
  * button all close it and focus returns to this button. Called by
- * renderTrainingDay in today.ts when the program has safety notes.
+ * renderTrainingDay and renderMessageCard (rest day etc.) in today.ts when
+ * the program has safety notes.
  */
 export function renderSafetyNotesLink(notes: string[]): HTMLButtonElement {
   const button = element("button", "safety-notes-link", "Safety notes");

@@ -47,8 +47,19 @@ test("Explosive Endurance has no Before you start card and no Safety notes link"
     window.localStorage.setItem("explosive-endurance.settings", JSON.stringify({ version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} })),
   );
   await page.goto("/#/today");
+  await page.reload(); // a hash-only goto doesn't reload, and the app reads its saved start date at startup
+  await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
   await expect(page.locator(".today-title")).toBeVisible();
   await expect(page.getByRole("button", { name: "Safety notes" })).toHaveCount(0);
+});
+
+test("Steady Strength's rest day (Day 7) also has the Safety notes link", async ({ page }) => {
+  await chooseSteadyStrength(page, "2026-11-02");
+  await page.goto("/?date=2026-11-08");
+
+  await expect(page.getByRole("heading", { name: "Rest day" })).toBeVisible();
+  await page.getByRole("button", { name: "Safety notes" }).click();
+  await expect(page.getByRole("dialog", { name: "Safety notes" }).locator("li")).toHaveCount(5);
 });
 
 test("Today's Safety notes link opens the notes in the sheet, and Back closes just the sheet", async ({ page }) => {
