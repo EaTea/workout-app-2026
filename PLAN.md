@@ -1,6 +1,6 @@
 # PLAN: Explosive Endurance workout app (mobile mockup)
 
-Status: **PR 1 to PR 10 merged (#3 to #16), and the PR 11 plan merged as #17. PR 11 (program overview welcome page) is in review.**
+Status: **PR 1 to PR 11 merged (#3 to #18). The PR 12 plan (day plans by week from the overview) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -582,7 +582,7 @@ block adds 5 × 90s + 4 × 60s = 11.5 minutes.
    the 1/5 progress and week 8.
 - **Merge point:** Day 6 has the wall sits with a working timer and log.
 
-### PR 11 — Program overview as the welcome page *(behavior change)*
+### PR 11 — Program overview as the welcome page *(behavior change)* — merged as PR #18
 Ed asked for a program overview as the app's welcome page, with one clear
 call to action on where to start. Today a first visit shows a small
 "Welcome" card on Today ("Set your program start date…" and "Start
@@ -681,6 +681,86 @@ targetMinutes, progression), so no new wire type or parser change.
 - **Merge point:** a first visit lands on the program overview, and one
   tap starts Day 1.
 
+### PR 12 — Day plans by week from the overview *(behavior change)*
+Ed asked to tap a day on the Overview and see that day's whole workout,
+and to pick a week to see what would be different for the same day.
+
+**What it does.** Each training day row on the Overview (Day 1–6)
+becomes a link to a new read-only **Day plan** screen at
+`#/plan/<day>/<week>`, e.g. `#/plan/1/4` for Day 1 in week 4:
+
+```
+ ┌──────────────────────────────────┐
+ │ ‹ Program overview               │  back link
+ │ DAY 1 · WEEK 4 OF 8 · DELOAD     │  kicker
+ │ Upper: pull                      │  h1
+ │ ~50 min · 6 blocks               │
+ │ [1][2][3][4][5][6][7][8]         │  week picker (current pick highlighted,
+ │                                  │   cells tinted by phase)
+ │ Deload: Halve all sets · Keep …  │  the phase and its changes
+ ├──────────────────────────────────┤
+ │ 2 · EXPLOSIVE                    │  every block and item, as on Today:
+ │ Med ball slams          3 × 6    │  name, dose, details (rest, tempo…)
+ │   Changed: 6 × 6 in week 3       │  ◀ only when it differs from the
+ │ 3 · MAIN STRENGTH · 5 MIN        │    previous week
+ │ Pull-ups                6 / min  │
+ │ …                                │
+ └──────────────────────────────────┘
+```
+
+- **Same numbers as Today.** The screen doesn't re-implement any rules.
+  It asks the existing `buildSession` for the date that week and day fall
+  on: from the saved start date when there is one, otherwise from a
+  stand-in start date that is used only for this preview and never saved.
+  So deloads, the +1 rep per week, the power-endurance timer changes, the
+  warm-up rotation and EMOM targets from your maxes all match what Today
+  will show. Without saved maxes the max-based rows read "Set max", as on
+  Today. Week 8 shows the held week 7 EMOM reps until a retest is saved,
+  which is also what Today does.
+- **Read-only.** No logging, timers or check-in cards: it is for looking
+  ahead (or back). Today stays the only place to train from.
+- **Week picker.** It opens on the current week while the program is
+  running, otherwise week 1. Tapping a week swaps the plan in place
+  (`location.replace`, so Back still returns to the Overview in one step).
+- **What changed.** An item whose dose or details differ from the same
+  item in the **previous week** gets a "Changed: <previous figure> in week
+  N" line under it, and the phase's changes are listed at the top. Week 1
+  has nothing to compare with, so it shows none.
+- Rest day (Day 7) rows stay plain text: there is no plan to show.
+
+**Alternative considered:** comparing every week with week 1 instead of
+the previous week. It shows the total change since the start, but in
+weeks 5–8 almost every row would be marked and the week-to-week step
+(what you'd actually notice in the gym) gets lost.
+
+**Code.** No new wire types: it reads the internal `Program` and
+`TrainingSettings` like Today does.
+- `src/program/dayPlan.ts`: `planDateFor(startDate, week, day)` and
+  `buildDayPlan(program, settings, week, day)`, which calls `buildSession`
+  for that date (with a stand-in start date when none is saved), and
+  `compareWithPreviousWeek(...)`, which matches items by block position and
+  exercise id and reports the ones whose dose or details changed. Pure and
+  unit-tested.
+- `src/ui/dayPlan.ts` (+ CSS): renders it, reusing the existing
+  `formatBlockTitle`, `formatItemDose` and `formatItemDetails` so the rows
+  read the same as on Today.
+- The router gets a `plan` route; the Overview's training-day rows become
+  links; the bottom nav keeps Today highlighted, as for the Overview.
+
+**Steps.**
+1. [ ] `dayPlan.ts` view model and unit tests: the date maths (start
+   2 Nov, Day 1 week 4 = 23 Nov), the stand-in start date when none is
+   saved, and the changes between weeks for Day 1 (worked examples below).
+2. [ ] Day plan screen, the `#/plan/<day>/<week>` route (bad or out-of-range
+   numbers fall back to the Overview), the week picker, the Overview rows
+   as links, styles and README.
+3. [ ] E2E (`e2e/dayPlan.spec.ts`): from the Overview tap Day 1, see all
+   six blocks, pick week 4 and see the halved doses with their "Changed"
+   lines, Back returns to the Overview; Day 7 is not a link; a first run
+   (no start date) can browse plans without a start date being saved.
+- **Merge point:** every training day's plan can be browsed week by week
+  from the Overview.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -703,6 +783,9 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | (no start date) | — | — | Overview: 8 weeks, 6 training days, about 234 min a week (50+30+32+30+50+42 from the shipped `program.json`); phases Base W1–3, Deload W4, Power endurance W5–7, Deload + retest W8; CTA "Start Day 1: Upper: pull" |
 | 9 Nov (start 2 Nov) | W2 D1 | Base | Overview CTA "Go to today: Week 2 · Day 1"; week 2 highlighted |
 | 8 Nov (start 2 Nov) | W1 D7 | Base | Overview CTA "Go to today: Rest day" |
+| Day plan, start 2 Nov, max 12 / 15 | Day 1, W1 → W2 | Base | Pull-up EMOM 4 → 5 / min ("Changed: 4 / min in week 1"); med ball slams 6 × 6 unchanged, so no line |
+| Day plan, start 2 Nov, max 12 / 15 | Day 1, W3 → W4 | Deload | Med ball slams 3 × 6 ("Changed: 6 × 6 in week 3"); pull-up EMOM 5 min × 6 (minutes changed from 9, reps held at 6); dip mini-dose 1 × 7 (was 2 × 7) |
+| Day plan, no start date saved | Day 1, W2 | Base | Same doses as a saved start date would give; max-based rows say "Set max" unless maxes are saved; no start date is saved |
 
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
