@@ -123,6 +123,15 @@ How the first program is chosen, at every start:
    written, so a phone that used the app before programs existed is unchanged.
 4. Otherwise (a new phone or a cleared browser): the picker, as the whole app.
 
+Safety notes: a program with `program.safety` (Steady Strength) shows its first
+note, "This is not medical advice. Check with your doctor or physiotherapist
+before starting...", on its picker card; a "Before you start" card listing all
+the notes as the last card on its Overview, just above the Start button (shown
+every time, and it never blocks Start); and a small "Safety notes" link under
+Today's header that opens the same list in the bottom sheet (Back, Close,
+Escape or a tap outside closes it). A program without safety notes (Explosive
+Endurance) shows none of these.
+
 So the order of `programs.json` no longer decides what opens. To switch later,
 use "Switch program" at the top of the Overview, or the "Program: `<name>` ·
 Switch program" row in Settings. Switching never deletes anything: each program

@@ -1,0 +1,46 @@
+/* Safety notes: calm amber notice card on the Overview, link and list on Today's sheet. */
+.safety-notes-card {
+  border: 1px solid #6b4a1c;
+  background: #2a2216;
+}
+
+.safety-notes-title {
+  margin: 0 0 8px;
+  color: #ffd08a;
+  font-size: 18px;
+}
+
+.safety-notes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.safety-notes-list li {
+  position: relative;
+  padding: 6px 0 6px 22px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.safety-notes-list li::before {
+  content: "•";
+  position: absolute;
+  left: 4px;
+  color: #ffd08a;
+}
+
+/* Quiet text-link look, 44px tall for an easy tap. */
+.safety-notes-link {
+  display: inline-block;
+  margin-left: 16px;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}

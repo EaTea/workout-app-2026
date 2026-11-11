@@ -80,3 +80,15 @@
   color: var(--muted);
   font-size: 15px;
 }
+
+/* The program's first safety note as a calm amber notice line at the foot of its card. */
+.program-card-safety {
+  display: block;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #2a2216;
+  color: #ffd08a;
+  font-size: 14px;
+  line-height: 1.4;
+}

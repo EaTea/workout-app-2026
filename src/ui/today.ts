@@ -8,6 +8,7 @@ import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
 import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
+import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
 import { checkInWeekToAsk, trainingWeekOf, type CheckInDraft } from "./checkin";
@@ -216,6 +217,10 @@ function renderTrainingDay(
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
     renderProgramOverviewLink(),
   );
+  // A program with safety notes keeps them one tap away; the sheet is shared with the exercise details.
+  if (program.safety.length > 0) {
+    header.append(renderSafetyNotesLink(program.safety));
+  }
 
   const parts: HTMLElement[] = [header, renderPhaseStrip(program, session.phase, session.isDeload)];
 

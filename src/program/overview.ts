@@ -78,6 +78,8 @@ export interface ProgramOverview {
   days: DayOverview[];
   /** The program's session block ids in order, unlabelled (the UI maps them to labels). */
   sessionOrder: string[];
+  /** The program's safety notes, in order; empty when it has none (no "Before you start" card then). */
+  safetyNotes: string[];
   callToAction: CallToAction;
 }
 
@@ -170,6 +172,7 @@ export function buildProgramOverview(program: Program, status: ProgramStatus): P
     currentWeek,
     days,
     sessionOrder: [...program.sessionOrder],
+    safetyNotes: [...program.safety],
     callToAction: buildCallToAction(status, days),
   };
 }

@@ -25,7 +25,45 @@ const FOCUSABLE = "a[href], button";
 /** Opens the sheet for `item`; `opener` regains focus when it closes. */
 export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   const { exercise } = item;
+  const content: HTMLElement[] = [];
 
+  const category = exercise.maxTested ? `${capitalise(exercise.category)} · Max tested` : capitalise(exercise.category);
+  const title = element("h2", "sheet-title", exercise.name);
+  title.id = "sheet-title";
+
+  content.push(
+    element("div", "kicker", category),
+    title,
+    element("p", "sheet-summary", formatPrescriptionSummary(item)),
+  );
+
+  if (item.weeklyIncrease) {
+    // The program's progression rule, shown as written (never parsed).
+    content.push(sectionHeading("Weekly progression"), element("p", "sheet-text", `${item.weeklyIncrease} each week (not in deload)`));
+  }
+  if (exercise.cues.length > 0) {
+    content.push(sectionHeading("Cues"), bulletList(exercise.cues));
+  }
+  if (exercise.alternative) {
+    content.push(sectionHeading("Alternative"), element("p", "sheet-text", exercise.alternative));
+  }
+  if (exercise.progression.length > 0) {
+    content.push(sectionHeading("Progression"), bulletList(exercise.progression));
+  }
+  content.push(sectionHeading("Evidence"), renderEvidence(item));
+
+  openSheet(content, opener);
+}
+
+/**
+ * Opens a bottom sheet showing `content` under the grab bar and Close button.
+ * Shared by the exercise details sheet above and the "Safety notes" sheet on
+ * Today (see safetySheet.ts), so both get the same behaviour: the page behind
+ * is inert, Escape / Close / backdrop / Back all close it, and focus returns
+ * to `opener`. The content should include an element with id "sheet-title",
+ * which labels the dialog.
+ */
+export function openSheet(content: HTMLElement[], opener: HTMLElement): void {
   const backdrop = element("div", "sheet-backdrop");
   const sheet = element("div", "sheet");
   sheet.setAttribute("role", "dialog");
@@ -35,33 +73,7 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
 
   const closeButton = element("button", "sheet-close", "Close");
   closeButton.type = "button";
-
-  const category = exercise.maxTested ? `${capitalise(exercise.category)} · Max tested` : capitalise(exercise.category);
-  const title = element("h2", "sheet-title", exercise.name);
-  title.id = "sheet-title";
-
-  sheet.append(
-    element("div", "sheet-grab"),
-    closeButton,
-    element("div", "kicker", category),
-    title,
-    element("p", "sheet-summary", formatPrescriptionSummary(item)),
-  );
-
-  if (item.weeklyIncrease) {
-    // The program's progression rule, shown as written (never parsed).
-    sheet.append(sectionHeading("Weekly progression"), element("p", "sheet-text", `${item.weeklyIncrease} each week (not in deload)`));
-  }
-  if (exercise.cues.length > 0) {
-    sheet.append(sectionHeading("Cues"), bulletList(exercise.cues));
-  }
-  if (exercise.alternative) {
-    sheet.append(sectionHeading("Alternative"), element("p", "sheet-text", exercise.alternative));
-  }
-  if (exercise.progression.length > 0) {
-    sheet.append(sectionHeading("Progression"), bulletList(exercise.progression));
-  }
-  sheet.append(sectionHeading("Evidence"), renderEvidence(item));
+  sheet.append(element("div", "sheet-grab"), closeButton, ...content);
 
   // Everything behind the sheet: made inert so Tab, screen readers and taps
   // cannot reach it, and the body is frozen so the page does not scroll.

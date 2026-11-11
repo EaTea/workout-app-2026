@@ -89,6 +89,9 @@ function renderProgramCard(card: ProgramPickerCard, onTap: (programId: string) =
     element("span", "program-card-goal", card.goal),
     element("span", "program-card-headline", formatOverviewHeadline(card.lengthWeeks, card.trainingDaysPerWeek, card.weeklyMinutes)),
   );
+  if (card.safetyNote !== undefined) {
+    button.append(element("span", "program-card-safety", card.safetyNote));
+  }
   button.addEventListener("click", () => onTap(card.programId));
   return button;
 }

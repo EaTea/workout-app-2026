@@ -1,6 +1,7 @@
 import type { CallToAction, DayOverview, PhaseOverview, ProgramOverview } from "../program/overview";
 import { element } from "./dom";
 import { renderSwitchProgramLink } from "./programPicker";
+import { renderSafetyNotesCard } from "./safetyNotes";
 import { planRouteHash } from "./router";
 import { blockLabel, formatOverviewHeadline, formatShortDate, formatWeekRange } from "./format";
 import "./overview.css";
@@ -14,6 +15,7 @@ import "./overview.css";
  *      "The 8 weeks"      week strip + one line per phase
  *      "A typical week"   Day 1 to 7 rows; training days link to their Day plan (#/plan/<day>/<week>)
  *      "Every session"    block order as labels
+ *      "Before you start" the safety notes card (only when the program has safety notes), last card
  *      call to action     the ONE primary button or link (by `callToAction.kind`)
  *
  * It only draws the view model; every number and name comes from program.json
@@ -89,8 +91,14 @@ export function renderOverviewScreen(overview: ProgramOverview, options: Overvie
     renderPhasesSection(overview),
     renderTypicalWeekSection(overview.days, overview.currentWeek ?? FIRST_WEEK),
     renderSessionOrderSection(overview.sessionOrder),
-    renderCallToAction(overview.callToAction, options),
   );
+
+  // The last card, so it is read just before the call to action. It never gates the button.
+  if (overview.safetyNotes.length > 0) {
+    screen.append(renderSafetyNotesCard(overview.safetyNotes));
+  }
+
+  screen.append(renderCallToAction(overview.callToAction, options));
 
   return screen;
 }

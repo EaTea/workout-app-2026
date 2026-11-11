@@ -1277,7 +1277,7 @@ program.
 2. [x] The picker screen at `#/programs`, the first-visit redirect, the
    "Switch program" links on the overview and in Settings, and the hidden
    "Max reps" section. README.
-3. [ ] The "Before you start" card on the overview, its first line on the
+3. [x] The "Before you start" card on the overview, its first line on the
    picker card, and the "Safety notes" link and sheet on Today.
 4. [ ] E2E (`e2e/programPicker.spec.ts`): a first visit shows both
    programs; choosing Steady Strength shows its overview with the safety

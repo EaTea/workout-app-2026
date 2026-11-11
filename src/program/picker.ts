@@ -23,6 +23,12 @@ export interface AvailableProgramCard {
   lengthWeeks: number;
   trainingDaysPerWeek: number;
   weeklyMinutes: number;
+  /**
+   * The program's first safety note (which opens with "This is not medical
+   * advice." and says to check with a doctor or physiotherapist), shown in
+   * full as a notice line; undefined when the program has no safety notes.
+   */
+  safetyNote?: string;
   /** True for the program the app is running now (a running app marks it "Current"). */
   isCurrent: boolean;
 }
@@ -63,6 +69,7 @@ export function buildProgramPicker(loadedPrograms: LoadedCatalogueEntry[], activ
       lengthWeeks: overview.lengthWeeks,
       trainingDaysPerWeek: overview.trainingDaysPerWeek,
       weeklyMinutes: overview.weeklyMinutes,
+      safetyNote: overview.safetyNotes[0],
       isCurrent,
     };
   });

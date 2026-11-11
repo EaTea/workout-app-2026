@@ -84,3 +84,17 @@ describe("programNamesById", () => {
     });
   });
 });
+
+describe("buildProgramPicker: safety note line", () => {
+  it("gives Steady Strength's card its first safety note in full, and Explosive Endurance none", () => {
+    const [explosiveCard, steadyCard] = buildProgramPicker([explosive, steady], undefined);
+
+    expect(steadyCard).toMatchObject({ kind: "available" });
+    if (steadyCard?.kind === "available") {
+      expect(steadyCard.safetyNote).toMatch(/^This is not medical advice\. Check with your doctor or physiotherapist before starting/);
+    }
+    if (explosiveCard?.kind === "available") {
+      expect(explosiveCard.safetyNote).toBeUndefined();
+    }
+  });
+});
