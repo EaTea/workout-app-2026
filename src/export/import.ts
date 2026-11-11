@@ -162,7 +162,9 @@ function readProgramId(file: Record<string, unknown>): { ok: true; programId: st
 
   const programId = file.programId;
   if (typeof programId !== "string" || !PROGRAM_ID_PATTERN.test(programId)) {
-    return { ok: false, error: `This export has no readable "programId" (${JSON.stringify(programId)}), so it was not imported. Nothing was changed.` };
+    // JSON.stringify(undefined) is undefined, which would print as "(undefined)".
+    const shown = programId === undefined ? "missing" : JSON.stringify(programId);
+    return { ok: false, error: `This export has no readable "programId" (${shown}), so it was not imported. Nothing was changed.` };
   }
   return { ok: true, programId };
 }

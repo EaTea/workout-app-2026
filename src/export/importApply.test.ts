@@ -277,6 +277,56 @@ describe("undoLastImport", () => {
     expect(readExportSource(storage, KEYS).log.sessions["2026-10-01"]).toBeDefined();
   });
 
+  it("refuses, changing nothing, a backup that belongs to another program", () => {
+    const storage = storageWithOldData();
+    applyImport(storage, KEYS, importedData, NOW);
+    const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
+    backupText.programId = "steady-strength";
+    storage.setItem(BACKUP_KEY, JSON.stringify(backupText));
+    const before = dataKeys(storage);
+
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain('"steady-strength"');
+    expect(dataKeys(storage)).toEqual(before);
+    expect(listImportBackups(storage, KEYS)).toHaveLength(1);
+  });
+
+  describe("a backup stored in the old version 1 format (no programId)", () => {
+    /** Rewrites the stored backup as the version 1 app wrote it: no programId, version 1; raw texts kept only when asked. */
+    function downgradeBackupToVersion1(storage: FakeStorage, keepRawTexts: boolean): void {
+      const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
+      backupText.version = 1;
+      delete backupText.programId;
+      if (!keepRawTexts) delete backupText.rawStoredTexts;
+      storage.setItem(BACKUP_KEY, JSON.stringify(backupText));
+    }
+
+    it("is undone from its raw texts when it has them", () => {
+      const storage = storageWithOldData();
+      const before = dataKeys(storage);
+      applyImport(storage, KEYS, importedData, NOW);
+      downgradeBackupToVersion1(storage, true);
+
+      const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+      expect(result.ok).toBe(true);
+      expect(dataKeys(storage)).toEqual(before);
+    });
+
+    it("is undone by reading it like an import file when it has no raw texts", () => {
+      const storage = storageWithOldData();
+      applyImport(storage, KEYS, importedData, NOW);
+      downgradeBackupToVersion1(storage, false);
+
+      const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+      expect(result.ok).toBe(true);
+      expect(readExportSource(storage, KEYS).log.sessions["2026-10-01"]).toBeDefined();
+    });
+  });
+
   it("says so, changing nothing, when there is no backup", () => {
     const storage = storageWithOldData();
     const before = dataKeys(storage);

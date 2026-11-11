@@ -232,6 +232,8 @@ describe("parseImport", () => {
       );
       expect(result.ok).toBe(false);
       expect(!result.ok && result.error).toContain('"programId"');
+      expect(!result.ok && result.error).not.toContain("undefined");
+      if (programId === undefined) expect(!result.ok && result.error).toContain("(missing)");
       expect(!result.ok && result.error).toContain("Nothing was changed");
     }
   });
