@@ -906,27 +906,37 @@ program is chosen at the start" below), which says:
 5. Keep a kitchen counter, a sturdy chair or a wall within reach for
    every standing exercise.
 
-**How the program protects the back.** These are the program's `rules`,
-and every exercise below was picked to fit them:
+**How the program protects the back.** These are the program's `rules`.
+Each one has a source (S-numbers refer to the Evidence table below), and
+every exercise was picked to fit them:
 
 - The spine stays in a neutral, "tall" position. No sit-ups, crunches,
-  toe touches, twisting under load or bending forward to lift.
+  toe touches, twisting under load or bending forward to lift, and moves
+  are slow and controlled (S3).
 - No jumping, running or heavy weights. Loads are a resistance band, body
   weight or something light from the kitchen (a 0.5–1 kg tin or bottle).
-- Isometric holds come first in each session: they build strength and
-  stability around the joints without moving the spine.
-- Effort is about 5 out of 10. Finish every set feeling you could do a few
-  more. Mild muscle tiredness is normal; pain is the signal to stop.
+  Light-to-moderate strength work is effective and safe for people over
+  75 (S7) and for band training (S10).
+- Effort is 5 to 6 out of 10: finish every set with 2 or 3 reps still in
+  hand (S5). Mild muscle tiredness is normal; pain is the signal to stop.
+- Breathe out during the effort and never hold your breath (S2). Holds
+  stay short, at about half effort, because holds with big muscles raise
+  blood pressure more in older adults (S12).
 - Almost everything is standing at a counter, sitting on a chair or
-  leaning on a wall, so nobody has to get down to the floor. The one
-  lying-down hold (the glute bridge) can be done on a bed and has a
-  standing alternative.
+  leaning on a wall, with "with support" versions first and "less support"
+  as the progression, as in the Otago programme (S2). The one lying-down
+  hold (the glute bridge) can be done on a bed and has a standing
+  alternative.
 
 **The week.** Same 7-day cycle and 8 weeks as Explosive Endurance (rule 1),
 so the schedule, Today, the day plans and logging work unchanged. Three
-main sessions on alternate days build strength, with short balance-and-walk
-days in between, because balance practice works best little and often and
-strength work needs a day to recover. Day 7 is a full rest.
+main strength sessions on alternate days, with a rest day between, as in
+the Otago programme (S2) and within the 2–3 days a week that works best in
+older adults (S5, S6, S7). Balance practice is on six days, because
+balance plus strength work cuts falls (S1) and Too Fit To Fracture
+recommends balance daily (S3). Walking is on the short days and at the
+end of each main session, towards the WHO weekly target (S4). Day 7 is a
+full rest.
 
 ```
  Day 1  Legs and core              ~30 min  main session
@@ -941,134 +951,161 @@ strength work needs a day to recover. Day 7 is a full rest.
 
 Each main session runs: warm-up → balance → isometric holds → light
 strength → core → cool-down (`sessionOrder`). The short days are
-balance → walk.
+balance → walk. No study compares orders; balance goes first so it is
+practised while fresh, which is a judgment, not a finding.
 
 **The exercises.** Holds are interval items (rounds × work seconds / rest
 seconds), so they get the existing interval timer with a beep at each
-change, which is easier than counting seconds. Holds marked "alternate"
-switch sides each round, so the round count is even. Everything else is
-straight sets with a rest timer.
+change. Holds marked "alternate" switch sides each round, so the round
+count is even. Everything else is straight sets with a rest timer. Every
+strength exercise is 2–3 sets of 8–12 reps with 60s rest (S5, S6). The
+last column names each exercise's source.
+
+The Otago warm-up (S2), the same on every main day:
+| Exercise | Dose | Notes | Source |
+| --- | --- | --- | --- |
+| Head turns | 5 each side | Turn as far as comfortable | S2 |
+| Neck retraction (chin tuck) | 5 | A hand on the chin guides the head straight back | S2 |
+| Standing back extension | 5 | Hands on the small of the back, gently arch; stop if it sends pain down a leg | S2 |
+| Ankle pumps, seated | 10 each foot | Pull the foot up, then point it | S2 |
+
+The Otago warm-up also has trunk turns; they're left out because they
+twist the lower back (S3).
 
 Day 1 · Legs and core
-| Block | Exercise | Weeks 1–3 | Notes and cues |
-| --- | --- | --- | --- |
-| Warm-up (1 round) | March on the spot at the counter | 1 min | Hold the counter, lift the knees a comfortable height |
-| | Shoulder rolls | 10 | Slow, both directions |
-| | Ankle circles, seated | 10 each way, each foot | |
-| Balance | Single-leg stand at the counter | 4 rounds × 20s, 20s rest, alternate legs | Fingertips on the counter; stand tall |
-| Isometric | High wall sit | 3 × 20s, 40s rest | Slide only a little way down the wall (knees bent no more than a quarter); back flat on the wall |
-| | Glute bridge hold | 3 × 15s, 30s rest | On the bed is fine; squeeze the buttocks, don't arch the back. Alternative: standing buttock squeeze, 3 × 20s |
-| | Pallof press hold (band) | 4 × 15s, 20s rest, alternate sides | Band anchored at chest height in a door; arms straight out, don't let the band turn you |
-| Strength | Sit-to-stand from a chair | 3 × 8–10, 60s rest, 3s lowering | Use the chair arms if needed; feet hip-width, chest up |
-| | Heel raises at the counter | 2 × 10–12, 45s rest | Up for 2s, down for 2s |
-| | Side leg raise at the counter | 2 × 10 per side, 30s rest | Small range, toes forward, no leaning |
-| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | Both hands on the counter, slide one leg straight back and hold; hips stay level |
-| Cool-down | Slow walk | 3–5 min | |
-| | Calf stretch at the wall | 2 × 20s per side | Gentle, no bouncing |
+| Block | Exercise | Weeks 1–2 | Notes and cues | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Single-leg stand at the counter | 4 rounds × 20s, 20s rest, alternate legs | Hold the counter, then fingertips, then hover (progression) | S2, S1 |
+| Isometric | High wall sit | 3 × 20s, 40s rest | Slide only a little way down (knees bent no more than a quarter); back flat on the wall; breathe | S13, S12, S14 |
+| | Glute bridge hold | 3 × 15s, 30s rest | On the bed is fine; squeeze the buttocks, don't arch the back. Alternative: standing buttock squeeze, 3 × 20s | S8, S13 |
+| | Pallof press hold (band) | 4 × 15s, 20s rest, alternate sides | Band anchored at chest height in a door; arms straight out, don't let the band turn you | S9, S10 |
+| Strength | Sit-to-stand from a chair | 3 × 8–12, 60s rest | Two hands, then one hand, then no hands (progression) | S2, S7 |
+| | Heel and toe raises at the counter | 2 × 10 each, 60s rest | Up onto the toes, then rock back onto the heels | S2 |
+| | Side hip raise at the counter | 2 × 10 per side, 60s rest | Straight leg out to the side, toes forward, no leaning | S2 |
+| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | Both hands on the counter, slide one leg straight back and hold; hips level | S8, S9 |
+| Cool-down | Slow walk | 3–5 min | | S4 |
+| | Calf stretch at the wall | 60s per side | Gentle, no bouncing | S16, S5 |
+| | Doorway chest stretch | 60s | Gentle | S16, S5 |
 
 Day 3 · Shoulders, wrists and core
-| Block | Exercise | Weeks 1–3 | Notes and cues |
-| --- | --- | --- | --- |
-| Warm-up (1 round) | Shoulder rolls | 10 | |
-| | Wrist circles | 10 each way | |
-| | Chin tucks, seated | 8, 3s hold | Glide the chin straight back, eyes level, no nodding |
-| Balance | Heel-to-toe stand at the counter | 4 rounds × 20s, 20s rest, alternate front foot | One foot directly in front of the other |
-| Isometric | Wall push hold | 3 × 15s, 30s rest | Hands on the wall at shoulder height, fingers spread, lean in to bent elbows and hold |
-| | Shoulder press-out into a door frame | 4 × 15s, 20s rest, alternate arms | Elbow at your side bent to 90°, press the back of the hand into the frame at about half effort (outward rotation) |
-| | Wrist presses | 2 rounds, 10s each direction, each hand | Press the palm into the other hand up, down, in and out without moving |
-| | Grip squeeze | 4 × 10s, 15s rest, alternate hands | Soft ball or rolled towel, about half effort |
-| Strength | Band row | 3 × 10–12, 60s rest, 2s squeeze | Seated or standing, band anchored in a door; shoulders down |
-| | Counter push-up | 2 × 8–10, 60s rest | Hands on the kitchen counter, body in a straight line |
-| | Wrist curl and reverse wrist curl | 2 × 10 each way | Forearm resting on a table, light tin or bottle |
-| | Band pull-apart | 2 × 10–12, 45s rest | At chest height, arms nearly straight |
-| Core | Wall side plank | 4 × 15s, 20s rest, alternate sides | Forearm on the wall, feet a step away, body straight |
-| | Tall sitting hold | 3 × 20s, 20s rest | Sit forward off the chair back, tall, gently brace the tummy and breathe |
-| Cool-down | Slow walk | 3–5 min | |
-| | Doorway chest stretch | 2 × 20s | Gentle |
+| Block | Exercise | Weeks 1–2 | Notes and cues | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Heel-to-toe stand at the counter | 4 rounds × 20s, 20s rest, alternate front foot | One foot directly in front of the other; less support over the weeks | S2, S1 |
+| Isometric | Wall push hold | 3 × 15s, 30s rest | Hands on the wall at shoulder height, fingers spread, lean in to bent elbows and hold; loads the wrists and shoulders | S13, S7 |
+| | Grip squeeze | 4 × 10s, 15s rest, alternate hands | Soft ball or rolled towel, about half effort | S11, S12 |
+| Strength | Band row | 3 × 8–12, 60s rest | Seated or standing, band anchored in a door; shoulders down, 2s squeeze | S10, S17 |
+| | Band outward rotation | 2 × 10 per arm, 60s rest, 3s hold at the end | Elbow tucked at your side; replaces the door-frame press-out | S10, S15 |
+| | Counter push-up | 2 × 8–12, 60s rest | Hands on the kitchen counter, body straight | S7 |
+| | Wrist curl and reverse wrist curl | 2 × 10 each way, 60s rest | Forearm resting on a table, light tin or bottle | S11 |
+| | Band pull-apart | 2 × 10–12, 60s rest | At chest height, arms nearly straight | S10, S17 |
+| Core | Wall side plank | 4 × 15s, 20s rest, alternate sides | Forearm on the wall, feet a step away, body straight | S8 |
+| | Tall sitting hold | 3 × 20s, 20s rest | Sit forward off the chair back, tall, gently brace and breathe; posture practice | S17, S8 |
+| Cool-down | Slow walk | 3–5 min | | S4 |
+| | Calf stretch at the wall | 60s per side | | S16, S5 |
+| | Doorway chest stretch | 60s | | S16, S5 |
 
 Day 5 · Whole body
-| Block | Exercise | Weeks 1–3 | Notes and cues |
-| --- | --- | --- | --- |
-| Warm-up (1 round) | March on the spot at the counter | 1 min | |
-| | Shoulder rolls | 10 | |
-| | Wrist circles | 10 each way | |
-| Balance | Heel-to-toe walk along the counter | 3 × 10 steps | One hand on the counter |
-| Isometric | Counter plank | 3 × 15s, 30s rest | Forearms or hands on the counter, body straight from head to heels |
-| | Split-stance hold at the counter | 4 × 15s, 20s rest, alternate legs | One foot ahead, small knee bend in both legs, torso upright |
-| | Suitcase hold | 4 × 20s, 20s rest, alternate hands | A light shopping bag (1–3 kg) in one hand, stand tall and don't lean |
-| Strength | Step-up onto a low step | 2 × 8 per side, 60s rest | Bottom stair with the rail, whole foot on the step |
-| | Sit-to-stand from a chair | 2 × 8–10, 60s rest | |
-| | Band row | 2 × 10–12, 60s rest | |
-| | Wall slide | 2 × 8 | Forearms on the wall, slide up only as high as is comfortable |
-| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | |
-| | Pallof press (band) | 2 × 8 per side, 3s hold at arms' length | |
-| Cool-down | Slow walk | 3–5 min | |
+| Block | Exercise | Weeks 1–2 | Notes and cues | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Heel-to-toe walk along the counter | 3 × 10 steps | One hand on the counter | S2 |
+| Isometric | Counter plank | 3 × 15s, 30s rest | Forearms or hands on the counter, body straight from head to heels | S8 |
+| | Split-stance hold at the counter | 4 × 15s, 20s rest, alternate legs | One foot ahead, small knee bend in both legs, torso upright | S13, S7 |
+| | Suitcase hold | 4 × 20s, 20s rest, alternate hands | A light shopping bag (1–3 kg) in one hand, stand tall and don't lean | S8, S11 |
+| Strength | Stair step-up | 2 × 8 per side, 60s rest | Bottom stair with the rail, whole foot on the step | S2 |
+| | Sit-to-stand from a chair | 2 × 8–12, 60s rest | | S2, S7 |
+| | Band row | 2 × 8–12, 60s rest | | S10 |
+| | Back knee bend at the counter | 2 × 10 per side, 60s rest | Standing, bring the heel towards the bottom; replaces the wall slide | S2 |
+| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | | S8, S9 |
+| | Pallof press (band) | 2 × 8 per side, 3s hold at arms' length | | S9, S10 |
+| Cool-down | Slow walk | 3–5 min | | S4 |
+| | Calf stretch at the wall | 60s per side | | S16, S5 |
+| | Doorway chest stretch | 60s | | S16, S5 |
 
 Days 2, 4 and 6 · Balance and walk
-| Block | Exercise | Weeks 1–3 | Notes |
-| --- | --- | --- | --- |
-| Balance | Single-leg stand at the counter | 4 × 20s, 20s rest, alternate legs | |
-| | Heel-to-toe stand at the counter | 4 × 20s, 20s rest, alternate front foot | |
-| | Sit-to-stand from a chair | 1 × 8 | Slow and controlled |
-| Walk | Walk at a comfortable pace | 10–20 min | Indoors or out; you should be able to talk |
+| Block | Exercise | Weeks 1–2 | Notes | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Single-leg stand at the counter | 4 × 20s, 20s rest, alternate legs | | S2 |
+| | Heel-to-toe stand at the counter | 4 × 20s, 20s rest, alternate front foot | | S2 |
+| | Sideways walking along the counter | 2 × 10 steps each way | Moving balance, as Too Fit To Fracture advises after static holds | S2, S3 |
+| | Sit-to-stand from a chair | 1 × 8 | Slow and controlled | S2 |
+| Walk | Walk at a comfortable pace | 10–20 min | Indoors or out; you should be able to talk | S4, S2 |
 
-**Evidence.** Gathered and checked during planning (11 Nov). Each
-exercise's `evidence` field gets the DOI link of the source it rests on
-(the app already shows a URL as a link on the exercise sheet), and
-`"coaching practice"` where no study backs that particular exercise. The
-evidence is honest about its limits: most of it is about older adults in
-general or about back pain in general, not about people over 75 with disc
-history, which is another reason for the doctor or physio check.
+**What changed after the evidence review (11 Nov).** Ed asked that
+everything recommended has some justification. The review replaced the
+items with none, and the doses nothing supported:
+
+| Before | After | Why |
+| --- | --- | --- |
+| Warm-up of marching, shoulder rolls, wrist circles, ankle circles, chin tucks | The Otago warm-up (head turns, neck retraction, back extension, ankle pumps) | The Otago warm-up was used in the trial with women aged 80+ (S2); the old moves had no source. Trunk turns left out (S3). |
+| Shoulder press-out into a door frame (isometric) | Band outward rotation with a 3s end hold | Isometric shoulder work has only poor-quality evidence, in tendinopathy, and is no better than moving exercise (S15); band work is supported in older adults (S10). |
+| Wrist presses | Dropped; wrists are trained by the grip squeeze, wrist curls, wall push hold, counter push-up and counter plank | No study found; grip-specific training is supported (S11), and general strength work alone doesn't raise grip strength in people over 75 (S7). |
+| Wall slide | Back knee bend (Otago) | No study found for the wall slide; the band row and pull-apart already train the upper back (S10, S17). |
+| Stretches 2 × 20s | 60s single holds | 60s holds gave the fastest and longest-lasting gains in adults averaging 85 (S16). |
+| Rest of 30–45s on some strength exercises | 60s on every strength exercise | The rest that worked best in older adults (S6). |
+| Easy (deload) weeks 4 and 8 | No easy weeks; holds grow in two small steps instead | No study supports planned easy weeks for older adults, and the tested programmes (Otago, and the trials in people over 75) progress steadily for months (S2, S6, S7). Rest days and the "stop if" rules handle bad days. |
+| Effort "about 5 out of 10" | 5 to 6 out of 10 | ACSM's figure for older adults (S5). |
+
+**Progression.** Follows the Otago approach (S2): hold a little longer,
+then use less support, rather than adding load by a formula.
+
+```
+ Week          1   2  |  3   4   5  |  6   7   8
+ Phase        Settle in |   Build     |  Strengthen
+ Hold change     +0s    |    +5s      |    +10s
+ Balance holds   20s    |    25s      |    30s     (Otago: 10s up to 30s)
+ Wall sit        20s    |    25s      |    30s     (capped at 30s, S12)
+ Grip squeeze    10s    |    15s      |    20s
+ Sets and reps   unchanged; move up the support steps by feel
+```
+
+- The hold change uses the existing phase `timerAdjustments.intervalWorkSec`
+  (+5 in weeks 3–5, +10 in weeks 6–8), so no new progression code. Rest
+  stays the same. 30s is also the hold length that built muscle best in
+  the isometric training review (S13), though that review studied young
+  adults and dedicated isometric trials in older adults are still only at
+  the protocol stage (S14).
+- No deload phases, so no phase name starts with "Deload" and the app
+  never halves anything in this program.
+- Strength reps progress inside the 8–12 range: when every set reaches 12
+  at 5–6/10 effort, move to the next support step in the exercise's
+  `progression` list (for example sit-to-stand: two hands → one hand → no
+  hands, S2) or a slightly firmer band (S10). Each phase's `changes` say
+  this in plain words.
+- After week 8 the overview's "Set a new start date" restarts the cycle,
+  and the person keeps the support steps they reached.
+
+**Evidence.** Checked during planning (11 Nov). Each exercise's
+`evidence` field gets the DOI link of its first source in the tables
+above (the app already shows a URL as a link on the exercise sheet). Most
+of the evidence is about older adults in general or back pain in general,
+not about people over 75 with disc history, which is another reason for
+the doctor or physio check.
 
 | # | Source | What it supports here |
 | --- | --- | --- |
-| E1 | Sherrington et al. 2019, *Exercise for preventing falls in older people living in the community*, Cochrane Database Syst Rev. [doi:10.1002/14651858.CD012424.pub2](https://doi.org/10.1002/14651858.CD012424.pub2) | Balance and functional exercise cut the rate of falls by about 24% (high certainty); balance plus resistance work by about 34% (moderate). Resistance alone had too little evidence. Why balance is in every session and why it is combined with strength work. |
-| E2 | Giangregorio et al. 2014, *Too Fit To Fracture: exercise recommendations for individuals with osteoporosis or osteoporotic vertebral fracture*, Osteoporos Int 25:821–835. [doi:10.1007/s00198-013-2523-2](https://doi.org/10.1007/s00198-013-2523-2) | Strength work for all major muscle groups at least twice a week, about 2 × 8–12 reps, starting light; balance practice daily (about 2 h a week); slow, controlled moves and avoiding forward bending and twisting under load. The rules, the dose ranges and the daily balance work. |
-| E3 | Bull et al. 2020, *World Health Organization 2020 guidelines on physical activity and sedentary behaviour*, Br J Sports Med 54:1451–1462. [doi:10.1136/bjsports-2020-102955](https://doi.org/10.1136/bjsports-2020-102955) | Older adults: varied, multicomponent activity with balance and strength on 3 or more days a week, and muscle strengthening on 2 or more. The weekly structure and the walk. |
-| E4 | McGill & Karpowicz 2009, *Exercises for spine stabilization: motion/motor patterns, stability progressions, and clinical technique*, Arch Phys Med Rehabil 2009. [doi:10.1016/j.apmr.2008.06.026](https://doi.org/10.1016/j.apmr.2008.06.026) | Spine-sparing core work (bird dog, side bridge, plank-type holds) and how to start from easier positions and progress. The bird dog, wall side plank and counter plank, done standing or leaning as the easiest starting level. |
-| E5 | Pourahmadi et al. 2022, *Does motor control training improve pain and function in adults with symptomatic lumbar disc herniation? A systematic review and meta-analysis of 861 subjects in 16 trials*, Br J Sports Med 56:1230–1240. [doi:10.1136/bjsports-2021-104926](https://doi.org/10.1136/bjsports-2021-104926) | Trunk control training helped pain and function in people with lumbar disc herniation in the short term (low to very low certainty). Supports the core and anti-rotation holds (bird dog, Pallof hold, tall sitting hold); it does not show they beat other exercise. |
-| E6 | *Effect of elastic resistance training on functional capacity in older adults: a systematic review with meta-analysis*, Physiother Theory Pract 2023. [doi:10.1080/09593985.2022.2085219](https://doi.org/10.1080/09593985.2022.2085219) | Band training improves older adults' functional capacity. The band row, band pull-apart and Pallof press. |
-| E7 | Otago Exercise Program meta-analysis 2025, Front Public Health 13:1522952. [doi:10.3389/fpubh.2025.1522952](https://doi.org/10.3389/fpubh.2025.1522952) | The Otago home programme (lower-limb strength, balance and walking) improves balance, gait and leg strength. The sit-to-stand, heel raises, side leg raise, heel-to-toe stand and walk, and the walk on the short days. |
-| E8 | *Acute blood pressure response to different types of isometric exercise: a systematic review with meta-analysis*, Rev Cardiovasc Med 2023;24(2):60. [doi:10.31083/j.rcm2402060](https://doi.org/10.31083/j.rcm2402060) | Holds with big muscles (legs) raise blood pressure more than small ones (grip), most of all in older adults and people with high blood pressure. Why holds are short (15–30s), at about half effort, with breathing out, why the wall sit stays high, and why the safety notes name blood pressure. |
-| E9 | *Optimal dose of resistance training to improve handgrip strength in older adults with sarcopenia: a systematic review and Bayesian network meta-analysis*, Front Physiol 2025;16:1564988. [doi:10.3389/fphys.2025.1564988](https://doi.org/10.3389/fphys.2025.1564988) | Resistance training improves grip strength in older adults. The grip squeeze and wrist curls. |
+| S1 | Sherrington et al. 2019, *Exercise for preventing falls in older people living in the community*, Cochrane Database Syst Rev. [doi:10.1002/14651858.CD012424.pub2](https://doi.org/10.1002/14651858.CD012424.pub2) | Balance and functional exercise cut the rate of falls by about 24% (high certainty); balance plus resistance work by about 34% (moderate). |
+| S2 | Campbell et al. 1997, *Randomised controlled trial of a general practice programme of home based exercise to prevent falls in elderly women*, BMJ 315:1065–1069. [doi:10.1136/bmj.315.7115.1065](https://doi.org/10.1136/bmj.315.7115.1065); the exercises as published in the [Otago home exercise booklet](https://www.med.unc.edu/aging/cgwep/files/2018/09/OtagoExercises.pdf); and the 2025 Otago meta-analysis, Front Public Health 13:1522952, [doi:10.3389/fpubh.2025.1522952](https://doi.org/10.3389/fpubh.2025.1522952) | The Otago programme, in women aged 80+: fewer falls (0.87 vs 1.34 a year) and injurious falls. Its warm-up, strength moves (side hip, back knee, heel and toe raises), balance moves (one-leg stand 10s up to 30s, heel-to-toe stand and walk, sideways walking), sit-to-stand with fewer hands, stair walking, strength 3 times a week with a rest day between, breathing out during the effort, and with-support then without-support progression. |
+| S3 | Giangregorio et al. 2014, *Too Fit To Fracture*, Osteoporos Int 25:821–835. [doi:10.1007/s00198-013-2523-2](https://doi.org/10.1007/s00198-013-2523-2) | Strength twice a week or more, about 2 × 8–12; daily balance progressing from static to moving; slow, controlled moves; avoiding bending and twisting under load. |
+| S4 | Bull et al. 2020, *WHO 2020 guidelines on physical activity and sedentary behaviour*, Br J Sports Med 54:1451–1462. [doi:10.1136/bjsports-2020-102955](https://doi.org/10.1136/bjsports-2020-102955) | Older adults: balance and strength on 3 or more days a week, strengthening on 2 or more, and regular moderate activity such as walking. |
+| S5 | Chodzko-Zajko et al. 2009, *Exercise and physical activity for older adults* (ACSM position stand), Med Sci Sports Exerc 41:1510–1523. [doi:10.1249/MSS.0b013e3181a0c95c](https://doi.org/10.1249/MSS.0b013e3181a0c95c) | Strength at 5–6 (moderate) to 7–8 out of 10, 8–12 reps, 2+ days a week; static stretches of the major muscle groups 2+ days a week at 5–6/10; balance by gradually reducing support. |
+| S6 | Borde, Hortobágyi & Granacher 2015, *Dose–response relationships of resistance training in healthy old adults*, Sports Med 45:1693–1720. [doi:10.1007/s40279-015-0385-9](https://doi.org/10.1007/s40279-015-0385-9) | 2–3 sets, 60s rest between sets, 2 sessions a week and long training periods (50+ weeks) worked best. Weak evidence base, as the authors say. |
+| S7 | Grgic et al. 2020, *Effects of resistance training on muscle size and strength in very elderly adults*, Sports Med. [doi:10.1007/s40279-020-01331-7](https://doi.org/10.1007/s40279-020-01331-7) | In adults aged 75–96, strength training gave large strength gains (also in the 80+), with no serious exercise-related adverse events; 1–4 sets of 4–15 reps, 1–3 days a week. General training didn't raise grip strength. |
+| S8 | McGill & Karpowicz 2009, *Exercises for spine stabilization*, Arch Phys Med Rehabil. [doi:10.1016/j.apmr.2008.06.026](https://doi.org/10.1016/j.apmr.2008.06.026) | Spine-sparing core work (bird dog, side bridge, plank-type holds) and starting from easier positions. |
+| S9 | Pourahmadi et al. 2022, *Does motor control training improve pain and function in adults with symptomatic lumbar disc herniation?*, Br J Sports Med 56:1230–1240. [doi:10.1136/bjsports-2021-104926](https://doi.org/10.1136/bjsports-2021-104926) | Trunk control training helped pain and function in lumbar disc herniation in the short term (low to very low certainty). |
+| S10 | *Effect of elastic resistance training on functional capacity in older adults: a systematic review with meta-analysis*, Physiother Theory Pract 2023. [doi:10.1080/09593985.2022.2085219](https://doi.org/10.1080/09593985.2022.2085219) | Band training improves older adults' functional capacity. |
+| S11 | *Optimal dose of resistance training to improve handgrip strength in older adults with sarcopenia*, Front Physiol 2025;16:1564988. [doi:10.3389/fphys.2025.1564988](https://doi.org/10.3389/fphys.2025.1564988) | Resistance training improves grip strength in older adults. |
+| S12 | *Acute blood pressure response to different types of isometric exercise: a systematic review with meta-analysis*, Rev Cardiovasc Med 2023;24(2):60. [doi:10.31083/j.rcm2402060](https://doi.org/10.31083/j.rcm2402060) | Big-muscle holds raise blood pressure more than grip holds, most in older adults and people with high blood pressure. Why holds are short and at half effort, the wall sit is capped at 30s, and the safety notes name blood pressure. |
+| S13 | Oranchuk et al. 2019, *Isometric training and long-term adaptations*, Scand J Med Sci Sports. [doi:10.1111/sms.13375](https://doi.org/10.1111/sms.13375) | Isometric training builds strength; longer holds (around 30s) and longer muscle lengths built more muscle than short ones. Young adults only. |
+| S14 | *Protocol for a trial to assess the efficacy and applicability of isometric strength training in older adults with sarcopenia and dynapenia*, Healthcare 2025;13(13):1573. [doi:10.3390/healthcare13131573](https://doi.org/10.3390/healthcare13131573) | States the gap honestly: isometric training helps strength in older adults and allows controlled, pain-free work, but protocols for older adults still need testing. Its own holds start at 15s phases at low effort. |
+| S15 | *Effectiveness of isometric exercise in the management of tendinopathy: a systematic review and meta-analysis of randomised trials*, BMJ Open Sport Exerc Med 2020;6(1). [doi:10.1136/bmjsem-2020-000760](https://doi.org/10.1136/bmjsem-2020-000760) | Isometrics are no better than moving exercise for tendon pain, and shoulder evidence is poor. Why the shoulder press-out became a band rotation. |
+| S16 | Feland et al. 2001, *The effect of duration of stretching of the hamstring muscle group for increasing range of motion in people aged 65 years or older*, Phys Ther 81:1110–1117. [doi:10.1093/ptj/81.5.1110](https://doi.org/10.1093/ptj/81.5.1110) | In adults averaging 85, 60s stretches beat 15s and 30s for gains and for keeping them. |
+| S17 | Katzman et al. 2017, *Targeted spine strengthening exercise and posture training program to reduce hyperkyphosis in older adults* (SHEAF RCT), Osteoporos Int 28:2831–2841. [doi:10.1007/s00198-017-4109-x](https://doi.org/10.1007/s00198-017-4109-x); and Bansal, Katzman & Giangregorio 2014, systematic review, Arch Phys Med Rehabil 95:129–140, [doi:10.1016/j.apmr.2013.06.022](https://doi.org/10.1016/j.apmr.2013.06.022) | Back and shoulder strengthening plus posture practice reduced the forward curve of the upper back in adults aged 60–88 (the review calls the wider evidence limited). The band row, band pull-apart and tall sitting hold. |
 
-Exercise to source: sit-to-stand, heel raises, side leg raise,
-heel-to-toe stand and walk, single-leg stand, walk → E7 (and E1); step-up →
-E1; standing bird dog, wall side plank, counter plank → E4; Pallof hold and
-press, tall sitting hold → E5; band row, band pull-apart → E6; grip squeeze,
-wrist curl → E9; high wall sit, split-stance hold, glute bridge hold,
-suitcase hold, wall push hold, counter push-up → E2 (light strength for the
-major muscle groups); shoulder press-out into a door frame, wrist presses,
-wall slide, chin tucks, warm-ups, stretches and the march → `"coaching
-practice"`. E3 and E8 back the program's structure and rules, not one
-exercise, so they go in the README's program notes.
-
-**Progression.** Small, steady steps that the existing rules already
-support, so no new progression code:
-
-```
- Week        1   2   3   4         5   6   7   8
- Phase       Settle in    Deload:   Build        Deload:
-                          easy week               easy week
- Holds       20s 20s 20s  20s       30s 30s 30s  30s     (+10s from week 5)
- Rounds      full         halved    full         halved  (rounded up)
- Sets        full         halved    full         halved  (warm-ups never halved)
-```
-
-- Weeks 5 to 8 add 10 seconds to every hold through the existing
-  `timerAdjustments.intervalWorkSec` (so a 20s hold becomes 30s and a 15s
-  hold 25s). Rest stays the same.
-- Weeks 4 and 8 are easy weeks: the existing deload rule halves sets and
-  rounds, rounding up (3 → 2, 4 → 2, 2 → 1), and warm-ups stay whole. The
-  phase names start with "Deload" because that is how the app recognises a
-  deload today (`isDeloadPhase`). Week 8 keeps week 7's 30s holds so the
-  easy week keeps the quality and only cuts the volume.
-- Strength reps don't change in the numbers. Each phase's `changes` say
-  what to do by feel: "Use the top of the rep range once the bottom feels
-  easy" in weeks 1–3, and "If a set felt easy, add 1–2 reps or a little more
-  band tension" in weeks 5–7. That matches "stays short of failure" and
-  avoids pushing an older back by a formula.
-- After week 8 the overview's "Set a new start date" restarts the cycle.
+**Still set by judgment, not a study.** Where nothing better exists, as
+Ed allowed: the order of blocks in a session, the split of upper and lower
+body across the three days, the ~30 and ~15 minute session lengths, the
+exact seconds of each hold inside the ranges above, and the 8-week cycle
+length (chosen to match the app; the studies ran 8–52 weeks).
 
 **What the program file leaves out.** No max-tested exercises, no EMOMs, no
 retest week, no warm-up rotation and no weekly fatigue check (the current
@@ -1249,14 +1286,15 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 
 | Date | Week / day | Phase | Example figures |
 | --- | --- | --- | --- |
-| 2 Nov | W1 D1 | Settle in | Single-leg stand 4 rounds × 20s / 20s rest; high wall sit 3 × 20s / 40s; sit-to-stand 3 × 8–10, 60s rest; warm-up 1 round; 6 blocks |
-| 3 Nov | W1 D2 | Settle in | Balance and walk, about 15 min: two balance holds 4 × 20s, sit-to-stand 1 × 8, walk 10–20 min |
-| 4 Nov | W1 D3 | Settle in | Wall push hold 3 × 15s / 30s; band row 3 × 10–12 |
+| 2 Nov | W1 D1 | Settle in | Single-leg stand 4 rounds × 20s / 20s rest; high wall sit 3 × 20s / 40s; sit-to-stand 3 × 8–12, 60s rest; Otago warm-up 1 round; 6 blocks |
+| 3 Nov | W1 D2 | Settle in | Balance and walk, about 15 min: two balance holds 4 × 20s, sideways walking 2 × 10 steps, sit-to-stand 1 × 8, walk 10–20 min |
+| 4 Nov | W1 D3 | Settle in | Wall push hold 3 × 15s / 30s; grip squeeze 4 × 10s / 15s; band row 3 × 8–12, 60s rest |
 | 8 Nov | W1 D7 | Settle in | Rest-day card |
-| 23 Nov | W4 D1 | Deload: easy week | Single-leg stand 2 × 20s; high wall sit 2 × 20s; sit-to-stand 2 × 8–10; side leg raise 1 × 10 per side; warm-up still 1 round of each |
-| 30 Nov | W5 D1 | Build | Single-leg stand 4 × 30s; high wall sit 3 × 30s / 40s; glute bridge hold 3 × 25s; sit-to-stand 3 × 8–10 (reps unchanged) |
-| 21 Dec | W8 D1 | Deload: easy week | Single-leg stand 2 × 30s; high wall sit 2 × 30s; no retest card, check-in or "Set max" anywhere |
-| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 135 min a week (30+15+30+15+30+15); phases Settle in W1–3, Deload: easy week W4, Build W5–7, Deload: easy week W8; "Before you start" card with the 5 safety notes; CTA "Start Day 1: Legs and core" |
+| 16 Nov | W3 D1 | Build | Single-leg stand 4 × 25s; high wall sit 3 × 25s / 40s; sit-to-stand still 3 × 8–12 (nothing halved) |
+| 23 Nov | W4 D1 | Build | Same as week 3: no easy week, nothing halved |
+| 9 Dec | W6 D3 | Strengthen | Wall push hold 3 × 25s; grip squeeze 4 × 20s; wall side plank 4 × 25s |
+| 21 Dec | W8 D1 | Strengthen | Single-leg stand 4 × 30s; high wall sit 3 × 30s; no retest card, check-in or "Set max" anywhere |
+| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 135 min a week (30+15+30+15+30+15); phases Settle in W1–2, Build W3–5, Strengthen W6–8; "Before you start" card with the 5 safety notes; CTA "Start Day 1: Legs and core" |
 | Switching | — | — | Explosive started 2 Nov with a logged set, then Steady Strength chosen and started 9 Nov: switching back shows Explosive at its 2 Nov start with the set still logged, and Steady Strength still starts 9 Nov |
 
 A second start date shows the cycle doesn't depend on the weekday: start
