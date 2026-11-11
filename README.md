@@ -103,7 +103,12 @@ CI runs the same suite; see "Deployment" below.
 
 ## Editing program.json
 
-`public/program.json` is the training program. If you break something that would
+`public/programs.json` is the catalogue of programs: a list of
+`{ "id": "explosive-endurance", "file": "program.json" }` entries (ids use
+lowercase letters, digits and hyphens; `file` is a plain `.json` file name in
+`public/`). The app loads the catalogue first, then the first entry's file, so
+`public/program.json` is the training program today. A bad catalogue shows the
+same error card, naming the path (e.g. `programs[0].id`). If you break something that would
 make a session wrong (wrong type, missing field, unknown exercise id, a week
 with no progression phase) the app shows an error card naming the path; a field
 the app doesn't recognise is only a warning: the field is ignored, the session

@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 13 merged (#3 to #22). PR 14 plans a second program, Steady Strength (for someone aged 75+ with a history of slipped discs), and a program picker; it is waiting for Ed's approval, and PR 15 and PR 16 implement it.**
+Status: **PR 1 to PR 14 merged (#3 to #23). PR 15 (programs catalogue and per-program storage) is in progress; PR 16 (Steady Strength and the program picker) follows.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1215,7 +1215,7 @@ as a broken Explosive flow in review rather than hiding inside the new
 program.
 
 **Steps.**
-1. [ ] `public/programs.json` with one entry, its wire type, parser and
+1. [x] `public/programs.json` with one entry, its wire type, parser and
    loader, and `main.ts` loading the active program through it. Unit
    tests for the catalogue parser (missing file, duplicate id, bad id).
 2. [ ] Storage keys built from the program id (settings, max history, log,
