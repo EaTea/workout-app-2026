@@ -13,6 +13,7 @@ const NOW = new Date("2026-11-10T09:00:00.000Z");
 const BACKUP_KEY = `${KEYS.importBackupPrefix}2026-11-10T09:00:00.000Z`;
 
 const importedData: ImportedData = {
+  programId: "explosive-endurance",
   settings: { startDate: "2026-11-02", maxReps: { pull_up: 14 }, maxSavedOn: { pull_up: "2026-12-18" }, maxHistory: { pull_up: [{ savedOn: "2026-12-18", reps: 14 }] } },
   log: {
     sessions: {
@@ -67,6 +68,32 @@ describe("applyImport", () => {
     const restored = parseImport(backup.exportText);
     expect(restored.ok && restored.summary).toMatchObject({ sessionCount: 1, setCount: 1, checkCount: 1, startDate: "2026-10-01" });
     expect(restored.ok && restored.data.settings.maxHistory).toEqual({ dip: [{ savedOn: "2026-10-01", reps: 9 }] });
+  });
+
+  it("refuses data of another program and leaves storage untouched", () => {
+    const storage = storageWithOldData();
+    const before = dataKeys(storage);
+    storage.writeLog.length = 0;
+
+    const result = applyImport(storage, KEYS, { ...importedData, programId: "steady-strength" }, NOW);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain('This backup is for "steady-strength", but you\'re using "explosive-endurance"');
+    expect(dataKeys(storage)).toEqual(before);
+    expect(storage.writeLog).toEqual([]);
+    expect(listImportBackups(storage, KEYS)).toEqual([]);
+  });
+
+  it("imports data of the matching program, and its backup is stamped with that program", () => {
+    const steadyKeys = storageKeysForProgram("steady-strength");
+    const storage = new FakeStorage();
+
+    const result = applyImport(storage, steadyKeys, { ...importedData, programId: "steady-strength" }, NOW);
+
+    expect(result.ok).toBe(true);
+    expect(readExportSource(storage, steadyKeys).programId).toBe("steady-strength");
+    const [backup] = listImportBackups(storage, steadyKeys) as [ImportBackup];
+    expect(JSON.parse(backup.exportText)).toMatchObject({ version: 2, programId: "steady-strength" });
   });
 
   it("works on a fresh phone with nothing stored", () => {

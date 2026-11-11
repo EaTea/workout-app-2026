@@ -1,5 +1,5 @@
 import "./export.css";
-import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, type ImportSummary } from "../export/import";
+import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, wrongProgramMessage, type ImportSummary } from "../export/import";
 import { applyImport, undoLastImport } from "../export/importApply";
 import { listImportBackups } from "../export/importBackup";
 import { todayLocalDate } from "../program/calendar";
@@ -11,7 +11,7 @@ import { element } from "./dom";
  * JSON export file, see what it holds, confirm, and the data is replaced.
  *
  *   [Import from JSON] ─file chosen─▶ parseImport ─refused──▶ inline message
- *                                          │ ok
+ *                                          │ ok, same program (else refused too)
  *                                          ▼
  *                      preview (counts, dates, problems)
  *                      [Replace my data] [Cancel]
@@ -187,6 +187,12 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
       const result = parseImport(await file.text());
       if (!result.ok) {
         showMessage(result.error, true);
+        return;
+      }
+
+      const wrongProgram = wrongProgramMessage(result.data.programId, options.storageKeys.programId);
+      if (wrongProgram !== null) {
+        showMessage(wrongProgram, true);
         return;
       }
 

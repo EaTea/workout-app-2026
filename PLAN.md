@@ -1221,7 +1221,7 @@ program.
 2. [x] Storage keys built from the program id (settings, max history, log,
    check-ins, snoozes, dismissals), with a unit test that Explosive's keys
    are unchanged. The active-program key and its wire type.
-3. [ ] Export wire v2 with `programId`, reading v1 as Explosive, and the
+3. [x] Export wire v2 with `programId`, reading v1 as Explosive, and the
    import refusing another program's backup. Unit tests.
 4. [ ] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
    the parser, and the UI hiding what depends on them. Unit tests with a

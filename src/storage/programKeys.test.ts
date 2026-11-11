@@ -5,6 +5,7 @@ describe("storageKeysForProgram", () => {
   it("gives Explosive Endurance exactly the keys the app has always used, so no migration is needed", () => {
     // Spelled out literally on purpose: changing any of these strings would strand existing users' data.
     expect(storageKeysForProgram("explosive-endurance")).toEqual({
+      programId: "explosive-endurance",
       settings: "explosive-endurance.settings",
       maxHistory: "explosive-endurance.max-history",
       log: "explosive-endurance.log",

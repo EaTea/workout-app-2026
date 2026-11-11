@@ -1,13 +1,13 @@
 import type { KeyListingStorage } from "../log/storage";
 import type { ProgramStorageKeys } from "../storage/programKeys";
-import type { ExportWireV1 } from "./wire";
+import type { ExportWireV2 } from "./wire";
 
 /**
  * Import backups: before an import replaces anything, the current data is
  * saved under its own localStorage key so the import can be undone.
  *
  *   key   <programId>.import-backup-<ISO timestamp>   (keys.importBackupPrefix + timestamp)
- *   value a whole export file (`ExportWireV1`, written compactly) of what was
+ *   value a whole export file (`ExportWireV2`, written compactly) of what was
  *         there, plus `rawStoredTexts`: the exact stored text of the four data
  *         keys, so an undo puts back even settings or history the loaders
  *         could not read. Importing the file again also puts everything back
@@ -45,14 +45,14 @@ interface RawStoredTextWire {
 }
 
 /** The backup's stored text: an export file plus the raw texts. Only `importBackup.ts` reads and writes it. */
-type ImportBackupFileWire = ExportWireV1 & { rawStoredTexts?: RawStoredTextWire[] };
+type ImportBackupFileWire = ExportWireV2 & { rawStoredTexts?: RawStoredTextWire[] };
 
 /**
  * Builds the text stored under a backup key: the export wire of the current
  * data plus the raw texts, as compact JSON (a backup is a second copy of
  * everything, so it must not be pretty-printed). Used by `applyImport`.
  */
-export function backupToText(exportWire: ExportWireV1, rawStoredTexts: RawStoredText[]): string {
+export function backupToText(exportWire: ExportWireV2, rawStoredTexts: RawStoredText[]): string {
   const wire: ImportBackupFileWire = {
     ...exportWire,
     rawStoredTexts: rawStoredTexts.map((raw) => ({ key: raw.storageKey, text: raw.text })),

@@ -183,10 +183,12 @@ UTF-8 byte order mark so Excel reads it correctly. The export reads what is
 stored at the moment you tap the button.
 "Export everything as JSON" gives the log, the weekly checks, your
 settings and the max history (every max you saved, under `maxHistory`) in a
-versioned file (`"format": "explosive-endurance-export"`, `"version": 1`),
+versioned file (`"format": "explosive-endurance-export"`, `"version": 2`, and
+`"programId"`, the catalogue id of the program the data belongs to),
 plus `corruptLogBackups` if the app ever had to set aside unreadable log text,
 and `importBackups` if an import ever replaced data (see below). Files are
-named `explosive-endurance-YYYY-MM-DD.csv` or `.json`; they download, or on
+named `<programId>-YYYY-MM-DD.csv` or `.json` (for example
+`explosive-endurance-2026-11-09.json`); they download, or on
 iPhone open the share sheet so you can save them to Files. Nothing is sent
 anywhere.
 
@@ -198,9 +200,15 @@ holds (sessions, sets, weekly checks, the dates logged and the start date)
 before changing anything. "Replace my data" then asks once more ("Yes,
 replace my data"); "Cancel" leaves everything as it was.
 
-- A file that is not an export, is not valid JSON, is a version other than 1,
-  or has no readable log, check-ins or settings section is refused with a
-  message. The preview also shows when the file was exported and how many
+- A file that is not an export, is not valid JSON, is a version other than 1
+  or 2, has a version 2 `programId` that is not a valid program id, or has no
+  readable log, check-ins or settings section is refused with a message.
+  Version 1 files (from before programs had ids) are read as belonging to
+  `explosive-endurance`.
+- A backup that belongs to another program than the one you are using is
+  refused before anything is shown or changed: "This backup is for
+  "steady-strength", but you're using "explosive-endurance". Switch program
+  first, then import it." The preview also shows when the file was exported and how many
   sessions you have now. A file with a few unreadable sets or checks is accepted the way the
   stored data is: the readable ones are kept and the preview lists what was
   left out. Files exported before the max history was added (no `maxHistory`)

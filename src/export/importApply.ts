@@ -2,7 +2,7 @@ import { loadFatigueHistory, saveFatigueHistory } from "../fatigue/storage";
 import { loadLog, saveLog } from "../log/storage";
 import { loadSettings, saveSettings } from "../settings/storage";
 import type { ProgramStorageKeys } from "../storage/programKeys";
-import { parseImport, type ImportedData } from "./import";
+import { parseImport, wrongProgramMessage, type ImportedData } from "./import";
 import { backupToText, importBackupKey, listImportBackups, pruneImportBackups, type RawStoredText } from "./importBackup";
 import { exportToWire } from "./wire";
 
@@ -58,9 +58,14 @@ function describeError(error: unknown): string {
 /**
  * Replaces the stored log, check-ins, settings and max history with `data`
  * after backing the current ones up (see the file comment for the steps).
+ * Refuses (writing nothing) data that belongs to another program.
  * `storage` and `now` are injectable for tests. Never throws.
  */
 export function applyImport(storage: Storage, keys: ProgramStorageKeys, data: ImportedData, now: Date = new Date()): ApplyImportResult {
+  // Defence in depth: the Import card already refuses at the preview, but nothing may be written for another program's data.
+  const refusal = wrongProgramMessage(data.programId, keys.programId);
+  if (refusal !== null) return { ok: false, error: refusal };
+
   return replaceStoredData(storage, keys, now, () => writeParsedData(storage, keys, data));
 }
 
@@ -143,6 +148,7 @@ function replaceStoredData(storage: Storage, keys: ProgramStorageKeys, now: Date
   const backupKey = importBackupKey(keys, now);
   try {
     const backupWire = exportToWire({
+      programId: keys.programId,
       exportedAt: now,
       settings: currentSettings,
       log: currentLog.log,

@@ -44,6 +44,7 @@ export function readExportSource(storage: ExportReadStorage, keys: ProgramStorag
   const readOnlyStorage = readOnlyView(storage);
 
   return {
+    programId: keys.programId,
     settings: loadSettings(readOnlyStorage, keys),
     log: loadLog(readOnlyStorage, keys).log,
     fatigueHistory: loadFatigueHistory(readOnlyStorage, keys).history,

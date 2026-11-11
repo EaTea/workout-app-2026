@@ -16,6 +16,8 @@
 
 /** Every per-program localStorage key (or key prefix) for one program id. */
 export interface ProgramStorageKeys {
+  /** The catalogue id these keys were built from; export files carry it so an import can tell whose backup it is. */
+  programId: string;
   /** Training settings (v2: start date, maxes). */
   settings: string;
   /** Max-rep history per exercise. */
@@ -51,6 +53,7 @@ export interface ProgramStorageKeys {
  */
 export function storageKeysForProgram(programId: string): ProgramStorageKeys {
   return {
+    programId,
     settings: `${programId}.settings`,
     maxHistory: `${programId}.max-history`,
     log: `${programId}.log`,

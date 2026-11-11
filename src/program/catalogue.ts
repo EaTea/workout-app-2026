@@ -26,7 +26,7 @@ export interface ProgramCatalogue {
 }
 
 /** Ids are lowercase letters, digits and hyphens, e.g. "steady-strength". */
-const PROGRAM_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export const PROGRAM_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /** A plain file name (no slashes, no "..", no leading dot) ending in ".json". */
 const PROGRAM_FILE_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9_.-]*\.json$/;
