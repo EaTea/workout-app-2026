@@ -88,6 +88,13 @@ export interface BlockItem {
   durationSec?: number;
   perSide: boolean;
   optional: boolean;
+  /**
+   * True when the item is prescribed identically in every week: the schedule
+   * skips the phase's timer adjustments (e.g. power endurance's +5s work) and
+   * the deload halving of its sets, minutes and rounds. Absent in
+   * program.json means false.
+   */
+  sameEveryWeek: boolean;
   load?: string;
   note?: string;
   tempo?: string;

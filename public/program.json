@@ -106,6 +106,12 @@
       "category": "finisher",
       "cues": ["Snap every punch", "Wear hand wraps and bag gloves"],
       "evidence": "coaching practice"
+    },
+    "wall_sit": {
+      "name": "Wall sit",
+      "category": "finisher",
+      "cues": ["Back flat on the wall", "Thighs parallel to the floor", "Knees over the ankles"],
+      "evidence": "coaching practice"
     }
   },
 
@@ -230,7 +236,7 @@
     {
       "day": 6,
       "focus": "Lower: ankle",
-      "targetMinutes": 30,
+      "targetMinutes": 42,
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
           { "exercise": "cossack_squat", "reps": "12-15" },
@@ -248,6 +254,9 @@
         ]},
         { "type": "miniDose", "items": [
           { "exercise": "zercher_bulgarian_split_squat", "sets": 2, "reps": "easy, ~50% effort", "perSide": true }
+        ]},
+        { "type": "finisher", "items": [
+          { "exercise": "wall_sit", "format": "interval", "rounds": 5, "workSec": 90, "restSec": 60, "sameEveryWeek": true, "note": "Hold steady" }
         ]}
       ]
     }

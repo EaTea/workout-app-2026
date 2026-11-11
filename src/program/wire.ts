@@ -55,6 +55,8 @@ export interface ItemWire {
   durationSec?: number;
   perSide?: boolean;
   optional?: boolean;
+  /** True opts the item out of the phase timer adjustments and the deload halving (see `BlockItem.sameEveryWeek`). */
+  sameEveryWeek?: boolean;
   load?: string;
   note?: string;
   tempo?: string;

@@ -122,6 +122,12 @@ export interface ItemView {
   workSec?: Range;
   /** The seconds added to `workSec` by the phase (e.g. 5 in power endurance); absent when none were. */
   workSecAdjustment?: number;
+  /**
+   * True for a `sameEveryWeek` item in a week where other items change (a
+   * deload week, or a phase with timer adjustments), so Today can say it
+   * stays the same. Absent otherwise.
+   */
+  showsSameEveryWeekNote?: boolean;
   durationSec?: number;
   perSide: boolean;
   optional: boolean;
@@ -340,16 +346,20 @@ function shiftRange(range: Range, seconds: number, ceiling: number): Range {
 }
 
 /**
- * Builds one item: halves volume when `halve` is set, resolves rep targets
- * against the athlete's maxes, and applies the weekly increase to items that
- * declare one.
+ * Builds one item: halves volume in a deload (`blockHalve`, decided for the
+ * whole block by `buildBlock`), resolves rep targets against the athlete's
+ * maxes, and applies the weekly increase to items that declare one. An item
+ * marked `sameEveryWeek` ignores `blockHalve` and the phase's interval work
+ * adjustment; the parser makes sure such an item has no weekly increase and
+ * no block-level rounds or minutes, so it really is the same every week.
  */
-function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, week: WeekContext): ItemView {
+function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
+  const halve = blockHalve && !item.sameEveryWeek;
   const choice = chooseIncrease(item, settings, week);
 
-  // Interval items (heavy bag) take the work adjustment (the power-endurance "longer rounds").
+  // Interval items (heavy bag) unless marked sameEveryWeek take the work adjustment (the power-endurance "longer rounds").
   const workAdjustment = week.timerAdjustments?.intervalWorkSec ?? 0;
-  const workAdjusted = item.format === "interval" && item.workSec !== undefined && workAdjustment !== 0;
+  const workAdjusted = item.format === "interval" && item.workSec !== undefined && workAdjustment !== 0 && !item.sameEveryWeek;
 
   const keptSets = halve ? item.sets.slice(0, Math.ceil(item.sets.length / 2)) : item.sets;
 
@@ -367,6 +377,7 @@ function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, 
     rounds: item.rounds && (halve ? { min: halveRoundingUp(item.rounds.min), max: halveRoundingUp(item.rounds.min) } : item.rounds),
     workSec: workAdjusted ? shiftRange(item.workSec as Range, workAdjustment, MAX_INTERVAL_WORK_SECONDS) : item.workSec,
     workSecAdjustment: workAdjusted ? workAdjustment : undefined,
+    showsSameEveryWeekNote: item.sameEveryWeek && (week.isDeload || week.timerAdjustments !== undefined) ? true : undefined,
     durationSec: item.durationSec,
     perSide: item.perSide,
     optional: item.optional,

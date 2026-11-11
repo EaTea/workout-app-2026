@@ -115,8 +115,8 @@ export function buildIntervalPlan(item: ItemView, settings: IntervalSettings): T
   return createTimerPlan(`${shortExerciseName(itemDisplayName(item))} · ${roundsText}`, segments);
 }
 
-/** "Heavy bag finisher" -> "Heavy bag": the title drops the word "finisher". */
-function shortExerciseName(name: string): string {
+/** "Heavy bag finisher" -> "Heavy bag": the title (and Today's timer dialog name) drops the word "finisher". */
+export function shortExerciseName(name: string): string {
   return name.replace(/ finisher$/i, "");
 }
 

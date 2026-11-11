@@ -332,3 +332,43 @@ describe("timerAdjustments", () => {
     expect(warnings[0]).toMatchObject({ path: "progression[2].timerAdjustments.intervalWorkSecs", suggestion: "intervalWorkSec" });
   });
 });
+
+describe("the sameEveryWeek item field", () => {
+  /** Finds the heavy bag item of day 1 in a program JSON object, so a test can change it before parsing. */
+  function heavyBagJson(json: any): any {
+    return json.days[0].blocks.flatMap((jsonBlock: any) => jsonBlock.items).find((jsonItem: any) => jsonItem.exercise === "heavy_bag");
+  }
+
+  it("defaults to false when absent", () => {
+    expect(dayOf(1).blocks.flatMap((dayBlock) => dayBlock.items).find((entry) => entry.exerciseId === "heavy_bag")?.sameEveryWeek).toBe(false);
+  });
+
+  it("reads true without warning about an unknown field", () => {
+    const json = readRealProgramJson();
+    heavyBagJson(json).sameEveryWeek = true;
+    const result = parseProgram(json);
+    expect(result.warnings).toEqual([]);
+    expect(result.program.days[1]?.blocks.flatMap((dayBlock) => dayBlock.items).find((entry) => entry.exerciseId === "heavy_bag")?.sameEveryWeek).toBe(true);
+  });
+
+  it("rejects an item that also has a weekly increase", () => {
+    const message = errorMessageAfter((json) => {
+      const pullUpEmom = json.days[0].blocks.flatMap((jsonBlock: any) => jsonBlock.items).find((jsonItem: any) => jsonItem.weeklyIncrease !== undefined);
+      pullUpEmom.sameEveryWeek = true;
+    });
+    expect(message).toContain(`"sameEveryWeek" can't be combined with "weeklyIncrease"`);
+  });
+
+  it("rejects an item in a block that has its own rounds or minutes", () => {
+    const message = errorMessageAfter((json) => {
+      const warmupBlock = json.days[0].blocks.find((jsonBlock: any) => jsonBlock.rounds !== undefined);
+      warmupBlock.items[0].sameEveryWeek = true;
+    });
+    expect(message).toContain(`"sameEveryWeek" can't be used in a block with its own "rounds" or "minutes"`);
+  });
+
+  it("rejects a value that is not true or false", () => {
+    const message = errorMessageAfter((json) => (heavyBagJson(json).sameEveryWeek = "yes"));
+    expect(message).toContain("sameEveryWeek: expected true or false but found");
+  });
+});
