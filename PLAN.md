@@ -1,6 +1,6 @@
-# PLAN: Explosive Endurance workout app (mobile mockup)
+# PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 12 merged (#3 to #20), and the PR 13 plan merged as #21. PR 13 (Day 3 crab core block) is in progress.**
+Status: **PR 1 to PR 13 merged (#3 to #22). PR 14 plans a second program, Steady Strength (for someone aged 75+ with a history of slipped discs), and a program picker; it is waiting for Ed's approval, and PR 15 and PR 16 implement it.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -875,6 +875,383 @@ superset like the Day 1 and Day 5 core blocks:
      whether to sync them or treat them as frozen.
 - **Merge point:** Day 3 has a working core block in every week.
 
+### PR 14 — Plan: Steady Strength program and a program picker *(design)*
+Ed asked for a completely different program, in the same `program.json`
+format, for someone aged 75 or over with a history of slipped discs. It
+should prioritise isometric holds, add some light strength work, and keep
+the core, legs, wrists and shoulders stable and strong. The person starting
+the app should be able to choose it, or Explosive Endurance, when they
+begin. This section is that plan; PR 15 and PR 16 implement it.
+
+Ed confirmed (11 Nov) that the slipped discs were in the **lower back**,
+that Start must **not** require a doctor check, and that the evidence
+behind the exercise choices is gathered now, in this plan (see "Evidence"
+below), not during implementation.
+
+**Safety first, and it is not medical advice.** The program is general
+exercise guidance written for an app, not a prescription. Its file carries
+a `safety` list that the app shows before anyone starts it (see "How the
+program is chosen at the start" below), which says:
+
+1. This is not medical advice. Check with your doctor or physiotherapist
+   before starting, and show them this plan, especially with a history of
+   slipped discs in the lower back, osteoporosis, heart or blood pressure problems, or a
+   recent fall or operation.
+2. Stop and get advice if you feel sharp pain, or pain, numbness, tingling
+   or weakness that spreads into a leg or arm.
+3. Get urgent medical help if you notice numbness around the groin or
+   buttocks, or new problems controlling your bladder or bowels.
+4. Breathe out during the effort and never hold your breath. Holds are
+   short on purpose.
+5. Keep a kitchen counter, a sturdy chair or a wall within reach for
+   every standing exercise.
+
+**How the program protects the back.** These are the program's `rules`.
+Each one has a source (S-numbers refer to the Evidence table below), and
+every exercise was picked to fit them:
+
+- The spine stays in a neutral, "tall" position. No sit-ups, crunches,
+  toe touches, twisting under load or bending forward to lift, and moves
+  are slow and controlled (S3).
+- No jumping, running or heavy weights. Loads are a resistance band, body
+  weight or something light from the kitchen (a 0.5–1 kg tin or bottle).
+  Light-to-moderate strength work is effective and safe for people over
+  75 (S7) and for band training (S10).
+- Effort is 5 to 6 out of 10: finish every set with 2 or 3 reps still in
+  hand (S5). Mild muscle tiredness is normal; pain is the signal to stop.
+- Breathe out during the effort and never hold your breath (S2). Holds
+  stay short, at about half effort, because holds with big muscles raise
+  blood pressure more in older adults (S12).
+- Almost everything is standing at a counter, sitting on a chair or
+  leaning on a wall, with "with support" versions first and "less support"
+  as the progression, as in the Otago programme (S2). The one lying-down
+  hold (the glute bridge) can be done on a bed and has a standing
+  alternative.
+
+**The week.** Same 7-day cycle and 8 weeks as Explosive Endurance (rule 1),
+so the schedule, Today, the day plans and logging work unchanged. Three
+main strength sessions on alternate days, with a rest day between, as in
+the Otago programme (S2) and within the 2–3 days a week that works best in
+older adults (S5, S6, S7). Balance practice is on six days, because
+balance plus strength work cuts falls (S1) and Too Fit To Fracture
+recommends balance daily (S3). Walking is on the short days and at the
+end of each main session, towards the WHO weekly target (S4). Day 7 is a
+full rest.
+
+```
+ Day 1  Legs and core              ~30 min  main session
+ Day 2  Balance and walk           ~15 min  short
+ Day 3  Shoulders, wrists and core ~30 min  main session
+ Day 4  Balance and walk           ~15 min  short
+ Day 5  Whole body                 ~30 min  main session
+ Day 6  Balance and walk           ~15 min  short
+ Day 7  Rest
+                                   about 135 min (2 h 15 min) a week
+```
+
+Each main session runs: warm-up → balance → isometric holds → light
+strength → core → cool-down (`sessionOrder`). The short days are
+balance → walk. No study compares orders; balance goes first so it is
+practised while fresh, which is a judgment, not a finding.
+
+**The exercises.** Holds are interval items (rounds × work seconds / rest
+seconds), so they get the existing interval timer with a beep at each
+change. Holds marked "alternate" switch sides each round, so the round
+count is even. Everything else is straight sets with a rest timer. Every
+strength exercise is 2–3 sets of 8–12 reps with 60s rest (S5, S6). The
+last column names each exercise's source.
+
+The Otago warm-up (S2), the same on every main day:
+| Exercise | Dose | Notes | Source |
+| --- | --- | --- | --- |
+| Head turns | 5 each side | Turn as far as comfortable | S2 |
+| Neck retraction (chin tuck) | 5 | A hand on the chin guides the head straight back | S2 |
+| Standing back extension | 5 | Hands on the small of the back, gently arch; stop if it sends pain down a leg | S2 |
+| Ankle pumps, seated | 10 each foot | Pull the foot up, then point it | S2 |
+
+The Otago warm-up also has trunk turns; they're left out because they
+twist the lower back (S3).
+
+Day 1 · Legs and core
+| Block | Exercise | Weeks 1–2 | Notes and cues | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Single-leg stand at the counter | 4 rounds × 20s, 20s rest, alternate legs | Hold the counter, then fingertips, then hover (progression) | S2, S1 |
+| Isometric | High wall sit | 3 × 20s, 40s rest | Slide only a little way down (knees bent no more than a quarter); back flat on the wall; breathe | S13, S12, S14 |
+| | Glute bridge hold | 3 × 15s, 30s rest | On the bed is fine; squeeze the buttocks, don't arch the back. Alternative: standing buttock squeeze, 3 × 20s | S8, S13 |
+| | Pallof press hold (band) | 4 × 15s, 20s rest, alternate sides | Band anchored at chest height in a door; arms straight out, don't let the band turn you | S9, S10 |
+| Strength | Sit-to-stand from a chair | 3 × 8–12, 60s rest | Two hands, then one hand, then no hands (progression) | S2, S7 |
+| | Heel and toe raises at the counter | 2 × 10 each, 60s rest | Up onto the toes, then rock back onto the heels | S2 |
+| | Side hip raise at the counter | 2 × 10 per side, 60s rest | Straight leg out to the side, toes forward, no leaning | S2 |
+| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | Both hands on the counter, slide one leg straight back and hold; hips level | S8, S9 |
+| Cool-down | Slow walk | 3–5 min | | S4 |
+| | Calf stretch at the wall | 60s per side | Gentle, no bouncing | S16, S5 |
+| | Doorway chest stretch | 60s | Gentle | S16, S5 |
+
+Day 3 · Shoulders, wrists and core
+| Block | Exercise | Weeks 1–2 | Notes and cues | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Heel-to-toe stand at the counter | 4 rounds × 20s, 20s rest, alternate front foot | One foot directly in front of the other; less support over the weeks | S2, S1 |
+| Isometric | Wall push hold | 3 × 15s, 30s rest | Hands on the wall at shoulder height, fingers spread, lean in to bent elbows and hold; loads the wrists and shoulders | S13, S7 |
+| | Grip squeeze | 4 × 10s, 15s rest, alternate hands | Soft ball or rolled towel, about half effort | S11, S12 |
+| Strength | Band row | 3 × 8–12, 60s rest | Seated or standing, band anchored in a door; shoulders down, 2s squeeze | S10, S17 |
+| | Band outward rotation | 2 × 10 per arm, 60s rest, 3s hold at the end | Elbow tucked at your side; replaces the door-frame press-out | S10, S15 |
+| | Counter push-up | 2 × 8–12, 60s rest | Hands on the kitchen counter, body straight | S7 |
+| | Wrist curl and reverse wrist curl | 2 × 10 each way, 60s rest | Forearm resting on a table, light tin or bottle | S11 |
+| | Band pull-apart | 2 × 10–12, 60s rest | At chest height, arms nearly straight | S10, S17 |
+| Core | Wall side plank | 4 × 15s, 20s rest, alternate sides | Forearm on the wall, feet a step away, body straight | S8 |
+| | Tall sitting hold | 3 × 20s, 20s rest | Sit forward off the chair back, tall, gently brace and breathe; posture practice | S17, S8 |
+| Cool-down | Slow walk | 3–5 min | | S4 |
+| | Calf stretch at the wall | 60s per side | | S16, S5 |
+| | Doorway chest stretch | 60s | | S16, S5 |
+
+Day 5 · Whole body
+| Block | Exercise | Weeks 1–2 | Notes and cues | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Heel-to-toe walk along the counter | 3 × 10 steps | One hand on the counter | S2 |
+| Isometric | Counter plank | 3 × 15s, 30s rest | Forearms or hands on the counter, body straight from head to heels | S8 |
+| | Split-stance hold at the counter | 4 × 15s, 20s rest, alternate legs | One foot ahead, small knee bend in both legs, torso upright | S13, S7 |
+| | Suitcase hold | 4 × 20s, 20s rest, alternate hands | A light shopping bag (1–3 kg) in one hand, stand tall and don't lean | S8, S11 |
+| Strength | Stair step-up | 2 × 8 per side, 60s rest | Bottom stair with the rail, whole foot on the step | S2 |
+| | Sit-to-stand from a chair | 2 × 8–12, 60s rest | | S2, S7 |
+| | Band row | 2 × 8–12, 60s rest | | S10 |
+| | Back knee bend at the counter | 2 × 10 per side, 60s rest | Standing, bring the heel towards the bottom; replaces the wall slide | S2 |
+| Core | Standing bird dog at the counter | 2 × 6 per side, 5s hold | | S8, S9 |
+| | Pallof press (band) | 2 × 8 per side, 3s hold at arms' length | | S9, S10 |
+| Cool-down | Slow walk | 3–5 min | | S4 |
+| | Calf stretch at the wall | 60s per side | | S16, S5 |
+| | Doorway chest stretch | 60s | | S16, S5 |
+
+Days 2, 4 and 6 · Balance and walk
+| Block | Exercise | Weeks 1–2 | Notes | Source |
+| --- | --- | --- | --- | --- |
+| Balance | Single-leg stand at the counter | 4 × 20s, 20s rest, alternate legs | | S2 |
+| | Heel-to-toe stand at the counter | 4 × 20s, 20s rest, alternate front foot | | S2 |
+| | Sideways walking along the counter | 2 × 10 steps each way | Moving balance, as Too Fit To Fracture advises after static holds | S2, S3 |
+| | Sit-to-stand from a chair | 1 × 8 | Slow and controlled | S2 |
+| Walk | Walk at a comfortable pace | 10–20 min | Indoors or out; you should be able to talk | S4, S2 |
+
+**What changed after the evidence review (11 Nov).** Ed asked that
+everything recommended has some justification. The review replaced the
+items with none, and the doses nothing supported:
+
+| Before | After | Why |
+| --- | --- | --- |
+| Warm-up of marching, shoulder rolls, wrist circles, ankle circles, chin tucks | The Otago warm-up (head turns, neck retraction, back extension, ankle pumps) | The Otago warm-up was used in the trial with women aged 80+ (S2); the old moves had no source. Trunk turns left out (S3). |
+| Shoulder press-out into a door frame (isometric) | Band outward rotation with a 3s end hold | Isometric shoulder work has only poor-quality evidence, in tendinopathy, and is no better than moving exercise (S15); band work is supported in older adults (S10). |
+| Wrist presses | Dropped; wrists are trained by the grip squeeze, wrist curls, wall push hold, counter push-up and counter plank | No study found; grip-specific training is supported (S11), and general strength work alone doesn't raise grip strength in people over 75 (S7). |
+| Wall slide | Back knee bend (Otago) | No study found for the wall slide; the band row and pull-apart already train the upper back (S10, S17). |
+| Stretches 2 × 20s | 60s single holds | 60s holds gave the fastest and longest-lasting gains in adults averaging 85 (S16). |
+| Rest of 30–45s on some strength exercises | 60s on every strength exercise | The rest that worked best in older adults (S6). |
+| Easy (deload) weeks 4 and 8 | No easy weeks; holds grow in two small steps instead | No study supports planned easy weeks for older adults, and the tested programmes (Otago, and the trials in people over 75) progress steadily for months (S2, S6, S7). Rest days and the "stop if" rules handle bad days. |
+| Effort "about 5 out of 10" | 5 to 6 out of 10 | ACSM's figure for older adults (S5). |
+
+**Progression.** Follows the Otago approach (S2): hold a little longer,
+then use less support, rather than adding load by a formula.
+
+```
+ Week          1   2  |  3   4   5  |  6   7   8
+ Phase        Settle in |   Build     |  Strengthen
+ Hold change     +0s    |    +5s      |    +10s
+ Balance holds   20s    |    25s      |    30s     (Otago: 10s up to 30s)
+ Wall sit        20s    |    25s      |    30s     (capped at 30s, S12)
+ Grip squeeze    10s    |    15s      |    20s
+ Sets and reps   unchanged; move up the support steps by feel
+```
+
+- The hold change uses the existing phase `timerAdjustments.intervalWorkSec`
+  (+5 in weeks 3–5, +10 in weeks 6–8), so no new progression code. Rest
+  stays the same. 30s is also the hold length that built muscle best in
+  the isometric training review (S13), though that review studied young
+  adults and dedicated isometric trials in older adults are still only at
+  the protocol stage (S14).
+- No deload phases, so no phase name starts with "Deload" and the app
+  never halves anything in this program.
+- Strength reps progress inside the 8–12 range: when every set reaches 12
+  at 5–6/10 effort, move to the next support step in the exercise's
+  `progression` list (for example sit-to-stand: two hands → one hand → no
+  hands, S2) or a slightly firmer band (S10). Each phase's `changes` say
+  this in plain words.
+- After week 8 the overview's "Set a new start date" restarts the cycle,
+  and the person keeps the support steps they reached.
+
+**Evidence.** Checked during planning (11 Nov). Each exercise's
+`evidence` field gets the DOI link of its first source in the tables
+above (the app already shows a URL as a link on the exercise sheet). Most
+of the evidence is about older adults in general or back pain in general,
+not about people over 75 with disc history, which is another reason for
+the doctor or physio check.
+
+| # | Source | What it supports here |
+| --- | --- | --- |
+| S1 | Sherrington et al. 2019, *Exercise for preventing falls in older people living in the community*, Cochrane Database Syst Rev. [doi:10.1002/14651858.CD012424.pub2](https://doi.org/10.1002/14651858.CD012424.pub2) | Balance and functional exercise cut the rate of falls by about 24% (high certainty); balance plus resistance work by about 34% (moderate). |
+| S2 | Campbell et al. 1997, *Randomised controlled trial of a general practice programme of home based exercise to prevent falls in elderly women*, BMJ 315:1065–1069. [doi:10.1136/bmj.315.7115.1065](https://doi.org/10.1136/bmj.315.7115.1065); the exercises as published in the [Otago home exercise booklet](https://www.med.unc.edu/aging/cgwep/files/2018/09/OtagoExercises.pdf); and the 2025 Otago meta-analysis, Front Public Health 13:1522952, [doi:10.3389/fpubh.2025.1522952](https://doi.org/10.3389/fpubh.2025.1522952) | The Otago programme, in women aged 80+: fewer falls (0.87 vs 1.34 a year) and injurious falls. Its warm-up, strength moves (side hip, back knee, heel and toe raises), balance moves (one-leg stand 10s up to 30s, heel-to-toe stand and walk, sideways walking), sit-to-stand with fewer hands, stair walking, strength 3 times a week with a rest day between, breathing out during the effort, and with-support then without-support progression. |
+| S3 | Giangregorio et al. 2014, *Too Fit To Fracture*, Osteoporos Int 25:821–835. [doi:10.1007/s00198-013-2523-2](https://doi.org/10.1007/s00198-013-2523-2) | Strength twice a week or more, about 2 × 8–12; daily balance progressing from static to moving; slow, controlled moves; avoiding bending and twisting under load. |
+| S4 | Bull et al. 2020, *WHO 2020 guidelines on physical activity and sedentary behaviour*, Br J Sports Med 54:1451–1462. [doi:10.1136/bjsports-2020-102955](https://doi.org/10.1136/bjsports-2020-102955) | Older adults: balance and strength on 3 or more days a week, strengthening on 2 or more, and regular moderate activity such as walking. |
+| S5 | Chodzko-Zajko et al. 2009, *Exercise and physical activity for older adults* (ACSM position stand), Med Sci Sports Exerc 41:1510–1523. [doi:10.1249/MSS.0b013e3181a0c95c](https://doi.org/10.1249/MSS.0b013e3181a0c95c) | Strength at 5–6 (moderate) to 7–8 out of 10, 8–12 reps, 2+ days a week; static stretches of the major muscle groups 2+ days a week at 5–6/10; balance by gradually reducing support. |
+| S6 | Borde, Hortobágyi & Granacher 2015, *Dose–response relationships of resistance training in healthy old adults*, Sports Med 45:1693–1720. [doi:10.1007/s40279-015-0385-9](https://doi.org/10.1007/s40279-015-0385-9) | 2–3 sets, 60s rest between sets, 2 sessions a week and long training periods (50+ weeks) worked best. Weak evidence base, as the authors say. |
+| S7 | Grgic et al. 2020, *Effects of resistance training on muscle size and strength in very elderly adults*, Sports Med. [doi:10.1007/s40279-020-01331-7](https://doi.org/10.1007/s40279-020-01331-7) | In adults aged 75–96, strength training gave large strength gains (also in the 80+), with no serious exercise-related adverse events; 1–4 sets of 4–15 reps, 1–3 days a week. General training didn't raise grip strength. |
+| S8 | McGill & Karpowicz 2009, *Exercises for spine stabilization*, Arch Phys Med Rehabil. [doi:10.1016/j.apmr.2008.06.026](https://doi.org/10.1016/j.apmr.2008.06.026) | Spine-sparing core work (bird dog, side bridge, plank-type holds) and starting from easier positions. |
+| S9 | Pourahmadi et al. 2022, *Does motor control training improve pain and function in adults with symptomatic lumbar disc herniation?*, Br J Sports Med 56:1230–1240. [doi:10.1136/bjsports-2021-104926](https://doi.org/10.1136/bjsports-2021-104926) | Trunk control training helped pain and function in lumbar disc herniation in the short term (low to very low certainty). |
+| S10 | *Effect of elastic resistance training on functional capacity in older adults: a systematic review with meta-analysis*, Physiother Theory Pract 2023. [doi:10.1080/09593985.2022.2085219](https://doi.org/10.1080/09593985.2022.2085219) | Band training improves older adults' functional capacity. |
+| S11 | *Optimal dose of resistance training to improve handgrip strength in older adults with sarcopenia*, Front Physiol 2025;16:1564988. [doi:10.3389/fphys.2025.1564988](https://doi.org/10.3389/fphys.2025.1564988) | Resistance training improves grip strength in older adults. |
+| S12 | *Acute blood pressure response to different types of isometric exercise: a systematic review with meta-analysis*, Rev Cardiovasc Med 2023;24(2):60. [doi:10.31083/j.rcm2402060](https://doi.org/10.31083/j.rcm2402060) | Big-muscle holds raise blood pressure more than grip holds, most in older adults and people with high blood pressure. Why holds are short and at half effort, the wall sit is capped at 30s, and the safety notes name blood pressure. |
+| S13 | Oranchuk et al. 2019, *Isometric training and long-term adaptations*, Scand J Med Sci Sports. [doi:10.1111/sms.13375](https://doi.org/10.1111/sms.13375) | Isometric training builds strength; longer holds (around 30s) and longer muscle lengths built more muscle than short ones. Young adults only. |
+| S14 | *Protocol for a trial to assess the efficacy and applicability of isometric strength training in older adults with sarcopenia and dynapenia*, Healthcare 2025;13(13):1573. [doi:10.3390/healthcare13131573](https://doi.org/10.3390/healthcare13131573) | States the gap honestly: isometric training helps strength in older adults and allows controlled, pain-free work, but protocols for older adults still need testing. Its own holds start at 15s phases at low effort. |
+| S15 | *Effectiveness of isometric exercise in the management of tendinopathy: a systematic review and meta-analysis of randomised trials*, BMJ Open Sport Exerc Med 2020;6(1). [doi:10.1136/bmjsem-2020-000760](https://doi.org/10.1136/bmjsem-2020-000760) | Isometrics are no better than moving exercise for tendon pain, and shoulder evidence is poor. Why the shoulder press-out became a band rotation. |
+| S16 | Feland et al. 2001, *The effect of duration of stretching of the hamstring muscle group for increasing range of motion in people aged 65 years or older*, Phys Ther 81:1110–1117. [doi:10.1093/ptj/81.5.1110](https://doi.org/10.1093/ptj/81.5.1110) | In adults averaging 85, 60s stretches beat 15s and 30s for gains and for keeping them. |
+| S17 | Katzman et al. 2017, *Targeted spine strengthening exercise and posture training program to reduce hyperkyphosis in older adults* (SHEAF RCT), Osteoporos Int 28:2831–2841. [doi:10.1007/s00198-017-4109-x](https://doi.org/10.1007/s00198-017-4109-x); and Bansal, Katzman & Giangregorio 2014, systematic review, Arch Phys Med Rehabil 95:129–140, [doi:10.1016/j.apmr.2013.06.022](https://doi.org/10.1016/j.apmr.2013.06.022) | Back and shoulder strengthening plus posture practice reduced the forward curve of the upper back in adults aged 60–88 (the review calls the wider evidence limited). The band row, band pull-apart and tall sitting hold. |
+
+**Still set by judgment, not a study.** Where nothing better exists, as
+Ed allowed: the order of blocks in a session, the split of upper and lower
+body across the three days, the ~30 and ~15 minute session lengths, the
+exact seconds of each hold inside the ranges above, and the 8-week cycle
+length (chosen to match the app; the studies ran 8–52 weeks).
+
+**What the program file leaves out.** No max-tested exercises, no EMOMs, no
+retest week, no warm-up rotation and no weekly fatigue check (the current
+check-in asks for a broad jump and max pull-ups, which don't fit). So
+Steady Strength shows no "Set max", retest card, rotation card, check-in or
+drop banner. A gentle weekly check (for example a 30-second chair stand
+count) is a possible follow-up, not part of this work.
+
+**How the program is chosen at the start.** The app gets a small
+catalogue of programs, and a picker on the first screen:
+
+```
+ First visit (no program chosen yet)
+
+ ┌──────────────────────────────────┐
+ │ CHOOSE YOUR PROGRAM              │
+ │ ┌──────────────────────────────┐ │
+ │ │ Explosive Endurance        › │ │  name, goal and headline numbers
+ │ │ Build explosiveness and …    │ │  read from each program file
+ │ │ 8 weeks · 6 days · ~4 h/week │ │
+ │ └──────────────────────────────┘ │
+ │ ┌──────────────────────────────┐ │
+ │ │ Steady Strength            › │ │
+ │ │ Gentle holds and light …     │ │
+ │ │ 8 weeks · 6 days · ~2¼ h/wk  │ │
+ │ │ Check with your doctor first │ │  first safety line, when present
+ │ └──────────────────────────────┘ │
+ └──────────────────────────────────┘
+          │ tap a card
+          ▼
+ the program overview (PR 11) for that program, with a
+ "Before you start" card listing its safety notes just above the
+ pinned "Start Day 1: Legs and core" button, and a "Switch program"
+ link at the top that goes back to the picker.
+```
+
+- **Address:** the picker is `#/programs`. A first visit with no program
+  chosen opens it instead of the overview.
+- **Ed's phone doesn't change.** If Explosive Endurance already has data
+  (a start date, a log, maxes), that counts as having chosen it: the app
+  keeps opening on Today as now.
+- **Switching never deletes anything.** Each program keeps its own start
+  date, maxes, log and check-ins, so tapping the other program and coming
+  back finds everything as it was. Because of that, tapping a card saves
+  it as the active program straight away, with no confirmation.
+- **Where else it's reachable:** "Switch program" on the overview, and a
+  "Program: Steady Strength · Switch" row in Settings.
+- **Everything follows the active program:** Today, the day plans,
+  logging, history, progress charts and export.
+- **Safety notes stay visible:** the "Before you start" card is on that
+  program's overview every time (not only before starting), and the first
+  line also shows on its picker card. Today gets a small "Safety notes"
+  link under the header that opens the full list in the existing bottom
+  sheet. Explosive Endurance has no `safety` list, so nothing changes for
+  it.
+- **Alternatives considered:** a dropdown in Settings only (hidden from a
+  first-time user, who is exactly who needs to choose), and one shared log
+  for both programs with the start date cleared on a switch (simpler, but
+  a test run of the other program would mix into Ed's history and charts).
+
+**Code shape.**
+
+```
+ public/programs.json  { "programs": [ { "id": "explosive-endurance", "file": "program.json" },
+                                       { "id": "steady-strength",     "file": "steady-strength.json" } ] }
+        │ loadCatalogue()   (CatalogueWire → ProgramCatalogue)
+        ▼
+ each file ──loadProgram()──▶ Program      a file that fails to parse only
+                                            disables its own picker card
+        │
+ active program id  ◀── "workout-app.active-program" (ActiveProgramWire)
+        │
+        ▼
+ storage keys per program:  explosive-endurance.settings / .log / ...  (unchanged)
+                            steady-strength.settings / .log / ...      (new)
+```
+
+- `public/program.json` stays where it is, so Ed's edit habit, the
+  service worker's precache and the project-files copy keep working. The
+  new file is `public/steady-strength.json`, also precached for offline use.
+- `program.safety` is a new optional list of strings. `fatigueCheck`,
+  `warmupRotation` and `coreProgressions` become optional; the app hides
+  the check-in, drop banner and rotation card when they are absent.
+  Explosive Endurance's file still has them, so it behaves exactly as now.
+- New block type labels: Balance, Isometric holds, Strength, Walk and
+  Cool-down, next to the existing ones in `BLOCK_LABELS`. A block type the
+  labels don't know already falls back to the raw id; the new ones get
+  proper names.
+- Storage modules take a program id and build their keys from it; the
+  Explosive keys stay byte-for-byte the same, so no migration. The export
+  file gets a `programId` (export wire v2; a v1 file is read as Explosive
+  Endurance), and importing a backup made for the other program is refused
+  with a message saying which program it belongs to.
+- Settings hides the "Max reps" section when the program has no
+  max-tested exercises.
+- Per CLAUDE.md section 6, the catalogue and the active-program key each
+  get their own wire type and mapping functions.
+- Per CLAUDE.md section 10, a lower-cost subagent implements each step,
+  I review and commit it, and a new higher-reasoning subagent challenges
+  each PR before it opens.
+
+### PR 15 — Program catalogue and per-program storage *(internal refactor)*
+No visible change: Explosive Endurance is the only program in the
+catalogue, and the app behaves exactly as before. This lands the risky
+plumbing (loading, storage keys, export) on its own, so a mistake shows up
+as a broken Explosive flow in review rather than hiding inside the new
+program.
+
+**Steps.**
+1. [ ] `public/programs.json` with one entry, its wire type, parser and
+   loader, and `main.ts` loading the active program through it. Unit
+   tests for the catalogue parser (missing file, duplicate id, bad id).
+2. [ ] Storage keys built from the program id (settings, max history, log,
+   check-ins, snoozes, dismissals), with a unit test that Explosive's keys
+   are unchanged. The active-program key and its wire type.
+3. [ ] Export wire v2 with `programId`, reading v1 as Explosive, and the
+   import refusing another program's backup. Unit tests.
+4. [ ] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
+   the parser, and the UI hiding what depends on them. Unit tests with a
+   cut-down program fixture. The whole E2E suite passes unchanged.
+5. [ ] Fixes from the challenger review.
+- **Merge point:** the app runs from the catalogue with per-program
+  storage, and every existing test still passes.
+
+### PR 16 — Steady Strength program and the program picker *(behavior change)*
+**Steps.**
+1. [ ] `public/steady-strength.json` exactly as tabled above (with the
+   `evidence` links from the Evidence table), the
+   `program.safety` field in the parser and model, the new block labels,
+   and the catalogue entry. README program notes. Unit tests for the
+   worked examples below.
+2. [ ] The picker screen at `#/programs`, the first-visit redirect, the
+   "Switch program" links on the overview and in Settings, and the hidden
+   "Max reps" section. README.
+3. [ ] The "Before you start" card on the overview, its first line on the
+   picker card, and the "Safety notes" link and sheet on Today.
+4. [ ] E2E (`e2e/programPicker.spec.ts`): a first visit shows both
+   programs; choosing Steady Strength shows its overview with the safety
+   card, and "Start Day 1: Legs and core" opens Today at Week 1 · Day 1 with
+   the six blocks and no check-in; an interval hold starts the timer;
+   switching to Explosive Endurance and back keeps each program's start
+   date and logged sets. A started Explosive program still opens on Today.
+5. [ ] Fixes from the challenger review.
+- **Merge point:** a first-time user can choose Steady Strength, read its
+  safety notes and train Day 1 from Today.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -905,16 +1282,47 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | Day plan, start 2 Nov, max 12 / 15 | Day 1, W3 → W4 | Deload | Med ball slams 3 × 6 ("Changed: 6 × 6 in week 3"); main strength block "Changed: 9 min in week 3", pull-ups 6 / min held (no item line); dip mini-dose 1 × 7 ("Changed: 2 × 7 in week 3") |
 | Day plan, no start date saved | Day 1, W2 | Base | Same doses as a saved start date would give; max-based rows say "Set max" unless maxes are saved; no start date is saved |
 
+**Steady Strength** (PR 16), start date 2 Nov 2026, no maxes:
+
+| Date | Week / day | Phase | Example figures |
+| --- | --- | --- | --- |
+| 2 Nov | W1 D1 | Settle in | Single-leg stand 4 rounds × 20s / 20s rest; high wall sit 3 × 20s / 40s; sit-to-stand 3 × 8–12, 60s rest; Otago warm-up 1 round; 6 blocks |
+| 3 Nov | W1 D2 | Settle in | Balance and walk, about 15 min: two balance holds 4 × 20s, sideways walking 2 × 10 steps, sit-to-stand 1 × 8, walk 10–20 min |
+| 4 Nov | W1 D3 | Settle in | Wall push hold 3 × 15s / 30s; grip squeeze 4 × 10s / 15s; band row 3 × 8–12, 60s rest |
+| 8 Nov | W1 D7 | Settle in | Rest-day card |
+| 16 Nov | W3 D1 | Build | Single-leg stand 4 × 25s; high wall sit 3 × 25s / 40s; sit-to-stand still 3 × 8–12 (nothing halved) |
+| 23 Nov | W4 D1 | Build | Same as week 3: no easy week, nothing halved |
+| 9 Dec | W6 D3 | Strengthen | Wall push hold 3 × 25s; grip squeeze 4 × 20s; wall side plank 4 × 25s |
+| 21 Dec | W8 D1 | Strengthen | Single-leg stand 4 × 30s; high wall sit 3 × 30s; no retest card, check-in or "Set max" anywhere |
+| (no start date) | — | — | Overview: 8 weeks, 6 training days, about 135 min a week (30+15+30+15+30+15); phases Settle in W1–2, Build W3–5, Strengthen W6–8; "Before you start" card with the 5 safety notes; CTA "Start Day 1: Legs and core" |
+| Switching | — | — | Explosive started 2 Nov with a logged set, then Steady Strength chosen and started 9 Nov: switching back shows Explosive at its 2 Nov start with the set still logged, and Steady Strength still starts 9 Nov |
+
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
 W2 D1, and 3 Nov is "not started".
 
 ## 7. Open questions
 
-None right now.
+For PR 14 (Steady Strength), each with the answer I'm assuming:
+
+1. **Name.** "Steady Strength", goal "Gentle holds and light strength work
+   to keep the core, legs, wrists and shoulders strong and stable". Happy
+   with that?
+2. **Who uses it.** I'm assuming the person doing the program uses their
+   own phone, and Ed may try it on his. Each program keeps its own data, so
+   either works.
+3. **App name.** The home-screen name and page title still say
+   "Explosive Endurance" / "Endurance". I'm leaving them alone; a neutral
+   name such as "Workouts" would be a small follow-up if Ed wants it.
 
 Resolved:
 
+- **Which discs (PR 14):** the lower back (Ed, 11 Nov). The plan already
+  keeps the lumbar spine neutral and avoids loaded bending and twisting.
+- **Doctor check on Start (PR 14):** not required (Ed, 11 Nov). The safety
+  card is shown but never blocks Start.
+- **Evidence (PR 14):** gathered during planning, in the Evidence table,
+  not left for implementation (Ed, 11 Nov).
 - **Weekdays:** dropped everywhere in favour of Day 1–7 (rule 1).
 - **Week 8 EMOMs:** hold week 7's reps until a new max is saved during
   week 8, then use it with no hold (rule 3).
