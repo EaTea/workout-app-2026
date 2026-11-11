@@ -73,7 +73,11 @@ function renderProgramCard(card: ProgramPickerCard, onTap: (programId: string) =
   const button = element("button", card.isCurrent ? "card program-card program-card-current" : "card program-card");
   button.type = "button";
 
-  const name = element("span", "program-card-name", card.kind === "available" ? card.name : card.programId);
+  // The visible content (goal, headline, safety note) is long; the accessible name is just the program.
+  const programName = card.kind === "available" ? card.name : card.programId;
+  button.setAttribute("aria-label", card.isCurrent ? `${programName}, current program` : programName);
+
+  const name = element("span", "program-card-name", programName);
   if (card.isCurrent) {
     name.append(element("span", "program-card-current-badge", "Current"));
   }

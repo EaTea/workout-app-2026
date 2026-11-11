@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 15 merged (#3 to #24). PR 16 (Steady Strength and the program picker) is in progress.**
+Status: **PR 1 to PR 15 merged (#3 to #24). PR 16 (Steady Strength and the program picker) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1285,7 +1285,12 @@ program.
    the six blocks and no check-in; an interval hold starts the timer;
    switching to Explosive Endurance and back keeps each program's start
    date and logged sets. A started Explosive program still opens on Today.
-5. [ ] Fixes from the challenger review.
+5. [x] Fixes from the challenger review: weekly time rounds to 15 min,
+   safety wording on the suitcase hold, back extension and holds, Safety
+   notes on rest days, picker card names, and E2E for broken program files.
+   Left as they are, with reasons in the PR: the large step 2 commit,
+   `hasSavedProgramData` ignoring check-ins (Explosive always has a start
+   date once used), and the thin older-adult evidence for some holds.
 - **Merge point:** a first-time user can choose Steady Strength, read its
   safety notes and train Day 1 from Today.
 

@@ -31,6 +31,10 @@ test.describe("first visit", () => {
     await expect(page.getByRole("button", { name: /Explosive Endurance Program/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Steady Strength/ })).toBeVisible();
 
+    // The headline times are rounded to 15 minutes: Steady Strength is 135 min, Explosive 242 min.
+    await expect(page.getByRole("button", { name: /Steady Strength/ })).toContainText("about 2 h 15 min a week");
+    await expect(page.getByRole("button", { name: /Explosive Endurance Program/ })).toContainText("about 4 h a week");
+
     // 2. Choosing Steady Strength opens its overview, with the safety card.
     await page.getByRole("button", { name: /Steady Strength/ }).click();
     await expect(page.getByRole("heading", { name: "Program overview" })).toBeVisible();
@@ -116,5 +120,38 @@ test.describe("first visit", () => {
     await expect(page.getByRole("heading", { name: "Choose your program" })).toHaveCount(0);
     await expect(page.getByText("2 Nov · Week 1 of 8 · Day 1")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Upper: pull" })).toBeVisible();
+  });
+
+  test("a broken Steady Strength file disables its card with the reason, while Explosive Endurance still works", async ({ page }) => {
+    await fixClockOnDayOne(page);
+    await page.route("**/steady-strength.json", (route) => route.fulfill({ json: { program: "not a program" } }));
+    await page.goto("/");
+
+    const steadyCard = page.getByRole("button", { name: /^steady-strength/ });
+    await expect(steadyCard).toBeDisabled();
+    await expect(steadyCard).toContainText("This program can't be loaded");
+
+    await page.getByRole("button", { name: /Explosive Endurance Program/ }).click();
+    await expect(page.getByRole("heading", { name: "Program overview" })).toBeVisible();
+    await expect(page.locator(".overview-program-row")).toContainText("Explosive Endurance");
+  });
+
+  test("a stored choice of a broken program shows the startup error card, whose Switch program link opens the picker", async ({ page }) => {
+    await fixClockOnDayOne(page);
+    await page.addInitScript(() => {
+      // Only seed once: this script runs again on the reload that follows choosing a program.
+      if (window.localStorage.getItem("workout-app.active-program") === null) {
+        window.localStorage.setItem("workout-app.active-program", JSON.stringify({ version: 1, programId: "steady-strength" }));
+      }
+    });
+    await page.route("**/steady-strength.json", (route) => route.fulfill({ json: { program: "not a program" } }));
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "Could not load the program" })).toBeVisible();
+    await page.getByRole("link", { name: "Switch program" }).click();
+    await expect(page.getByRole("heading", { name: "Choose your program" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^steady-strength/ })).toBeDisabled();
+    await page.getByRole("button", { name: /Explosive Endurance Program/ }).click();
+    await expect(page.getByRole("heading", { name: "Program overview" })).toBeVisible();
   });
 });
