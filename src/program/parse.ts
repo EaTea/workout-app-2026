@@ -377,6 +377,13 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
     reps = { kind: "percentOfMax", min: fraction.min, max: fraction.max };
   }
 
+  // sameEveryWeek promises the item is identical in all 8 weeks, but an EMOM's
+  // weekly increase still grows its reps, so the two can't be combined.
+  const sameEveryWeek = readFlag(record, "sameEveryWeek", path);
+  if (sameEveryWeek && record.weeklyIncrease !== undefined) {
+    fail(path, `"sameEveryWeek" can't be combined with "weeklyIncrease", which changes the reps each week`);
+  }
+
   const load = readOptionalString(record, "load", path);
   const sets = record.sets === undefined ? [] : parseSets(record.sets, reps, load, child(path, "sets"), warnings);
 
@@ -394,7 +401,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
     durationSec: readOptionalNumber(record, "durationSec", path),
     perSide: readFlag(record, "perSide", path),
     optional: readFlag(record, "optional", path),
-    sameEveryWeek: readFlag(record, "sameEveryWeek", path),
+    sameEveryWeek,
     load,
     note: readOptionalString(record, "note", path),
     tempo: readOptionalString(record, "tempo", path),
@@ -402,7 +409,11 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
   };
 }
 
-/** Converts one block and all of its items. */
+/**
+ * Converts one block and all of its items. Refuses a `sameEveryWeek` item in
+ * a block with its own `rounds` or `minutes`: a deload halves those for the
+ * whole block, so the item couldn't stay the same every week.
+ */
 function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): Block {
   const record = expectRecord(raw, path);
   collectUnknownFields(record, BLOCK_KEYS, path, warnings);
@@ -410,13 +421,26 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: str
   const itemsPath = child(path, "items");
   const items = expectArray(record.items ?? fail(itemsPath, "field is missing"), itemsPath);
 
+  const rounds = readOptionalRange(record, "rounds", path);
+  const minutes = readOptionalNumber(record, "minutes", path);
+  const parsedItems = items.map((item, index) => parseItem(item, exercises, `${itemsPath}[${index}]`, warnings));
+
+  const blockIsHalvedAsAWhole = rounds !== undefined || minutes !== undefined;
+  const sameEveryWeekIndex = parsedItems.findIndex((parsedItem) => parsedItem.sameEveryWeek);
+  if (blockIsHalvedAsAWhole && sameEveryWeekIndex !== -1) {
+    fail(
+      `${itemsPath}[${sameEveryWeekIndex}]`,
+      `"sameEveryWeek" can't be used in a block with its own "rounds" or "minutes", which a deload halves; put the item in a block without them`,
+    );
+  }
+
   return {
     type: readString(record, "type", path),
     format: parseFormat(record, path),
-    rounds: readOptionalRange(record, "rounds", path),
-    minutes: readOptionalNumber(record, "minutes", path),
+    rounds,
+    minutes,
     restSecBetweenPairs: readOptionalRange(record, "restSecBetweenPairs", path),
-    items: items.map((item, index) => parseItem(item, exercises, `${itemsPath}[${index}]`, warnings)),
+    items: parsedItems,
   };
 }
 

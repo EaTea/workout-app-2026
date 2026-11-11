@@ -8,9 +8,9 @@ progression) and has a settings screen. EMOM rows have a "Start EMOM" button
 that opens a full-screen timer with a beep and vibration each minute and a
 3-2-1 countdown (the beeps ask Safari 16.4+ to play through an iPhone's
 silent switch; older iOS versions may still mute them, and iOS Safari has no
-vibration). The heavy bag and Day 6 wall sit rows have a "Start timer" interval timer and rows
-with a prescribed rest (and superset blocks) have a "Rest 30s" button, all with
-adjustable numbers before Start. The Back button or gesture closes an open timer
+vibration). The heavy bag and Day 6 wall sit rows have a "Start timer"
+interval timer and rows with a prescribed rest (and superset blocks) have a
+"Rest 30s" button, all with adjustable numbers before Start. The Back button or gesture closes an open timer
 (and stays on the same screen). The screen stays awake while a timer is open,
 and on Today and the log screen while a session is in progress (from its first
 logged set until every set is logged, or until midnight; needs a browser with the Screen Wake Lock API, e.g. iOS Safari 16.4+), and
@@ -135,7 +135,8 @@ deload halving of its sets, minutes or rounds, so it is the same in all 8 weeks
 endurance weeks its row says "Same every week" instead). The shipped program
 uses it for the Day 6 wall sit (a finisher after the Zercher split squat: 5
 rounds of 90s with 60s rest, Day 6 is ~42 min). Anything but true or false is
-an error.
+an error, and so is combining it with `weeklyIncrease` or putting it in a block
+with its own `rounds` or `minutes` (both would still change from week to week).
 
 ## Warm-up rotation
 

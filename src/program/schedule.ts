@@ -346,12 +346,12 @@ function shiftRange(range: Range, seconds: number, ceiling: number): Range {
 }
 
 /**
- * Builds one item: halves volume when `halve` is set, resolves rep targets
- * against the athlete's maxes, and applies the weekly increase to items that
- * declare one. An item marked `sameEveryWeek` is exempt from the week-by-week
- * changes that are about the phase: the deload halving (`halve` is ignored)
- * and the phase's interval work adjustment. Called by `buildBlock`, which
- * decides `halve` for the whole block.
+ * Builds one item: halves volume in a deload (`blockHalve`, decided for the
+ * whole block by `buildBlock`), resolves rep targets against the athlete's
+ * maxes, and applies the weekly increase to items that declare one. An item
+ * marked `sameEveryWeek` ignores `blockHalve` and the phase's interval work
+ * adjustment; the parser makes sure such an item has no weekly increase and
+ * no block-level rounds or minutes, so it really is the same every week.
  */
 function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
   const halve = blockHalve && !item.sameEveryWeek;
