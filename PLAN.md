@@ -755,7 +755,7 @@ weeks 5–8 almost every row would be marked and the week-to-week step
 2. [x] Day plan screen, the `#/plan/<day>/<week>` route (bad or out-of-range
    numbers fall back to the Overview), the week picker, the Overview rows
    as links, styles and README.
-3. [ ] E2E (`e2e/dayPlan.spec.ts`): from the Overview tap Day 1, see all
+3. [x] E2E (`e2e/dayPlan.spec.ts`): from the Overview tap Day 1, see all
    six blocks, pick week 4 and see the halved doses with their "Changed"
    lines, Back returns to the Overview; Day 7 is not a link; a first run
    (no start date) can browse plans without a start date being saved.
