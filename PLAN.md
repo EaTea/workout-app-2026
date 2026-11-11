@@ -665,7 +665,7 @@ targetMinutes, progression), so no new wire type or parser change.
    (reusing "Start today"), the "Program overview" links on Today and
    Settings, styles, and README. Replaces the old Welcome card and updates
    the E2E tests that used it.
-3. [ ] E2E (`e2e/overview.spec.ts`): first visit lands on the Overview,
+3. [x] E2E (`e2e/overview.spec.ts`): first visit lands on the Overview,
    shows 8 weeks, the four phases and the 7 days, and "Start Day 1: Upper:
    pull" opens Today at Week 1 · Day 1; a started program opens on Today
    and the header link opens the Overview with "Go to today".
