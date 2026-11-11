@@ -332,3 +332,27 @@ describe("timerAdjustments", () => {
     expect(warnings[0]).toMatchObject({ path: "progression[2].timerAdjustments.intervalWorkSecs", suggestion: "intervalWorkSec" });
   });
 });
+
+describe("the sameEveryWeek item field", () => {
+  /** Reads the heavy bag item of day 1 from a copy of the real JSON after `mutate`. */
+  function heavyBagJson(json: any): any {
+    return json.days[0].blocks.flatMap((jsonBlock: any) => jsonBlock.items).find((jsonItem: any) => jsonItem.exercise === "heavy_bag");
+  }
+
+  it("defaults to false when absent", () => {
+    expect(dayOf(1).blocks.flatMap((dayBlock) => dayBlock.items).find((entry) => entry.exerciseId === "heavy_bag")?.sameEveryWeek).toBe(false);
+  });
+
+  it("reads true without warning about an unknown field", () => {
+    const json = readRealProgramJson();
+    heavyBagJson(json).sameEveryWeek = true;
+    const result = parseProgram(json);
+    expect(result.warnings).toEqual([]);
+    expect(result.program.days[1]?.blocks.flatMap((dayBlock) => dayBlock.items).find((entry) => entry.exerciseId === "heavy_bag")?.sameEveryWeek).toBe(true);
+  });
+
+  it("rejects a value that is not true or false", () => {
+    const message = errorMessageAfter((json) => (heavyBagJson(json).sameEveryWeek = "yes"));
+    expect(message).toContain("sameEveryWeek: expected true or false but found");
+  });
+});

@@ -506,3 +506,50 @@ describe("power endurance timer adjustments (weeks 5-7)", () => {
     expect(block(session.blocks, "core").restSecBetweenPairs).toEqual({ min: 300, max: 300 });
   });
 });
+
+describe("an item marked sameEveryWeek", () => {
+  /** The real program with the heavy bag (an interval item on days 1 and 5) opted out of week-by-week changes. */
+  function programWithOptedOutBag() {
+    const modified = structuredClone(program);
+    for (const day of Object.values(modified.days)) {
+      for (const dayBlock of day?.blocks ?? []) {
+        for (const blockItem of dayBlock.items) {
+          if (blockItem.exerciseId === "heavy_bag") blockItem.sameEveryWeek = true;
+        }
+      }
+    }
+    return modified;
+  }
+
+  /** The heavy bag on `date` (a day 1) from the opted-out program. */
+  function optedOutBagOn(date: string): ItemView {
+    const session = buildSession(programWithOptedOutBag(), settings, date);
+    if (session.kind !== "training") throw new Error("expected training");
+    return item(session.blocks, "heavy_bag");
+  }
+
+  it.each([
+    ["W1", "2026-11-02"],
+    ["W4 deload", "2026-11-23"],
+    ["W5 power endurance", "2026-11-30"],
+    ["W8 deload + retest", "2026-12-21"],
+  ])("keeps the heavy bag at 4-5 rounds of 20-30s with no adjustment in %s", (_label, date) => {
+    const bag = optedOutBagOn(date);
+    expect(bag.rounds).toEqual({ min: 4, max: 5 });
+    expect(bag.workSec).toEqual({ min: 20, max: 30 });
+    expect(bag.workSecAdjustment).toBeUndefined();
+  });
+
+  it("still lets the other items follow the phase (core rest cut in W5, sets halved in W4)", () => {
+    const power = buildSession(programWithOptedOutBag(), settings, "2026-11-30");
+    const deload = buildSession(programWithOptedOutBag(), settings, "2026-11-23");
+    if (power.kind !== "training" || deload.kind !== "training") throw new Error("expected training");
+    expect(block(power.blocks, "core").restAdjustment).toBe(-15);
+    expect(item(deload.blocks, "pull_up").minutes).toBe(item(trainingOn("2026-11-23").blocks, "pull_up").minutes);
+  });
+
+  it("leaves the unmarked heavy bag adjusted and halved", () => {
+    expect(item(trainingOn("2026-11-30").blocks, "heavy_bag").workSec).toEqual({ min: 25, max: 35 });
+    expect(item(trainingOn("2026-11-23").blocks, "heavy_bag").rounds).toEqual({ min: 2, max: 2 });
+  });
+});

@@ -559,7 +559,7 @@ block adds 5 × 90s + 4 × 60s = 11.5 minutes.
   `finisher`). Its cues are back flat on the wall, thighs parallel and
   knees over the ankles. The JSON export and import need no change, since
   sets are filed by exercise id like every other item.
-1. [ ] `sameEveryWeek` opt-out: wire and internal types, parser,
+1. [x] `sameEveryWeek` opt-out: wire and internal types, parser,
    `buildSession` (skips the phase timer adjustments and the deload
    halving), Today's adjustment line, and unit tests (including the W4 D6
    and W5 D6 examples below).

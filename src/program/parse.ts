@@ -90,7 +90,7 @@ const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues",
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
 const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"]);
 const ITEM_KEYS = allowedKeysOf<ItemWire>()([
-  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "load", "note", "tempo", "weeklyIncrease",
+  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease",
 ]);
 const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
 const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest", "timerAdjustments"]);
@@ -394,6 +394,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
     durationSec: readOptionalNumber(record, "durationSec", path),
     perSide: readFlag(record, "perSide", path),
     optional: readFlag(record, "optional", path),
+    sameEveryWeek: readFlag(record, "sameEveryWeek", path),
     load,
     note: readOptionalString(record, "note", path),
     tempo: readOptionalString(record, "tempo", path),

@@ -342,14 +342,18 @@ function shiftRange(range: Range, seconds: number, ceiling: number): Range {
 /**
  * Builds one item: halves volume when `halve` is set, resolves rep targets
  * against the athlete's maxes, and applies the weekly increase to items that
- * declare one.
+ * declare one. An item marked `sameEveryWeek` is exempt from the week-by-week
+ * changes that are about the phase: the deload halving (`halve` is ignored)
+ * and the phase's interval work adjustment. Called by `buildBlock`, which
+ * decides `halve` for the whole block.
  */
-function buildItem(item: BlockItem, settings: TrainingSettings, halve: boolean, week: WeekContext): ItemView {
+function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
+  const halve = blockHalve && !item.sameEveryWeek;
   const choice = chooseIncrease(item, settings, week);
 
-  // Interval items (heavy bag) take the work adjustment (the power-endurance "longer rounds").
+  // Interval items (heavy bag) unless marked sameEveryWeek take the work adjustment (the power-endurance "longer rounds").
   const workAdjustment = week.timerAdjustments?.intervalWorkSec ?? 0;
-  const workAdjusted = item.format === "interval" && item.workSec !== undefined && workAdjustment !== 0;
+  const workAdjusted = item.format === "interval" && item.workSec !== undefined && workAdjustment !== 0 && !item.sameEveryWeek;
 
   const keptSets = halve ? item.sets.slice(0, Math.ceil(item.sets.length / 2)) : item.sets;
 

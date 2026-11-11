@@ -128,6 +128,12 @@ line and the timers start from them. Explosive rest is not adjusted. The
 adjustment applies to every week of the phase it is set on, including a
 deload week if you put it on one.
 
+An item can opt out of all the week-by-week changes with `"sameEveryWeek": true`
+(optional, true or false, default false): it gets no timer adjustment and no
+deload halving of its sets, minutes or rounds, so it is the same in all 8 weeks
+(and Today shows no "Power endurance" line for it). Anything but true or false
+is an error.
+
 ## Warm-up rotation
 
 Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the
