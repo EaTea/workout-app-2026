@@ -1,4 +1,4 @@
-import type { Program, Range } from "../program/model";
+import type { Program, Range, WarmupRotation } from "../program/model";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
@@ -110,13 +110,15 @@ export function renderTodayScreen(
     case "training":
       if (retest !== undefined) {
         const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
-        const jumpOnly = exercisesToRetest.length === 0
+        // The broad jump is part of the fatigue check; a program without one has no jump to ask for.
+        const hasJump = program.fatigueCheck !== undefined;
+        const jumpOnly = hasJump && exercisesToRetest.length === 0
           && shouldOfferJumpOnly(program, settings, date, retest.dismissedDate, retest.history, retest.jumpSkippedWeekStart);
         if (exercisesToRetest.length > 0 || jumpOnly) {
-          screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, {
+          screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, hasJump ? {
             week: trainingWeekOf(program, settings, date) ?? 0,
             history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks),
-          }));
+          } : undefined));
         }
       }
       if (checkIn !== undefined) {
@@ -133,8 +135,8 @@ export function renderTodayScreen(
       if (rotation !== undefined) {
         // Shown on every training day of a swapped block until that block is dismissed.
         const blockStartWeek = rotationBlockStartWeek(program, session);
-        if (blockStartWeek !== undefined && !rotation.dismissedBlockWeeks.includes(blockStartWeek)) {
-          screen.append(renderRotationCard(describeSwaps(program), program.warmupRotation, rotation.onDismiss, rotation.canDismiss));
+        if (program.warmupRotation !== undefined && blockStartWeek !== undefined && !rotation.dismissedBlockWeeks.includes(blockStartWeek)) {
+          screen.append(renderRotationCard(describeSwaps(program, program.warmupRotation), program.warmupRotation, rotation.onDismiss, rotation.canDismiss));
         }
       }
       screen.append(...renderTrainingDay(program, session, date, log));
@@ -294,8 +296,8 @@ function renderBlockCard(program: Program, block: BlockView, position: number, d
  * "<original name> → <new name>" for each swap of the warm-up rotation, for
  * the rotation card; falls back to the exercise id if the library lacks it.
  */
-function describeSwaps(program: Program): string[] {
-  return program.warmupRotation.swaps.map((swap) => `${program.exercises[swap.out]?.name ?? swap.out} → ${swap.in}`);
+function describeSwaps(program: Program, rotation: WarmupRotation): string[] {
+  return rotation.swaps.map((swap) => `${program.exercises[swap.out]?.name ?? swap.out} → ${swap.in}`);
 }
 
 /**

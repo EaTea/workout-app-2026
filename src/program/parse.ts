@@ -587,6 +587,16 @@ function requireSection(root: UnknownRecord, key: string): unknown {
 }
 
 /**
+ * The section's raw value, or undefined when the program file leaves it out.
+ * Used for the sections a program may omit (`coreProgressions`,
+ * `warmupRotation`, `fatigueCheck`); a present section is still fully checked
+ * by its own parser. Called by `parseProgram`.
+ */
+function optionalSection(root: UnknownRecord, key: string): unknown {
+  return root[key];
+}
+
+/**
  * Validates parsed program.json contents and builds the internal `Program`.
  *
  * Called by `loadProgram` at startup and directly by tests. Throws an Error
@@ -621,11 +631,16 @@ export function parseProgram(json: unknown): ParseResult {
     fail("program.restDay", `day ${restDay} is the rest day but days has an entry for it`);
   }
 
-  const coreProgressionRecord = expectRecord(requireSection(root, "coreProgressions"), "coreProgressions");
+  // An absent section means no core progressions: an empty record.
+  const rawCoreProgressions = optionalSection(root, "coreProgressions");
+  const coreProgressionRecord = rawCoreProgressions === undefined ? {} : expectRecord(rawCoreProgressions, "coreProgressions");
   const coreProgressions: Record<string, string> = {};
   for (const key of Object.keys(coreProgressionRecord)) {
     coreProgressions[key] = readString(coreProgressionRecord, key, "coreProgressions");
   }
+
+  const rawWarmupRotation = optionalSection(root, "warmupRotation");
+  const rawFatigueCheck = optionalSection(root, "fatigueCheck");
 
   const lengthWeeks = readPositiveInteger(info, "lengthWeeks", "program");
   const progression = expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
@@ -644,8 +659,8 @@ export function parseProgram(json: unknown): ParseResult {
     days,
     progression,
     coreProgressions,
-    warmupRotation: parseWarmupRotation(requireSection(root, "warmupRotation"), "warmupRotation", warnings),
-    fatigueCheck: parseFatigueCheck(requireSection(root, "fatigueCheck"), "fatigueCheck", warnings),
+    warmupRotation: rawWarmupRotation === undefined ? undefined : parseWarmupRotation(rawWarmupRotation, "warmupRotation", warnings),
+    fatigueCheck: rawFatigueCheck === undefined ? undefined : parseFatigueCheck(rawFatigueCheck, "fatigueCheck", warnings),
   };
 
   return { program, warnings };

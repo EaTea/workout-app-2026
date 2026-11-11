@@ -675,7 +675,7 @@ export function startApp(
       }
       if (route === "today") {
         const drop = dropWarningForShownDate(program, settings, shownDate, fatigueHistory);
-        if (drop.warnings.length > 0 && dropBannerDismissedWeek !== drop.week) {
+        if (program.fatigueCheck !== undefined && drop.warnings.length > 0 && dropBannerDismissedWeek !== drop.week) {
           main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week)));
         }
       }
@@ -712,7 +712,7 @@ export function startApp(
           history: fatigueHistory,
           snoozedDate: checkInSnoozedDate,
           canSave: canSaveOnShownDate(),
-          ruleText: program.fatigueCheck.rule,
+          ruleText: program.fatigueCheck?.rule ?? "",
           draftForWeek,
           onSave: handleSaveCheckIn,
           onSnooze: handleSnoozeCheckIn,

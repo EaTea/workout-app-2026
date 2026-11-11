@@ -137,9 +137,9 @@ describe("parseProgram on the real program.json", () => {
     expect(program.progression[1]).toMatchObject({ weeks: [4], phase: "Deload" });
     expect(program.progression).toHaveLength(4);
     expect(Object.keys(program.coreProgressions)).toEqual(["back_extension", "hanging_leg_raise"]);
-    expect(program.warmupRotation.everyWeeks).toBe(4);
-    expect(program.warmupRotation.swaps[0]).toEqual({ out: "single_leg_hip_thrust", in: "Kickbacks" });
-    expect(program.fatigueCheck.tests).toEqual(["Best broad jump", "Max pull-ups"]);
+    expect(program.warmupRotation!.everyWeeks).toBe(4);
+    expect(program.warmupRotation!.swaps[0]).toEqual({ out: "single_leg_hip_thrust", in: "Kickbacks" });
+    expect(program.fatigueCheck!.tests).toEqual(["Best broad jump", "Max pull-ups"]);
   });
 });
 

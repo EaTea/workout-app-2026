@@ -115,6 +115,11 @@ CI runs the same suite; see "Deployment" below.
 
 ## Editing program.json
 
+A program file may leave out `fatigueCheck`, `warmupRotation` and
+`coreProgressions`. Without `fatigueCheck` there is no weekly check-in, drop
+banner or retest broad jump; without `warmupRotation` warm-ups never rotate and
+there is no rotation card. When a section is present it is checked as before.
+
 `public/programs.json` is the catalogue of programs: a list of
 `{ "id": "explosive-endurance", "file": "program.json" }` entries (ids use
 lowercase letters, digits and hyphens; `file` is a plain `.json` file name in

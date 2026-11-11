@@ -121,7 +121,8 @@ export function focusRetestJumpStepper(): void {
 }
 
 /**
- * Builds the card for the exercises still to retest. Each stepper starts at
+ * Builds the card for the exercises still to retest. `jump` is undefined for
+ * a program without a fatigue check: the card then has no broad jump block. Each stepper starts at
  * the draft value if there is one, else the current saved max (undefined
  * shows "—" and the first + gives 1).
  */
@@ -129,7 +130,7 @@ export function renderRetestCard(
   exercises: Exercise[],
   settings: TrainingSettings,
   actions: RetestCardActions,
-  jump: RetestJumpContext,
+  jump: RetestJumpContext | undefined,
 ): HTMLElement {
   const card = element("section", "card retest-card");
   card.setAttribute("aria-label", "Retest week");
@@ -144,9 +145,10 @@ export function renderRetestCard(
     card.append(renderRetestRow(exercise, settings, actions));
   }
 
-  card.append(renderRetestJump(jump, actions));
+  // No jump context means the program has no fatigue check, so no broad jump.
+  if (jump !== undefined) card.append(renderRetestJump(jump, actions));
 
-  if (exercises.length === 0) {
+  if (exercises.length === 0 && jump !== undefined) {
     // Jump-only card: disabled in a preview like the other saves.
     const skipButton = element("button", "retest-dismiss retest-skip-jump", "Skip jump");
     skipButton.type = "button";

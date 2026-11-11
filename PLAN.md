@@ -1223,7 +1223,7 @@ program.
    are unchanged. The active-program key and its wire type.
 3. [x] Export wire v2 with `programId`, reading v1 as Explosive, and the
    import refusing another program's backup. Unit tests.
-4. [ ] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
+4. [x] `fatigueCheck`, `warmupRotation` and `coreProgressions` optional in
    the parser, and the UI hiding what depends on them. Unit tests with a
    cut-down program fixture. The whole E2E suite passes unchanged.
 5. [ ] Fixes from the challenger review.
