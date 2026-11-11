@@ -25,6 +25,9 @@ import { renderOverviewScreen } from "./overview";
 import { renderDayPlanScreen } from "./dayPlan";
 import { buildDayPlan } from "../program/dayPlan";
 import { renderSettingsScreen } from "./settings";
+import { buildProgramPicker, programNamesById } from "../program/picker";
+import type { LoadedCatalogueEntry } from "../program/load";
+import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramLink } from "./programPicker";
 import { renderTodayScreen } from "./today";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
 import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
@@ -210,7 +213,9 @@ export function persistSettings(newSettings: TrainingSettings, storage: Storage,
  * active program (main.ts builds them from the program id). Re-renders on every hash change; settings
  * edits go through `saveSettings`, update the in-memory copy and return to Today.
  * `warnings` (unknown program.json fields) appear as a dismissible banner on
- * Today; dismissing hides it until the page is reloaded.
+ * Today; dismissing hides it until the page is reloaded. `loadedPrograms` is
+ * every catalogue program as loaded at startup: the picker at `#/programs`
+ * shows a card for each, and the Import card names programs from it.
  */
 export function startApp(
   root: HTMLElement,
@@ -220,7 +225,9 @@ export function startApp(
   warnings: ProgramWarning[] = [],
   loadedLog: LoadLogResult = { log: { sessions: {} } },
   loadedFatigue: LoadFatigueHistoryResult = { history: { checks: [] } },
+  loadedPrograms: LoadedCatalogueEntry[] = [],
 ): void {
+  const programNames = programNamesById(loadedPrograms);
   let settings = initialSettings;
   let log = loadedLog.log;
   let warningsDismissed = false;
@@ -685,9 +692,13 @@ export function startApp(
           isPreview: previewDateFromSearch(window.location.search) !== undefined,
           storage: localStorage,
           storageKeys,
+          programNames,
           currentSessionCount: () => Object.keys(log.sessions).length,
           onImported: handleImported,
         }));
+      } else if (route === "programs") {
+        // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
+        main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {
@@ -832,12 +843,25 @@ function showToast(message: string): void {
   window.setTimeout(() => toast.remove(), SAVED_TOAST_MILLISECONDS);
 }
 
-/** Replaces the app with a readable error card (program.json failed to parse, or a render threw). */
-export function showStartupError(root: HTMLElement, error: unknown): void {
+/**
+ * Replaces the app with a readable error card (a program file failed to parse, or a render threw).
+ * `onSwitchProgram`, when given, adds a "Switch program" link under the message
+ * (used when the chosen program's file is broken, so the athlete can pick another).
+ */
+export function showStartupError(root: HTMLElement, error: unknown, onSwitchProgram?: () => void): void {
   const message = error instanceof Error ? error.message : String(error);
   const card = element("div", "card error-card");
   card.setAttribute("role", "alert");
   card.append(element("h2", "card-title", "Could not load the program"), element("pre", "error-message", message));
+
+  if (onSwitchProgram !== undefined) {
+    const switchLink = renderSwitchProgramLink();
+    switchLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      onSwitchProgram();
+    });
+    card.append(switchLink);
+  }
 
   const main = element("main", "app-main");
   main.append(card);

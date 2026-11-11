@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { defineConfig, type Plugin } from "vitest/config";
-import { buildCacheName, buildPrecacheList } from "./src/pwa/precache.ts";
+import { parseCatalogue } from "./src/program/catalogue.ts";
+import { buildCacheName, buildPrecacheList, programFileNames } from "./src/pwa/precache.ts";
 import { renderServiceWorker } from "./src/pwa/serviceWorkerSource.ts";
 
 /** Lists every file under a directory as paths relative to it, using "/" separators. */
@@ -37,7 +38,13 @@ function serviceWorkerPlugin(): Plugin {
         contents: readFileSync(join(outputDirectory, url === "./" ? "index.html" : url)),
       }));
 
-      writeFileSync(join(outputDirectory, "sw.js"), renderServiceWorker(buildCacheName(precachedFiles), precacheUrls));
+      // Every program file the catalogue lists is answered network-first by the worker.
+      const catalogue = parseCatalogue(JSON.parse(readFileSync(join(outputDirectory, "programs.json"), "utf8")));
+
+      writeFileSync(
+        join(outputDirectory, "sw.js"),
+        renderServiceWorker(buildCacheName(precachedFiles), precacheUrls, programFileNames(catalogue)),
+      );
     },
   };
 }

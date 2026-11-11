@@ -5,6 +5,7 @@
  */
 
 import { createHash } from "node:crypto";
+import type { ProgramCatalogue } from "../program/catalogue.ts";
 
 /** Files that are never precached: the worker itself and source maps. */
 function isPrecachable(fileName: string): boolean {
@@ -53,4 +54,18 @@ export function buildCacheName(files: PrecachedFile[]): string {
   }
 
   return `explosive-endurance-${hash.digest("hex").slice(0, 10)}`;
+}
+
+/**
+ * The plain file names of every program file the catalogue lists (e.g.
+ * ["program.json", "steady-strength.json"]). The build bakes this list into
+ * sw.js so the worker answers exactly these files network-first (see
+ * `chooseStrategy`); programs.json itself is not in it. Each catalogue
+ * `programUrl` is "./<file name>" (the catalogue parser guarantees a plain
+ * file name), so this only drops the "./".
+ *
+ * @param catalogue the parsed public/programs.json
+ */
+export function programFileNames(catalogue: ProgramCatalogue): string[] {
+  return catalogue.entries.map((entry) => entry.programUrl.replace(/^\.\//, ""));
 }

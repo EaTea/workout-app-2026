@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { stampMaxSavedDates, updateMaxHistory, validateSettingsForm } from "./settings";
+import { readFileSync } from "node:fs";
+import { parseProgram } from "../program/parse";
+import { maxTestedExercises, stampMaxSavedDates, updateMaxHistory, validateSettingsForm } from "./settings";
+
+describe("maxTestedExercises (which programs get a Max reps section)", () => {
+  const programNamed = (file: string) => parseProgram(JSON.parse(readFileSync(`public/${file}`, "utf-8"))).program;
+
+  it("lists Explosive Endurance's tested exercises, so its Max reps fields stay", () => {
+    expect(maxTestedExercises(programNamed("program.json")).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+  });
+
+  it("is empty for Steady Strength, so Settings shows no Max reps section", () => {
+    expect(maxTestedExercises(programNamed("steady-strength.json"))).toEqual([]);
+  });
+});
 
 describe("validateSettingsForm", () => {
   it("accepts a date and whole-number maxes, ignoring blanks", () => {

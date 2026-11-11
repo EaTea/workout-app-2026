@@ -8,9 +8,9 @@
  * because Ed sees that message when he edits programs.json by hand.
  *
  *   unknown ──parseCatalogue──▶ ProgramCatalogue
- *   (loaded by load.ts's loadCatalogue; main.ts uses the stored choice if listed, else the first entry)
+ *   (loaded by load.ts's loadCatalogue; main.ts loads every listed program and `chooseStartup` decides which to open)
  */
-import type { CatalogueEntryWire, CatalogueWire } from "./catalogueWire";
+import type { CatalogueEntryWire, CatalogueWire } from "./catalogueWire.ts";
 
 /** One program the app can run, in the shape the rest of the app uses. */
 export interface CatalogueEntry {

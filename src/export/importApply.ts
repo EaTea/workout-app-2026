@@ -2,7 +2,7 @@ import { loadFatigueHistory, saveFatigueHistory } from "../fatigue/storage";
 import { loadLog, saveLog } from "../log/storage";
 import { loadSettings, saveSettings } from "../settings/storage";
 import type { ProgramStorageKeys } from "../storage/programKeys";
-import { parseImport, wrongProgramMessage, type ImportedData } from "./import";
+import { parseImport, wrongProgramMessage, type ImportedData, type ProgramNames } from "./import";
 import { backupToText, importBackupKey, listImportBackups, pruneImportBackups, type RawStoredText } from "./importBackup";
 import { exportToWire, VERSION_1_PROGRAM_ID } from "./wire";
 
@@ -58,12 +58,19 @@ function describeError(error: unknown): string {
 /**
  * Replaces the stored log, check-ins, settings and max history with `data`
  * after backing the current ones up (see the file comment for the steps).
- * Refuses (writing nothing) data that belongs to another program.
- * `storage` and `now` are injectable for tests. Never throws.
+ * Refuses (writing nothing) data that belongs to another program, naming
+ * programs by `programNames` in the message. `storage` and `now` are
+ * injectable for tests. Never throws.
  */
-export function applyImport(storage: Storage, keys: ProgramStorageKeys, data: ImportedData, now: Date = new Date()): ApplyImportResult {
+export function applyImport(
+  storage: Storage,
+  keys: ProgramStorageKeys,
+  data: ImportedData,
+  now: Date = new Date(),
+  programNames: ProgramNames = {},
+): ApplyImportResult {
   // Defence in depth: the Import card already refuses at the preview, but nothing may be written for another program's data.
-  const refusal = wrongProgramMessage(data.programId, keys.programId);
+  const refusal = wrongProgramMessage(data.programId, keys.programId, programNames);
   if (refusal !== null) return { ok: false, error: refusal };
 
   return replaceStoredData(storage, keys, now, () => writeParsedData(storage, keys, data));
@@ -75,9 +82,15 @@ export function applyImport(storage: Storage, keys: ProgramStorageKeys, data: Im
  * the loaders could not read return exactly as they were; an older backup
  * without them is read like an import file. The current data is backed up
  * first like in any import, so an undo can itself be undone. Refuses (writing
- * nothing) a backup that belongs to another program than `keys`. Never throws.
+ * nothing) a backup that belongs to another program than `keys`, naming
+ * programs by `programNames`. Never throws.
  */
-export function undoLastImport(storage: Storage, keys: ProgramStorageKeys, now: Date = new Date()): ApplyImportResult {
+export function undoLastImport(
+  storage: Storage,
+  keys: ProgramStorageKeys,
+  now: Date = new Date(),
+  programNames: ProgramNames = {},
+): ApplyImportResult {
   const backups = listImportBackups(storage, keys);
   const newest = backups[backups.length - 1];
   if (newest === undefined) {
@@ -87,7 +100,7 @@ export function undoLastImport(storage: Storage, keys: ProgramStorageKeys, now: 
   // The backup's own program id decides; `keys` must match it, whichever way the data is put back below.
   const backupProgramId = backupProgramIdOf(newest.exportText);
   if (backupProgramId !== null) {
-    const refusal = wrongProgramMessage(backupProgramId, keys.programId);
+    const refusal = wrongProgramMessage(backupProgramId, keys.programId, programNames);
     if (refusal !== null) return { ok: false, error: refusal };
   }
 

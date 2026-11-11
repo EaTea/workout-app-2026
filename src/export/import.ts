@@ -106,7 +106,7 @@ function parseImportUnguarded(fileText: string): ImportParseResult {
   }
 
   if (!isRecord(parsed) || parsed.format !== EXPORT_FORMAT_NAME) {
-    return { ok: false, error: "This is not an Explosive Endurance export file. Choose a file made by \"Export everything as JSON\". Nothing was changed." };
+    return { ok: false, error: "This is not an export file from this app. Choose a file made by \"Export everything as JSON\". Nothing was changed." };
   }
   if (parsed.version !== 1 && parsed.version !== 2) {
     return {
@@ -170,15 +170,31 @@ function readProgramId(file: Record<string, unknown>): { ok: true; programId: st
 }
 
 /**
+ * Display names of programs by id (e.g. "steady-strength" -> "Steady Strength"),
+ * for messages that name programs. Built by the app shell from the programs it
+ * loaded at startup; a program missing from it is shown by its id.
+ */
+export type ProgramNames = Readonly<Record<string, string>>;
+
+/** A program's display name, or its id when the name isn't known (the program isn't in the catalogue or failed to load). */
+function programDisplayName(programId: string, programNames: ProgramNames): string {
+  return programNames[programId] ?? programId;
+}
+
+/**
  * The refusal shown when a backup belongs to another program than the active
  * one, or null when they match. Used by the Import card (at the preview, so
  * the athlete is told before any confirm) and by `applyImport` (so nothing is
- * ever written for the wrong program). Program ids are shown as they are:
- * display names would need every program file loaded.
+ * ever written for the wrong program). Programs are named by their display
+ * names from `programNames` (the app loads every catalogue program at
+ * startup), falling back to the id for a program that isn't loaded.
  */
-export function wrongProgramMessage(backupProgramId: string, activeProgramId: string): string | null {
+export function wrongProgramMessage(backupProgramId: string, activeProgramId: string, programNames: ProgramNames = {}): string | null {
   if (backupProgramId === activeProgramId) return null;
-  return `This backup is for "${backupProgramId}", but you're using "${activeProgramId}". Switch program first, then import it. Nothing was changed.`;
+
+  const backupName = programDisplayName(backupProgramId, programNames);
+  const activeName = programDisplayName(activeProgramId, programNames);
+  return `This backup is for "${backupName}", but you're using "${activeName}". Switch program first, then import it. Nothing was changed.`;
 }
 
 /**

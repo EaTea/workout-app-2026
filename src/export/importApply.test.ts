@@ -277,6 +277,21 @@ describe("undoLastImport", () => {
     expect(readExportSource(storage, KEYS).log.sessions["2026-10-01"]).toBeDefined();
   });
 
+  it("names programs by display name when refusing data or a backup of another program", () => {
+    const names = { "explosive-endurance": "Explosive Endurance", "steady-strength": "Steady Strength" };
+    const storage = storageWithOldData();
+
+    const applied = applyImport(storage, KEYS, { ...importedData, programId: "steady-strength" }, NOW, names);
+    expect(!applied.ok && applied.error).toContain('This backup is for "Steady Strength", but you\'re using "Explosive Endurance"');
+
+    applyImport(storage, KEYS, importedData, NOW);
+    const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
+    backupText.programId = "steady-strength";
+    storage.setItem(BACKUP_KEY, JSON.stringify(backupText));
+    const undone = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000), names);
+    expect(!undone.ok && undone.error).toContain('"Steady Strength"');
+  });
+
   it("refuses, changing nothing, a backup that belongs to another program", () => {
     const storage = storageWithOldData();
     applyImport(storage, KEYS, importedData, NOW);

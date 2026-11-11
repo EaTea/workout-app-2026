@@ -6,6 +6,11 @@ describe("routeFromHash", () => {
     expect(routeFromHash("#/settings")).toBe("settings");
   });
 
+  it("recognises the program picker route", () => {
+    expect(routeFromHash("#/programs")).toBe("programs");
+    expect(routeFromHash("#/programs/extra")).toBe("today");
+  });
+
   it("recognises the overview route", () => {
     expect(routeFromHash("#/overview")).toBe("overview");
     expect(routeFromHash("#/overview/extra")).toBe("today");

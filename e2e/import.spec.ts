@@ -42,7 +42,11 @@ test("export, clear the browser data, import: the log, checks and settings come 
   const file = testInfo.outputPath("export.json");
   await exportTo(page, file);
 
-  await page.evaluate(() => window.localStorage.clear());
+  // Clearing the browser data also forgets which program was chosen, so choose Explosive Endurance again (as the picker would).
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem("workout-app.active-program", JSON.stringify({ version: 1, programId: "explosive-endurance" }));
+  });
   await page.goto("/#/history");
   await page.reload();
   await expect(page.getByText("Nothing logged yet", { exact: false }).first()).toBeVisible();
@@ -121,7 +125,7 @@ test("a backup of another program is refused with a message naming it, and nothi
   await page.getByLabel("Import from JSON").setInputFiles(otherProgramFile);
 
   await expect(page.locator(".import-error")).toContainText(
-    'This backup is for "steady-strength", but you\'re using "explosive-endurance". Switch program first, then import it.',
+    'This backup is for "Steady Strength", but you\'re using "Explosive Endurance Program". Switch program first, then import it.',
   );
   await expect(page.getByRole("button", { name: "Replace my data" })).toHaveCount(0);
   expect(await page.evaluate(() => JSON.stringify(window.localStorage))).toBe(before);
@@ -196,7 +200,7 @@ test("a file that is not an export is refused with a message and nothing changes
   await expect(page.locator(".import-error")).toContainText("could not be read as JSON");
 
   await page.getByLabel("Import from JSON").setInputFiles(wrongFormat);
-  await expect(page.locator(".import-error")).toContainText("not an Explosive Endurance export");
+  await expect(page.locator(".import-error")).toContainText("not an export file from this app");
 
   await page.getByLabel("Import from JSON").setInputFiles(futureVersion);
   await expect(page.locator(".import-error")).toContainText("version 3");

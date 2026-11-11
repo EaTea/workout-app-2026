@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildCacheName, buildPrecacheList } from "./precache.ts";
+import { parseCatalogue } from "../program/catalogue.ts";
+import { buildCacheName, buildPrecacheList, programFileNames } from "./precache.ts";
 
 describe("buildPrecacheList", () => {
   it("lists index.html as './', drops sw.js and source maps, and sorts", () => {
@@ -31,5 +32,18 @@ describe("buildCacheName", () => {
     const base = buildCacheName([{ url: "a", contents: bytes("xy") }, { url: "b", contents: bytes("") }]);
     expect(buildCacheName([{ url: "c", contents: bytes("xy") }, { url: "b", contents: bytes("") }])).not.toBe(base);
     expect(buildCacheName([{ url: "a", contents: bytes("x") }, { url: "b", contents: bytes("y") }])).not.toBe(base);
+  });
+});
+
+describe("programFileNames", () => {
+  it("lists the file of every catalogue entry, without the ./ prefix and without programs.json", () => {
+    const catalogue = parseCatalogue({
+      programs: [
+        { id: "explosive-endurance", file: "program.json" },
+        { id: "steady-strength", file: "steady-strength.json" },
+      ],
+    });
+
+    expect(programFileNames(catalogue)).toEqual(["program.json", "steady-strength.json"]);
   });
 });

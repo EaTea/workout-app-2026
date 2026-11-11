@@ -1274,7 +1274,7 @@ program.
    `strength` to the key-exercise blocks and `strength` to the charted
    blocks (holds log no reps, so they have nothing to chart). Explosive
    Endurance has none of these block types, so it doesn't change.
-2. [ ] The picker screen at `#/programs`, the first-visit redirect, the
+2. [x] The picker screen at `#/programs`, the first-visit redirect, the
    "Switch program" links on the overview and in Settings, and the hidden
    "Max reps" section. README.
 3. [ ] The "Before you start" card on the overview, its first line on the

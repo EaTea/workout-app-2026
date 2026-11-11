@@ -1,7 +1,7 @@
 import { toDayNumber } from "../program/calendar";
 
 /**
- * Minimal hash router. Screens are addressed as `#/today`, `#/overview`, `#/history`, `#/settings` and
+ * Minimal hash router. Screens are addressed as `#/today`, `#/overview`, `#/history`, `#/settings`, `#/programs` (the program picker) and
  * `#/plan/<day>/<week>` (the read-only Day plan, e.g. `#/plan/1/4`) and
  * `#/log/<date>/<blockPosition>/<exerciseId>` (the log screen for one item of
  * the session on `<date>`, `YYYY-MM-DD`); anything else (including an empty
@@ -14,7 +14,7 @@ import { toDayNumber } from "../program/calendar";
  */
 
 /** The screens the app can show. */
-export type Route = "today" | "overview" | "history" | "settings" | "log" | "plan";
+export type Route = "today" | "overview" | "history" | "settings" | "programs" | "log" | "plan";
 
 /** Which item the log screen is for: its session date, the block's 1-based position on Today, and the exercise id. */
 export interface LogRouteTarget {
@@ -96,6 +96,7 @@ export function routeFromHash(hash: string): Route {
   if (hash === "#/settings") return "settings";
   if (hash === "#/history") return "history";
   if (hash === "#/overview") return "overview";
+  if (hash === "#/programs") return "programs";
   if (parseLogRoute(hash) !== undefined) return "log";
   if (parsePlanRoute(hash) !== undefined) return "plan";
   if (hash === "#/plan" || hash.startsWith("#/plan/")) return "overview";

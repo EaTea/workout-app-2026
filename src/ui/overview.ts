@@ -1,5 +1,6 @@
 import type { CallToAction, DayOverview, PhaseOverview, ProgramOverview } from "../program/overview";
 import { element } from "./dom";
+import { renderSwitchProgramLink } from "./programPicker";
 import { planRouteHash } from "./router";
 import { blockLabel, formatOverviewHeadline, formatShortDate, formatWeekRange } from "./format";
 import "./overview.css";
@@ -72,8 +73,12 @@ export function renderOverviewScreen(overview: ProgramOverview, options: Overvie
   const screen = element("section", "screen overview");
 
   const header = element("header", "overview-header");
+  // The program name with a "Switch program" link beside it, so changing program is always one tap away.
+  const programRow = element("div", "overview-program-row");
+  programRow.append(element("div", "kicker", overview.name), renderSwitchProgramLink());
+
   header.append(
-    element("div", "kicker", overview.name),
+    programRow,
     element("h1", "today-title", "Program overview"),
     element("p", "overview-goal", overview.goal),
     element("p", "overview-headline", formatOverviewHeadline(overview.lengthWeeks, overview.trainingDaysPerWeek, overview.weeklyMinutes)),

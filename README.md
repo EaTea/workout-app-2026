@@ -70,8 +70,8 @@ under keys that start with its id from `programs.json`: `<programId>.settings`,
 `.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
 (`explosive-endurance`) these are the keys the app has always used. One key is
 app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
-says which program runs; when it is missing or names a program that is not in
-`programs.json`, the first program listed is used. The service worker's reload
+says which program runs (see "Choosing a program" below for what happens when
+it is missing or names a program that is not in `programs.json`). The service worker's reload
 guard is app-wide too, but it lives in `sessionStorage` (not `localStorage`) and
 only lasts for the browser tab. The keys are built in `src/storage/programKeys.ts`.
 
@@ -96,11 +96,39 @@ The app can hold more than one program; `public/programs.json` lists them (see
   the safety notes. **It is general exercise guidance, not medical advice:
   check with your doctor or physiotherapist before starting, especially after
   slipped discs, with osteoporosis, heart or blood pressure problems, or after
-  a recent fall or operation.** Until the program picker arrives, the app
-  still opens Explosive Endurance.
+  a recent fall or operation.**
 
 `program.safety` is an optional list of non-empty strings in the `program`
 object; a program without it (Explosive Endurance) has no safety notes.
+
+### Choosing a program
+
+The picker, "Choose your program" (`#/programs`), has one large card per program
+in `programs.json` order, built only from the program's own data: its name,
+goal and the same "8 weeks · 6 training days a week · about 4 h a week"
+headline the Overview shows. The program you are running is marked "Current".
+A program whose file can't be loaded or parsed gets a disabled card saying
+"This program can't be loaded:" followed by the error (which names the file);
+it never blocks the other programs. Tapping a card saves it as the active
+program (`workout-app.active-program`), opens its Overview and reloads the page,
+because the app holds one program's storage keys and data from startup.
+
+How the first program is chosen, at every start:
+
+1. A saved choice that is in `programs.json` and loads: that program runs.
+   If its file is broken, the error card appears with a "Switch program" link.
+2. A saved choice that is no longer in `programs.json`: the picker.
+3. Nothing saved, but Explosive Endurance already has data (a start date, a
+   logged session or a saved max): Explosive Endurance runs, and nothing is
+   written, so a phone that used the app before programs existed is unchanged.
+4. Otherwise (a new phone or a cleared browser): the picker, as the whole app.
+
+So the order of `programs.json` no longer decides what opens. To switch later,
+use "Switch program" at the top of the Overview, or the "Program: `<name>` ·
+Switch program" row in Settings. Switching never deletes anything: each program
+keeps its own start date, maxes, log and check-ins, so switching back finds
+everything as it was. Settings shows a "Max reps" field only for exercises the
+program marks `maxTested`, so Steady Strength has none.
 
 ## Install
 
@@ -156,16 +184,18 @@ likely typo.
 `public/programs.json` is the catalogue of programs: a list of
 `{ "id": "explosive-endurance", "file": "program.json" }` entries (ids use
 lowercase letters, digits and hyphens; `file` is a plain `.json` file name in
-`public/`). The app loads the catalogue first, then the program file of the
-chosen entry. A bad catalogue shows the same error card, naming the file and
-the path (e.g. `./programs.json: programs[0].id`).
+`public/`). The app loads the catalogue first, then every program file it
+lists, so the picker can show each one. A bad catalogue shows the error card,
+naming the file and the path (e.g. `./programs.json: programs[0].id`); a bad
+program file only disables its own picker card (or, if it is the chosen
+program, shows the error card with a "Switch program" link).
 
 **Warning: never change an existing program's `id`.** The id names that
 program's storage keys (`<id>.log` and so on), so renaming it strands the
 program's data under the old keys, and backups made under the old id would be
-refused. Also, the first entry is what opens when no program has been chosen
-(or the chosen one is no longer listed), so reordering the entries can switch a
-phone to another program. Add new programs at the end.
+refused. Entries appear on the picker in catalogue order, so reordering them
+only changes the order of the cards (what opens at start is decided as in
+"Choosing a program"). Add new programs at the end.
 
 A program file may leave out `fatigueCheck`, `warmupRotation` and
 `coreProgressions`. Without `fatigueCheck` there is no weekly check-in, drop
@@ -250,8 +280,9 @@ replace my data"); "Cancel" leaves everything as it was.
   `explosive-endurance`.
 - A backup that belongs to another program than the one you are using is
   refused before anything is shown or changed: "This backup is for
-  "steady-strength", but you're using "explosive-endurance". Switch program
-  first, then import it." The preview also shows when the file was exported and how many
+  "Steady Strength", but you're using "Explosive Endurance Program". Switch
+  program first, then import it." (Programs are named by their display names,
+  or by id if that program isn't loaded.) The preview also shows when the file was exported and how many
   sessions you have now. A file with a few unreadable sets or checks is accepted the way the
   stored data is: the readable ones are kept and the preview lists what was
   left out. Files exported before the max history was added (no `maxHistory`)
@@ -288,8 +319,13 @@ Install app). After that first visit the app opens with no signal.
 
 The app shell and its files come from the cache that the installed worker
 version precached; page loads never overwrite it, so a patchy connection
-can't leave a half-updated app behind. `program.json` is fetched
-network-first, so an edited program shows up whenever you are online. A
+can't leave a half-updated app behind. Every program file listed in
+`programs.json` (`program.json`, `steady-strength.json`, ...) is fetched
+network-first, so an edited program shows up whenever you are online; the build
+reads `public/programs.json` and bakes that list of file names into `sw.js`, so
+a program added to the catalogue is network-first with no other change.
+`programs.json` itself stays cache-first, so it always matches the code that
+reads it. A
 new deploy is downloaded in the background and applied the next time the
 app is opened (with one quick reload), never in the middle of a session.
 The worker is only registered in production builds (`npm run build` then
