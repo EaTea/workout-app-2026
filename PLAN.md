@@ -752,7 +752,7 @@ weeks 5–8 almost every row would be marked and the week-to-week step
 1. [x] `dayPlan.ts` view model and unit tests: the date maths (start
    2 Nov, Day 1 week 4 = 23 Nov), the stand-in start date when none is
    saved, and the changes between weeks for Day 1 (worked examples below).
-2. [ ] Day plan screen, the `#/plan/<day>/<week>` route (bad or out-of-range
+2. [x] Day plan screen, the `#/plan/<day>/<week>` route (bad or out-of-range
    numbers fall back to the Overview), the week picker, the Overview rows
    as links, styles and README.
 3. [ ] E2E (`e2e/dayPlan.spec.ts`): from the Overview tap Day 1, see all

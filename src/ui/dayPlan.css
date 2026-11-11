@@ -1,0 +1,71 @@
+/* Day plan screen: week picker, phase card, "Changed" lines. Item rows reuse Today's classes. */
+.plan-back-link {
+  margin-bottom: 4px;
+}
+
+/* One link per week, equal widths so 8 weeks fit a phone; a subtle tint per phase (data-phase = phase index). */
+.plan-weeks {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px;
+}
+
+.plan-week {
+  flex: 1;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 12px 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #1a2230;
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.plan-week[data-phase="1"] { background: #2b2417; }
+.plan-week[data-phase="2"] { background: #1c2a24; }
+.plan-week[data-phase="3"] { background: #2b2017; }
+
+.plan-week-current {
+  border-color: var(--accent);
+  background: var(--accent) !important;
+  color: #fff;
+}
+
+.plan-phase-name {
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
+.plan-phase-deload .plan-phase-name {
+  color: #ffc069;
+}
+
+.plan-phase-changes {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: #b9c0cb;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Rows are not tappable here, so drop the button affordances inherited from .item-open. */
+.plan-item {
+  cursor: default;
+}
+
+/* "Changed: 6 × 6 in week 3": accent colour, compact. */
+.plan-changed {
+  margin: 2px 0 0;
+  color: var(--accent-text);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.plan-block-rest {
+  margin: 0 0 4px;
+  color: #99a1ad;
+  font-size: 13px;
+}

@@ -2,6 +2,7 @@ import { toDayNumber } from "../program/calendar";
 
 /**
  * Minimal hash router. Screens are addressed as `#/today`, `#/overview`, `#/history`, `#/settings` and
+ * `#/plan/<day>/<week>` (the read-only Day plan, e.g. `#/plan/1/4`) and
  * `#/log/<date>/<blockPosition>/<exerciseId>` (the log screen for one item of
  * the session on `<date>`, `YYYY-MM-DD`); anything else (including an empty
  * or malformed hash, or an old-form `#/log/<block>/<exercise>` without a
@@ -13,7 +14,7 @@ import { toDayNumber } from "../program/calendar";
  */
 
 /** The screens the app can show. */
-export type Route = "today" | "overview" | "history" | "settings" | "log";
+export type Route = "today" | "overview" | "history" | "settings" | "log" | "plan";
 
 /** Which item the log screen is for: its session date, the block's 1-based position on Today, and the exercise id. */
 export interface LogRouteTarget {
@@ -53,12 +54,44 @@ export function logRouteHash(date: string, blockPosition: number, exerciseId: st
   return `#/log/${date}/${blockPosition}/${exerciseId}`;
 }
 
+/** Which Day plan a `#/plan/<day>/<week>` hash asks for: day number 1-7 is not checked here, only that both are positive integers. */
+export interface PlanRouteTarget {
+  dayNumber: number;
+  week: number;
+}
+
+/** Matches `#/plan/<digits>/<digits>`. */
+const PLAN_HASH_PATTERN = /^#\/plan\/(\d+)\/(\d+)$/;
+
+/**
+ * Reads the day and week a `#/plan/<day>/<week>` hash points at, or undefined
+ * if the hash is not well-formed (both must be whole numbers of 1 or more).
+ * Whether they fall inside the program is decided later by `buildDayPlan`.
+ * Used by `routeFromHash` and by app.ts to render the Day plan screen.
+ */
+export function parsePlanRoute(hash: string): PlanRouteTarget | undefined {
+  const match = PLAN_HASH_PATTERN.exec(hash);
+  if (match === null) return undefined;
+
+  const dayNumber = Number(match[1]);
+  const week = Number(match[2]);
+  if (dayNumber < 1 || week < 1) return undefined;
+
+  return { dayNumber, week };
+}
+
+/** Builds the hash for a Day plan; the inverse of `parsePlanRoute`. Used by the Overview rows and the week picker. */
+export function planRouteHash(dayNumber: number, week: number): string {
+  return `#/plan/${dayNumber}/${week}`;
+}
+
 /** Maps a `location.hash` string such as "#/settings" to a route (default: today). */
 export function routeFromHash(hash: string): Route {
   if (hash === "#/settings") return "settings";
   if (hash === "#/history") return "history";
   if (hash === "#/overview") return "overview";
   if (parseLogRoute(hash) !== undefined) return "log";
+  if (parsePlanRoute(hash) !== undefined) return "plan";
   return "today";
 }
 

@@ -100,6 +100,51 @@ export function formatBlockTitle(position: number, block: BlockView): string {
   return parts.join(DOT);
 }
 
+/**
+ * The "Changed" line under an item on the Day plan: the previous week's
+ * figure, e.g. "Changed: 6 × 6 in week 3" or "Changed: 4 / min · 9 min in
+ * week 1" (an EMOM's reps and minutes). When the dose itself is the same in
+ * both weeks and only a detail differs (e.g. the rest), the previous week's
+ * details are shown instead so the line still names what changed.
+ * `previous` is the earlier week's item, `current` this week's.
+ */
+export function formatItemChange(previous: ItemView, current: ItemView, previousWeek: number): string {
+  const previousDose = formatItemDose(previous);
+  const currentDose = formatItemDose(current);
+  const dosesMatch = previousDose.text === currentDose.text && previousDose.subtext === currentDose.subtext;
+  const previousDetails = formatItemDetails(previous);
+
+  const figure = dosesMatch && previousDetails.length > 0
+    ? previousDetails.join(DOT)
+    : [previousDose.text, previousDose.subtext].filter((part) => part !== undefined && part !== "").join(DOT);
+
+  return `Changed: ${figure} in week ${previousWeek}`;
+}
+
+/**
+ * The "Changed" line under a block title on the Day plan, built from the
+ * previous week's block: its figures after the position and label (rounds or
+ * minutes) plus the rest between pairs, e.g. "Changed: 3 rounds in week 3".
+ * `position` is the block's 1-based position, as in `formatBlockTitle`.
+ */
+export function formatBlockChange(position: number, previous: BlockView, previousWeek: number): string {
+  // "superset" in the title is a format label, not a figure that can change.
+  const figures = formatBlockTitle(position, previous).split(DOT).slice(2).filter((part) => part !== "superset");
+  if (previous.restSecBetweenPairs) {
+    figures.push(`rest ${formatRange(previous.restSecBetweenPairs)}s between pairs`);
+  }
+
+  return `Changed: ${figures.length > 0 ? figures.join(DOT) : blockLabel(previous.type)} in week ${previousWeek}`;
+}
+
+/**
+ * Day plan kicker, e.g. "Day 1 · Week 4 of 8 · Deload": no calendar date,
+ * since the plan is for a program week and day, not a date.
+ */
+export function formatPlanKicker(dayNumber: number, week: number, lengthWeeks: number, phaseName: string): string {
+  return `Day ${dayNumber}${DOT}Week ${week} of ${lengthWeeks}${DOT}${phaseName}`;
+}
+
 /** True when every set has the same target text, so "N × target" is accurate. */
 function setsAreUniform(sets: SetView[]): boolean {
   const [firstSet] = sets;

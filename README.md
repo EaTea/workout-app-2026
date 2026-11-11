@@ -8,7 +8,10 @@ progression) and has a settings screen. The first time you open it (no start
 date yet) it shows a program overview instead: the 8 weeks and their phases, a
 typical week, the order of every session, and one "Start Day 1: Upper: pull"
 button that saves today as Day 1 and opens Today. Later the overview is one tap
-away from the "Program overview" link on Today and in Settings. EMOM rows have a "Start EMOM" button
+away from the "Program overview" link on Today and in Settings. Each training day on the overview
+is a link to a read-only day plan (`#/plan/<day>/<week>`): every block and exercise with that week's doses,
+a week picker (1 to 8, opening on the current week while the program runs, otherwise week 1), the phase's
+changes, and a "Changed: ... in week N" line under whatever differs from the previous week. EMOM rows have a "Start EMOM" button
 that opens a full-screen timer with a beep and vibration each minute and a
 3-2-1 countdown (the beeps ask Safari 16.4+ to play through an iPhone's
 silent switch; older iOS versions may still mute them, and iOS Safari has no
