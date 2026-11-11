@@ -1267,7 +1267,7 @@ program.
    `program.safety` field in the parser and model, the new block labels,
    and the catalogue entry. README program notes. Unit tests for the
    worked examples below.
-1b. [ ] Show Steady Strength's exercises where the app picks "key" ones:
+1b. [x] Show Steady Strength's exercises where the app picks "key" ones:
    the overview's day rows and the day plan list key exercises only from
    `explosive` and `mainStrength` blocks, and Progress charts only chart
    `mainStrength`, `miniDose` and `explosive`. Add `isometric` and

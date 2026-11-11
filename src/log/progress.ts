@@ -13,7 +13,7 @@ import { sessionDates } from "./operations";
  *        │ progressSeries(exerciseId, blockType) ─▶ ProgressPoint[] (the charts)
  *        └ deloadWeeks ─▶ [4, 8]                                    (shaded bands)
  *
- * Only work done in a mainStrength, miniDose or explosive block counts, so
+ * Only work done in a mainStrength, miniDose, explosive or strength block counts, so
  * warm-up, core and finisher sets of the same exercise never mix in. The log
  * stores a block position, not a block type, so the type is resolved from the
  * program by the session's stored day and the set's block position, exactly
@@ -21,14 +21,19 @@ import { sessionDates } from "./operations";
  * than guessed.
  */
 
-/** Block types whose sets are charted. */
-export const CHARTED_BLOCK_TYPES: readonly string[] = ["mainStrength", "miniDose", "explosive"];
+/**
+ * Block types whose sets are charted. "strength" is Steady Strength's
+ * rep-based work (sit-to-stand and so on); its "isometric" holds log no reps,
+ * so they have nothing to chart and are left out.
+ */
+export const CHARTED_BLOCK_TYPES: readonly string[] = ["mainStrength", "miniDose", "explosive", "strength"];
 
 /** Human labels for the charted block types, used in the picker ("Pull-ups — Main strength"). */
 const BLOCK_TYPE_LABELS: Record<string, string> = {
   mainStrength: "Main strength",
   miniDose: "Mini-dose",
   explosive: "Explosive",
+  strength: "Strength",
 };
 
 /** The label for a block type, falling back to the raw type for one the map does not know. */
@@ -40,7 +45,7 @@ export function blockTypeLabel(blockType: string): string {
 export interface ChartableExercise {
   exerciseId: string;
 
-  /** Block type the sets were done in ("mainStrength", "miniDose" or "explosive"). */
+  /** Block type the sets were done in ("mainStrength", "miniDose", "explosive" or "strength"). */
   blockType: string;
 
   /** Unique picker value for the exercise and block type together. */

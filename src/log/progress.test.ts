@@ -102,3 +102,14 @@ describe("deloadWeeks", () => {
     expect(deloadWeeks(program)).toEqual([4, 8]);
   });
 });
+
+describe("chartableExercises: Steady Strength", () => {
+  const steadyStrength = parseProgram(JSON.parse(readFileSync("public/steady-strength.json", "utf-8"))).program;
+
+  it("offers strength-block exercises but not isometric holds", () => {
+    // Day 1: block 3 is isometric (high wall sit), block 4 is strength (sit-to-stand).
+    const log = makeLog(makeSession("2026-11-02", 1, 1, [makeSet("high_wall_sit", 3, 1, undefined), makeSet("sit_to_stand", 4, 1, 10)]));
+
+    expect(chartableExercises(log, steadyStrength).map((entry) => entry.label)).toEqual(["Sit-to-stand from a chair — Strength"]);
+  });
+});

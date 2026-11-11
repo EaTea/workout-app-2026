@@ -15,8 +15,14 @@ import type { Day, DayNumber, Program } from "./model";
 import { DAYS_PER_WEEK } from "./model";
 import type { ProgramStatus } from "./calendar";
 
-/** Block types whose first exercise is shown as a day's "key exercise". */
-const KEY_EXERCISE_BLOCK_TYPES = ["explosive", "mainStrength"];
+/**
+ * Block types whose first exercise is shown as a day's "key exercise", in
+ * display order. Explosive Endurance uses the first two; Steady Strength has
+ * no such blocks and uses isometric holds and strength work instead. A day
+ * lists one exercise per block type it has, so a program only shows the
+ * types it actually uses (walk, balance and warm-up days show none).
+ */
+const KEY_EXERCISE_BLOCK_TYPES = ["explosive", "mainStrength", "isometric", "strength"];
 
 /** One phase of the progression, as the phase strip shows it. */
 export interface PhaseOverview {
@@ -37,7 +43,7 @@ export interface TrainingDayOverview {
   dayNumber: DayNumber;
   focus: string;
   targetMinutes: number;
-  /** Names of the first explosive and the first main-strength exercise, in that order, when present. */
+  /** Names of the first exercise of each key block type (explosive, main strength, isometric, strength), in that order, when present. */
   keyExercises: string[];
 }
 
