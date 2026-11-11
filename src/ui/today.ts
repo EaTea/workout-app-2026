@@ -2,7 +2,7 @@ import type { Program, Range } from "../program/model";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
-import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS } from "../timer/plans";
+import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS, shortExerciseName } from "../timer/plans";
 import { element } from "./dom";
 import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
@@ -274,6 +274,9 @@ function renderPhaseStrip(program: Program, phaseName: string, isDeload: boolean
   return details;
 }
 
+/** The row line for a `sameEveryWeek` item in a week where other items change (styled like the timer-adjustment lines). */
+const SAME_EVERY_WEEK_TEXT = "Same every week";
+
 /**
  * One card for a block: numbered title, then one row per item. `phase` names
  * the progression phase for the timer-adjustment lines.
@@ -340,6 +343,10 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
   // The phase's work-time adjustment, so the row's seconds and the timer's defaults are explained.
   if (item.workSecAdjustment !== undefined) {
     text.append(element("span", "timer-adjustment", formatTimerAdjustment(phase, item.workSecAdjustment, "work")));
+  }
+  // A sameEveryWeek item (the wall sit) in a week where other things change: say so, so it isn't mistaken for a missed adjustment.
+  if (item.showsSameEveryWeekNote) {
+    text.append(element("span", "timer-adjustment", SAME_EVERY_WEEK_TEXT));
   }
   const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id).length, countSetsForItem(item, block));
   if (progress !== undefined) {
@@ -423,7 +430,7 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
 }
 
 /**
- * "Start timer" button for an interval row (the heavy bag finisher). Opens the
+ * "Start timer" button for an interval row (heavy bag, wall sit). Opens the
  * timer with a setup row so Ed can change work, rest and rounds before
  * starting; every change rebuilds the plan through buildIntervalPlan.
  */
@@ -438,7 +445,7 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
     const { minRounds, maxRounds, minSeconds, maxWorkSec, maxRestSec, secondsStep } = INTERVAL_LIMITS;
 
     openTimer(buildIntervalPlan(item, defaults), {
-      dialogName: "Heavy bag timer",
+      dialogName: `${shortExerciseName(itemDisplayName(item))} timer`, // "Heavy bag timer", "Wall sit timer"
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),

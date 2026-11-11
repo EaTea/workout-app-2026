@@ -553,3 +553,30 @@ describe("an item marked sameEveryWeek", () => {
     expect(item(trainingOn("2026-11-23").blocks, "heavy_bag").rounds).toEqual({ min: 2, max: 2 });
   });
 });
+
+describe("Day 6 wall sits (PLAN.md PR 10)", () => {
+  it.each([
+    ["W1", "2026-11-07", 5, false],
+    ["W4 deload", "2026-11-28", 3, true],
+    ["W5 power endurance", "2026-12-05", 5, true],
+    ["W8 deload + retest", "2026-12-26", 3, true],
+  ])("%s (%s): wall sit is 5 rounds of 90s work and 60s rest, skater bounds %i sets", (_label, date, skaterSets, flaggedAsSame) => {
+    const session = trainingOn(date);
+    expect(session.dayNumber).toBe(6);
+    expect(session.targetMinutes).toBe(42);
+
+    const wallSit = item(session.blocks, "wall_sit");
+    expect(wallSit.rounds).toEqual({ min: 5, max: 5 });
+    expect(wallSit.workSec).toEqual({ min: 90, max: 90 });
+    expect(wallSit.restSec).toEqual({ min: 60, max: 60 });
+    expect(wallSit.workSecAdjustment).toBeUndefined();
+    // Today only says "Same every week" in weeks where other items change.
+    expect(wallSit.showsSameEveryWeekNote === true).toBe(flaggedAsSame);
+
+    expect(item(session.blocks, "lateral_skater_bound").sets).toHaveLength(skaterSets);
+  });
+
+  it("puts the wall sit finisher last, after the mini-dose", () => {
+    expect(trainingOn("2026-11-07").blocks.map((dayBlock) => dayBlock.type).slice(-2)).toEqual(["miniDose", "finisher"]);
+  });
+});

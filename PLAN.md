@@ -563,7 +563,7 @@ block adds 5 × 90s + 4 × 60s = 11.5 minutes.
    `buildSession` (skips the phase timer adjustments and the deload
    halving), Today's adjustment line, and unit tests (including the W4 D6
    and W5 D6 examples below).
-2. [ ] Wall sit in `program.json` (exercise, Day 6 finisher block and
+2. [x] Wall sit in `program.json` (exercise, Day 6 finisher block and
    minutes), plus the README's program notes. Unit tests for the Day 6
    session in W1, W4 and W5. E2E: Day 6 shows the block, the timer runs
    5 × 90s / 60s, and a round can be logged.

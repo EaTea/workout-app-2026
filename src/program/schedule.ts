@@ -122,6 +122,12 @@ export interface ItemView {
   workSec?: Range;
   /** The seconds added to `workSec` by the phase (e.g. 5 in power endurance); absent when none were. */
   workSecAdjustment?: number;
+  /**
+   * True for a `sameEveryWeek` item in a week where other items change (a
+   * deload week, or a phase with timer adjustments), so Today can say it
+   * stays the same. Absent otherwise.
+   */
+  showsSameEveryWeekNote?: boolean;
   durationSec?: number;
   perSide: boolean;
   optional: boolean;
@@ -371,6 +377,7 @@ function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: bool
     rounds: item.rounds && (halve ? { min: halveRoundingUp(item.rounds.min), max: halveRoundingUp(item.rounds.min) } : item.rounds),
     workSec: workAdjusted ? shiftRange(item.workSec as Range, workAdjustment, MAX_INTERVAL_WORK_SECONDS) : item.workSec,
     workSecAdjustment: workAdjusted ? workAdjustment : undefined,
+    showsSameEveryWeekNote: item.sameEveryWeek && (week.isDeload || week.timerAdjustments !== undefined) ? true : undefined,
     durationSec: item.durationSec,
     perSide: item.perSide,
     optional: item.optional,
