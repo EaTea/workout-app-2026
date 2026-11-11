@@ -4,6 +4,7 @@ import { exportFileName, saveExportFile } from "../export/download";
 import { exportToWire, serializeExport } from "../export/wire";
 import type { FatigueHistory } from "../fatigue/model";
 import type { WorkoutLog } from "../log/model";
+import type { ImportBackup } from "../export/importBackup";
 import type { CorruptLogBackup } from "../log/storage";
 import type { Program } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
@@ -22,6 +23,7 @@ export interface ExportSource {
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
   corruptLogBackups: CorruptLogBackup[];
+  importBackups: ImportBackup[];
 }
 
 /** True when the log holds no sets (the CSV would be only a header). */
@@ -60,6 +62,7 @@ export function renderExportSection(program: Program, getSource: () => ExportSou
       log: source.log,
       fatigueHistory: source.fatigueHistory,
       corruptLogBackups: source.corruptLogBackups,
+      importBackups: source.importBackups,
     });
     void saveExportFile(exportFileName("json"), serializeExport(wire), "application/json");
   });

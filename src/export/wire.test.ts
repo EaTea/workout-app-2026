@@ -3,7 +3,7 @@ import { exportToWire, serializeExport, type ExportBundle, type ExportWireV1 } f
 
 const bundle: ExportBundle = {
   exportedAt: new Date("2026-11-09T08:00:00.000Z"),
-  settings: { startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" }, maxHistory: {} },
+  settings: { startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" }, maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] } },
   log: {
     sessions: {
       "2026-11-02": {
@@ -14,6 +14,7 @@ const bundle: ExportBundle = {
   },
   fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
   corruptLogBackups: [],
+  importBackups: [],
 };
 
 describe("exportToWire", () => {
@@ -23,6 +24,7 @@ describe("exportToWire", () => {
       version: 1,
       exportedAt: "2026-11-09T08:00:00.000Z",
       settings: { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12 }, maxSavedOn: { pull_up: "2026-11-02" } },
+      maxHistory: { version: 1, maxHistory: { pull_up: [{ savedOn: "2026-11-02", reps: 12 }] } },
       log: {
         version: 1,
         sessions: [
@@ -34,6 +36,12 @@ describe("exportToWire", () => {
       },
       fatigueChecks: { version: 1, checks: [{ date: "2026-11-09", programWeek: 2, maxPullUps: 10, savedAt: "2026-11-09T07:30:00.000Z" }] },
     });
+  });
+
+  it("writes an empty maxHistory block when no max was ever saved", () => {
+    const wire = exportToWire({ ...bundle, settings: { startDate: null, maxReps: {}, maxSavedOn: {}, maxHistory: {} } });
+
+    expect(wire.maxHistory).toEqual({ version: 1, maxHistory: {} });
   });
 
   it("types the settings field as every settings version the reader accepts, and writes v2", () => {
@@ -51,6 +59,17 @@ describe("exportToWire", () => {
 
     expect(withBackups.corruptLogBackups).toEqual([{ key: "explosive-endurance.log.corrupt-2026-11-09T08:00:00.000Z", text: "{broken" }]);
     expect("corruptLogBackups" in exportToWire(bundle)).toBe(false);
+  });
+
+  it("includes import backups under their own key, separate from corrupt-log backups, only when there are any", () => {
+    const withBackups = exportToWire({
+      ...bundle,
+      importBackups: [{ storageKey: "explosive-endurance.import-backup-2026-11-09T08:00:00.000Z", exportText: "{\"format\":\"x\"}" }],
+    });
+
+    expect(withBackups.importBackups).toEqual([{ key: "explosive-endurance.import-backup-2026-11-09T08:00:00.000Z", text: "{\"format\":\"x\"}" }]);
+    expect(withBackups.corruptLogBackups).toBeUndefined();
+    expect("importBackups" in exportToWire(bundle)).toBe(false);
   });
 
   it("exports an empty app (no log, no checks) as valid JSON", () => {

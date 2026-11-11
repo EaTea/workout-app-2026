@@ -97,6 +97,11 @@ test("Export everything as JSON downloads the versioned export with every set", 
   const setCount = exported.log.sessions.reduce((total: number, session: { sets: unknown[] }) => total + session.sets.length, 0);
   expect(setCount).toBe(5);
   expect(exported.corruptLogBackups).toBeUndefined();
+  // The v1 settings seed has no save dates, so each max is a single undated history entry.
+  expect(exported.maxHistory).toEqual({
+    version: 1,
+    maxHistory: { pull_up: [{ savedOn: null, reps: 12 }], dip: [{ savedOn: null, reps: 15 }] },
+  });
   expect(exported.fatigueChecks.checks).toEqual([]);
 });
 

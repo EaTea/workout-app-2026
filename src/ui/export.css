@@ -14,3 +14,85 @@
   font-size: 0.9rem;
   opacity: 0.75;
 }
+
+/* Import section: the file input is hidden inside a button-looking label. */
+.import-file-button {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 48px;
+  margin-top: 0;
+}
+
+.import-file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.import-file-button:focus-within {
+  outline: 3px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.import-file-button-disabled {
+  opacity: 0.45;
+}
+
+.import-file-button-disabled .import-file-input {
+  cursor: default;
+}
+
+.import-status {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-message {
+  margin: 0;
+}
+
+.import-error {
+  color: var(--danger);
+}
+
+.import-summary,
+.import-problems {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.import-status .primary-button {
+  margin-top: 0;
+}
+
+.import-secondary-button {
+  min-height: 48px;
+  border: 1px solid var(--muted);
+  border-radius: 18px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.import-secondary-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* "Undo last import" sits directly under the file button. */
+.import-section > .import-secondary-button {
+  width: 100%;
+  margin-top: 12px;
+}

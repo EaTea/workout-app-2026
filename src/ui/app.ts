@@ -9,7 +9,7 @@ import { ROTATION_DISMISSED_STORAGE_KEY, rotationDismissedFromWire, rotationDism
 import { focusRemainingRetestStepper, focusRetestJumpStepper } from "./retestCard";
 import { element } from "./dom";
 import { navigateTo, parseLogRoute, routeFromHash, type Route } from "./router";
-import { applyLogChange, type LoadLogResult } from "../log/storage";
+import { applyLogChange, loadLog, type LoadLogResult } from "../log/storage";
 import type { WorkoutLog } from "../log/model";
 import type { LogChangeOutcome } from "./logChange";
 import { renderLogScreen } from "./logScreen";
@@ -21,7 +21,7 @@ import { renderNewDayBanner } from "./newDayBanner";
 import { renderPreviewStrip } from "./previewStrip";
 import { renderSettingsScreen } from "./settings";
 import { renderTodayScreen } from "./today";
-import { applyFatigueChange, type LoadFatigueHistoryResult } from "../fatigue/storage";
+import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
 import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
 import type { FatigueCheck } from "../fatigue/model";
 import {
@@ -322,6 +322,39 @@ export function startApp(
   }
 
   /**
+   * Called by the Import card after `applyImport` or `undoLastImport`
+   * replaced the stored data. Reloads the in-memory settings, log and
+   * check-ins from storage (so what is shown is what was stored, not what was
+   * parsed), forgets every draft (check-in, retest maxes, broad jump) because
+   * they belonged to the old data, goes to Today, moves focus to the main
+   * heading (the Import card's button is gone) and says the import can be
+   * undone in Settings. Dismissal flags (retest, rotation, snooze) are left
+   * as they were.
+   */
+  function handleImported(): void {
+    settings = loadSettings();
+    loadedLog = loadLog(localStorage);
+    log = loadedLog.log;
+    loadedFatigue = loadFatigueHistory(localStorage);
+    fatigueHistory = loadedFatigue.history;
+    logWarningDismissed = false;
+    fatigueLoadWarningDismissed = false;
+    checkInDraft = undefined;
+    for (const exerciseId of Object.keys(retestDrafts)) delete retestDrafts[exerciseId];
+    delete retestJumpDraft.metres;
+
+    if (routeFromHash(window.location.hash) === "today") {
+      render(); // already on #/today: changing the hash fires no hashchange
+      focusMainHeading();
+    } else {
+      // The hashchange listener that renders was added first, so this runs after the new screen is drawn.
+      window.addEventListener("hashchange", focusMainHeading, { once: true });
+      navigateTo("today");
+    }
+    showToast("Imported. You can undo it in Settings.");
+  }
+
+  /**
    * Handler for the first-run "Start today" button: saves `today` (which
    * honours the `?date=` override) as the start date, keeping any maxes, and
    * re-renders Today. A storage failure is shown inline on the welcome card
@@ -612,7 +645,12 @@ export function startApp(
       }
       const logTarget = parseLogRoute(window.location.hash);
       if (route === "settings") {
-        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage)));
+        main.append(renderSettingsScreen(program, settings, todayLocalDate(), handleSave, () => readExportSource(localStorage), {
+          isPreview: previewDateFromSearch(window.location.search) !== undefined,
+          storage: localStorage,
+          currentSessionCount: () => Object.keys(log.sessions).length,
+          onImported: handleImported,
+        }));
       } else if (route === "log" && logTarget !== undefined) {
         main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
       } else if (route === "history") {

@@ -97,7 +97,10 @@ function reconcileHistory(
   }
 
   for (const [exerciseId, reps] of Object.entries(maxReps)) {
-    reconciled[exerciseId] = withLatestMax(reconciled[exerciseId] ?? [], reps, maxSavedOn[exerciseId] ?? null);
+    // Own-property checks: an exercise id like "constructor" must not find Object.prototype members.
+    const existingEntries = Object.hasOwn(reconciled, exerciseId) ? (reconciled[exerciseId] as MaxHistoryEntry[]) : [];
+    const savedOn = Object.hasOwn(maxSavedOn, exerciseId) ? (maxSavedOn[exerciseId] as string) : null;
+    reconciled[exerciseId] = withLatestMax(existingEntries, reps, savedOn);
   }
   return reconciled;
 }
