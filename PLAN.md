@@ -612,7 +612,7 @@ from `program.json` (nothing hard-coded, per the brief), top to bottom:
  │ EVERY SESSION                    │  sessionOrder as labels: Warm-up →
  │ Warm-up → Explosive → …          │  Explosive → Main strength → …
  ├──────────────────────────────────┤
- │ [ Start Day 1: Upper: pull ]     │  the one primary CTA
+ │ [ Start Day 1: Upper: pull ]     │  the one primary CTA, pinned above the nav
  │  or pick another start date      │  small text link to Settings
  └──────────────────────────────────┘
 ```
@@ -669,13 +669,13 @@ targetMinutes, progression), so no new wire type or parser change.
    shows 8 weeks, the four phases and the 7 days, and "Start Day 1: Upper:
    pull" opens Today at Week 1 · Day 1; a started program opens on Today
    and the header link opens the Overview with "Go to today".
-4. [ ] **Fixes from the challenger review:**
+4. [x] **Fixes from the challenger review:**
    - [x] The Overview shows the program.json warnings banner and the
      "Previewing" strip like Today did (first run included), and no
      new-day banner while there is no start date.
    - [x] The start button stays in view: it sits in a bar pinned above
      the bottom nav, so it is visible on the first screen.
-   - [ ] The start button names Day 1 only when Day 1 trains ("Start the
+   - [x] The start button names Day 1 only when Day 1 trains ("Start the
      program" otherwise), and each phase lists all its changes, so week 8
      shows the retest.
 - **Merge point:** a first visit lands on the program overview, and one

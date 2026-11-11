@@ -18,14 +18,14 @@ describe("buildProgramOverview: headline numbers", () => {
     expect(overview.goal).toBe(program.goal);
     expect(overview.lengthWeeks).toBe(8);
     expect(overview.trainingDaysPerWeek).toBe(6);
-    expect(overview.weeklyMinutes).toBe(234) // 50+30+32+30+50+42; PLAN.md says 242, which does not add up;
+    expect(overview.weeklyMinutes).toBe(234); // 50+30+32+30+50+42
     expect(overview.sessionOrder).toEqual(program.sessionOrder);
     expect(overview.currentWeek).toBeUndefined();
   });
 });
 
 describe("buildProgramOverview: phases", () => {
-  it("lists the four phases in order with weeks and summaries", () => {
+  it("lists the four phases in order with weeks and changes", () => {
     const phases = buildProgramOverview(program, noStartDate).phases;
 
     expect(phases.map((phase) => [phase.name, phase.firstWeek, phase.lastWeek])).toEqual([
@@ -35,10 +35,10 @@ describe("buildProgramOverview: phases", () => {
       ["Deload + retest", 8, 8],
     ]);
     expect(phases[0]!.weeks).toEqual([1, 2, 3]);
-    expect(phases[0]!.summary).toBe("Add 1 rep per set or per EMOM minute each week");
-    expect(phases[1]!.summary).toBe("Halve all sets");
-    expect(phases[2]!.summary).toMatch(/^Cut explosive rest by 15s/);
-    expect(phases[3]!.summary).toBe("Halve all sets");
+    expect(phases[0]!.changes).toEqual(["Add 1 rep per set or per EMOM minute each week"]);
+    expect(phases[1]!.changes).toEqual(["Halve all sets", "Keep intensity", "Keep explosive reps fast"]);
+    expect(phases[2]!.changes[0]).toMatch(/^Cut explosive rest by 15s/);
+    expect(phases[3]!.changes).toEqual(["Halve all sets", "Retest max pull-ups and dips", "Reset EMOM targets from the new maxes"]);
     expect(phases.every((phase) => !phase.isCurrent)).toBe(true);
   });
 
@@ -79,11 +79,11 @@ describe("buildProgramOverview: days", () => {
 });
 
 describe("buildProgramOverview: call to action", () => {
-  it("offers to start the first training day when there is no start date", () => {
+  it("offers to start Day 1 when there is no start date", () => {
     expect(buildProgramOverview(program, noStartDate).callToAction).toEqual({
       kind: "startToday",
       label: "Start Day 1: Upper: pull",
-      firstDay: { dayNumber: 1, focus: "Upper: pull" },
+      dayOne: { focus: "Upper: pull" },
     });
   });
 
@@ -141,7 +141,7 @@ describe("buildProgramOverview: nothing is hard-coded", () => {
     progression: [{ weeks: [1, 2], phase: "Only", changes: [], retest: false }],
   };
 
-  it("derives rest days, totals, key exercises and the first day from the program", () => {
+  it("derives rest days, totals, key exercises and the start label from the program", () => {
     const overview = buildProgramOverview(smallProgram, noStartDate);
 
     expect(overview.name).toBe("Tiny");
@@ -153,9 +153,10 @@ describe("buildProgramOverview: nothing is hard-coded", () => {
     expect(overview.days[1]).toMatchObject({ keyExercises: ["Pull-ups"] });
     expect(overview.days[2]).toMatchObject({ keyExercises: [] });
     expect(overview.phases).toEqual([
-      { name: "Only", weeks: [1, 2], firstWeek: 1, lastWeek: 2, summary: "", isCurrent: false },
+      { name: "Only", weeks: [1, 2], firstWeek: 1, lastWeek: 2, changes: [], isCurrent: false },
     ]);
-    expect(overview.callToAction).toMatchObject({ label: "Start Day 2: Solo", firstDay: { dayNumber: 2, focus: "Solo" } });
+    // Day 1 is this program's rest day, so the button must not promise Day 2.
+    expect(overview.callToAction).toEqual({ kind: "startToday", label: "Start the program" });
   });
 
   it("labels the program's own rest day, and a missing day, as rest", () => {

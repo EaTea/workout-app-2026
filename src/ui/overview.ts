@@ -99,7 +99,7 @@ function renderSection(title: string): HTMLElement {
 /**
  * "The 8 weeks": a strip with one cell per week (the current week highlighted
  * while the program is active), then one line per phase with its week range,
- * name and first change. The current phase is highlighted too.
+ * name and all of its changes. The current phase is highlighted too.
  */
 function renderPhasesSection(overview: ProgramOverview): HTMLElement {
   const section = renderSection(`The ${overview.lengthWeeks} weeks`);
@@ -120,12 +120,12 @@ function renderPhasesSection(overview: ProgramOverview): HTMLElement {
   return section;
 }
 
-/** One phase line: "Weeks 1–3 · Base" with its summary beneath; highlighted when it holds the current week. */
+/** One phase line: "Weeks 1–3 · Base" with each of its changes on its own short line beneath; highlighted when it holds the current week. */
 function renderPhaseRow(phase: PhaseOverview): HTMLElement {
   const row = element("li", phase.isCurrent ? "overview-phase overview-phase-current" : "overview-phase");
   row.append(element("div", "overview-phase-name", `${formatWeekRange(phase.firstWeek, phase.lastWeek)} · ${phase.name}`));
-  if (phase.summary !== "") {
-    row.append(element("div", "overview-phase-summary", phase.summary));
+  for (const change of phase.changes) {
+    row.append(element("div", "overview-phase-summary", change));
   }
   return row;
 }

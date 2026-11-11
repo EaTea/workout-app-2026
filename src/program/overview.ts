@@ -25,8 +25,8 @@ export interface PhaseOverview {
   weeks: number[];
   firstWeek: number;
   lastWeek: number;
-  /** The phase's first change line, or "" when it lists none. */
-  summary: string;
+  /** All of the phase's change lines, in order (empty when it lists none), so e.g. a retest is not hidden. */
+  changes: string[];
   /** True when the program is active and the current week falls in this phase. */
   isCurrent: boolean;
 }
@@ -52,7 +52,7 @@ export type DayOverview = TrainingDayOverview | RestDayOverview;
 
 /** The single primary call to action, by where the program stands. */
 export type CallToAction =
-  | { kind: "startToday"; label: string; firstDay: { dayNumber: DayNumber; focus: string } }
+  | { kind: "startToday"; label: string; dayOne?: { focus: string } }
   | { kind: "previewFirstDay"; label: string; startsOn: string }
   | { kind: "goToToday"; label: string; week: number; dayNumber: DayNumber }
   | { kind: "setNewStartDate"; label: string };
@@ -100,19 +100,20 @@ function buildDayOverview(program: Program, dayNumber: DayNumber): DayOverview {
 }
 
 /**
- * Builds the call to action for the current status. For a fresh install it
- * names the first training day so one tap starts the program; otherwise it
+ * Builds the call to action for the current status. For a fresh install,
+ * starting always makes today Day 1 of the cycle, so the label names Day 1's
+ * focus when Day 1 is a training day and is a plain "Start the program"
+ * otherwise (it never promises a day Today would not show). Otherwise it
  * previews, resumes or restarts. Called by `buildProgramOverview`.
  */
 function buildCallToAction(status: ProgramStatus, days: DayOverview[]): CallToAction {
   switch (status.kind) {
     case "noStartDate": {
-      // Days are in ascending order, so the first training row is the lowest-numbered one.
-      const firstTrainingDay = days.find((day): day is TrainingDayOverview => day.kind === "training");
-      const firstDay = firstTrainingDay
-        ? { dayNumber: firstTrainingDay.dayNumber, focus: firstTrainingDay.focus }
-        : { dayNumber: 1, focus: "" };
-      return { kind: "startToday", label: `Start Day ${firstDay.dayNumber}: ${firstDay.focus}`, firstDay };
+      const dayOne = days.find((day) => day.dayNumber === 1);
+      if (dayOne?.kind === "training") {
+        return { kind: "startToday", label: `Start Day 1: ${dayOne.focus}`, dayOne: { focus: dayOne.focus } };
+      }
+      return { kind: "startToday", label: "Start the program" };
     }
 
     case "notStarted":
@@ -142,7 +143,7 @@ export function buildProgramOverview(program: Program, status: ProgramStatus): P
     weeks: [...phase.weeks],
     firstWeek: Math.min(...phase.weeks),
     lastWeek: Math.max(...phase.weeks),
-    summary: phase.changes[0] ?? "",
+    changes: [...phase.changes],
     isCurrent: currentWeek !== undefined && phase.weeks.includes(currentWeek),
   }));
 

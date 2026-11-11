@@ -22,6 +22,9 @@ test("first visit lands on the overview and its one call to action starts Day 1"
     "Week 8 · Deload + retest",
   ]);
 
+  // Every change of a phase is listed, so Week 8's retest is not hidden behind "Halve all sets".
+  await expect(page.locator(".overview-phase").last()).toContainText("Retest max pull-ups and dips");
+
   // Seven day rows: Day 1 is a training day, Day 7 is rest.
   await expect(page.locator(".overview-day")).toHaveCount(7);
   const dayOne = page.locator(".overview-day").first();
