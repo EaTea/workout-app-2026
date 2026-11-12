@@ -256,7 +256,10 @@ error naming the path, and so is nesting a swap. The original's `load`,
 swap's own. A swap can't use a tested max: its exercise can't be `maxTested`,
 and if the original's reps are a percentage of a tested max the swap must
 give its own `reps` (for example `"6-8"`, or `"easy, ~50% effort"` for a
-mini-dose). A swap can't be the item's own exercise. The app shows the swap
+mini-dose). A swap can't be the item's own exercise, and it keeps the original's kind of
+dose: a timed hold swaps for a hold (`durationSec`), and a reps item for a
+reps item (`reps`). In a week when the warm-up rotation replaces a warm-up,
+that warm-up's swap doesn't apply. The app shows the swap
 on the item's exercise sheet. The shipped program gives swaps only to items
 that need kit; the swap exercises are ordinary `exercises` entries with
 `"evidence": "coaching practice"`.

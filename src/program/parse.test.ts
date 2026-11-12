@@ -414,6 +414,7 @@ describe("program.safety", () => {
 describe("an item's noEquipment swap", () => {
   const slamsPath = "days[0].blocks[1].items[0]";
   const pullUpPath = "days[0].blocks[2].items[0]";
+  const sidePlankPath = "days[0].blocks[4].items[2]";
 
   /** Adds two library entries a swap can point at (the shipped file has none yet). */
   function addSwapExercises(json: any): void {
@@ -426,6 +427,32 @@ describe("an item's noEquipment swap", () => {
     addSwapExercises(json);
     json.days[0].blocks[1].items[0].noEquipment = swap;
   }
+
+  /** Gives day 1's timed side plank (2 × 30s per side) the swap `swap`. */
+  function withSidePlankSwap(json: any, swap: unknown): void {
+    addSwapExercises(json);
+    json.exercises.wall_plank = { name: "Wall plank", category: "core", evidence: "coaching practice" };
+    json.days[0].blocks[4].items[2].noEquipment = swap;
+  }
+
+  it("lets a timed hold swap to another hold with its own time", () => {
+    const json = readRealProgramJson();
+    withSidePlankSwap(json, { exercise: "wall_plank", durationSec: 45 });
+    const sidePlank = parseProgram(json).program.days[1]!.blocks[4]!.items[2]!;
+
+    expect(sidePlank.exerciseId).toBe("side_plank");
+    expect(sidePlank.noEquipment?.durationSec).toBe(45);
+    expect(sidePlank.noEquipment?.reps).toBeUndefined();
+  });
+
+  it("refuses a swap that changes the kind of dose (hold to reps, or reps to hold)", () => {
+    expect(errorMessageAfter((json) => withSidePlankSwap(json, { exercise: "wall_plank", reps: 10 }))).toBe(
+      `${sidePlankPath}.noEquipment.reps: the original item is a timed hold, so its swap is a hold too: give "durationSec", not "reps"`,
+    );
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", durationSec: 30 }))).toBe(
+      `${slamsPath}.noEquipment.durationSec: the original item is done in reps, so its swap is too: give "reps", not "durationSec"`,
+    );
+  });
 
   /** Gives day 1's max-based pull-up EMOM the swap `swap`. */
   function withPullUpSwap(json: any, swap: unknown): void {
@@ -440,7 +467,7 @@ describe("an item's noEquipment swap", () => {
 
   it("maps a valid swap: exercise resolved, reps parsed, text copied", () => {
     const json = readRealProgramJson();
-    withSlamsSwap(json, { exercise: "backpack_slam", reps: "8-10", durationSec: 30, load: "Loaded backpack", note: "On carpet", tempo: "Fast" });
+    withSlamsSwap(json, { exercise: "backpack_slam", reps: "8-10", load: "Loaded backpack", note: "On carpet", tempo: "Fast" });
     const result = parseProgram(json);
     const slams = result.program.days[1]!.blocks[1]!.items[0]!;
 
@@ -448,7 +475,7 @@ describe("an item's noEquipment swap", () => {
     expect(slams.noEquipment).toEqual({
       exercise: result.program.exercises.backpack_slam,
       reps: { kind: "range", min: 8, max: 10 },
-      durationSec: 30,
+      durationSec: undefined,
       load: "Loaded backpack",
       note: "On carpet",
       tempo: "Fast",
@@ -535,8 +562,8 @@ describe("an item's noEquipment swap", () => {
       `${slamsPath}.noEquipment.reps: expected a number or text but found true`,
     );
     expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", reps: "15-10" }))).toContain("rep range minimum 15 is larger than maximum 10");
-    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", durationSec: "30" }))).toBe(
-      `${slamsPath}.noEquipment.durationSec: expected a number but found "30"`,
+    expect(errorMessageAfter((json) => withSidePlankSwap(json, { exercise: "wall_plank", durationSec: "30" }))).toBe(
+      `${sidePlankPath}.noEquipment.durationSec: expected a number but found "30"`,
     );
     for (const key of ["load", "note", "tempo"]) {
       expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", [key]: 3 }))).toBe(

@@ -152,7 +152,7 @@ export interface ItemView {
    * The item's "No equipment" swap as it would be done this week: the same
    * week, deload halving and timer changes applied to the swap's exercise and
    * dose (see `applyNoEquipmentSwap`). Present only on items whose program
-   * entry has a swap. The exercise sheet shows it as "No equipment: <swap>,
+   * entry has a swap, and dropped from a warm-up the rotation replaces. The exercise sheet shows it as "No equipment: <swap>,
    * <this week's dose>"; Today ignores it until PR 19 adds the tick that
    * switches a row over to it.
    */

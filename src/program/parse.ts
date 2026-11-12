@@ -383,10 +383,16 @@ function parseExercise(id: string, raw: unknown, path: string, warnings: Program
  * keep from the original are errors, because silently ignoring them would let
  * a swap look like it changes the dose when it can't. Other unknown keys are
  * warnings with a "did you mean" hint, like everywhere else.
+ *
+ * A swap also can't change the kind of dose: a timed hold (the original has
+ * `durationSec`) is swapped for another hold, and a reps item for another
+ * reps item. `applyNoEquipmentSwap` takes reps and hold time from the swap
+ * independently, so mixing them would silently keep the original's other
+ * figure (a "2 × 30s" plank swapped for "10" reps would still be timed).
  */
 function parseNoEquipmentSwap(
   raw: unknown,
-  original: { exerciseId: string; isMaxBased: boolean },
+  original: { exerciseId: string; isMaxBased: boolean; isTimed: boolean },
   exercises: Record<string, Exercise>,
   path: string,
   warnings: ProgramWarning[],
@@ -408,6 +414,13 @@ function parseNoEquipmentSwap(
   }
   if (swapExerciseId === original.exerciseId) {
     fail(child(path, "exercise"), `a swap can't be the item's own exercise ${JSON.stringify(swapExerciseId)}`);
+  }
+
+  if (original.isTimed && record.reps !== undefined) {
+    fail(child(path, "reps"), "the original item is a timed hold, so its swap is a hold too: give \"durationSec\", not \"reps\"");
+  }
+  if (!original.isTimed && record.durationSec !== undefined) {
+    fail(child(path, "durationSec"), "the original item is done in reps, so its swap is too: give \"reps\", not \"durationSec\"");
   }
 
   if (original.isMaxBased && record.reps === undefined) {
@@ -461,7 +474,13 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
   const noEquipment =
     record.noEquipment === undefined
       ? undefined
-      : parseNoEquipmentSwap(record.noEquipment, { exerciseId, isMaxBased }, exercises, child(path, "noEquipment"), warnings);
+      : parseNoEquipmentSwap(
+          record.noEquipment,
+          { exerciseId, isMaxBased, isTimed: record.durationSec !== undefined },
+          exercises,
+          child(path, "noEquipment"),
+          warnings,
+        );
 
   return {
     exerciseId,
