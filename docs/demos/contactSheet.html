@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!--
+  Contact sheet for the "Show me" demos (PLAN.md, PR 21 step 7).
+
+  A design-check page, not app code. render.cjs serves it through Vite (so the
+  TypeScript demos and the real createRenderer3d are used as they are) and
+  calls window.renderContactSheet(ids). For every demo it draws one cell per
+  still frame (the demo's hold steps) at the demo's own view, plus one extra
+  cell at the other main angle of the last still. Each cell is a still image
+  made from the real 3D renderer, captioned with the exercise name and label.
+
+    demo ──stillFrames──▶ poses ──createRenderer3d.draw──▶ canvas ──▶ <img> cell
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Show me contact sheet</title>
+  <style>
+    body { margin: 0; padding: 12px; background: #000; color: #fff; font: 13px/1.3 system-ui, sans-serif; }
+    #sheet { display: grid; grid-template-columns: repeat(6, 260px); gap: 10px; }
+    figure { margin: 0; }
+    img, .stage { display: block; width: 260px; height: 260px; background: #000; border: 1px solid #333; }
+    .stage { position: absolute; left: -9999px; top: 0; border: 0; }
+    figcaption { padding-top: 3px; }
+    figcaption b { color: #ffd60a; }
+  </style>
+</head>
+<body>
+  <div id="sheet"></div>
+  <script type="module">
+    import { steadyStrengthDemos } from "/src/demo/steadyStrength.ts";
+    import { createRenderer3d } from "/src/demo/render3d.ts";
+    import { stillFrames } from "/src/demo/timeline.ts";
+    import { CAMERA_AZIMUTH } from "/src/demo/renderer.ts";
+
+    /** Edge length of every cell picture, in pixels. */
+    const CELL_PIXELS = 260;
+
+    /**
+     * Draws one pose at one camera angle with a fresh 3D renderer and returns
+     * the picture as a data URL. The renderer is disposed straight away so the
+     * page never holds more than one WebGL context at once.
+     */
+    function snapshot(demo, pose, azimuthDegrees) {
+      const stage = document.createElement("div");
+      stage.className = "stage";
+      document.body.append(stage);
+      const renderer = createRenderer3d(stage, demo);
+      renderer.draw(pose, azimuthDegrees);
+      // toDataURL must run in the same task as the draw, before the buffer is cleared.
+      const url = stage.querySelector("canvas").toDataURL("image/png");
+      renderer.dispose();
+      stage.remove();
+      return url;
+    }
+
+    /** Adds one captioned cell to the sheet. */
+    function addCell(url, exerciseId, label, angleName) {
+      const figure = document.createElement("figure");
+      const image = document.createElement("img");
+      image.src = url;
+      image.width = CELL_PIXELS;
+      image.height = CELL_PIXELS;
+      const caption = document.createElement("figcaption");
+      caption.innerHTML = `<b></b><br><span></span>`;
+      caption.querySelector("b").textContent = exerciseId;
+      caption.querySelector("span").textContent = `${label} (${angleName})`;
+      figure.append(image, caption);
+      document.getElementById("sheet").append(figure);
+    }
+
+    /**
+     * Fills the sheet for the given exercise ids (all demos if none given).
+     * Called by render.cjs; resolves when every cell is drawn.
+     */
+    window.renderContactSheet = async (ids) => {
+      const wanted = ids && ids.length > 0 ? ids : Object.keys(steadyStrengthDemos);
+      for (const id of wanted) {
+        const demo = steadyStrengthDemos[id];
+        if (!demo) throw new Error(`No demo called ${id}`);
+        const stills = stillFrames(demo);
+
+        for (const still of stills) {
+          addCell(snapshot(demo, still.pose, CAMERA_AZIMUTH[demo.view]), id, still.label, demo.view);
+        }
+
+        // One extra cell: the last still from the other main angle.
+        const otherView = demo.view === "side" ? "front" : "side";
+        const last = stills[stills.length - 1];
+        addCell(snapshot(demo, last.pose, CAMERA_AZIMUTH[otherView]), id, last.label, otherView);
+      }
+      document.body.dataset.done = "true";
+    };
+  </script>
+</body>
+</html>

@@ -178,6 +178,22 @@ The E2E run builds the app and serves it with `vite preview` automatically.
 It needs a Playwright Chromium browser installed (`npx playwright install chromium`).
 CI runs the same suite; see "Deployment" below.
 
+## Checking the drawings
+
+The "Show me" figures can be looked at all at once as a contact sheet: one
+labelled picture for every hold of every Steady Strength demo (plus one extra
+at the other main camera angle), drawn with the real 3D renderer.
+
+```sh
+node docs/demos/render.cjs sheet.png                 # every demo
+node docs/demos/render.cjs sheet.png sit_to_stand head_turns   # only these
+```
+
+It starts Vite on a free port, draws the page `docs/demos/contactSheet.html`
+in headless Chromium (software WebGL, so no GPU is needed), writes one PNG and
+stops Vite again. It needs a Playwright Chromium browser installed
+(`npx playwright install chromium`).
+
 ## Editing program.json
 
 `public/program.json` is the Explosive Endurance program. If you break
