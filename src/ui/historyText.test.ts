@@ -100,22 +100,32 @@ describe("helpers for a set on a different day than its session", () => {
     expect(loggedSetLabel(program, session, 6, "heavy_bag", 5)).toBe("Round");
     // Day 2 block 2 is split-squat jumps, which day 1's block 2 (slams) does not contain.
     expect(loggedSetNoun(program, session, 2, "split_squat_jump")).toBe("set");
-    expect(loggedSetLabel(program, session, 2, "split_squat_jump", 2)).toBe("Set");
+    // A day-2 session holds a set of day 5's heavy bag: only the set's own day (5) gives "Round"; the session's day 2 would give "Set".
+    expect(loggedSetLabel(program, sessionWith({ programWeek: 1, day: 2 }), 6, "heavy_bag", 5)).toBe("Round");
   });
 
   it("shows reps and kg by the set's own day", () => {
-    const heavyBagRound: LoggedSet = { exerciseId: "heavy_bag", day: 5, blockPosition: 6, setNumber: 1, loggedAt: new Date("2026-11-02T10:00:00Z") };
-    const sameSlotOtherDay: LoggedSet = { ...heavyBagRound, day: 2 };
+    const day2Session = sessionWith({ programWeek: 1, day: 2 });
+    const loggedAt = new Date("2026-11-02T10:00:00Z");
 
-    expect(loggedSetShowsRepsAndLoad(program, session, heavyBagRound)).toBe(false);
-    // Day 2 has no block 6, so it falls back to what was stored (nothing).
-    expect(loggedSetShowsRepsAndLoad(program, session, sameSlotOtherDay)).toBe(false);
+    // Day 1 block 3 is pull-ups (reps). Under the session's day 2, block 3 holds no pull-up, so it would fall back to the stored values (none) and say false.
+    const pullUpOnDay1: LoggedSet = { exerciseId: "pull_up", day: 1, blockPosition: 3, setNumber: 1, loggedAt };
+    expect(loggedSetShowsRepsAndLoad(program, day2Session, pullUpOnDay1)).toBe(true);
+
+    // Day 5 block 6 is the heavy bag (no reps). Under the session's day 2 there is no block 6, so the stored reps would say true.
+    const heavyBagOnDay5: LoggedSet = { exerciseId: "heavy_bag", day: 5, blockPosition: 6, setNumber: 1, reps: 5, loggedAt };
+    expect(loggedSetShowsRepsAndLoad(program, day2Session, heavyBagOnDay5)).toBe(false);
   });
 
   it("names a warm-up by the set's own day for rotation", () => {
-    // Day 2 block 1 is a warm-up; ytwi is only in day 1/5 warm-ups, so under day 1 it is rotated, under day 2 it is not found as a warm-up.
+    // Block 1 is the warm-up on days 1-6, where ytwi is swapped for Reverse fly in week 5. Day 7 has no training,
+    // so a set on day 7 is not a warm-up and keeps the library name. Same session, same block, name decided by the set's day.
     const week5 = sessionWith({ programWeek: 5, day: 1 });
     expect(performedExerciseName(program, week5, 1, "ytwi")).toBe("Reverse fly");
-    expect(performedExerciseName(program, week5, 2, "ytwi", 2)).toBe("YTWI raises");
+    expect(performedExerciseName(program, week5, 1, "ytwi", 1)).toBe("Reverse fly");
+    expect(performedExerciseName(program, week5, 1, "ytwi", 7)).toBe("YTWI raises");
+
+    // And the other way round: a session on day 7 holding a day-1 warm-up set is still rotated.
+    expect(performedExerciseName(program, sessionWith({ programWeek: 5, day: 7 }), 1, "ytwi", 1)).toBe("Reverse fly");
   });
 });

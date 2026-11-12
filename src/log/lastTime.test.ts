@@ -168,21 +168,25 @@ describe("findLastTime (sets that carry their own day)", () => {
   });
 
   it("counts a session for a day only if one of its sets is on that day, preferring it over a newer session of another day", () => {
-    const log = makeLog(
-      twoDaySession,
-      makeSession("2026-11-04", 3, [{ ...makeSet("pull_up", 4, 1, 99), day: 3 }]),
-    );
+    // Heavy bag is block 6 (finisher) on both Day 1 and Day 5, so the block type cannot tell the days apart: only the day can.
+    const olderDayOne = makeSession("2026-11-02", 1, [makeSet("heavy_bag", 6, 1, 4)]);
 
-    // Day 3's own block 4 is overhead press, so the newer session does not match at all.
-    expect(findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09")?.date).toBe("2026-11-02");
+    // A newer plain Day 5 session must not win the "same day" tier for a Day 1 query.
+    const newerDayFive = makeLog(olderDayOne, makeSession("2026-11-04", 5, [makeSet("heavy_bag", 6, 1, 7)]));
+    expect(findLastTime(newerDayFive, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // ...but it is the answer for a Day 5 query, and Day 5 would otherwise fall back to it anyway.
+    expect(findLastTime(newerDayFive, program, query("heavy_bag", 5, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(7);
 
-    // A newer session whose only set is on another day must not win the "same day" tier.
-    const newerOtherDay = makeLog(
-      makeSession("2026-10-26", 5, [makeSet("pull_up", 4, 1, 4)]),
-      makeSession("2026-11-02", 1, [{ ...makeSet("pull_up", 4, 1, 6), day: 5 }]),
-      makeSession("2026-11-04", 5, [{ ...makeSet("pull_up", 4, 1, 7), day: 1 }]),
+    // A newer combined session (stored day 1) whose heavy-bag set is on Day 5 is not a Day 1 session for this exercise.
+    const newerCombined = makeLog(olderDayOne, makeSession("2026-11-04", 1, [{ ...makeSet("heavy_bag", 6, 1, 7), day: 5 }]));
+    expect(findLastTime(newerCombined, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+
+    // And a set on Day 1 inside a session stored as Day 5 does count for Day 1.
+    const dayOneSetInDayFiveSession = makeLog(
+      makeSession("2026-11-02", 5, [makeSet("heavy_bag", 6, 1, 4)]),
+      makeSession("2026-11-04", 5, [{ ...makeSet("heavy_bag", 6, 1, 7), day: 1 }]),
     );
-    expect(findLastTime(newerOtherDay, program, query("pull_up", 5, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(6);
+    expect(findLastTime(dayOneSetInDayFiveSession, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(7);
   });
 
   it("reads an old-format log (no per-set day) exactly as before: the session's day decides", () => {

@@ -1942,8 +1942,12 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
    Each set records the day and block position it has in **its own day**
    (not in the merged view), so "last time" hints, History and the CSV
    and JSON exports keep working: a Day 2 split squat logged on Day 1's
-   date still finds the last Day 2 split squat. History headings read
-   "Week 2 · Day 1 + Day 2".
+   date still finds the last Day 2 split squat. Every set of a combined
+   session stores its `day` (single-day sessions store none, so they
+   behave exactly as before; PR 24). History headings read
+   "Week 2 · Day 1 + Day 2", and History lists one day's blocks, then
+   the other's. The progress chart keeps placing a set at the date's own
+   day.
 8. **What doesn't change.** Week, phase, deload and weekly increases come
    from the date, and both days of a pair are in the same week. The
    week 8 retest prompt and the weekly fatigue check are unaffected.
@@ -1973,12 +1977,13 @@ days, so each set needs to carry its own day.
 
 **Steps.**
 1. [x] `LoggedSet` gets `day` (the day the set's block belongs to). The
-   log wire format gains an optional per-set `day`; old saves and old
-   exports without it read the session's `day`, so nothing is migrated.
+   log wire format gains an optional per-set `day`; old sets use the
+   session's day when read and match any day when matched, so nothing is
+   migrated and old logs behave as before.
 2. [x] `findLastTime`, History and the CSV export read the set's `day`
    instead of the session's. Unit tests for an old-format log and for a
    session whose sets carry two different days.
-3. [ ] Fixes from the challenger review.
+3. [x] Fixes from the challenger review.
 - **Merge point:** all existing tests and E2E pass unchanged; the log can
   hold two days on one date.
 
@@ -1995,6 +2000,12 @@ days, so each set needs to carry its own day.
    card (rule 6), and the "Combined" note on the day plans.
 5. [ ] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
    History heading.
+   Everything keyed by a date and block position needs the day too, since
+   both days have a block 2 (found in the PR 24 review): the log screen
+   route (`#/log/<date>/<block>/<exercise>` gains the day), the rest
+   memory keys (`ui/restMemory.ts`), Today's row progress and session
+   progress (one day per session today), the History group order, and
+   "last time"'s `setsOfLargestBlock`, which groups by block only.
 6. [ ] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
    set, see 10 Nov's "done with Day 1" card, and see the set in History;
    undo before logging puts both days back.
