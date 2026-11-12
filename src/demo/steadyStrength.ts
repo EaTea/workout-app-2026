@@ -334,13 +334,18 @@ const SEAT_HEIGHT = 0.45;
 /** Pelvis height when sitting on that seat: the pelvis centre sits about 0.10 above the seat top. */
 const SEATED_PELVIS_Y = SEAT_HEIGHT + 0.10;
 
+/** How far the foot is tilted up from the floor (in the world) in each ankle-pump pose, in degrees. Pointed is 3 degrees so the toes stay clear of the floor. */
+const ANKLE_PUMP_TILTS = { relaxed: 25, toesUp: 47, toesPointed: 3 } as const;
+
 /**
  * Ankle pumps: side view, close up on the right foot. The figure sits on a
- * chair with the right leg stretched out in front and the foot held just clear
- * of the floor, and the foot tilts toes up, then toes pointed. (The foot is
- * held clear of the floor, not resting on its heel, because a pointed foot
- * would otherwise go through the floor.) The leg stays still and only the
- * ankle moves; the other foot rests flat on the floor.
+ * chair with the right leg stretched out in front and the HEEL RESTING ON
+ * THE FLOOR; only the ankle moves, tilting the foot toes up, then toes
+ * pointed. The shin slopes well forward (knee fairly straight, the foot
+ * about 25 degrees up when relaxed), so even a pointed foot keeps its toes
+ * above the floor instead of going through it. The leg's hip angle is
+ * re-fitted for each foot tilt (a degree or two) so the heel stays on the
+ * floor as the foot pivots about it. The other foot rests flat on the floor.
  */
 function buildAnklePumps(): Demo {
   const pose = neutralStandingPose();
@@ -349,33 +354,44 @@ function buildAnklePumps(): Demo {
   pose.armRight = { ...RELAXED_ARM };
 
   // Resting foot: flat on the floor under the knee.
-  let seated = placeFoot(pose, "Left", { heel: at(0.30, 0, BODY.pelvisHalfWidth) }, 0, { flex: 80, knee: 90, ankle: 10 });
+  const seated = placeFoot(pose, "Left", { heel: at(0.30, 0, BODY.pelvisHalfWidth) }, 0, { flex: 80, knee: 90, ankle: 10 });
 
-  // Pumping leg: the ankle is held 0.15 m up so the pointed toe just clears the floor.
-  seated = solveLimb({ ...seated, legRight: { flex: 80, abduct: 0, knee: 40, ankle: 0 } }, "legRight", { ankleRight: at(0.62, 0.15, -BODY.pelvisHalfWidth) }, ["flex", "knee"]);
+  // Pumping leg: thigh a little below horizontal along the seat, knee bent about 50 degrees, heel on the floor.
+  seated.legRight = { flex: 75, abduct: 0, knee: 50, ankle: 0 };
 
-  // Hands rest on the thighs.
-  for (const side of ["Left", "Right"] as const) {
-    const sign = side === "Left" ? 1 : -1;
-    seated[limbOf("arm", side)] = { flex: 35, abduct: 5, rotate: 0, elbow: 55, wrist: 0 } as never;
-    seated = solveLimb(seated, limbOf("arm", side), { [`hand${side}`]: at(0.2, 0.64, sign * 0.12) }, ["flex", "abduct", "elbow", "wrist"]);
-  }
-
-  /** The seated pose with the right foot tilted `footTilt` degrees (0 = flat, positive = toes up). */
+  /** The seated pose with the right foot tilted `footTilt` degrees in the world (0 = flat, positive = toes up) and the hip angle fitted to keep the heel on the floor. */
   const withFootTilt = (footTilt: number): Pose => {
     const copy = copyPose(seated);
-    const leg = copy.legRight;
-    leg.ankle = footTilt - leg.flex + leg.knee;
-    return copy;
+    copy.legRight.ankle = footTilt - copy.legRight.flex + copy.legRight.knee;
+    // Fit the hip angle only: a tilted foot moves its heel, and the hip swing brings it back down onto the floor.
+    const fitted = solveLimb(copy, "legRight", { heelRight: { y: 0 } }, ["flex"]);
+    // Keep the foot's world tilt as asked after the hip angle changed.
+    fitted.legRight.ankle = footTilt - fitted.legRight.flex + fitted.legRight.knee;
+    return solveLimb(fitted, "legRight", { heelRight: { y: 0 } }, ["flex"]);
   };
-  const flat = withFootTilt(0);
-  const toesUp = withFootTilt(25);
-  const toesPointed = withFootTilt(-25);
+  const flat = withFootTilt(ANKLE_PUMP_TILTS.relaxed);
+  const toesUp = withFootTilt(ANKLE_PUMP_TILTS.toesUp);
+  const toesPointed = withFootTilt(ANKLE_PUMP_TILTS.toesPointed);
+
+  // Hands rest on the thighs, just above where each thigh is.
+  let withHands = flat;
+  for (const side of ["Left", "Right"] as const) {
+    const sign = side === "Left" ? 1 : -1;
+    const hip = where(withHands, `hip${side}`);
+    const knee = where(withHands, `knee${side}`);
+    const onThigh = at(hip.x + 0.2, hip.y + (knee.y - hip.y) * (0.2 / (knee.x - hip.x)) + 0.09, sign * 0.12);
+    withHands[limbOf("arm", side)] = { flex: 35, abduct: 5, rotate: 0, elbow: 55, wrist: 0 } as never;
+    withHands = solveLimb(withHands, limbOf("arm", side), { [`hand${side}`]: onThigh }, ["flex", "abduct", "elbow", "wrist"]);
+  }
+  for (const target of [flat, toesUp, toesPointed]) {
+    target.armLeft = { ...withHands.armLeft };
+    target.armRight = { ...withHands.armRight };
+  }
 
   return {
     exerciseId: "ankle_pumps",
     cue: "Sitting, pull your toes up, then point them.",
-    ariaLabel: "Ankle pumps: sitting with the foot flat, then the toes pulled up, then the toes pointed",
+    ariaLabel: "Ankle pumps: sitting with the heel on the floor and the foot relaxed, then the toes pulled up, then the toes pointed",
     view: "side",
     framing: "closeUpFoot",
     moving: ["footRight"],
@@ -453,12 +469,24 @@ function bothHandsOnFrontCounter(pose: Pose): Pose {
 }
 
 /**
- * Heel-to-toe stand: side view, counter in front. Both hands hold the counter.
- * Start with the feet side by side; end with the left foot stepped in front so
- * its heel touches the right toe, feet in one line, weight shared between them.
+ * Heel-to-toe stand: side view, counter beside the figure on its left (the
+ * far side, so it never hides the feet, and the line of feet never runs
+ * under it). The left hand holds the counter. Start with the feet side by
+ * side; end with the left foot stepped in front so its heel touches the right
+ * toe, feet in one line, weight shared between them.
+ *
+ * The stepping foot must not slide through the standing one, so it goes round
+ * in two moves (seen from above, the right foot is planted at z = -0.09):
+ *
+ *   1 weight over the right foot, left foot lifted and swung forward past the right toe
+ *   2 left foot comes back a little, across in line, and down heel to toe
+ *
+ *     start        after move 1      end
+ *     L R            R  L(up)        R L
  */
 function buildHeelToToeStand(): Demo {
-  const apart = bothHandsOnFrontCounter(standing());
+  const apart = leftHandOnSideCounter(standing());
+  apart.armRight = { ...RELAXED_ARM, abduct: 8 };
 
   // End: weight moves over the line of the feet, so the pelvis sits above the line (z = -0.09).
   let together = standing();
@@ -466,21 +494,32 @@ function buildHeelToToeStand(): Demo {
   together = solveLimb(together, "legRight", { pelvis: { x: 0.16, y: 0.88 }, toeRight: { y: 0 } }, ["flex", "knee", "ankle"]);
   const rightToe = where(together, "toeRight");
   together = placeFoot(together, "Left", { heel: at(rightToe.x + 0.005, 0, -BODY.pelvisHalfWidth) }, 0, { flex: 20, abduct: -6, knee: 5, ankle: 15 });
-  together = bothHandsOnFrontCounter(together);
+  together = leftHandOnSideCounter(together);
+  together.armRight = { ...RELAXED_ARM, abduct: 8 };
+
+  // Halfway: weight already over the right foot, the left foot flat in the air 6 cm up, 12 cm past the right toe and still on its own side of the line.
+  let swung = standing();
+  swung.legRight = { flex: 0, abduct: -6.3, knee: 0, ankle: 0 };
+  swung = solveLimb(swung, "legRight", { pelvis: { x: 0.12, y: 0.88 }, toeRight: { y: 0 } }, ["flex", "knee", "ankle"]);
+  swung = placeFoot(swung, "Left", { heel: at(rightToe.x + 0.12, 0.06, 0.04) }, 0, { flex: 25, abduct: 0, knee: 10, ankle: 15 });
+  swung = leftHandOnSideCounter(swung);
+  swung.armRight = { ...RELAXED_ARM, abduct: 8 };
 
   return {
     exerciseId: "heel_to_toe_stand",
     cue: "Hold the counter, put one foot right in front of the other and stand still.",
-    ariaLabel: "Heel-to-toe stand: feet side by side holding the counter, then one foot in front of the other with the heel touching the toe",
+    ariaLabel: "Heel-to-toe stand: feet side by side holding the counter, then one foot lifted and placed in front of the other with the heel touching the toe",
     view: "side",
     framing: "body",
     moving: ["thighLeft", "shinLeft", "footLeft"],
-    props: [{ kind: "counter", x: FRONT_COUNTER_X, height: COUNTER_HEIGHT }],
+    props: [{ kind: "counter", x: 0.28, height: COUNTER_HEIGHT, side: "left" }],
     steps: [
       hold(apart, START_HOLD_MS, "Start"),
-      move(apart, together, MOVE_MS, "Put one foot in front"),
+      move(apart, swung, MOVE_MS / 2, "Put one foot in front"),
+      move(swung, together, MOVE_MS / 2, "Put one foot in front"),
       hold(together, HOLD_EXERCISE_MS, "Hold"),
-      move(together, apart, MOVE_MS, "Feet apart, then the other side"),
+      move(together, swung, MOVE_MS / 2, "Feet apart, then the other side"),
+      move(swung, apart, MOVE_MS / 2, "Feet apart, then the other side"),
     ],
   };
 }
@@ -491,29 +530,34 @@ function buildHeelToToeStand(): Demo {
 
 /**
  * Sideways walking along the counter: front camera angle. The figure faces
- * AWAY from the camera (yaw 180) towards a counter behind it, because a counter
- * between the camera and the figure would hide the legs. It steps sideways to
- * its left: left foot out, then right foot in, twice-over in effect two steps;
- * the feet never cross. The figure travels, and jumps back when the loop restarts.
+ * AWAY from the camera (yaw 180) towards a counter in front of it, because a counter
+ * between the camera and the figure would hide the legs. It steps sideways
+ * to its left twice (left foot out, right foot in, then again) and then back
+ * to the right twice by exactly the reverse route, so the last pose is the
+ * first and the loop is seamless, showing both directions. The feet never cross.
  *
  *   camera ──▶   [figure, seen from behind]   ──▶   [counter]
  *   figure's left = viewer's left
+ *
+ *   Start   step 1     step 2     step 3     step 4 (= Start)
+ *    L R    L-> R->     L-> R->    <-R <-L    <-R <-L
  */
 function buildSidewaysWalking(): Demo {
   /** Pelvis x: the figure faces -x, so the counter is at lower x. */
   const pelvisX = 0.0;
-  const sideStepMetres = 0.2;
+  const sideStepMetres = 0.18;
   const hipHalf = BODY.pelvisHalfWidth;
 
   /**
-   * One pose of the side-step. `pelvisSide` is how far the pelvis is to the
-   * figure's left; `leftFootSide` and `rightFootSide` the same for the feet;
-   * `lift` raises that foot off the floor. The figure's left is world -z (it faces -x).
+   * One pose of the side-step, designed with the pelvis as the anchor.
+   * `pelvisSide` is how far the pelvis is to the figure's left; each foot has
+   * its own `side` (also to the left) and `lift` off the floor. The figure's
+   * left is world -z (it faces -x). The caller pins the pose by the planted
+   * heel with `reanchored` before using it in a move.
    */
   const sidewaysPose = (
     pelvisSide: number, pelvisHeight: number,
     leftFoot: { side: number; lift: number }, rightFoot: { side: number; lift: number },
-    plantedHeel: "heelLeft" | "heelRight",
   ): Pose => {
     let pose = standing();
     pose.pelvis.yaw = 180;
@@ -526,32 +570,49 @@ function buildSidewaysWalking(): Demo {
     }
 
     // The left hand slides along the counter ahead of the figure.
-    pose = restHand(pose, "Left", at(pelvisX - 0.52, WRIST_ON_COUNTER_Y, -(pelvisSide + 0.18)), at(-0.09, 0, 0), { flex: 35, abduct: 5, elbow: 45 });
-    return reanchored(pose, plantedHeel);
+    return restHand(pose, "Left", at(pelvisX - 0.27, WRIST_ON_COUNTER_Y, -(pelvisSide + 0.18)), at(-0.09, 0, 0), { flex: 35, abduct: 5, elbow: 45 });
   };
 
-  const together0 = sidewaysPose(0, 0.9, { side: hipHalf, lift: 0 }, { side: -hipHalf, lift: 0 }, "heelRight");
-  const leftOutHalf = sidewaysPose(0, 0.885, { side: hipHalf + sideStepMetres / 2, lift: 0.04 }, { side: -hipHalf, lift: 0 }, "heelRight");
-  const leftOut = sidewaysPose(0, 0.875, { side: hipHalf + sideStepMetres, lift: 0 }, { side: -hipHalf, lift: 0 }, "heelRight");
-  const rightInHalf = sidewaysPose(sideStepMetres / 2, 0.885, { side: hipHalf + sideStepMetres, lift: 0 }, { side: -hipHalf + sideStepMetres / 2, lift: 0.04 }, "heelLeft");
-  const together1 = sidewaysPose(sideStepMetres, 0.9, { side: hipHalf + sideStepMetres, lift: 0 }, { side: -hipHalf + sideStepMetres, lift: 0 }, "heelLeft");
+  /** The poses of one outward step starting with the body `shift` metres to the left: left foot half way out, left foot out, right foot half way in, right foot in. */
+  const outwardStepPoses = (shift: number) => ({
+    leftHalfOut: sidewaysPose(shift, 0.885, { side: hipHalf + shift + sideStepMetres / 2, lift: 0.04 }, { side: -hipHalf + shift, lift: 0 }),
+    leftOut: sidewaysPose(shift, 0.875, { side: hipHalf + shift + sideStepMetres, lift: 0 }, { side: -hipHalf + shift, lift: 0 }),
+    rightHalfIn: sidewaysPose(shift + sideStepMetres / 2, 0.885, { side: hipHalf + shift + sideStepMetres, lift: 0 }, { side: -hipHalf + shift + sideStepMetres / 2, lift: 0.04 }),
+    together: sidewaysPose(shift + sideStepMetres, 0.9, { side: hipHalf + shift + sideStepMetres, lift: 0 }, { side: -hipHalf + shift + sideStepMetres, lift: 0 }),
+  });
+
+  const start = sidewaysPose(0, 0.9, { side: hipHalf, lift: 0 }, { side: -hipHalf, lift: 0 });
+  const first = outwardStepPoses(0);
+  const second = outwardStepPoses(sideStepMetres);
+
+  /** A move in which `plantedHeel` stays put: both ends are pinned by that heel. */
+  const stepMove = (from: Pose, to: Pose, plantedHeel: "heelLeft" | "heelRight", label: string): Step =>
+    move(reanchored(from, plantedHeel), reanchored(to, plantedHeel), 400, label);
+
+  // One outward step is four moves (left foot out in two, right foot in in two).
+  const outwardMoves = (from: Pose, poses: ReturnType<typeof outwardStepPoses>): Step[] => [
+    stepMove(from, poses.leftHalfOut, "heelRight", "Step sideways"),
+    stepMove(poses.leftHalfOut, poses.leftOut, "heelRight", "Step sideways"),
+    stepMove(poses.leftOut, poses.rightHalfIn, "heelLeft", "Bring the other foot in"),
+    stepMove(poses.rightHalfIn, poses.together, "heelLeft", "Bring the other foot in"),
+  ];
+  const outward = [...outwardMoves(start, first), ...outwardMoves(first.together, second)];
+
+  // Coming back is the same moves played backwards, so the loop ends exactly where it began.
+  const backward: Step[] = [...outward].reverse().map((step) => {
+    if (step.kind !== "move") throw new Error("expected only moves");
+    return { ...step, from: step.to, to: step.from, label: step.label === "Step sideways" ? "Bring the foot back in" : "Step back sideways" };
+  });
 
   return {
     exerciseId: "sideways_walking",
     cue: "One hand on the counter, step sideways and don't cross your feet.",
-    ariaLabel: "Sideways walking: standing with a hand on the counter, then two side steps along it, the feet never crossing",
+    ariaLabel: "Sideways walking: standing with a hand on the counter, two side steps along it one way and two back the other way, the feet never crossing",
     view: "front",
     framing: "body",
     moving: ["thighLeft", "thighRight", "shinLeft", "shinRight", "footLeft", "footRight"],
-    props: [{ kind: "counter", x: pelvisX - 1.05, height: COUNTER_HEIGHT }],
-    steps: [
-      hold(together0, START_HOLD_MS, "Start"),
-      move(together0, leftOutHalf, 1000, "Step sideways"),
-      move(leftOutHalf, leftOut, 1000, "Step sideways"),
-      move(reanchored(leftOut, "heelLeft"), rightInHalf, 1000, "Bring the other foot in"),
-      move(rightInHalf, together1, 1000, "Bring the other foot in"),
-      hold(together1, END_HOLD_MS, "End"),
-    ],
+    props: [{ kind: "counter", x: pelvisX - 0.85, height: COUNTER_HEIGHT }],
+    steps: [hold(reanchored(start, "heelRight"), START_HOLD_MS, "Start"), ...outward, ...backward],
   };
 }
 
@@ -638,15 +699,26 @@ function buildGluteBridgeHold(): Demo {
 // ---------------------------------------------------------------------------
 
 /**
- * Pallof press hold: three-quarter view. A band is anchored at chest height on
- * the door frame beside the figure (its left post) and held in both hands. The
- * hands start at the chest and press straight out in front; the body does not
- * turn (pelvis yaw and trunk stay as they are), which is the point of the exercise.
+ * Pallof press hold: three-quarter view. The figure stands SIDE-ON to the
+ * door: the band is anchored at chest height on the door at the figure's
+ * left, so it runs sideways across the body, and the hands press straight
+ * forward, parallel to the door. The body does not turn (pelvis yaw and
+ * trunk stay as they are), which is the point of the exercise: the band
+ * tries to twist the body towards the door and the figure resists it.
+ *
+ *        door ─────────────●anchor (left of the figure, chest height)
+ *                           ╲  band
+ *                            ╲
+ *                  figure ───●═══▶  hands press forward (+x), parallel to the door
+ *
+ * Only the band anchor is drawn: the door frame prop stands across the
+ * figure's front (in the plane x), so it cannot be placed along the figure's
+ * side. A door-edge prop parallel to the figure would need a new Prop kind.
  */
 function buildPallofPressHold(): Demo {
-  const doorX = 0.32;
   const chestHeight = 1.25;
-  const anchor = at(doorX, chestHeight, 0.46);
+  /** The anchor is level with the chest (x = 0 is the chest) and 0.8 m out to the figure's left. */
+  const anchor = at(0, chestHeight, 0.8);
 
   /** Both hands together at (`handX`, chest height) on the midline, elbows relaxed. */
   const handsAt = (handX: number, guess: Partial<ArmAngles>): Pose => {
@@ -654,29 +726,44 @@ function buildPallofPressHold(): Demo {
     for (const side of ["Left", "Right"] as const) {
       const sign = side === "Left" ? 1 : -1;
       pose[limbOf("arm", side)] = { ...RELAXED_ARM, ...guess } as never;
-      pose = solveLimb(pose, limbOf("arm", side), { [`hand${side}`]: at(handX, chestHeight, sign * 0.04) }, ["flex", "abduct", "elbow", "wrist"]);
+      pose = solveLimb(pose, limbOf("arm", side), { [`hand${side}`]: at(handX, chestHeight, sign * 0.04) }, ["flex", "abduct", "rotate", "elbow", "wrist"]);
     }
     return pose;
   };
-  const atChest = handsAt(doorX - 0.02, { flex: 25, abduct: 15, elbow: 110 });
-  const pressedOut = handsAt(0.05 + 0.62, { flex: 80, abduct: 3, elbow: 5 });
+  // Blending joint angles straight between the chest and the full press would swing the hands apart on the way (they bulge
+  // sideways by 7 cm), so the press goes through waypoints with the hands re-fitted to the midline each time.
+  const chestGuess = { flex: 40, abduct: 0, rotate: -40, elbow: 110 };
+  const pressedGuess = { flex: 80, abduct: -12, rotate: 0, elbow: 5 };
+  const chestHandX = 0.28;
+  const pressedHandX = 0.05 + 0.62;
+  const pressPoses = [0, 0.25, 0.5, 0.75, 1].map((fraction) => {
+    const mix = (from: number, to: number) => from + (to - from) * fraction;
+    return handsAt(mix(chestHandX, pressedHandX), {
+      flex: mix(chestGuess.flex, pressedGuess.flex),
+      abduct: mix(chestGuess.abduct, pressedGuess.abduct),
+      rotate: mix(chestGuess.rotate, pressedGuess.rotate),
+      elbow: mix(chestGuess.elbow, pressedGuess.elbow),
+    });
+  });
+  const atChest = pressPoses[0]!;
+  const pressedOut = pressPoses[4]!;
+  /** The press (or the return) as four equal moves through the waypoints. */
+  const pressMoves = (poses: Pose[], label: string): Step[] =>
+    poses.slice(1).map((to, index) => move(poses[index]!, to, MOVE_MS / 4, label));
 
   return {
     exerciseId: "pallof_press_hold",
     cue: "Side-on to the door, push your hands straight out and hold. Don't turn.",
-    ariaLabel: "Pallof press hold: hands at the chest holding a band anchored in the door beside you, then arms pushed straight out in front and held",
+    ariaLabel: "Pallof press hold: standing side-on to the door with a band anchored beside you, hands at the chest, then arms pushed straight out in front, parallel to the door, and held",
     view: "threeQuarter",
     framing: "body",
     moving: ["armLeft", "armRight", "forearmLeft", "forearmRight", "handLeft", "handRight"],
-    props: [
-      { kind: "doorFrame", x: doorX },
-      { kind: "band", anchor, toJoints: ["handLeft", "handRight"] },
-    ],
+    props: [{ kind: "band", anchor, toJoints: ["handLeft", "handRight"] }],
     steps: [
       hold(atChest, START_HOLD_MS, "Start"),
-      move(atChest, pressedOut, MOVE_MS, "Push your hands straight out"),
+      ...pressMoves(pressPoses, "Push your hands straight out"),
       hold(pressedOut, HOLD_EXERCISE_MS, "Hold"),
-      move(pressedOut, atChest, MOVE_MS, "Bring your hands back"),
+      ...pressMoves([...pressPoses].reverse(), "Bring your hands back"),
     ],
   };
 }
@@ -686,36 +773,42 @@ function buildPallofPressHold(): Demo {
 // ---------------------------------------------------------------------------
 
 /** How far the trunk tips forward from the hips when leaning to stand, in degrees (the plan's limit is 30). */
-export const SIT_TO_STAND_LEAN_DEGREES = 25;
+export const SIT_TO_STAND_LEAN_DEGREES = 28;
+
+/** Heel x of the planted feet in the sit-to-stand: tucked back under the knees so the weight can get over them (0.13 m; the first version had 0.29 and the body fell back into the chair). */
+const SIT_TO_STAND_HEEL_X = 0.13;
 
 /**
- * Sit-to-stand from a chair with arms, first (most supported) stage: both
- * hands on the chair arms. Seated; lean forward from the hips with a straight
- * back (pelvis pitch, spine flex stays 0); stand; then sit down slowly by
- * the same route. The feet stay flat and planted throughout.
+ * Sit-to-stand from a chair with arms, first (most supported) stage. The
+ * order matters for safety: the weight has to be over the feet BEFORE the
+ * hips leave the seat, and the hands stay on the chair arms until it is.
  *
- *   Start      lean forward     End (standing)
- *     o            o                o
- *    /|_          /|              /|\
- *   [chair]      [chair]  ->        |
+ *   1 lean         2 lift, lean held     3 rise, hands let go     4 straighten
+ *     o                  o                       o                    o
+ *    /|__              /|                      /|                    |
+ *   [seat] feet       [seat]  feet            feet under hips      feet   (End)
+ *   tucked back       (hands on arms)         (hands free)
  *
- * Each of "Stand up" and "Sit down slowly" is two moves (lean, then rise) so
- * the lean is seen before the body leaves the seat; together each is 2.5 s,
- * so the loop is 8 s.
+ * Seated with the feet tucked a little behind the knees; lean forward from
+ * the hips with a straight back (pelvis pitch, spine flex stays 0); lift
+ * with the lean held; let go of the arms; straighten. Sitting down mirrors
+ * it: lean, reach back for the arms, lower slowly, sit tall. The feet stay
+ * flat and planted throughout. Each of "Stand up" and "Sit down slowly" is
+ * four moves, 2.5 s in all, so the loop is 8 s. The test balance check uses
+ * balance.ts (centre of mass over the feet whenever the hips are off the seat
+ * and the hands are not on the arms).
  */
 function buildSitToStand(): Demo {
-  const heelX = 0.29;
+  const lean = SIT_TO_STAND_LEAN_DEGREES;
+  const heelX = SIT_TO_STAND_HEEL_X;
+  const hipHalf = BODY.pelvisHalfWidth;
 
-  // Seated, designed with the pelvis on the seat: knees bent 90, feet flat under the knees.
-  let seated = standing();
-  seated.anchor = { joint: "pelvis", at: at(0, SEATED_PELVIS_Y, 0) };
-  for (const side of ["Left", "Right"] as const) {
-    seated = placeFoot(seated, side, { heel: at(heelX, 0, side === "Left" ? BODY.pelvisHalfWidth : -BODY.pelvisHalfWidth) }, 0, { flex: 80, knee: 90, ankle: 10 });
-  }
-
-  const chairFrontX = 0.30;
+  // The figure sits near the front edge of the seat (the usual advice before standing), so that when it stands the
+  // shins are in front of the chair rather than inside it.
+  const chairFrontX = 0.12;
   const chair: Prop = { kind: "chair", x: chairFrontX, seatHeight: SEAT_HEIGHT, withArms: true };
-  const armRestWristX = chairFrontX - 0.25;
+  /** The fingertips grip the front end of the arm rest (which stops 4 cm short of the seat edge), where the leaning shoulders can reach. */
+  const armRestFingertipX = chairFrontX - 0.05;
   const armRestWristY = SEAT_HEIGHT + 0.22 + 0.035;
 
   /** Both hands on the chair arm rests, wherever the shoulders are. */
@@ -723,41 +816,75 @@ function buildSitToStand(): Demo {
     let result = pose;
     for (const side of ["Left", "Right"] as const) {
       const sign = side === "Left" ? 1 : -1;
-      result = restHand(result, side, at(armRestWristX, armRestWristY, sign * 0.245), at(0.09, 0, 0), { flex: 15, abduct: 8, elbow: 70 });
+      // The upper arm hangs about straight down in the world, so relative to a leaning trunk it swings back by the lean.
+      // Only the fingertips are pinned to the arm rest: with the trunk leaning, a flat hand would need the wrist bent past its limit.
+      const limb = limbOf("arm", side);
+      const start = copyPose(result);
+      start[limb] = { ...start[limb], flex: 15 - pose.pelvis.pitch, abduct: 8, elbow: 70 } as never;
+      result = solveLimb(start, limb, { [`hand${side}`]: at(armRestFingertipX, armRestWristY + 0.005, sign * 0.245) }, ["flex", "abduct", "elbow", "wrist"]);
     }
     return result;
   };
 
-  seated = handsOnChairArms(seated);
+  /**
+   * The figure with the trunk tipped `trunkLean` degrees forward from the hips
+   * (straight back: only the pelvis pitches), the pelvis at (`pelvisX`,
+   * `pelvisY`) and both feet flat on the floor at the tucked heel position.
+   * Designed with the pelvis as anchor, then pinned by the right heel.
+   */
+  const withPelvisAt = (trunkLean: number, pelvisX: number, pelvisY: number): Pose => {
+    let pose = standing();
+    pose.pelvis.pitch = trunkLean;
+    pose.anchor = { joint: "pelvis", at: at(pelvisX, pelvisY, 0) };
+    for (const side of ["Left", "Right"] as const) {
+      const sign = side === "Left" ? 1 : -1;
+      pose = placeFoot(pose, side, { heel: at(heelX, 0, sign * hipHalf) }, 0, { flex: 80 + trunkLean, knee: 90, ankle: 10 });
+    }
+    // Pin the right heel exactly on the floor spot so every pose shares the same planted foot.
+    pose.anchor = { joint: "heelRight", at: at(heelX, 0, -hipHalf) };
+    return pose;
+  };
 
-  // Lean: the pelvis tips forward about the hips; the legs keep their place in the world.
-  let leaning = copyPose(seated);
-  leaning.pelvis.pitch = SIT_TO_STAND_LEAN_DEGREES;
-  leaning.legLeft.flex += SIT_TO_STAND_LEAN_DEGREES;
-  leaning.legRight.flex += SIT_TO_STAND_LEAN_DEGREES;
-  leaning = handsOnChairArms(leaning);
+  // The pelvis x at each stage: on the seat, then moving forward over the feet as the hips rise.
+  const seatedUpright = handsOnChairArms(withPelvisAt(0, 0, SEATED_PELVIS_Y));
+  const seatedLeaning = handsOnChairArms(withPelvisAt(lean, 0, SEATED_PELVIS_Y));
+  const hipsClearlyUp = handsOnChairArms(withPelvisAt(lean, 0.08, 0.72));
 
-  // Planted feet: pin the heel, and put the standing figure's heels at the same spot.
-  const seatedPlanted = reanchored(seated, "heelRight");
-  const leaningPlanted = reanchored(leaning, "heelRight");
-  const heelAnchor = seatedPlanted.anchor.at;
-  const upright = standing(heelAnchor);
+  // Risen with the lean held and the hands let go: arms hang forward from the leaning shoulders.
+  const risenLeaning = standing(at(heelX, 0, -hipHalf));
+  risenLeaning.pelvis.pitch = lean;
+  risenLeaning.legLeft = legAngles({ thigh: 0, knee: 0, foot: 0 }, lean);
+  risenLeaning.legRight = legAngles({ thigh: 0, knee: 0, foot: 0 }, lean);
+  risenLeaning.armLeft = { ...RELAXED_ARM, flex: -lean + 20 };
+  risenLeaning.armRight = { ...RELAXED_ARM, flex: -lean + 20 };
+  const upright = standing(at(heelX, 0, -hipHalf));
+
+  // The hands must stay ON the arm rests through the lean and the first lift, but blending joint angles straight between two such
+  // poses lets a hand sink a few centimetres into the arm on the way, so each of those moves goes through a halfway pose re-fitted to the arms.
+  const leaningHalfway = handsOnChairArms(blendPoses(seatedUpright, seatedLeaning, 0.5));
+  const liftingHalfway = handsOnChairArms(blendPoses(seatedLeaning, hipsClearlyUp, 0.5));
+
+  /** The poses from sitting upright to standing upright, in order; sitting down plays them backwards. */
+  const route = [seatedUpright, leaningHalfway, seatedLeaning, liftingHalfway, hipsClearlyUp, risenLeaning, upright];
+  /** How long each move of the route takes going up (ms); they add up to 2500. Going down the same times are used. */
+  const routeMs = [350, 350, 300, 300, 600, 600];
+  const standUpMoves = routeMs.map((ms, index) => move(route[index]!, route[index + 1]!, ms, "Stand up"));
+  const reversedRoute = [...route].reverse();
+  const sitDownMoves = [...routeMs].reverse().map((ms, index) => move(reversedRoute[index]!, reversedRoute[index + 1]!, ms, "Sit down slowly"));
 
   return {
     exerciseId: "sit_to_stand",
     cue: "Lean forward a little, push through your feet and stand, then sit down slowly.",
-    ariaLabel: "Sit-to-stand: sitting with both hands on the chair arms, then leaning forward and standing up, then sitting down slowly",
+    ariaLabel: "Sit-to-stand: sitting with both hands on the chair arms and the feet tucked back, then leaning forward, lifting with the lean held, letting go of the arms and standing tall, then sitting down slowly by the same route",
     view: "side",
     framing: "body",
     moving: ["trunk", "thighLeft", "thighRight", "shinLeft", "shinRight", "armLeft", "armRight"],
     props: [chair],
     steps: [
-      hold(seatedPlanted, START_HOLD_MS, "Start"),
-      move(seatedPlanted, leaningPlanted, 1000, "Stand up"),
-      move(leaningPlanted, upright, 1500, "Stand up"),
+      hold(seatedUpright, START_HOLD_MS, "Start"),
+      ...standUpMoves,
       hold(upright, END_HOLD_MS, "End"),
-      move(upright, leaningPlanted, 1500, "Sit down slowly"),
-      move(leaningPlanted, seatedPlanted, 1000, "Sit down slowly"),
+      ...sitDownMoves,
     ],
   };
 }
@@ -1018,15 +1145,27 @@ function buildWalking(exerciseId: string, cue: string, ariaLabel: string, moveMs
 
 /**
  * Calf stretch at the wall: side view. Hands on the wall at shoulder height.
- * The right foot goes back with the heel down and the leg straight, the left
- * knee bends a little, and the whole body leans gently in as one straight line
- * (a lean of 18 degrees, no more). The move into the stretch is as slow as any other.
+ * The LEFT foot is the front foot and stays planted. The RIGHT foot (the
+ * highlighted leg) slides back with the leg straight and the heel kept
+ * down, the left knee bends a little, and the whole body leans in gently as
+ * one straight line from the back heel (18 degrees, no more). The move into
+ * the stretch is as slow as any other.
+ *
+ *   Start (feet together)        Hold (right foot slid back)
+ *        |wall                        |wall
+ *     o  |                          o |
+ *    /|--|                         /|-|
+ *     |  |                        / |  |      front foot stays where it is
+ *    / \ |                      __/   \ ... back heel down
  */
 function buildCalfStretch(): Demo {
   const wallSurfaceX = 0.80;
+  const handHeightFromWall = 0.03;
+  /** How far the right heel slides back from beside the left heel, in metres. */
+  const SLIDE_BACK_METRES = 0.34;
 
-  /** A body leaning `lean` degrees as a straight line from the back heel, hands on the wall. */
-  const leaningPose = (lean: number): Pose => {
+  /** A body leaning `lean` degrees as a straight line from the heel, both legs straight, with `anchor` as the pelvis. */
+  const straightLeaning = (lean: number): Pose => {
     const pose = standing();
     pose.pelvis.pitch = lean;
     pose.legRight = legAngles({ thigh: -lean, knee: 0, foot: 0 }, lean);
@@ -1040,34 +1179,44 @@ function buildCalfStretch(): Demo {
     const shoulderHeight = where(pose, "shoulderRight").y;
     for (const side of ["Left", "Right"] as const) {
       const sign = side === "Left" ? 1 : -1;
-      result = restHand(result, side, at(wallSurfaceX - 0.03, shoulderHeight, sign * 0.18), at(0, 0.09, 0), { flex: 60, abduct: 5, elbow: 40 });
+      result = restHand(result, side, at(wallSurfaceX - handHeightFromWall, shoulderHeight, sign * 0.18), at(0, 0.09, 0), { flex: 60, abduct: 5, elbow: 40 });
     }
     return result;
   };
 
-  const start = handsOnWall(leaningPose(8));
+  // Hold: right leg straight and back, body in one line from the back heel; left foot flat in front with a slightly bent knee.
+  let stretch = straightLeaning(18);
+  stretch = placeFoot(stretch, "Left", { heel: at(where(stretch, "heelRight").x + SLIDE_BACK_METRES, 0, BODY.pelvisHalfWidth) }, 0, { flex: 15, knee: 25, ankle: 0 });
 
-  let stretch = leaningPose(18);
-  stretch = placeFoot(stretch, "Left", { heel: at(0.38, 0, BODY.pelvisHalfWidth) }, 0, { flex: 15, knee: 25, ankle: 0 });
+  // The front (left) heel is where it stays in both poses. Standing upright at the start the shoulders are 0.05 m ahead of the heel and the
+  // arms slightly bent (0.42 m from the hands); in the hold the leaning body brings the shoulders a few centimetres nearer the wall.
+  const frontHeelX = wallSurfaceX - handHeightFromWall - 0.42 - 0.05;
+  stretch.anchor = { joint: "heelLeft", at: at(frontHeelX, 0, BODY.pelvisHalfWidth) };
   stretch = handsOnWall(stretch);
-  // The front foot is lifted a little halfway, so it clears the floor as it steps forward.
-  const halfway = halfwayWithToeLifted(start, stretch, "Left", 0.06, 0.06);
+
+  // Start: both feet together at the front heel, body upright, hands on the wall.
+  const start = straightLeaning(0);
+  start.anchor = { joint: "heelLeft", at: at(frontHeelX, 0, BODY.pelvisHalfWidth) };
+  const startOnWall = handsOnWall(start);
+
+  // Halfway: the right foot is lifted a little as it slides back, so it clears the floor.
+  const halfway = halfwayWithToeLifted(startOnWall, stretch, "Right", 0.06, 0.06);
 
   return {
     exerciseId: "calf_stretch",
     cue: "Hands on the wall, one foot back with the heel down, lean in gently and hold.",
-    ariaLabel: "Calf stretch: hands on the wall, then one foot back with the heel down and the body leaning in gently, held",
+    ariaLabel: "Calf stretch: hands on the wall, then one foot slid back with the heel down and the body leaning in gently, held",
     view: "side",
     framing: "body",
     moving: ["thighRight", "shinRight", "footRight"],
     props: [{ kind: "wall", x: wallSurfaceX + 0.06 }],
     steps: [
-      hold(start, START_HOLD_MS, "Start"),
-      move(start, halfway, MOVE_MS / 2, "Foot back, lean in gently"),
+      hold(startOnWall, START_HOLD_MS, "Start"),
+      move(startOnWall, halfway, MOVE_MS / 2, "Foot back, lean in gently"),
       move(halfway, stretch, MOVE_MS / 2, "Foot back, lean in gently"),
       hold(stretch, HOLD_EXERCISE_MS, "Hold"),
       move(stretch, halfway, MOVE_MS / 2, "Back up, then the other side"),
-      move(halfway, start, MOVE_MS / 2, "Back up, then the other side"),
+      move(halfway, startOnWall, MOVE_MS / 2, "Back up, then the other side"),
     ],
   };
 }
@@ -1077,45 +1226,60 @@ function buildCalfStretch(): Demo {
 // ---------------------------------------------------------------------------
 
 /**
- * Doorway chest stretch: side view. The right forearm is up on the door frame
- * with the upper arm about horizontal and the elbow about 90 degrees; the
- * figure steps forward gently with the left foot and lets its weight move
- * forward, so the arm, held on the frame, is drawn back. The trunk stays
- * upright: no arching.
+ * Doorway chest stretch: three-quarter view (so the near post cannot hide the
+ * arm). The left forearm is flat on the FRONT face of the door frame's left
+ * post (the face towards the figure), vertical, with the upper arm about
+ * horizontal out to the side. At the start the elbow is in front of the
+ * shoulder line; the figure steps forward gently with the left foot and
+ * lets its weight move forward, so the shoulder passes the elbow and the elbow
+ * ends slightly BEHIND the shoulder line: that is the stretch across the
+ * chest. The trunk stays upright, no arching.
+ *
+ *   top view        start               hold
+ *                    post                post
+ *                  ┌──┐ elbow          ┌──┐ elbow
+ *     shoulders ──────●  (ahead)  ──────●   (behind the shoulder line)
  */
 function buildDoorwayChestStretch(): Demo {
   const doorX = 0.05;
-  const elbowSide = 0.37;
-  const pelvisSide = -0.08;
-  /** The figure starts this far behind the frame so the near post does not hide it, with the upper arm angled a little forward. */
-  const startHeelX = -0.18;
+  /** Where the forearm lies: 2 cm in front of the post's front face (the face towards the figure is at doorX - 0.05). */
+  const forearmX = doorX - 0.05 - 0.018;
+  /** The post spans z = 0.42 to 0.5; the forearm is along its inner half so the near side of the arm shows. */
+  const forearmZ = 0.44;
+  /** How far the shoulder line is behind the elbow at the start, and ahead of it at the hold, in metres. */
+  const START_ELBOW_AHEAD_OF_SHOULDER = 0.07;
+  const HOLD_ELBOW_BEHIND_SHOULDER = 0.04;
 
-  /** The left forearm up the post (the far post from the camera, so it never hides the figure): elbow, wrist and fingertips on one vertical line at shoulder height and above. */
+  /** The left forearm vertical on the post's front face: elbow at shoulder height, wrist and fingertips straight above it. */
   const forearmOnFrame = (pose: Pose): Pose => {
     const shoulderHeight = where(pose, "shoulderLeft").y;
     const start = copyPose(pose);
     start.armLeft = { flex: 0, abduct: 85, rotate: 80, elbow: 90, wrist: 0 };
     return solveLimb(start, "armLeft", {
-      elbowLeft: at(doorX, shoulderHeight, elbowSide),
-      wristLeft: at(doorX, shoulderHeight + BODY.forearm, elbowSide),
-      handLeft: at(doorX, shoulderHeight + BODY.forearm + BODY.hand, elbowSide),
+      elbowLeft: at(forearmX, shoulderHeight, forearmZ),
+      wristLeft: at(forearmX, shoulderHeight + BODY.forearm, forearmZ),
+      handLeft: at(forearmX, shoulderHeight + BODY.forearm + BODY.hand, forearmZ),
     }, ["flex", "abduct", "rotate", "elbow", "wrist"]);
   };
 
-  const anchorAt = at(startHeelX, 0, pelvisSide - BODY.pelvisHalfWidth);
+  // Start: the shoulders are 7 cm behind the elbow. The right heel is planted and the pelvis stands over it.
+  const startPelvisX = forearmX - START_ELBOW_AHEAD_OF_SHOULDER;
+  const anchorAt = at(startPelvisX - BODY.heelBack, 0, -BODY.pelvisHalfWidth);
   const start = forearmOnFrame(standing(anchorAt));
 
-  // Step forward: weight moves forward over the right foot (leg leans 9 degrees) and the left foot steps ahead.
+  // Hold: the weight moves forward over the right foot (the leg leans) until the shoulders are 4 cm past the elbow, and the left foot steps ahead.
+  const forwardShift = START_ELBOW_AHEAD_OF_SHOULDER + HOLD_ELBOW_BEHIND_SHOULDER;
+  const legLeanDegrees = (Math.asin(forwardShift / (BODY.thigh + BODY.shin)) * 180) / Math.PI;
   let stepped = standing(anchorAt);
-  stepped.legRight = legAngles({ thigh: -9, knee: 0, foot: 0 });
-  stepped = placeFoot(stepped, "Left", { heel: at(startHeelX + 0.30, 0, pelvisSide + BODY.pelvisHalfWidth) }, 0, { flex: 15, knee: 15, ankle: 0 });
+  stepped.legRight = legAngles({ thigh: -legLeanDegrees, knee: 0, foot: 0 });
+  stepped = placeFoot(stepped, "Left", { heel: at(anchorAt.x + 0.30, 0, BODY.pelvisHalfWidth) }, 0, { flex: 15, knee: 15, ankle: 0 });
   stepped = forearmOnFrame(stepped);
 
   return {
     exerciseId: "doorway_chest_stretch",
     cue: "Forearm on the door frame, step forward gently until you feel a stretch, and hold.",
-    ariaLabel: "Doorway chest stretch: forearm up on the door frame, then a gentle step forward, held",
-    view: "side",
+    ariaLabel: "Doorway chest stretch: forearm flat on the door frame, then a gentle step forward so the elbow ends just behind the shoulder, held",
+    view: "threeQuarter",
     framing: "body",
     moving: ["armLeft", "forearmLeft", "thighLeft", "shinLeft", "footLeft"],
     props: [{ kind: "doorFrame", x: doorX }],

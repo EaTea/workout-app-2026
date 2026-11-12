@@ -1738,7 +1738,7 @@ in yellow.
 | 30 | Tall sitting hold | Side | Sitting back on the chair → shuffled forward, sitting tall, held | Trunk | Sit forward away from the chair back, sit tall, breathe and hold. |
 | 31 | Slow walk | Side | A slow walking step, looping | Legs | Walk slowly for a few minutes. |
 | 32 | Calf stretch | Side | Hands on the wall → one foot back, heel down, leaning in gently, held | Back leg | Hands on the wall, one foot back with the heel down, lean in gently and hold. |
-| 33 | Doorway chest stretch | Side | Forearm on the door frame → stepped forward gently, held | Body, arm | Forearm on the door frame, step forward gently until you feel a stretch, and hold. |
+| 33 | Doorway chest stretch | Three-quarter | Forearm on the door frame → stepped forward gently, held | Body, arm | Forearm on the door frame, step forward gently until you feel a stretch, and hold. |
 | 34 | Walk at a comfortable pace | Side | A walking step at a normal pace, looping | Legs | Walk at a pace where you can still talk. |
 
 The one-sided exercises (5, 6, 15, 19, 26, 27 and the single side of 32
@@ -1856,20 +1856,20 @@ project files under `screenshots/demos/`.
      1.4 s slower to open on a slow phone. Only the list of ids is in the
      main bundle now; demos are built in a lazy chunk when "Show me" opens.
    - [x] Stale "later step" comments in the demo modules.
-   - [ ] Sit-to-stand stood up with the weight behind the feet (a fall
+   - [x] Sit-to-stand stood up with the weight behind the feet (a fall
      back into the chair). Feet tucked back, the lean held through
      seat-off, and a test that the body's centre of mass is over the feet
      once the hands leave the chair.
-   - [ ] Doorway chest stretch: the near post hid the arm, the forearm sat
+   - [x] Doorway chest stretch: the near post hid the arm, the forearm sat
      on the side of the post, and the hold showed no stretch.
-   - [ ] Calf stretch moved the wrong foot (forward, not back).
-   - [ ] Heel-to-toe stand slid one foot through the other.
-   - [ ] Sideways walking went one way and jumped at the loop restart; it
+   - [x] Calf stretch moved the wrong foot (forward, not back).
+   - [x] Heel-to-toe stand slid one foot through the other.
+   - [x] Sideways walking went one way and jumped at the loop restart; it
      now steps out and back, so it shows both directions.
-   - [ ] Pallof press faced the door instead of standing side-on to it.
-   - [ ] Ankle pumps held the leg off the floor (a leg raise the program
+   - [x] Pallof press faced the door instead of standing side-on to it.
+   - [x] Ankle pumps held the leg off the floor (a leg raise the program
      doesn't ask for); the heel now rests on the floor.
-   - [ ] The bridge's "no higher than a straight line" test could never
+   - [x] The bridge's "no higher than a straight line" test could never
      fail; it now checks which side of the shoulder–knee line the hips
      are. Hands on supports are checked against the furniture, every
      frame. Spine extension is capped at 0° except the back extension.

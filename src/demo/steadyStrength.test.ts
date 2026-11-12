@@ -5,6 +5,8 @@ import { BODY, angleAtJoint, distance, jointPositions } from "./skeleton";
 import type { Demo, JointName, Pose, Vec3 } from "./model";
 import { steadyStrengthDemos } from "./steadyStrength";
 import { DEMO_EXERCISE_IDS, hasDemo, loadDemo } from "./registry";
+import { propBoxes, type PropBox } from "./renderer";
+import { centreOfMass, footMargins } from "./balance";
 
 /** Every 100 ms across one whole loop, including the blended frames inside the moves. */
 function sampleTimes(loopMs: number): number[] {
@@ -111,7 +113,7 @@ const PLAN_TABLE: Record<string, { cue: string; view: Demo["view"]; framing: Dem
   standing_bird_dog: { cue: "Hands on the counter, slide one leg straight back and hold. Keep your back flat.", view: "side", framing: "body" },
   slow_walk: { cue: "Walk slowly for a few minutes.", view: "side", framing: "body" },
   calf_stretch: { cue: "Hands on the wall, one foot back with the heel down, lean in gently and hold.", view: "side", framing: "body" },
-  doorway_chest_stretch: { cue: "Forearm on the door frame, step forward gently until you feel a stretch, and hold.", view: "side", framing: "body" },
+  doorway_chest_stretch: { cue: "Forearm on the door frame, step forward gently until you feel a stretch, and hold.", view: "threeQuarter", framing: "body" },
   comfortable_walk: { cue: "Walk at a pace where you can still talk.", view: "side", framing: "body" },
 };
 
@@ -142,6 +144,89 @@ function sampledFrames(demo: Demo): Array<{ pose: Pose; joints: Record<JointName
 function trunkLeanDegrees(joints: Record<JointName, Vec3>): number {
   const up = { x: joints.chest.x - joints.pelvis.x, y: joints.chest.y - joints.pelvis.y, z: joints.chest.z - joints.pelvis.z };
   return (Math.acos(up.y / Math.hypot(up.x, up.y, up.z)) * 180) / Math.PI;
+}
+
+/** The radius of the foot capsule the 3D renderer draws, in metres (render3d.ts footRadius). */
+const FOOT_RADIUS = 0.04;
+
+/** Closest points between two 3D segments (clamped), as the two points; used to see whether two feet touch. */
+function closestPointsBetweenSegments(a0: Vec3, a1: Vec3, b0: Vec3, b1: Vec3): [Vec3, Vec3] {
+  const sub = (p: Vec3, q: Vec3): Vec3 => ({ x: p.x - q.x, y: p.y - q.y, z: p.z - q.z });
+  const dotProduct = (p: Vec3, q: Vec3) => p.x * q.x + p.y * q.y + p.z * q.z;
+  const along = (p: Vec3, direction: Vec3, t: number): Vec3 => ({ x: p.x + direction.x * t, y: p.y + direction.y * t, z: p.z + direction.z * t });
+  const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+  const d1 = sub(a1, a0);
+  const d2 = sub(b1, b0);
+  const r = sub(a0, b0);
+  const lengthA = dotProduct(d1, d1);
+  const lengthB = dotProduct(d2, d2);
+  const f = dotProduct(d2, r);
+  const c = dotProduct(d1, r);
+  const b = dotProduct(d1, d2);
+  const denominator = lengthA * lengthB - b * b;
+
+  let s = denominator > 1e-12 ? clamp01((b * f - c * lengthB) / denominator) : 0;
+  let t = (b * s + f) / lengthB;
+  if (t < 0) { t = 0; s = clamp01(-c / lengthA); }
+  else if (t > 1) { t = 1; s = clamp01((b - c) / lengthA); }
+  return [along(a0, d1, s), along(b0, d2, t)];
+}
+
+/**
+ * The part of a foot that can touch the other foot: the segment from just
+ * behind the toe tip to just in front of the heel. The drawn foot is a capsule
+ * of radius FOOT_RADIUS whose rounded ends reach the heel and toe points, so
+ * the segment is pulled in by that radius at each end.
+ */
+function footCore(joints: Record<JointName, Vec3>, side: "Left" | "Right"): [Vec3, Vec3] {
+  const heel = joints[`heel${side}`];
+  const toe = joints[`toe${side}`];
+  const length = distance(heel, toe);
+  const pull = (from: Vec3, towards: Vec3): Vec3 => ({
+    x: from.x + ((towards.x - from.x) / length) * FOOT_RADIUS,
+    y: from.y + ((towards.y - from.y) / length) * FOOT_RADIUS,
+    z: from.z + ((towards.z - from.z) / length) * FOOT_RADIUS,
+  });
+  return [pull(heel, toe), pull(toe, heel)];
+}
+
+/**
+ * 0 if the point is outside the box; otherwise how deep inside it is: the
+ * distance to the nearest face. A box standing on the floor has no way out
+ * through its bottom face, so that face is not counted (a foot pushed into
+ * a counter's lower front is deep in it even when it is near the floor).
+ */
+function depthInsideBox(point: Vec3, box: PropBox): number {
+  const depths = [
+    point.x - box.min.x, box.max.x - point.x,
+    box.max.y - point.y,
+    point.z - box.min.z, box.max.z - point.z,
+  ];
+  if (box.min.y > 0) depths.push(point.y - box.min.y);
+  const shallowest = Math.min(...depths);
+  return shallowest > 0 && point.y >= box.min.y ? shallowest : 0;
+}
+
+/** Joint pairs along which limb points are sampled for the furniture collision check. */
+const LIMB_PAIRS: Array<[JointName, JointName]> = [
+  ["shoulderLeft", "elbowLeft"], ["elbowLeft", "wristLeft"], ["wristLeft", "handLeft"],
+  ["shoulderRight", "elbowRight"], ["elbowRight", "wristRight"], ["wristRight", "handRight"],
+  ["hipLeft", "kneeLeft"], ["kneeLeft", "ankleLeft"], ["ankleLeft", "heelLeft"], ["ankleLeft", "toeLeft"], ["heelLeft", "toeLeft"],
+  ["hipRight", "kneeRight"], ["kneeRight", "ankleRight"], ["ankleRight", "heelRight"], ["ankleRight", "toeRight"], ["heelRight", "toeRight"],
+];
+
+/** The chair seat height the sit-to-stand and ankle pump demos use, in metres (steadyStrength.ts SEAT_HEIGHT). */
+const SEAT_HEIGHT_FOR_TESTS = 0.45;
+
+/** Half the thickness of a hand, in metres: a hand resting on a surface has its joint point this far above it (render3d.ts hand radius). */
+const HAND_RESTING_HEIGHT = 0.035;
+
+/** True if the hand point rests on the top of one of the boxes: inside its x/z footprint, and at its surface (plus the hand's own thickness) within 2 cm. */
+function handRestsOnTop(hand: Vec3, boxes: PropBox[]): boolean {
+  return boxes.some((box) =>
+    hand.x >= box.min.x && hand.x <= box.max.x && hand.z >= box.min.z && hand.z <= box.max.z &&
+    Math.abs(hand.y - (box.max.y + HAND_RESTING_HEIGHT)) <= 0.02);
 }
 
 describe("every Steady Strength demo", () => {
@@ -177,7 +262,8 @@ describe("every Steady Strength demo", () => {
       });
 
       it("keeps the lower back neutral and the neck never tipped back in every frame, blends included", () => {
-        const spineRange: [number, number] = demo.exerciseId === "standing_back_extension" ? [-10, 0] : [-5, 5];
+        // Extension (flex below 0) is capped at 0 (1 degree of rounding allowed) everywhere except the standing back extension.
+        const spineRange: [number, number] = demo.exerciseId === "standing_back_extension" ? [-10, 0] : [-1, 5];
         for (const { pose } of sampledFrames(demo)) {
           expect(pose.spine.flex).toBeGreaterThanOrEqual(spineRange[0] - 1e-9);
           expect(pose.spine.flex).toBeLessThanOrEqual(spineRange[1] + 1e-9);
@@ -195,6 +281,38 @@ describe("every Steady Strength demo", () => {
           for (const joint of ["heelLeft", "heelRight", "toeLeft", "toeRight", "ankleLeft", "ankleRight"] as const) {
             // Blending angles between two poses can dip a foot a few millimetres; 1 cm is invisible, more is a foot through the floor.
             expect(joints[joint].y).toBeGreaterThanOrEqual(-0.01);
+          }
+        }
+      });
+
+      it("never puts the two feet through each other: far enough apart, or one clearly higher", () => {
+        for (const { joints, time } of sampledFrames(demo)) {
+          const [leftTip, leftEnd] = footCore(joints, "Left");
+          const [rightTip, rightEnd] = footCore(joints, "Right");
+          const [onLeft, onRight] = closestPointsBetweenSegments(leftTip, leftEnd, rightTip, rightEnd);
+          const apart = distance(onLeft, onRight);
+          const heightDifference = Math.abs(onLeft.y - onRight.y);
+          expect(apart >= 2 * FOOT_RADIUS || heightDifference >= 0.03, `${demo.exerciseId} at ${time} ms: feet ${apart.toFixed(3)} apart, ${heightDifference.toFixed(3)} difference in height`).toBe(true);
+        }
+      });
+
+      it("keeps every limb out of the furniture: no point sampled each 3 cm sinks more than 1 cm into a block", () => {
+        const boxes = demo.props.flatMap((prop) => propBoxes(prop));
+        for (const { joints, time } of sampledFrames(demo)) {
+          for (const [from, to] of LIMB_PAIRS) {
+            const length = distance(joints[from], joints[to]);
+            const samples = Math.max(1, Math.ceil(length / 0.03));
+            for (let index = 0; index <= samples; index += 1) {
+              const fraction = index / samples;
+              const point = {
+                x: joints[from].x + (joints[to].x - joints[from].x) * fraction,
+                y: joints[from].y + (joints[to].y - joints[from].y) * fraction,
+                z: joints[from].z + (joints[to].z - joints[from].z) * fraction,
+              };
+              for (const box of boxes) {
+                expect(depthInsideBox(point, box), `${demo.exerciseId} at ${time} ms: ${from}-${to} point ${index}`).toBeLessThanOrEqual(0.01);
+              }
+            }
           }
         }
       });
@@ -267,21 +385,28 @@ describe("ankle pumps", () => {
   const demo = steadyStrengthDemos.ankle_pumps!;
   const frames = sampledFrames(demo);
 
-  it("sits on a chair and keeps the pumping leg still while only the ankle moves", () => {
+  it("sits on a chair and keeps the pumping leg almost still while only the ankle moves", () => {
     const first = frames[0]!.pose.legRight;
     for (const { pose } of frames) {
-      expect(pose.legRight.flex).toBe(first.flex);
       expect(pose.legRight.knee).toBe(first.knee);
+      // The hip angle is re-fitted by a degree or two so the heel stays on the floor as the foot pivots.
+      expect(Math.abs(pose.legRight.flex - first.flex)).toBeLessThan(3);
     }
     expect(demo.props.map((prop) => prop.kind)).toEqual(["chair"]);
   });
 
-  it("pulls the toes up then points them, with the toes clear of the floor", () => {
+  it("keeps the heel resting on the floor for the whole set: not a leg raise", () => {
+    for (const { joints, time } of frames) {
+      expect(joints.heelRight.y, `heel at ${time} ms`).toBeLessThanOrEqual(0.01);
+    }
+  });
+
+  it("pulls the toes up then points them, with the toes always clear of the floor", () => {
     const toeHeights = frames.map(({ joints }) => joints.toeRight.y);
-    // Flat the toe is about 7 cm up; pulled up it rises to 15 cm; pointed it comes down to the floor but not through it.
+    // Relaxed the toe is about 9 cm up; pulled up it rises to 16 cm; pointed it comes down to about 1 cm but not through the floor.
     expect(Math.max(...toeHeights)).toBeGreaterThan(0.13);
-    expect(Math.min(...toeHeights)).toBeLessThan(0.02);
-    expect(Math.min(...toeHeights)).toBeGreaterThanOrEqual(-0.01);
+    expect(Math.min(...toeHeights)).toBeLessThan(0.03);
+    expect(Math.min(...toeHeights)).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -315,27 +440,77 @@ describe("single-leg stand and side hip raise", () => {
 });
 
 describe("hands on supports", () => {
-  /** The highest point of the counter's top, from its props. */
-  it("keeps the hand within 3 cm of the counter top in the holds of the counter exercises", () => {
-    for (const id of ["single_leg_stand", "heel_to_toe_stand", "heel_toe_raises", "side_hip_raise", "standing_bird_dog"]) {
-      for (const still of stillFrames(steadyStrengthDemos[id]!)) {
-        const joints = jointPositions(still.pose);
-        const lowestHandHeight = Math.min(...(["handLeft", "handRight"] as const).map((hand) => joints[hand].y));
-        const handsOnCounter = (["handLeft", "handRight"] as const).filter((hand) => Math.abs(joints[hand].y - 0.935) < 0.03);
-        expect(handsOnCounter.length, `${id}: ${still.label} (lowest hand ${lowestHandHeight.toFixed(3)})`).toBeGreaterThanOrEqual(1);
+  /** The grey blocks of the demo's first prop of this kind, as boxes. */
+  const boxesOf = (demo: Demo, kind: string): PropBox[] => demo.props.filter((prop) => prop.kind === kind).flatMap((prop) => propBoxes(prop));
+
+  /** Checks the named hands rest on top of the boxes in every sampled frame whose time is inside one of the windows. */
+  function expectHandsOnTop(id: string, hands: Array<"handLeft" | "handRight">, boxes: PropBox[], windows: Array<[number, number]> = [[0, Infinity]]): void {
+    const demo = steadyStrengthDemos[id]!;
+    let checked = 0;
+    for (const { joints, time } of sampledFrames(demo)) {
+      if (!windows.some(([from, to]) => time >= from && time <= to)) continue;
+      for (const hand of hands) {
+        const point = joints[hand];
+        expect(handRestsOnTop(point, boxes), `${id} at ${time} ms: ${hand} at ${point.x.toFixed(2)}, ${point.y.toFixed(3)}, ${point.z.toFixed(2)} is not on the support`).toBe(true);
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(10);
+  }
+
+  it("keeps the hands on the counter top in every frame of the counter exercises", () => {
+    expectHandsOnTop("single_leg_stand", ["handLeft"], boxesOf(steadyStrengthDemos.single_leg_stand!, "counter"));
+    expectHandsOnTop("heel_to_toe_stand", ["handLeft"], boxesOf(steadyStrengthDemos.heel_to_toe_stand!, "counter"));
+    expectHandsOnTop("heel_toe_raises", ["handLeft", "handRight"], boxesOf(steadyStrengthDemos.heel_toe_raises!, "counter"));
+    expectHandsOnTop("side_hip_raise", ["handLeft"], boxesOf(steadyStrengthDemos.side_hip_raise!, "counter"));
+    expectHandsOnTop("standing_bird_dog", ["handLeft", "handRight"], boxesOf(steadyStrengthDemos.standing_bird_dog!, "counter"));
+    expectHandsOnTop("sideways_walking", ["handLeft"], boxesOf(steadyStrengthDemos.sideways_walking!, "counter"));
+  });
+
+  it("keeps the hands on the chair arms from the start until the hips are clearly up, and again from the reach back until the end", () => {
+    const demo = steadyStrengthDemos.sit_to_stand!;
+    const armRests = boxesOf(demo, "chair").filter((box) => box.max.y - box.min.y < 0.05 && box.min.y > SEAT_HEIGHT_FOR_TESTS + 0.15);
+    expect(armRests.length).toBe(2);
+    // Stand up: Start hold and the first four moves end at 1500 + 350 + 350 + 300 + 300 = 2800 ms; sit down: the hands are back on the arms from 5500 + 600 + 600 = 6700 ms.
+    expectHandsOnTop("sit_to_stand", ["handLeft", "handRight"], armRests, [[0, 2800], [6700, 8000]]);
+  });
+
+  it("keeps both hands on the wall face in every frame of the calf stretch", () => {
+    const demo = steadyStrengthDemos.calf_stretch!;
+    const wall = boxesOf(demo, "wall")[0]!;
+    for (const { joints, time } of sampledFrames(demo)) {
+      for (const hand of ["handLeft", "handRight"] as const) {
+        const point = joints[hand];
+        const onFace = Math.abs(point.x - (wall.min.x - HAND_RESTING_HEIGHT)) <= 0.02 && point.y >= wall.min.y && point.y <= wall.max.y && point.z >= wall.min.z && point.z <= wall.max.z;
+        expect(onFace, `calf stretch at ${time} ms: ${hand} x ${point.x.toFixed(3)} (wall face ${wall.min.x})`).toBe(true);
       }
     }
   });
 });
 
 describe("heel to toe stand", () => {
+  const demo = steadyStrengthDemos.heel_to_toe_stand!;
+
   it("ends with the front heel touching the back toe, in one line, both feet flat", () => {
-    const hold = stillFrames(steadyStrengthDemos.heel_to_toe_stand!)[1]!;
+    const hold = stillFrames(demo)[1]!;
     const joints = jointPositions(hold.pose);
     expect(Math.abs(joints.heelLeft.x - joints.toeRight.x)).toBeLessThan(0.02);
     expect(Math.abs(joints.heelLeft.z - joints.heelRight.z)).toBeLessThan(0.02);
     expect(joints.heelLeft.y).toBeCloseTo(0, 2);
     expect(joints.toeLeft.y).toBeCloseTo(0, 2);
+  });
+
+  it("lifts the stepping foot and swings it forward past the standing foot, never sliding through it", () => {
+    const frames = sampledFrames(demo);
+    // The stepping (left) foot goes at least 3 cm up and more than a foot length beyond the standing toe on the way.
+    expect(Math.max(...frames.map(({ joints }) => joints.heelLeft.y))).toBeGreaterThan(0.05);
+    expect(Math.max(...frames.map(({ joints }) => joints.heelLeft.x - joints.toeRight.x))).toBeGreaterThan(0.1);
+    // And the standing (right) foot never moves.
+    const first = frames[0]!.joints;
+    for (const { joints } of frames) {
+      expect(distance(joints.heelRight, first.heelRight)).toBeLessThan(1e-9);
+      expect(distance(joints.toeRight, first.toeRight)).toBeLessThan(0.005);
+    }
   });
 });
 
@@ -343,25 +518,69 @@ describe("sideways walking", () => {
   const demo = steadyStrengthDemos.sideways_walking!;
   const frames = sampledFrames(demo);
 
-  it("steps out then in without ever crossing the feet, and travels about 20 cm per step", () => {
+  it("steps out twice then back twice without ever crossing the feet, about 18 cm per step each way", () => {
     for (const { joints } of frames) {
       // Facing -x, the figure's left is world -z: the left foot stays further left than the right.
       expect(joints.ankleLeft.z).toBeLessThan(joints.ankleRight.z - 0.1);
     }
-    const first = frames[0]!.joints.pelvis.z;
-    const last = frames[frames.length - 1]!.joints.pelvis.z;
-    expect(first - last).toBeGreaterThan(0.1);
+    // The pelvis goes out about 36 cm (twice 18) and comes all the way back.
+    const sideways = frames.map(({ joints }) => joints.pelvis.z);
+    expect(Math.min(...sideways)).toBeLessThan(-0.33);
+    expect(Math.max(...sideways)).toBeCloseTo(0, 6);
+  });
+
+  it("goes both ways: the pelvis moves to the left for a while and then back to the right", () => {
+    const sideways = frames.map(({ joints }) => joints.pelvis.z);
+    const steps = sideways.slice(1).map((value, index) => value - sideways[index]!);
+    expect(Math.min(...steps)).toBeLessThan(-0.01); // to the figure's left (world -z)
+    expect(Math.max(...steps)).toBeGreaterThan(0.01); // and back
+    // The farthest point is somewhere in the middle of the loop, not at either end.
+    const farthest = sideways.indexOf(Math.min(...sideways));
+    expect(farthest).toBeGreaterThan(sideways.length * 0.3);
+    expect(farthest).toBeLessThan(sideways.length * 0.7);
+  });
+
+  it("ends exactly where it began, so the loop restart does not jump", () => {
+    const first = demo.steps[0]!;
+    const last = demo.steps[demo.steps.length - 1]!;
+    if (first.kind !== "hold" || last.kind !== "move") throw new Error("expected a hold first and a move last");
+    expect(last.to.anchor.joint).toBe(first.pose.anchor.joint);
+    expect(distance(last.to.anchor.at, first.pose.anchor.at)).toBeLessThan(1e-9);
+    for (const part of ["pelvis", "spine", "neck", "armLeft", "armRight", "legLeft", "legRight"] as const) {
+      const wanted = first.pose[part] as Record<string, number>;
+      const got = last.to[part] as Record<string, number>;
+      for (const key of Object.keys(wanted)) expect(got[key]).toBeCloseTo(wanted[key]!, 9);
+    }
+    // And the figure itself moves by almost nothing across the wrap (largest step in 20 ms).
+    const justBefore = jointPositions(frameAt(demo, loopLengthMs(demo) - 20).pose);
+    const justAfter = jointPositions(frameAt(demo, 0).pose);
+    expect(distance(justBefore.pelvis, justAfter.pelvis)).toBeLessThan(0.01);
   });
 
   it("keeps a hand on the counter and the whole figure over the counter's width", () => {
     const counter = demo.props.find((prop) => prop.kind === "counter");
     expect(counter).toBeDefined();
     for (const { joints } of frames) {
-      expect(Math.abs(joints.handLeft.y - 0.935)).toBeLessThan(0.04);
       expect(Math.abs(joints.pelvis.z)).toBeLessThan(0.6);
     }
   });
 });
+
+/**
+ * Signed distance in metres of the pelvis from the straight line through the
+ * shoulders' middle and the knees' middle, measured in the vertical (x, y)
+ * plane. Positive = the pelvis is ABOVE the line (an arch), negative = below
+ * it (a sag), 0 = the shoulder, hip and knee are in one straight line.
+ */
+function pelvisAboveShoulderKneeLine(joints: Record<JointName, Vec3>): number {
+  const shoulder = { x: (joints.shoulderLeft.x + joints.shoulderRight.x) / 2, y: (joints.shoulderLeft.y + joints.shoulderRight.y) / 2 };
+  const knee = { x: (joints.kneeLeft.x + joints.kneeRight.x) / 2, y: (joints.kneeLeft.y + joints.kneeRight.y) / 2 };
+  const along = { x: knee.x - shoulder.x, y: knee.y - shoulder.y };
+  const length = Math.hypot(along.x, along.y);
+  // Left-hand normal of the shoulder-to-knee direction; flipped so that "up" is positive whichever way the line runs.
+  const normal = along.x >= 0 ? { x: -along.y / length, y: along.x / length } : { x: along.y / length, y: -along.x / length };
+  return (joints.pelvis.x - shoulder.x) * normal.x + (joints.pelvis.y - shoulder.y) * normal.y;
+}
 
 describe("glute bridge hold", () => {
   const demo = steadyStrengthDemos.glute_bridge_hold!;
@@ -369,16 +588,22 @@ describe("glute bridge hold", () => {
   const bed = demo.props.find((prop) => prop.kind === "bed");
   if (bed?.kind !== "bed") throw new Error("expected a bed");
 
-  /** Interior angle chest-pelvis-knees (the knees' midpoint keeps the three points in one plane). */
-  const bridgeAngle = (joints: Record<JointName, Vec3>): number => {
-    const kneeMiddle = { x: (joints.kneeLeft.x + joints.kneeRight.x) / 2, y: (joints.kneeLeft.y + joints.kneeRight.y) / 2, z: (joints.kneeLeft.z + joints.kneeRight.z) / 2 };
-    return angleAtJoint(joints.chest, joints.pelvis, kneeMiddle);
-  };
-
-  it("lifts the hips to a straight shoulder-hip-knee line and no higher", () => {
-    for (const { joints } of frames) expect(bridgeAngle(joints)).toBeLessThanOrEqual(182);
+  it("the line test can tell an arch from a straight line (so the hip test below can fail)", () => {
     const hold = jointPositions(stillFrames(demo)[1]!.pose);
-    expect(bridgeAngle(hold)).toBeGreaterThanOrEqual(170);
+    expect(Math.abs(pelvisAboveShoulderKneeLine(hold))).toBeLessThan(0.03);
+    // Arch the hips 10 degrees past the line: lift the pelvis straight up by what 10 degrees means over the thigh.
+    const arched = { ...hold, pelvis: { ...hold.pelvis, y: hold.pelvis.y + BODY.thigh * Math.sin((10 * Math.PI) / 180) } };
+    expect(pelvisAboveShoulderKneeLine(arched)).toBeGreaterThan(0.03);
+    // A sagging pelvis reads as negative.
+    expect(pelvisAboveShoulderKneeLine({ ...hold, pelvis: { ...hold.pelvis, y: hold.pelvis.y - 0.1 } })).toBeLessThan(-0.05);
+  });
+
+  it("never lifts the hips above the straight shoulder-to-knee line (no arch), and in the hold is within 3 cm of it", () => {
+    for (const { joints, time } of frames) {
+      expect(pelvisAboveShoulderKneeLine(joints), `at ${time} ms`).toBeLessThanOrEqual(0.01);
+    }
+    const hold = jointPositions(stillFrames(demo)[1]!.pose);
+    expect(Math.abs(pelvisAboveShoulderKneeLine(hold))).toBeLessThanOrEqual(0.03);
     // And the hips really are lifted off the bed in the hold compared with the start.
     const start = jointPositions(stillFrames(demo)[0]!.pose);
     expect(hold.pelvis.y).toBeGreaterThan(start.pelvis.y + 0.1);
@@ -397,13 +622,19 @@ describe("glute bridge hold", () => {
 
 describe("pallof press hold", () => {
   const demo = steadyStrengthDemos.pallof_press_hold!;
+  const band = demo.props.find((prop) => prop.kind === "band");
+  if (band?.kind !== "band") throw new Error("expected a band");
 
-  it("presses the hands straight out in front while the body does not turn", () => {
+  it("presses the hands straight out in front, parallel to the door, while the body does not turn", () => {
     const frames = sampledFrames(demo);
+    const firstHands = frames[0]!.joints;
     for (const { pose, joints } of frames) {
       expect(pose.pelvis.yaw).toBe(0);
       expect(pose.spine.flex).toBe(0);
       expect(Math.abs(joints.handLeft.z + joints.handRight.z)).toBeLessThan(0.02);
+      // The hands travel along x only: their sideways position never changes by more than 2 cm.
+      expect(Math.abs(joints.handLeft.z - firstHands.handLeft.z)).toBeLessThanOrEqual(0.02);
+      expect(Math.abs(joints.handRight.z - firstHands.handRight.z)).toBeLessThanOrEqual(0.02);
     }
     const [atChest, pressedOut] = stillFrames(demo).map((still) => jointPositions(still.pose));
     expect(pressedOut!.handLeft.x - atChest!.handLeft.x).toBeGreaterThan(0.25);
@@ -411,11 +642,18 @@ describe("pallof press hold", () => {
     expect(angleAtJoint(pressedOut!.shoulderLeft, pressedOut!.elbowLeft, pressedOut!.wristLeft)).toBeGreaterThan(165);
   });
 
-  it("holds a band from the door post at chest height to both hands", () => {
-    const band = demo.props.find((prop) => prop.kind === "band");
-    expect(band).toEqual(expect.objectContaining({ toJoints: ["handLeft", "handRight"] }));
-    if (band?.kind === "band") expect(band.anchor.y).toBeCloseTo(1.25, 2);
-    expect(demo.props.map((prop) => prop.kind)).toContain("doorFrame");
+  it("anchors the band at chest height to the figure's side: out to the left of the body and level with the chest, so the band runs sideways", () => {
+    expect(band.toJoints).toEqual(["handLeft", "handRight"]);
+    expect(band.anchor.y).toBeCloseTo(1.25, 2);
+    for (const { joints } of sampledFrames(demo)) {
+      const midline = (joints.shoulderLeft.z + joints.shoulderRight.z) / 2;
+      expect(Math.abs(band.anchor.z - midline)).toBeGreaterThanOrEqual(0.5);
+      expect(Math.abs(band.anchor.x - joints.chest.x)).toBeLessThanOrEqual(0.15);
+    }
+  });
+
+  it("does not draw the door frame across the figure's front (it would put the hands through the doorway)", () => {
+    expect(demo.props.map((prop) => prop.kind)).toEqual(["band"]);
   });
 });
 
@@ -423,9 +661,15 @@ describe("sit-to-stand", () => {
   const demo = steadyStrengthDemos.sit_to_stand!;
   const frames = sampledFrames(demo);
 
-  it("matches the plan's 8 second loop", () => {
+  it("matches the plan's 8 second loop: Start 1.5 s, Stand up 2.5 s, End 1.5 s, Sit down slowly 2.5 s", () => {
     expect(loopLengthMs(demo)).toBe(8000);
-    expect(demo.steps.map((step) => step.label)).toEqual(["Start", "Stand up", "Stand up", "End", "Sit down slowly", "Sit down slowly"]);
+    const lengthOf = (label: string) => demo.steps.filter((step) => step.label === label).reduce((total, step) => total + step.ms, 0);
+    expect(lengthOf("Start")).toBe(1500);
+    expect(lengthOf("Stand up")).toBe(2500);
+    expect(lengthOf("End")).toBe(1500);
+    expect(lengthOf("Sit down slowly")).toBe(2500);
+    expect(demo.steps[0]!.label).toBe("Start");
+    expect(demo.steps.map((step) => step.label).filter((label, index, all) => all.indexOf(label) === index)).toEqual(["Start", "Stand up", "End", "Sit down slowly"]);
   });
 
   it("tips the trunk forward from the hips no more than 30 degrees with the spine flexed within 5 degrees", () => {
@@ -456,6 +700,45 @@ describe("sit-to-stand", () => {
     const [seated, standingUp] = stillFrames(demo).map((still) => jointPositions(still.pose));
     expect(seated!.pelvis.y).toBeCloseTo(0.55, 2);
     expect(standingUp!.pelvis.y).toBeGreaterThan(0.85);
+  });
+
+  it("tucks the feet back under the knees: the heels are well behind the knees at the start", () => {
+    const seated = jointPositions(stillFrames(demo)[0]!.pose);
+    // Tucked: the ankle is under or behind the knee by 15 to 25 cm (the first version had the feet at the knees).
+    const tuck = seated.kneeRight.x - seated.ankleRight.x;
+    expect(tuck).toBeGreaterThan(0.15);
+    expect(tuck).toBeLessThan(0.30);
+  });
+
+  it("keeps the body's centre of mass between the heels and toes whenever the hips are off the seat and neither hand is on a chair arm", () => {
+    const chair = demo.props.find((prop) => prop.kind === "chair");
+    if (chair?.kind !== "chair") throw new Error("expected a chair");
+    const armRests = propBoxes(chair).filter((box) => box.max.y - box.min.y < 0.05 && box.min.y > SEAT_HEIGHT_FOR_TESTS + 0.15);
+    const seatedPelvisHeight = frames[0]!.joints.pelvis.y;
+
+    let checked = 0;
+    let smallestMargin = Infinity;
+    for (const { joints, time } of frames) {
+      const hipsOffSeat = joints.pelvis.y > seatedPelvisHeight + 0.03;
+      const handOnArm = (["handLeft", "handRight"] as const).some((hand) => handRestsOnTop(joints[hand], armRests));
+      if (!hipsOffSeat || handOnArm) continue;
+
+      const margins = footMargins(joints);
+      smallestMargin = Math.min(smallestMargin, margins.aheadOfHeels, margins.behindToes);
+      expect(margins.aheadOfHeels, `centre of mass behind the heels at ${time} ms`).toBeGreaterThanOrEqual(-0.01);
+      expect(margins.behindToes, `centre of mass beyond the toes at ${time} ms`).toBeGreaterThanOrEqual(-0.01);
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(20);
+    expect(smallestMargin).toBeGreaterThanOrEqual(0);
+  });
+
+  it("keeps the weight over the feet before the hips leave the seat, so the lean really comes first", () => {
+    // At the moment the pelvis starts to rise (hands still on the arms) the centre of mass is already ahead of the heels.
+    const seatedPelvisHeight = frames[0]!.joints.pelvis.y;
+    const firstRise = frames.find(({ joints }) => joints.pelvis.y > seatedPelvisHeight + 0.03)!;
+    expect(footMargins(firstRise.joints).aheadOfHeels).toBeGreaterThan(0.02);
+    expect(centreOfMass(firstRise.joints).x).toBeLessThan(Math.max(firstRise.joints.toeLeft.x, firstRise.joints.toeRight.x));
   });
 });
 
@@ -531,17 +814,24 @@ describe("calf stretch", () => {
   const demo = steadyStrengthDemos.calf_stretch!;
   const frames = sampledFrames(demo);
 
-  it("keeps the back heel on the floor, leans no more than 20 degrees, with the hands on the wall", () => {
-    const wall = demo.props[0];
-    if (wall?.kind !== "wall") throw new Error("expected a wall");
+  it("moves the highlighted right leg: its heel slides at least 30 cm back from Start to Hold while the front (left) foot does not move", () => {
+    expect(demo.moving).toEqual(["thighRight", "shinRight", "footRight"]);
+    const [start, hold] = stillFrames(demo).map((still) => jointPositions(still.pose));
+    expect(start!.heelRight.x - hold!.heelRight.x).toBeGreaterThanOrEqual(0.3);
+    const first = frames[0]!.joints;
     for (const { joints } of frames) {
-      expect(joints.heelRight.y).toBeCloseTo(0, 5);
+      expect(distance(joints.heelLeft, first.heelLeft)).toBeLessThan(1e-9);
+      expect(distance(joints.toeLeft, first.toeLeft)).toBeLessThan(1e-3);
+    }
+  });
+
+  it("keeps the front heel on the floor, the back heel down at the start and in the hold, and leans no more than 20 degrees", () => {
+    for (const { joints } of frames) {
+      expect(Math.abs(joints.heelLeft.y)).toBeLessThan(0.002);
       expect(trunkLeanDegrees(joints)).toBeLessThanOrEqual(20);
     }
     for (const still of stillFrames(demo)) {
-      const joints = jointPositions(still.pose);
-      expect(Math.abs(joints.handLeft.x - (wall.x - 0.06))).toBeLessThan(0.04);
-      expect(Math.abs(joints.handRight.x - (wall.x - 0.06))).toBeLessThan(0.04);
+      expect(Math.abs(jointPositions(still.pose).heelRight.y)).toBeLessThan(0.002);
     }
   });
 
@@ -555,8 +845,13 @@ describe("calf stretch", () => {
 
 describe("doorway chest stretch", () => {
   const demo = steadyStrengthDemos.doorway_chest_stretch!;
+  const doorFrame = demo.props.find((prop) => prop.kind === "doorFrame");
+  if (doorFrame?.kind !== "doorFrame") throw new Error("expected a door frame");
+  /** The left post, and its front face (the face towards the figure, at the post's lowest x). */
+  const leftPost = propBoxes(doorFrame).find((box) => box.min.z > 0.4)!;
+  const frontFaceX = leftPost.min.x;
 
-  it("keeps the forearm up the door frame, the upper arm about horizontal and the trunk upright", () => {
+  it("keeps the forearm up the door frame, the upper arm about horizontal and the trunk upright, no arching", () => {
     for (const still of stillFrames(demo)) {
       const joints = jointPositions(still.pose);
       // Forearm about vertical, upper arm about level with the shoulder.
@@ -566,12 +861,39 @@ describe("doorway chest stretch", () => {
       expect(angleAtJoint(joints.shoulderLeft, joints.elbowLeft, joints.wristLeft)).toBeGreaterThan(75);
       expect(angleAtJoint(joints.shoulderLeft, joints.elbowLeft, joints.wristLeft)).toBeLessThan(105);
     }
-    for (const { pose } of sampledFrames(demo)) expect(pose.spine.flex).toBe(0);
+    for (const { pose } of sampledFrames(demo)) {
+      expect(pose.spine.flex).toBeGreaterThanOrEqual(0);
+      expect(pose.spine.flex).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("lays the forearm flat on the front face of the post (the face towards the figure): elbow and wrist within 2 cm of it, inside the post's width", () => {
+    for (const still of stillFrames(demo)) {
+      const joints = jointPositions(still.pose);
+      for (const joint of ["elbowLeft", "wristLeft"] as const) {
+        expect(Math.abs(joints[joint].x - frontFaceX), `${still.label}: ${joint}`).toBeLessThanOrEqual(0.02);
+        expect(joints[joint].x, `${still.label}: ${joint} must be in front of the face, not inside the post`).toBeLessThanOrEqual(frontFaceX);
+        expect(joints[joint].z).toBeGreaterThanOrEqual(leftPost.min.z);
+        expect(joints[joint].z).toBeLessThanOrEqual(leftPost.max.z);
+      }
+    }
+  });
+
+  it("shows the stretch: the elbow is in front of the shoulder line at the start and slightly behind it in the hold", () => {
+    const [start, hold] = stillFrames(demo).map((still) => jointPositions(still.pose));
+    expect(start!.elbowLeft.x - start!.shoulderLeft.x).toBeGreaterThan(0.03);
+    const behind = hold!.shoulderLeft.x - hold!.elbowLeft.x;
+    expect(behind).toBeGreaterThan(0.02);
+    expect(behind, "slightly behind, not hauled back").toBeLessThan(0.12);
   });
 
   it("steps forward in the hold: the body is ahead of where it started", () => {
     const [start, hold] = stillFrames(demo).map((still) => jointPositions(still.pose));
     expect(hold!.pelvis.x).toBeGreaterThan(start!.pelvis.x + 0.08);
     expect(hold!.heelLeft.x).toBeGreaterThan(start!.heelLeft.x + 0.2);
+  });
+
+  it("opens in a view where the moving arm is not hidden by the near post", () => {
+    expect(demo.view).not.toBe("side");
   });
 });
