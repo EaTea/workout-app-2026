@@ -89,3 +89,33 @@ describe("performedExerciseName", () => {
     expect(performedExerciseName(program, sessionWith({ day: 1 }), warmupPosition, "ytwi")).toBe("YTWI raises");
   });
 });
+
+describe("helpers for a set on a different day than its session", () => {
+  const session = sessionWith({ programWeek: 1, day: 1 });
+
+  it("look the block up under the set's own day, defaulting to the session's day", () => {
+    // Day 1 and day 5 both end with the heavy bag in block 6; day 2 has no block 6.
+    expect(loggedSetNoun(program, session, 6, "heavy_bag")).toBe("round");
+    expect(loggedSetNoun(program, session, 6, "heavy_bag", 2)).toBe("set");
+    expect(loggedSetLabel(program, session, 6, "heavy_bag", 5)).toBe("Round");
+    // Day 2 block 2 is split-squat jumps, which day 1's block 2 (slams) does not contain.
+    expect(loggedSetNoun(program, session, 2, "split_squat_jump")).toBe("set");
+    expect(loggedSetLabel(program, session, 2, "split_squat_jump", 2)).toBe("Set");
+  });
+
+  it("shows reps and kg by the set's own day", () => {
+    const heavyBagRound: LoggedSet = { exerciseId: "heavy_bag", day: 5, blockPosition: 6, setNumber: 1, loggedAt: new Date("2026-11-02T10:00:00Z") };
+    const sameSlotOtherDay: LoggedSet = { ...heavyBagRound, day: 2 };
+
+    expect(loggedSetShowsRepsAndLoad(program, session, heavyBagRound)).toBe(false);
+    // Day 2 has no block 6, so it falls back to what was stored (nothing).
+    expect(loggedSetShowsRepsAndLoad(program, session, sameSlotOtherDay)).toBe(false);
+  });
+
+  it("names a warm-up by the set's own day for rotation", () => {
+    // Day 2 block 1 is a warm-up; ytwi is only in day 1/5 warm-ups, so under day 1 it is rotated, under day 2 it is not found as a warm-up.
+    const week5 = sessionWith({ programWeek: 5, day: 1 });
+    expect(performedExerciseName(program, week5, 1, "ytwi")).toBe("Reverse fly");
+    expect(performedExerciseName(program, week5, 2, "ytwi", 2)).toBe("YTWI raises");
+  });
+});

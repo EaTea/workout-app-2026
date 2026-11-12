@@ -149,3 +149,49 @@ describe("lastTimeSetFor", () => {
     expect(lastTimeSetFor(undefined, 1)).toBeUndefined();
   });
 });
+
+describe("findLastTime (sets that carry their own day)", () => {
+  /** One date holding two days: pull-ups as day 1 main strength (block 3) and as day 5 mini-dose (block 4). */
+  const twoDaySession = makeSession("2026-11-02", 1, [
+    { ...makeSet("pull_up", 3, 1, 8), day: 1 },
+    { ...makeSet("pull_up", 4, 1, 3), day: 5 },
+  ]);
+
+  it("finds each day's own sets in a session holding two days", () => {
+    const log = makeLog(twoDaySession);
+
+    const mainStrength = findLastTime(log, program, query("pull_up", 1, "mainStrength"), "2026-11-09");
+    const miniDose = findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09");
+
+    expect(mainStrength?.sets.map((set) => set.reps)).toEqual([8]);
+    expect(miniDose?.sets.map((set) => set.reps)).toEqual([3]);
+  });
+
+  it("counts a session for a day only if one of its sets is on that day, preferring it over a newer session of another day", () => {
+    const log = makeLog(
+      twoDaySession,
+      makeSession("2026-11-04", 3, [{ ...makeSet("pull_up", 4, 1, 99), day: 3 }]),
+    );
+
+    // Day 3's own block 4 is overhead press, so the newer session does not match at all.
+    expect(findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09")?.date).toBe("2026-11-02");
+
+    // A newer session whose only set is on another day must not win the "same day" tier.
+    const newerOtherDay = makeLog(
+      makeSession("2026-10-26", 5, [makeSet("pull_up", 4, 1, 4)]),
+      makeSession("2026-11-02", 1, [{ ...makeSet("pull_up", 4, 1, 6), day: 5 }]),
+      makeSession("2026-11-04", 5, [{ ...makeSet("pull_up", 4, 1, 7), day: 1 }]),
+    );
+    expect(findLastTime(newerOtherDay, program, query("pull_up", 5, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(6);
+  });
+
+  it("reads an old-format log (no per-set day) exactly as before: the session's day decides", () => {
+    const log = makeLog(makeSession("2026-11-02", 5, [makeSet("pull_up", 4, 1, 4)]));
+
+    expect(findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // Same block type on another day's query still falls back to "any day".
+    expect(findLastTime(log, program, query("pull_up", 1, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // And a session with no stored day resolves nothing.
+    expect(findLastTime(makeLog(makeSession("2026-11-02", undefined, [makeSet("pull_up", 4, 1, 4)])), program, query("pull_up", 5, "miniDose"), "2026-11-09")).toBeUndefined();
+  });
+});

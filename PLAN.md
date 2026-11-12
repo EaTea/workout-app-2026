@@ -1975,7 +1975,7 @@ days, so each set needs to carry its own day.
 1. [x] `LoggedSet` gets `day` (the day the set's block belongs to). The
    log wire format gains an optional per-set `day`; old saves and old
    exports without it read the session's `day`, so nothing is migrated.
-2. [ ] `findLastTime`, History and the CSV export read the set's `day`
+2. [x] `findLastTime`, History and the CSV export read the set's `day`
    instead of the session's. Unit tests for an old-format log and for a
    session whose sets carry two different days.
 3. [ ] Fixes from the challenger review.

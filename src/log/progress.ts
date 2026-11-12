@@ -1,6 +1,7 @@
 import type { DayNumber, Program } from "../program/model";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { sessionDates } from "./operations";
+import { setDay } from "./setDay";
 
 /**
  * Data behind the History "Progress" charts: for one exercise done in one
@@ -16,7 +17,7 @@ import { sessionDates } from "./operations";
  * Only work done in a mainStrength, miniDose, explosive or strength block counts, so
  * warm-up, core and finisher sets of the same exercise never mix in. The log
  * stores a block position, not a block type, so the type is resolved from the
- * program by the session's stored day and the set's block position, exactly
+ * program by the set's effective day (`setDay`) and its block position, exactly
  * as `lastTime.ts` does. Anything that cannot be resolved is left out rather
  * than guessed.
  */
@@ -81,13 +82,14 @@ export interface ProgressPoint {
 
 /**
  * The type of block a logged set was done in, resolved from the program by the
- * session's stored day (as `lastTime.ts` does). Undefined when it cannot be
- * resolved: no stored day, or the program no longer has the day, block or exercise.
+ * set's effective day (`setDay`, as `lastTime.ts` does). Undefined when it cannot be
+ * resolved: no day on the set or session, or the program no longer has the day, block or exercise.
  */
 function blockTypeOfLoggedSet(program: Program, session: LoggedSession, set: LoggedSet): string | undefined {
-  if (session.day === undefined) return undefined;
+  const day = setDay(session, set);
+  if (day === undefined) return undefined;
 
-  const block = program.days[session.day]?.blocks[set.blockPosition - 1];
+  const block = program.days[day]?.blocks[set.blockPosition - 1];
   const isExerciseInBlock = block?.items.some((item) => item.exerciseId === set.exerciseId) ?? false;
   return isExerciseInBlock ? block?.type : undefined;
 }

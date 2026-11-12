@@ -38,3 +38,20 @@ describe("groupSetsByExercise", () => {
     expect(groupSetsByExercise(session).map((group) => group.exerciseId)).toEqual(["b", "a"]);
   });
 });
+
+describe("groupSetsByExercise with per-set days", () => {
+  it("keeps the same block position of two days as two groups", () => {
+    const session: LoggedSession = {
+      date: "2026-11-09",
+      day: 1,
+      sets: [
+        { exerciseId: "pull_up", day: 1, blockPosition: 3, setNumber: 1, loggedAt: new Date("2026-11-09T10:00:00Z") },
+        { exerciseId: "pull_up", day: 5, blockPosition: 3, setNumber: 1, loggedAt: new Date("2026-11-09T10:01:00Z") },
+        { exerciseId: "pull_up", blockPosition: 3, setNumber: 2, loggedAt: new Date("2026-11-09T10:02:00Z") },
+      ],
+    };
+
+    // The set without its own day belongs to the session's day 1, so it joins the first group.
+    expect(groupSetsByExercise(session).map((group) => [group.day, group.sets.length])).toEqual([[1, 2], [5, 1]]);
+  });
+});
