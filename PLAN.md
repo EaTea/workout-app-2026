@@ -2175,7 +2175,18 @@ Every other day and week matches `main` exactly.
    described the alternation). The doc's Day 3 row still says ~32 min with
    no core block, from before PR 13; that drift is older than this PR and
    is left as a separate follow-up.
-6. [ ] Fixes from the challenger review.
+6. [x] Fixes from the challenger review. It found no wrong figure: every
+   session from 1 Nov to 29 Dec matches `main` except Day 3's explosive
+   block in weeks 2, 4, 6 and 8, which match the worked examples, and
+   Steady Strength is unchanged. Fixed: the PR 23 example and alternation
+   rule, step ticks, deload weeks losing the "Changed" note (an item is now
+   compared with the last week it ran), the overview naming only plyo
+   push-ups for Day 3, `weeks` with `weeklyIncrease` and a repeated
+   exercise in one block (now parse errors), two doc comments and the
+   evidence link (now a DOI). Left as is: no UI test that Today and the
+   log screen number blocks after a dropped one (no shipped data drops a
+   block, and `buildSession` and session progress test it), and the
+   README gained `weeks` in step 3 rather than step 1.
 - **Merge point:** Day 3 shows the right explosive exercise each week, and
   every other session is unchanged.
 
