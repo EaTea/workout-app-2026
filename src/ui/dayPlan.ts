@@ -157,7 +157,7 @@ function renderPhaseChanges(program: Program, session: Extract<SessionView, { ki
 
 /** One block card: numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
 function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
-  const position = blockIndex + 1;
+  const position = block.position;
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 

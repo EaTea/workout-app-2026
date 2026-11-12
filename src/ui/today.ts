@@ -258,7 +258,7 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, session.phase, date, log, locked, noEquipment)));
+  session.blocks.forEach((block) => parts.push(renderBlockCard(program, block, block.position, session.dayNumber, session.phase, date, log, locked, noEquipment)));
   return parts;
 }
 

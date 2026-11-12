@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { parseProgram } from "./parse";
+import { buildSession, type SessionView } from "./schedule";
 
 /**
- * Tests for the item field `weeks` (PLAN.md PR 27 step 1): parsing and
- * the gap warning (rules 1 and 2). They use a small inline program, never
- * public/program.json, so they keep working whatever the shipped data says.
+ * Tests for the item field `weeks` (PLAN.md PR 27 steps 1 and 2): parsing and
+ * the gap warning (rule 1 and 2), and the schedule's per-week filtering
+ * (rule 3). They use a small inline program, never public/program.json, so
+ * they keep working whatever the shipped data says.
  */
 
 /**
@@ -142,5 +144,81 @@ describe("the weeks item field: a week with none of the block's items", () => {
     const json = weeksProgramJson();
     delete json.days[1].blocks[1].items[1].weeks;
     expect(parseProgram(json).warnings).toEqual([]);
+  });
+});
+
+describe("buildSession with the weeks item field", () => {
+  const { program } = parseProgram(weeksProgramJson());
+  const settings = { startDate: "2026-11-02", maxReps: {}, maxSavedOn: {}, maxHistory: {} };
+
+  /** The explosive block of Day 3's session on `date`, or a failure. */
+  function explosiveBlockOn(date: string) {
+    const session = buildSession(program, settings, date);
+    if (session.kind !== "training") throw new Error(`expected a training session on ${date}`);
+    const block = session.blocks.find((candidate) => candidate.type === "explosive");
+    if (block === undefined) throw new Error(`no explosive block on ${date}`);
+    return { session, block };
+  }
+
+  /** Reduces an explosive block to the figures the worked examples list. */
+  function summary(date: string) {
+    const { block } = explosiveBlockOn(date);
+    return block.items.map((item) => ({
+      exercise: item.exercise.id,
+      sets: item.sets.length,
+      reps: item.sets[0]!.target,
+      perSide: item.perSide,
+      restSec: item.restSec,
+    }));
+  }
+
+  const plyo = (sets: number) => ({ exercise: "plyo_push_up", sets, reps: { kind: "fixed", count: 5 }, perSide: false, restSec: { min: 45, max: 45 } });
+  const throws = (sets: number) => ({ exercise: "rotational_wall_throw", sets, reps: { kind: "fixed", count: 5 }, perSide: true, restSec: { min: 45, max: 45 } });
+
+  // PLAN.md PR 26 worked examples (start date 2 Nov, so Week 1 Day 3 is 4 Nov).
+  it.each([
+    ["4 Nov, week 1 (Base)", "2026-11-04", [plyo(5)]],
+    ["11 Nov, week 2 (Base)", "2026-11-11", [throws(4)]],
+    ["25 Nov, week 4 (Deload): throws halved", "2026-11-25", [throws(2)]],
+    ["9 Dec, week 6 (Power endurance)", "2026-12-09", [throws(4)]],
+    ["16 Dec, week 7 (Power endurance)", "2026-12-16", [plyo(5)]],
+    ["23 Dec, week 8 (Deload + retest): throws halved", "2026-12-23", [throws(2)]],
+  ])("%s shows only that week's explosive exercise", (_name, date, expected) => {
+    expect(summary(date)).toEqual(expected);
+  });
+
+  it("leaves the other blocks of the day, and a day without weeks, as they are", () => {
+    const { session } = explosiveBlockOn("2026-11-11");
+    expect(session.blocks.map((block) => block.type)).toEqual(["warmup", "explosive", "core"]);
+    expect(session.blocks.map((block) => block.position)).toEqual([1, 2, 3]);
+
+    const dayOne = buildSession(program, settings, "2026-11-09") as Extract<SessionView, { kind: "training" }>;
+    expect(dayOne.blocks.map((block) => block.items.map((item) => item.exercise.id))).toEqual([["plyo_push_up"]]);
+  });
+
+  describe("when a week has none of a block's items (after the parse warning)", () => {
+    // Plyo push-ups run in weeks 1 and 3 and throws in weeks 2 and 4, so weeks 5-8 have no explosive items (2 Dec is week 5 day 3).
+    const json = weeksProgramJson();
+    plyoItem(json).weeks = [1, 3];
+    json.days[1].blocks[1].items[1].weeks = [2, 4];
+    const { program: gappedProgram, warnings } = parseProgram(json);
+
+    it("drops the empty block but keeps the later blocks' original positions", () => {
+      expect(warnings).toHaveLength(1);
+
+      const emptyWeek = buildSession(gappedProgram, settings, "2026-12-02") as Extract<SessionView, { kind: "training" }>;
+      expect(emptyWeek.week).toBe(5);
+      expect(emptyWeek.blocks.map((block) => [block.type, block.position])).toEqual([
+        ["warmup", 1],
+        ["core", 3],
+      ]);
+
+      const fullWeek = buildSession(gappedProgram, settings, "2026-11-04") as Extract<SessionView, { kind: "training" }>;
+      expect(fullWeek.blocks.map((block) => [block.type, block.position])).toEqual([
+        ["warmup", 1],
+        ["explosive", 2],
+        ["core", 3],
+      ]);
+    });
   });
 });

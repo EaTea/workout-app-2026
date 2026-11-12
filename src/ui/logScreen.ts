@@ -111,7 +111,7 @@ export function renderLogScreen(
   // and logs, pre-fills and shows "last time" as the swap.
   const { session } = buildSwappedSession(program, settings, initialLog, noEquipmentTicks, date);
 
-  const block = session.kind === "training" ? session.blocks[blockPosition - 1] : undefined;
+  const block = session.kind === "training" ? session.blocks.find((candidate) => candidate.position === blockPosition) : undefined;
   const item = block?.items.find((candidate) => candidate.exercise.id === exerciseId);
 
   if (session.kind !== "training" || block === undefined || item === undefined) {

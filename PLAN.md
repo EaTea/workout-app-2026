@@ -2150,9 +2150,12 @@ Every other day and week matches `main` exactly.
    warning (rule 2). Unit tests for each rejected value and the warning.
    `lengthWeeks` is now read before the days, since `weeks` is checked
    against it.
-2. [ ] `buildSession` filtering by week (rule 3). Unit tests for the
-   worked examples, and a check that every other session from 2 Nov to
-   27 Dec matches `main`.
+2. [x] `buildSession` filtering by week (rule 3). Unit tests for the
+   worked examples. Blocks now carry their `position` in the program day,
+   and Today, the log screen, session progress and the day plans use it,
+   so a block left out of a week doesn't renumber the ones after it. The
+   check that every other session from 2 Nov to 27 Dec matches `main`
+   moves to step 3, where the shipped file changes.
 3. [ ] `public/program.json`: the `rotational_wall_throw` exercise and the
    two Day 3 items, replacing the stop-gap note. Data tests over the
    shipped file. README "Editing program.json" documents `weeks`.

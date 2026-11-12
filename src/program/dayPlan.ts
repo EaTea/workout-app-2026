@@ -112,7 +112,8 @@ export function compareWithPreviousWeek(program: Program, settings: TrainingSett
   const changes: DayPlanChanges = { previousWeek: week - 1, blocks: [], items: [] };
 
   current.blocks.forEach((currentBlock, blockIndex) => {
-    const previousBlock = previous.blocks[blockIndex];
+    // Matched by position in the day, not index: a block can be left out of one week.
+    const previousBlock = previous.blocks.find((candidate) => candidate.position === currentBlock.position);
     if (previousBlock === undefined) {
       return;
     }
