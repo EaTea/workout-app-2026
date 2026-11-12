@@ -1,5 +1,11 @@
+import { renderShowMeButton } from "./showMeButton";
 import type { Program, Range } from "../program/model";
-import { compareWithPreviousWeek, buildDayPlan, type DayPlanChanges } from "../program/dayPlan";
+import type { CombinesByDate } from "../combine/model";
+import type { WorkoutLog } from "../log/model";
+import { todayLocalDate } from "../program/calendar";
+import { compareWithPreviousWeek, buildDayPlan, planDateFor, type DayPlanChanges } from "../program/dayPlan";
+import { activeCombineOn, activeDonorOn } from "../program/combineOffers";
+import { renderCombinedNote } from "./combineCards";
 import { itemDisplayName } from "../program/rotation";
 import type { BlockView, ItemView, SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
@@ -7,7 +13,6 @@ import { element } from "./dom";
 import { formatBlockChange, formatBlockTitle, formatItemChange, formatItemDetails, formatItemDose, formatPlanKicker, formatRange, formatTimerAdjustment } from "./format";
 import { planRouteHash } from "./router";
 import "./dayPlan.css";
-import { renderShowMeButton } from "./showMeButton";
 
 /**
  * The read-only Day plan screen, rendered by app.ts for `#/plan/<day>/<week>`
@@ -36,9 +41,25 @@ const REST_DAY_MESSAGE = "Recover; no training is planned.";
  * Overview). `today` is the shown date, used as the stand-in start when no
  * start date is saved; `search` is `location.search`, kept by the week links
  * so a `?date=` preview survives. `programId` is the active program's catalogue
- * id, used to look up "Show me" animations for the rows.
+ * id, used to look up "Show me" animations for the rows. When `combines` holds a combine that involves
+ * this day of this week (as the day that was added or the day it was added to),
+ * a short "Combined with Day M on <date>" note sits under the header on both
+ * days; the plan itself stays as planned. A lapsed combine (its host date
+ * passed with nothing logged; see `isLapsedCombine`) shows no note, hence the
+ * `log` and the device's `realToday`.
  */
-export function renderDayPlanScreen(program: Program, programId: string, settings: TrainingSettings, week: number, dayNumber: number, today: string, search: string): HTMLElement | undefined {
+export function renderDayPlanScreen(
+  program: Program,
+  programId: string,
+  settings: TrainingSettings,
+  week: number,
+  dayNumber: number,
+  today: string,
+  search: string,
+  combines: CombinesByDate = new Map(),
+  log: WorkoutLog = { sessions: {} },
+  realToday: string = todayLocalDate(),
+): HTMLElement | undefined {
   const session = buildDayPlan(program, settings, week, dayNumber, today);
   if (session === undefined) {
     return undefined;
@@ -65,9 +86,41 @@ export function renderDayPlanScreen(program: Program, programId: string, setting
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
   );
 
-  screen.append(header, renderWeekPicker(program, dayNumber, week, search), renderPhaseChanges(program, session));
+  screen.append(header);
+  const combinedNote = renderCombinedNoteFor(program, settings, week, dayNumber, combines, log, realToday);
+  if (combinedNote !== undefined) screen.append(combinedNote);
+
+  screen.append(renderWeekPicker(program, dayNumber, week, search), renderPhaseChanges(program, session));
   session.blocks.forEach((block, index) => screen.append(renderPlanBlock(programId, block, index, session, changes)));
   return screen;
+}
+
+/**
+ * The "Combined with Day M on <date>" note for this day of this week, or
+ * undefined. Works out the day's calendar date from the saved start date, then
+ * asks whether it is a host date (combined with the added day) or a donor date
+ * (combined into the host day). No start date, or no combine: no note.
+ */
+function renderCombinedNoteFor(
+  program: Program,
+  settings: TrainingSettings,
+  week: number,
+  dayNumber: number,
+  combines: CombinesByDate,
+  log: WorkoutLog,
+  realToday: string,
+): HTMLElement | undefined {
+  if (settings.startDate === null) return undefined;
+
+  const date = planDateFor(settings.startDate, week, dayNumber);
+
+  const hostCombine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
+  if (hostCombine !== undefined) return renderCombinedNote(hostCombine.addedDay, hostCombine.addedDate);
+
+  const donor = activeDonorOn(program, settings.startDate, date, combines, log, realToday);
+  if (donor !== undefined) return renderCombinedNote(donor.hostDay, donor.hostDate);
+
+  return undefined;
 }
 
 /** The "‹ Program overview" link back to `#/overview` (hash only, so a `?date=` preview survives). */
@@ -159,7 +212,7 @@ function renderPhaseChanges(program: Program, session: Extract<SessionView, { ki
 
 /** One block card (`programId` is passed on to the rows for "Show me"): numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
 function renderPlanBlock(programId: string, block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
-  const position = blockIndex + 1;
+  const position = block.position;
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
@@ -181,7 +234,7 @@ function renderPlanBlock(programId: string, block: BlockView, blockIndex: number
     const itemChange = changes?.items.find((change) => change.blockIndex === blockIndex && change.itemIndex === itemIndex);
     // The block line already reports changed minutes/rounds; the item line must not repeat them.
     const blockReportsFigures = blockChange !== undefined && (blockChange.previous.minutes !== block.minutes || !sameRange(blockChange.previous.rounds, block.rounds));
-    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, changes.previousWeek, blockReportsFigures) : undefined;
+    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, itemChange.previousWeek, blockReportsFigures) : undefined;
     card.append(renderPlanItemRow(programId, item, session.phase, changedText));
   });
 

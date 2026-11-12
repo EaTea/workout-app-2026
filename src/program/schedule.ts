@@ -157,10 +157,25 @@ export interface ItemView {
    * switches a row over to it.
    */
   noEquipment?: ItemView;
+  /**
+   * Set when this view is a ticked "No equipment" swap (see
+   * `applyNoEquipmentChoices` in noEquipment.ts): the original item's
+   * exercise, so Today can say "Instead of <original name>" and show the tick
+   * ticked. Absent on every normal view.
+   */
+  swappedFrom?: Exercise;
 }
 
 /** One block of the session, in program order. */
 export interface BlockView {
+  /**
+   * The block's 1-based position in the program day (`program.days[d].blocks`),
+   * which is the `blockPosition` logged sets are keyed by. It is stored rather
+   * than derived from the index in `SessionView.blocks` because a block with
+   * no items this week is left out of the session, and the blocks after it
+   * must keep their position so logging, History and "Last time" keep working.
+   */
+  position: number;
   type: string;
   format: Format;
   /** Superset rounds (not halved for warm-ups). */
@@ -197,7 +212,9 @@ export type SessionView =
 
 /**
  * Builds the session for `date` ("YYYY-MM-DD", the caller's local today).
- * Called by the Today screen on every render; has no side effects.
+ * Called by the Today screen on every render; has no side effects. Items that
+ * do not run in this week (their `weeks` exclude it) are left out, and a block
+ * left with no items is dropped; the remaining blocks keep their positions.
  */
 export function buildSession(program: Program, settings: TrainingSettings, date: string): SessionView {
   const status = programStatus(settings.startDate, program.lengthWeeks, date);
@@ -237,11 +254,7 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     isDeload,
     focus: day.focus,
     targetMinutes: day.targetMinutes,
-    blocks: applyRotationToBlocks(
-      day.blocks.map((block) => buildBlock(block, settings, weekContext)),
-      week,
-      program.warmupRotation,
-    ),
+    blocks: applyRotationToBlocks(buildBlocksForWeek(day.blocks, settings, weekContext, week), week, program.warmupRotation),
   };
 }
 
@@ -323,8 +336,32 @@ function isDeloadPhase(phase: ProgressionPhase): boolean {
 // Blocks and items
 // ---------------------------------------------------------------------------
 
-/** Builds one block; warm-ups are never halved in a deload. */
-function buildBlock(block: Block, settings: TrainingSettings, week: WeekContext): BlockView {
+/**
+ * Builds the session's blocks for program week `weekNumber`: each block keeps
+ * only the items that run this week (`runsInWeeks`), and a block left with no
+ * items is dropped. Every kept block carries its original 1-based position in
+ * the day, so dropping a block never renumbers the ones after it. Called by
+ * `buildSession`; the filter runs before `buildBlock` so deload halving and
+ * the power-endurance changes only see the items that are shown.
+ *
+ *   day.blocks [warmup, explosive, main]  -- week 2 drops an emptied "explosive" -->
+ *   session    [warmup (position 1), main (position 3)]
+ */
+function buildBlocksForWeek(blocks: Block[], settings: TrainingSettings, weekContext: WeekContext, weekNumber: number): BlockView[] {
+  const views: BlockView[] = [];
+
+  blocks.forEach((block, blockIndex) => {
+    const itemsThisWeek = block.items.filter((item) => item.runsInWeeks === "everyWeek" || item.runsInWeeks.has(weekNumber));
+    if (itemsThisWeek.length === 0) return;
+
+    views.push(buildBlock({ ...block, items: itemsThisWeek }, blockIndex + 1, settings, weekContext));
+  });
+
+  return views;
+}
+
+/** Builds one block (at `position` in the program day); warm-ups are never halved in a deload. */
+function buildBlock(block: Block, position: number, settings: TrainingSettings, week: WeekContext): BlockView {
   const halve = week.isDeload && block.type !== "warmup";
 
   // Only core blocks take the rest adjustment (the power-endurance "cut core rest").
@@ -332,6 +369,7 @@ function buildBlock(block: Block, settings: TrainingSettings, week: WeekContext)
   const restAdjusted = block.type === "core" && block.restSecBetweenPairs !== undefined && restAdjustment !== 0;
 
   return {
+    position,
     type: block.type,
     format: block.format,
     rounds: block.rounds && (halve ? halveRange(block.rounds) : block.rounds),

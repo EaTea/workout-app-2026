@@ -1,6 +1,8 @@
-import type { Program } from "../program/model";
+import type { DayNumber, Program } from "../program/model";
+import { setDay } from "../log/setDay";
 import type { LoggedSession, LoggedSet } from "../log/model";
 import { itemTracksReps, setNounFor, setWord } from "../log/itemSets";
+import { isExerciseLoggedForItem } from "../program/noEquipment";
 import { performedAsName } from "../program/rotation";
 import { formatShortDate } from "./format";
 
@@ -18,12 +20,22 @@ const SEPARATOR = " · ";
  * Week and day come from what was stored when the session was first logged and
  * are left out when absent. The day title is the program's focus for that day
  * number, left out when the program has no such day (it was edited since).
+ *
+ * A combined session (two days on one date) is recognised from its sets: the
+ * session's own day plus every day the sets carry. Two or more days read
+ * "9 Nov · Week 2 · Day 1 + Day 2" (no focus titles, which would not fit a
+ * phone line). The session's day counts too, so a combined session in which
+ * only the added day's set has been logged still reads "Day 1 + Day 2".
  */
 export function formatSessionHeader(session: LoggedSession, program: Program): string {
   const parts = [formatShortDate(session.date)];
 
   if (session.programWeek !== undefined) parts.push(`Week ${session.programWeek}`);
-  if (session.day !== undefined) {
+
+  const days = daysOfSession(session);
+  if (days.length > 1) {
+    parts.push(days.map((day) => `Day ${day}`).join(" + "));
+  } else if (session.day !== undefined) {
     parts.push(`Day ${session.day}`);
 
     const dayTitle = program.days[session.day]?.focus;
@@ -31,6 +43,17 @@ export function formatSessionHeader(session: LoggedSession, program: Program): s
   }
 
   return parts.join(SEPARATOR);
+}
+
+/** The distinct program days a session covers, ascending: its own day plus every day its sets carry. Empty when nothing says. */
+function daysOfSession(session: LoggedSession): DayNumber[] {
+  const days = new Set<DayNumber>();
+  if (session.day !== undefined) days.add(session.day);
+  for (const set of session.sets) {
+    const day = setDay(session, set);
+    if (day !== undefined) days.add(day);
+  }
+  return [...days].sort((first, second) => first - second);
 }
 
 /** The exercise's display name from the program's library; an id no longer in program.json is shown as is. */
@@ -43,39 +66,43 @@ export function exerciseDisplayName(program: Program, exerciseId: string): strin
  * warm-up logged in a swapped week (using the week stored on the session and
  * the program's block type at that position), else `exerciseDisplayName`.
  * Used for the History rows so they match what Today showed that day.
+ * `day` is the set's own day (`ExerciseGroup.day`); when omitted the session's day is used.
  */
-export function performedExerciseName(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string): string {
-  const blockType = session.day === undefined ? undefined : program.days[session.day]?.blocks[blockPosition - 1]?.type;
+export function performedExerciseName(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string, day: DayNumber | undefined = session.day): string {
+  const blockType = day === undefined ? undefined : program.days[day]?.blocks[blockPosition - 1]?.type;
   return performedAsName(program, exerciseId, session.programWeek, blockType);
 }
 
 /**
  * Looks up the item a logged exercise belonged to (the program's block at that
- * position, then the exercise in it). Undefined when the program no longer has
- * that day, block or exercise.
+ * position of the set's day, then the exercise in it). Undefined when the
+ * program no longer has that day, block or exercise. `day` is the set's
+ * effective day (`setDay`).
  */
-function findProgramItem(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string) {
-  if (session.day === undefined) return undefined;
+function findProgramItem(program: Program, day: DayNumber | undefined, blockPosition: number, exerciseId: string) {
+  if (day === undefined) return undefined;
 
-  return program.days[session.day]?.blocks[blockPosition - 1]?.items.find((item) => item.exerciseId === exerciseId);
+  return program.days[day]?.blocks[blockPosition - 1]?.items.find((item) => isExerciseLoggedForItem(item, exerciseId));
 }
 
 /**
  * The singular noun for one tick of a logged exercise ("set", "round" or
  * "minute"), used when its sets have no reps ("5 rounds"). Falls back to "set"
- * when the program no longer describes the exercise.
+ * when the program no longer describes the exercise. `day` is the set's own
+ * day; when omitted the session's day is used.
  */
-export function loggedSetNoun(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string): string {
-  const item = findProgramItem(program, session, blockPosition, exerciseId);
+export function loggedSetNoun(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string, day: DayNumber | undefined = session.day): string {
+  const item = findProgramItem(program, day, blockPosition, exerciseId);
   return item === undefined ? "set" : setNounFor(item);
 }
 
 /**
  * The capitalised label for one set in the expanded list ("Set", "Min",
- * "Round"), matching the log screen's labels. Falls back to "Set".
+ * "Round"), matching the log screen's labels. Falls back to "Set". `day` is
+ * the set's own day; when omitted the session's day is used.
  */
-export function loggedSetLabel(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string): string {
-  const item = findProgramItem(program, session, blockPosition, exerciseId);
+export function loggedSetLabel(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string, day: DayNumber | undefined = session.day): string {
+  const item = findProgramItem(program, day, blockPosition, exerciseId);
   return item === undefined ? "Set" : setWord(item);
 }
 
@@ -88,7 +115,7 @@ export function loggedSetLabel(program: Program, session: LoggedSession, blockPo
  * the set has reps or a load.
  */
 export function loggedSetShowsRepsAndLoad(program: Program, session: LoggedSession, set: LoggedSet): boolean {
-  const item = findProgramItem(program, session, set.blockPosition, set.exerciseId);
+  const item = findProgramItem(program, setDay(session, set), set.blockPosition, set.exerciseId);
   if (item !== undefined) return itemTracksReps(item);
 
   return set.reps !== undefined || set.loadKg !== undefined;

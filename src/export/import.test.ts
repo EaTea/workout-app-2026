@@ -27,6 +27,7 @@ const bundle: ExportBundle = {
     },
   },
   fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
+  combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -44,8 +45,29 @@ describe("parseImport", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
+    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines });
     expect(result.problems).toEqual([]);
+  });
+
+  it("round trips a set's own day through the export file, and leaves old sets without one", () => {
+    const logWithDays = {
+      sessions: {
+        "2026-11-09": {
+          date: "2026-11-09",
+          day: 1,
+          sets: [
+            { exerciseId: "pull_up", day: 1, blockPosition: 3, setNumber: 1, loggedAt: new Date("2026-11-09T10:00:00.000Z") },
+            { exerciseId: "pull_up", day: 5, blockPosition: 4, setNumber: 1, loggedAt: new Date("2026-11-09T10:05:00.000Z") },
+            { exerciseId: "dip", blockPosition: 4, setNumber: 1, loggedAt: new Date("2026-11-09T10:10:00.000Z") },
+          ],
+        },
+      },
+    };
+
+    const result = parseImport(serializeExport(exportToWire({ ...bundle, log: logWithDays })));
+
+    expect(result.ok && result.data.log).toEqual(logWithDays);
+    expect(result.ok && result.problems).toEqual([]);
   });
 
   it("summarises sessions, sets, checks, date range and start date", () => {
@@ -169,7 +191,36 @@ describe("parseImport", () => {
       file.importBackups = [{ key: "explosive-endurance.import-backup-x", text: "{}" }];
     }));
 
-    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
+    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines });
+  });
+
+  it("imports an older export without a combines section as no combines", () => {
+    const result = parseImport(fileText((file) => {
+      delete file.combines;
+    }));
+
+    expect(result.ok && result.data.combines).toEqual(new Map());
+    expect(result.ok && result.problems).toEqual([]);
+  });
+
+  it("drops bad combines entries, or a combines section it cannot read, without refusing the file", () => {
+    const withBadEntry = parseImport(fileText((file) => {
+      file.combines = {
+        version: 1,
+        combines: {
+          "2026-11-09": { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" },
+          "2026-11-11": { hostDay: 3, addedDay: 3, addedDate: "2026-11-12" },
+        },
+      };
+    }));
+    expect(withBadEntry.ok && [...withBadEntry.data.combines.keys()]).toEqual(["2026-11-09"]);
+
+    for (const unreadable of [5, "x", [], { version: 2, combines: {} }]) {
+      const result = parseImport(fileText((file) => {
+        file.combines = unreadable;
+      }));
+      expect(result.ok && result.data.combines).toEqual(new Map());
+    }
   });
 
   it("refuses text that is not JSON", () => {

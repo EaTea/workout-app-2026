@@ -113,3 +113,76 @@ describe("chartableExercises: Steady Strength", () => {
     expect(chartableExercises(log, steadyStrength).map((entry) => entry.label)).toEqual(["Sit-to-stand from a chair — Strength"]);
   });
 });
+
+describe("progress for sessions whose sets carry their own day", () => {
+  /** One date holding day 1 (pull-ups as main strength, block 3) and day 5 (pull-ups as a mini-dose, block 4). */
+  const twoDayLog = makeLog(
+    makeSession("2026-11-09", 2, 1, [
+      { ...makeSet("pull_up", 3, 1, 8), day: 1 },
+      { ...makeSet("pull_up", 4, 1, 3), day: 5 },
+    ]),
+  );
+
+  it("picks the block type of each set from the set's own day", () => {
+    expect(chartableExercises(twoDayLog, program).map((exercise) => exercise.key)).toEqual(["pull_up|mainStrength", "pull_up|miniDose"]);
+    expect(progressSeries(twoDayLog, program, "pull_up", "mainStrength").map((point) => point.bestReps)).toEqual([8]);
+    expect(progressSeries(twoDayLog, program, "pull_up", "miniDose").map((point) => point.bestReps)).toEqual([3]);
+  });
+
+  it("reads an old-format log (no per-set day) from the session's day, exactly as before", () => {
+    const oldLog = makeLog(makeSession("2026-11-02", 1, 1, [makeSet("pull_up", 3, 1, 5), makeSet("dip", 4, 1, 7)]));
+
+    expect(chartableExercises(oldLog, program).map((exercise) => exercise.key)).toEqual(["dip|miniDose", "pull_up|mainStrength"]);
+  });
+});
+
+describe("No equipment swaps", () => {
+  // Day 4 block 3 is the single-leg RDL (main strength) with the backpack RDL as its swap.
+  const log = makeLog(
+    makeSession("2026-11-05", 1, 4, [makeSet("backpack_single_leg_rdl", 3, 1, 12), makeSet("backpack_single_leg_rdl", 3, 2, 14, 5)]),
+    makeSession("2026-11-12", 2, 4, [makeSet("single_leg_rdl", 3, 1, 10, 8)]),
+  );
+
+  it("lists the swap as its own exercise in the original's block type, next to the original", () => {
+    const listed = chartableExercises(log, program).map((exercise) => ({ key: exercise.key, label: exercise.label }));
+
+    expect(listed).toEqual([
+      { key: "backpack_single_leg_rdl|mainStrength", label: "Backpack single-leg RDL — Main strength" },
+      { key: "single_leg_rdl|mainStrength", label: "Single-leg RDL — Main strength" },
+    ]);
+  });
+
+  it("charts the swap's sets as their own series and leaves the original's unchanged", () => {
+    expect(progressSeries(log, program, "backpack_single_leg_rdl", "mainStrength")).toEqual([
+      { date: "2026-11-05", week: 1, day: 4, bestReps: 14, heaviestKg: 5 },
+    ]);
+    expect(progressSeries(log, program, "single_leg_rdl", "mainStrength").map((point) => point.date)).toEqual(["2026-11-12"]);
+  });
+
+  it("does not chart the swap's id where its item is not (a swap logged in the wrong block)", () => {
+    const stray = makeLog(makeSession("2026-11-05", 1, 4, [makeSet("backpack_single_leg_rdl", 1, 1, 12)]));
+
+    expect(chartableExercises(stray, program)).toEqual([]);
+  });
+});
+
+describe("progress for the alternating Day 3 explosive exercises (PLAN.md PR 26 rule 4)", () => {
+  // Day 3's explosive block is block 2; the throws run in even weeks, the plyo push-ups in odd weeks.
+  const log = makeLog(
+    makeSession("2026-11-04", 1, 3, [makeSet("plyo_push_up", 2, 1, 5)]),
+    makeSession("2026-11-11", 2, 3, [makeSet("rotational_wall_throw", 2, 1, 5), makeSet("rotational_wall_throw", 2, 2, 6)]),
+  );
+
+  it("lists both exercises as explosive, whichever week the program is in now", () => {
+    expect(chartableExercises(log, program).map((exercise) => exercise.key)).toEqual(["plyo_push_up|explosive", "rotational_wall_throw|explosive"]);
+  });
+
+  it("charts a week 2 throws set and a week 1 plyo set from the whole program", () => {
+    expect(progressSeries(log, program, "rotational_wall_throw", "explosive")).toEqual([
+      { date: "2026-11-11", week: 2, day: 3, bestReps: 6, heaviestKg: undefined },
+    ]);
+    expect(progressSeries(log, program, "plyo_push_up", "explosive")).toEqual([
+      { date: "2026-11-04", week: 1, day: 3, bestReps: 5, heaviestKg: undefined },
+    ]);
+  });
+});

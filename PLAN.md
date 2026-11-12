@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) merged as #28; PR 21 (the view and the Day 1 and Day 2 animations) is in review.**
+Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 (the view and the Day 1 and Day 2 animations) is in review as #34. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31; PR 27 (its implementation) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1447,8 +1447,8 @@ are the refinements, for him to confirm on the PR:
   so "last time", History, Progress charts and the CSV export keep swaps
   apart from the real thing with no change to the log's wire format: a
   backpack RDL never pre-fills the loaded RDL's kilograms. Once an item has
-  a logged set, its tick is locked to match ("Logged as Backpack
-  single-leg RDL"); deleting the item's sets unlocks it. Today and the log
+  a logged set, its tick is locked to match (the row keeps
+  "Instead of Single-leg RDL" and adds "· sets logged"); deleting the item's sets unlocks it. Today and the log
   screen work out "swapped" from the logged sets first and the saved tick
   second, so a log restored from an export (which doesn't carry ticks)
   still shows the swap.
@@ -1530,7 +1530,7 @@ are the refinements, for him to confirm on the PR:
   weeks, but it contradicts "unticked exercises stay as written" and would
   silently carry a swap into a gym day. It's an easy follow-up if wanted.
 
-### PR 18 — No-equipment swaps in the program file *(behavior change)*
+### PR 18 — No-equipment swaps in the program file *(behavior change)* — merged as PR #27
 The data and the parser, shown only on the exercise sheet, so the doses
 can be reviewed on a phone before anything changes how a session runs.
 
@@ -1577,20 +1577,59 @@ with a test. Pike push-ups are logged as `pike_push_up`, separately from
 that one exercise's history.
 
 **Steps.**
-1. [ ] `buildSession` taking the swapped items: a ticked item uses its
-   swap view (`applyNoEquipmentSwap`, the retest-week hold and
-   `ItemView.noEquipment` landed in PR 18). Unit tests for the ticked
-   worked examples below.
-2. [ ] The ticks storage key, its wire type, mapping and pruning. Unit
+1. [x] A ticked item uses its swap view: `buildSession` is unchanged; the
+   pure `applyNoEquipmentChoices(session, swappedKeys)` in
+   `src/program/noEquipment.ts` replaces items whose key
+   (`noEquipmentItemKey(blockPosition, originalExerciseId)`, e.g.
+   "3:single_leg_rdl") is ticked with their `ItemView.noEquipment` view and
+   sets `ItemView.swappedFrom`. Helpers `hasNoEquipmentSwap` and
+   `originalExerciseIdOf` build keys for Today and the log screen. Unit tests
+   for the ticked worked examples.
+2. [x] The ticks storage key, its wire type, mapping and pruning. Unit
    tests.
-3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
-   logging under the swap's id, the lock after the first set, and working
-   out "swapped" from the log. "Last time", Progress, History and the log
-   route recognise swap ids (see above). Session progress (in progress, complete)
-   counts swapped sets. README.
-4. [ ] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
+3a. [x] The log side, no UI. `src/noEquipment/choices.ts`:
+   `noEquipmentChoices(unswappedSession, log, date, ticksForDate)` returns
+   `{ swapped, locked }` key sets (sets under the swap's id: swapped and
+   locked; under the original's id: not swapped, locked, whatever the tick
+   says; else swapped iff ticked); `isExerciseLoggedForItem` (in
+   `program/noEquipment.ts`) lets "Last time" (`lastTime.ts`), Progress
+   (`progress.ts`) and History's wording (`historyText.ts`) match a set
+   logged under a swap id to the item it replaces, so a swap has its own
+   last time and chart and an unswapped item ignores swap sets. Unit tests
+   incl. the "Logging" worked example, and a CSV test (swap id and name).
+3b. [x] The tick on Today, the swapped row, log screen, timers and sheet,
+   logging under the swap's id, the lock after the first set ("Instead of
+   ... · sets logged"), session progress counting swapped sets. README. Notes from 3a:
+   - Build the unswapped session, call `noEquipmentChoices` with
+     `ticksForDate`, then `applyNoEquipmentChoices(session, choices.swapped)`;
+     use `choices.locked` to disable the tick (the row keeps "Instead of
+     <original>" when swapped).
+   - `renderLogScreen` (`ui/logScreen.ts`, ~line 110) finds its item with
+     `candidate.exercise.id === exerciseId` on the plain `buildSession`
+     result: it must build the swapped session the same way, so the route's
+     exercise id (the swap's id when swapped) matches. Today's route
+     (`logRouteHash(..., item.exercise.id)`) then carries the swap id.
+   - `isSessionInProgress` (`log/sessionProgress.ts`), Today's "2/6"
+     (`ui/today.ts` ~345) and the log screen's `setsForItem` calls all use
+     `item.exercise.id`, so they count swapped sets once they are handed the
+     swapped session. `isSessionInProgress` must get the swapped session.
+   - The rest-memory key uses `item.exercise.id`, so a swap remembers its
+     own rest, separate from the original's.
+   - A tick toggled after the first set must not change anything (locked).
+4. [x] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
    plus an unticked session matching today's exactly.
-5. [ ] Fixes from the challenger review.
+5. [x] Fixes from the challenger review. It checked every worked
+   example with every box ticked, and Today with nothing ticked matched
+   `main` on every date apart from the new tick lines. Fixed: a backfill
+   tick on a date more than 14 days old was silently pruned; Today's
+   wording ("Instead of ..." stays when sets are logged, no extra line on
+   an unswapped row, a dimmed disabled box that tells screen readers
+   why); stale doc comments and two unused helpers; and E2E for deleting
+   the set to unlock, the lock on the original, a restored log and the
+   backfill. Left as they are, with reasons in the PR: a log address
+   with the other exercise's id says "nothing to log"; a second open tab
+   only sees new ticks once it toggles or reloads, as with the log; and
+   each swappable row is about 56px taller, as in the approved mockup.
 - **Merge point:** Ed can tick any swap on Today, train it with the right
   dose and timer, and see it in History.
 
@@ -1901,6 +1940,324 @@ project files under `screenshots/demos/`.
 4. [ ] The contact sheet for all 34.
 5. [ ] Fixes from the challenger review.
 - **Merge point:** every exercise in Steady Strength has an animation.
+
+### PR 23 — Plan: combine two days on Today *(design)*
+Ed asked (12 Nov) for a way to fit a week's work into fewer sessions when
+time is short and availability is patchy. From a draft with three options,
+Ed chose **combine on the day**: Today offers to merge one more day into
+today's session, either the next day (pulled forward) or a day just missed
+(caught up). Ed also asked that **warm-ups are not cut** on a combined day.
+Steady Strength is out of scope: it shows no combine button.
+
+PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
+"Combining two days when short on time" in the project thread.
+
+**What the person sees.**
+
+```
+ Today · Week 2 · Day 1                  Today · Week 2 · Day 1 + Day 2
+ Upper: pull · ~50 min                   Upper: pull + Lower: knee · ~73 min
+ ┌──────────────────────────────┐        ┌──────────────────────────────────┐
+ │ 1 Warm-up  YTWI · Pallof     │        │ 1 Warm-up   D1 YTWI · Pallof     │
+ │ 2 Explosive  Med ball slams  │ tap    │ 2 Warm-up   D2 Cossack · Hip ab  │
+ │ ...                          │──────▶ │ 3 Explosive D1 Slams  ⇄ alternate│
+ │ [ Short on time?             │        │             D2 Split-squat jumps │
+ │   Add Day 2 to today ]       │        │ 4 Main      D1 Pull-up EMOM      │
+ └──────────────────────────────┘        │ 5 Main      D2 Zercher BSS       │
+                                         │ ...                              │
+                                         │ [ Undo combine ]                 │
+                                         └──────────────────────────────────┘
+
+ Tomorrow (Day 2's date) then shows:  "Day 2 done with Day 1 on 9 Nov"
+                                      and no session, like a rest day.
+```
+
+**Rules.**
+
+1. **Allowed pairs** live in `program.json`, so Ed can edit them:
+   `"combining": { "pairs": [[1, 2], [2, 3], [3, 4], [5, 6]] }`. Each pair
+   is one upper day and the lower day next to it in the same week. Left
+   out on purpose: Day 4 + 5 (swings, single-leg RDL and back extensions
+   in one session load the lower back three times), any two upper days or
+   two lower days (an exercise would appear twice, or two leg plyometric
+   blocks), and Day 6 + the next Day 1 (crosses into a new week, so phase
+   and deload would differ). Validation: each pair is two different
+   training days (1–6, not the rest day) that are next to each other; a
+   bad pair is a program warning and is ignored, like other bad fields.
+   A program without `combining` (Steady Strength) never offers combining.
+2. **When Today offers it.** On a training day D in week W, before any
+   set is logged today:
+   - "Add Day D+1 to today" when [D, D+1] is an allowed pair and Day D+1
+     hasn't been combined already.
+   - "Add missed Day D−1 to today" when [D−1, D] is an allowed pair, Day
+     D−1's date is in the past, nothing was logged on it, and it wasn't
+     combined already. When both apply, both buttons show.
+   - Never on the rest day, before the start date or after week 8.
+   - Only on the real today (the device's date), never on a `?date=`
+     preview: combining is "on the day". The buttons sit just under the
+     session header card, so there is no scrolling to find them.
+3. **Undo.** "Undo combine" shows (just under the header, on the real
+   today only) until the first set of the combined session is logged, and
+   puts both days back as they were.
+4. **Merged session order.** Built by a pure function from the two days'
+   sessions as Today already builds them for week W (deload halving,
+   power-endurance changes, max-rep targets and no-equipment swaps
+   already applied). Block types follow `sessionOrder`, and within each
+   type the earlier day's block comes first:
+   1. Warm-ups: both days' warm-up blocks in full (Ed: never cut).
+   2. Explosive: both blocks. When both are set-based they are shown as
+      one "alternate" block: a set of one, then a set of the other, so
+      each one's rest is spent on the other, so logging a set there does
+      not auto-start the rest timer (the Rest button stays for manual
+      use). An EMOM (kettlebell swings) can't alternate, so it runs as its
+      own block after the other.
+      When the two have different set counts (Day 2 + 3 in an even week:
+      split-squat jumps 5 × 6 per leg ⇄ wall throws 4 × 5 per side), they
+      alternate while both have sets left and the longer one finishes
+      alone (assumed; open question for Ed, raised with PR 27).
+   3. Main strength, then mini-doses: each day's block as written.
+   4. Core, then finishers: each day's blocks, except that items marked
+      `"optional": true` (side plank, hollow hold) are left out and the
+      heavy bag's rounds are capped at the bottom of their range (4).
+   Rows carry a "D1"/"D2" label so it's clear where each came from.
+5. **Length.** The header shows the two days' `targetMinutes` added up,
+   minus 3 minutes when the explosive blocks alternate and minus 4 when
+   optional core items and a bag round are dropped. That gives Day 1 + 2
+   ~73, Day 2 + 3 ~67, Day 3 + 4 ~70 and Day 5 + 6 ~85 minutes (estimates,
+   not timings).
+6. **The donor day.** The day that was folded in shows "Day N done with
+   Day M on <date>" on its own date and no session. The day plans by week
+   (PR 12) show both days as planned, with a "Combined" note. A combine
+   *lapses* when its host date is before the real today and nothing is
+   logged on it: it is then treated as if it never existed (the donor date
+   shows its normal session, offers ignore it, no "Combined" note, and the
+   host date's past view is the single day). A host date of today or
+   later, or with sets logged, stays active.
+7. **Logging.** Sets from a combined session are saved on today's date.
+   Each set records the day and block position it has in **its own day**
+   (not in the merged view), so "last time" hints, History and the CSV
+   and JSON exports keep working: a Day 2 split squat logged on Day 1's
+   date still finds the last Day 2 split squat. Every set of a combined
+   session stores its `day` (single-day sessions store none, so they
+   behave exactly as before; PR 24). History headings read
+   "Week 2 · Day 1 + Day 2", and History lists one day's blocks, then
+   the other's. The progress chart keeps placing a set at the date's own
+   day.
+8. **What doesn't change.** Week, phase, deload and weekly increases come
+   from the date, and both days of a pair are in the same week. The
+   week 8 retest prompt and the weekly fatigue check are unaffected.
+
+**Storage.** A new key per program, `combines`, holds one record per host
+date: `{ "2026-11-09": { "hostDay": 1, "addedDay": 2, "addedDate":
+"2026-11-10" } }`. It has its own wire type and `parse`/`serialize`
+functions, like the other stores, and is included in the JSON export and
+import (an older export without it imports as no combines).
+
+**Worked examples** (start 2 Nov, as in section 6):
+
+| Date | Situation | Expected |
+| --- | --- | --- |
+| 9 Nov (W2 D1) | Nothing logged yet | "Add Day 2 to today" shows; no "missed" button (no pair ends on Day 1) |
+| 9 Nov (W2 D1) | Day 2 added | Blocks: D1 warm-up, D2 warm-up, slams ⇄ split-squat jumps, D1 pull-up EMOM, D2 Zercher BSS, D1 dip mini, D2 SL RDL mini, D1 core (no side plank), D1 bag 4 rounds; ~73 min |
+| 10 Nov (W2 D2) | After the combine above | "Day 2 done with Day 1 on 9 Nov", no session, no buttons |
+| 12 Nov (W2 D4) | Day 3 (11 Nov) had nothing logged | "Add missed Day 3 to today"; no "Add Day 5" ([4, 5] isn't a pair) |
+| 12 Nov (W2 D4) | Day 3 added | Explosive: rotational wall throws (Day 3's even-week item, PR 26), then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
+| 23 Nov (W4 D1, deload) | Day 2 added | Both days' sets halved first, then merged |
+| 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~85 min |
+
+**Notes from implementing PR 25 steps 1 to 3.**
+- *The no-equipment ticks are not in the export*, so the combines store was
+  modelled on the fatigue/max-history sections instead: `combines` is an
+  optional top-level section of export v2, read tolerantly on import, and the
+  key is one of the keys an import replaces (so an import without it clears
+  combines).
+- Offers (`program/combineOffers.ts`) also refuse when the added day's date
+  has something logged on it, not only the missed day's.
+
+### PR 24 — Logged sets remember their own day *(internal refactor)*
+No behavior change. Today each logged set's slot is found from the
+session's day plus the set's block position. A combined session holds two
+days, so each set needs to carry its own day.
+
+**Steps.**
+1. [x] `LoggedSet` gets `day` (the day the set's block belongs to). The
+   log wire format gains an optional per-set `day`; old sets use the
+   session's day when read and match any day when matched, so nothing is
+   migrated and old logs behave as before.
+2. [x] `findLastTime`, History and the CSV export read the set's `day`
+   instead of the session's. Unit tests for an old-format log and for a
+   session whose sets carry two different days.
+3. [x] Fixes from the challenger review.
+- **Merge point:** all existing tests and E2E pass unchanged; the log can
+  hold two days on one date.
+
+### PR 25 — Combine two days on Today *(behavior change)*
+**Steps.**
+1. [x] `combining.pairs` in `program.json`, its wire type, parse and
+   validation (rule 1), with tests for each rejected pair.
+2. [x] The combines store (wire type, parse/serialize, per program) and
+   its place in the JSON export and import.
+3. [x] The pure merge function (rules 4 and 5), tested against the worked
+   examples above.
+4. [x] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
+   Undo (rule 3), the merged session with day labels, the donor day's
+   card (rule 6), and the "Combined" note on the day plans.
+5. [x] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
+   History heading.
+   Everything keyed by a date and block position needs the day too, since
+   both days have a block 2 (found in the PR 24 review): the log screen
+   route (`#/log/<date>/<block>/<exercise>` gains the day), the rest
+   memory keys (`ui/restMemory.ts`), the "No equipment" tick lookup
+   (`noEquipment/choices.ts`), Today's row progress and session
+   progress (one day per session today), the History group order, and
+   "last time"'s `setsOfLargestBlock`, which groups by block only.
+6. [x] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
+   set, see 10 Nov's "done with Day 1" card, and see the set in History;
+   undo before logging puts both days back.
+7. [ ] Fixes from the challenger review.
+- **Merge point:** Ed can combine any allowed pair on Today and log it.
+
+### PR 26 — Plan: Day 3 rotational wall throws on even weeks *(design)*
+Ed asked (12 Nov) to add rotational medicine ball wall throws to Explosive
+Endurance as a Day 3 alternate, after research in the project thread
+"Add rotational wall throws to Day 3". The agreed shape:
+
+- **Odd weeks (1, 3, 5, 7):** plyo push-ups, 5 × 5, 45s rest, as now.
+- **Even weeks (2, 4, 6, 8):** rotational med ball wall throws, 4 × 5 per
+  side, 45s rest, 3–4 kg ball. Weeks 4 and 8 are deloads, so they halve to
+  2 × 5 per side like every other item.
+- **Cues:** side-on, 1–2 m from a solid wall; turn from the hips, ribs
+  stacked over the pelvis; catch and reset each rep in weeks 1–4; from
+  week 5 a catch-and-rebound is fine if the back feels fine.
+- **Evidence:** Szymanski et al. (2007), with Brazier et al. (2026) and
+  Vera-Garcia et al. (2014) in the program doc.
+
+The project-file copies of `program.json` and "Explosive Endurance
+Program.md" already carry the dose, as a stop-gap `note` on the plyo
+push-up ("Odd weeks only…") and a new `rotational_wall_throw` exercise that
+no day uses yet. PR 27 replaces the note with real week-by-week items.
+
+**What the person sees.**
+
+```
+ Today · Week 1 · Day 3              Today · Week 2 · Day 3
+ ┌───────────────────────────┐       ┌────────────────────────────────────┐
+ │ 2 Explosive               │       │ 2 Explosive                        │
+ │   Plyo push-ups  5 × 5    │       │   Rotational med ball wall throws  │
+ │   45s rest                │       │   4 × 5 · per side · 45s rest      │
+ └───────────────────────────┘       └────────────────────────────────────┘
+```
+
+Only one of the two shows on a given week, on Today, on the day plans by
+week (PR 12) and on a combined day (PR 25). The other never appears as
+"missed" or "not done".
+
+**How the file says it.** A new optional item field, `weeks`, lists the
+program weeks an item runs in. An item without it runs every week, so
+every existing item and the Steady Strength program are unchanged.
+
+```json
+{ "type": "explosive", "items": [
+  { "exercise": "plyo_push_up", "weeks": [1, 3, 5, 7], "sets": 5, "reps": 5, "restSec": 45 },
+  { "exercise": "rotational_wall_throw", "weeks": [2, 4, 6, 8], "sets": 4, "reps": 5, "perSide": true, "restSec": 45 }
+]}
+```
+
+Alternatives considered: a swap-style field on the plyo item
+(`alternateWeeks: { exercise, … }`, like `noEquipment`) keeps one item but
+needs its own rules for which fields carry over, and the throws differ in
+sets and "per side"; an `everyOtherWeek` flag is shorter but can't express
+anything else. A plain week list is the easiest for Ed to read and edit.
+
+**Rules.**
+
+1. **Parsing.** `weeks` is a non-empty list of whole numbers from 1 to
+   `lengthWeeks`, with no repeats. Anything else is a parse error, like
+   other malformed fields (it would silently drop or double an exercise).
+   It lives in the wire type only as `weeks`, and the model holds it as
+   `runsInWeeks: ReadonlySet<number> | "everyWeek"`.
+2. **A gap is a warning.** If a block has items with `weeks` and some
+   week has none of the block's items, the program loads with a warning
+   naming the block and the weeks, and that week's block is left out.
+3. **Schedule.** `buildSession` drops items whose `weeks` don't include
+   the current week, before the deload halving and power-endurance
+   changes, which then apply as usual. A block left with no items is
+   dropped (only possible after a rule 2 warning). Block positions are
+   unchanged, because the filter works within a block, so logging,
+   History and "Last time" keep their keys.
+4. **Lookups stay on the whole program.** "Last time", Progress and
+   History find a logged set's item in `program.days` (not the week's
+   session), so a week 2 throws set still matches in week 4. Each gets a
+   test.
+5. **No equipment.** The throws get no `noEquipment` swap: a swap keeps the
+   original's sets and "per side", which would make plyo push-ups 4 × 5 per
+   side. The exercise's `alternative` ("No ball or no solid wall: do plyo
+   push-ups, 5 × 5") shows on its sheet instead, as the slam's does.
+6. **Retest and fatigue checks** are unaffected: neither exercise is
+   max-tested.
+
+**Worked examples** (start date 2 Nov, so Week 1 Day 3 is 4 Nov):
+
+| Date | Week · Day | Phase | Explosive block |
+| --- | --- | --- | --- |
+| 4 Nov | 1 · 3 | Base | Plyo push-ups 5 × 5, 45s rest |
+| 11 Nov | 2 · 3 | Base | Rotational wall throws 4 × 5 per side, 45s rest |
+| 25 Nov | 4 · 3 | Deload | Rotational wall throws 2 × 5 per side, 45s rest |
+| 9 Dec | 6 · 3 | Power endurance | Rotational wall throws 4 × 5 per side, 45s rest |
+| 16 Dec | 7 · 3 | Power endurance | Plyo push-ups 5 × 5, 45s rest |
+| 23 Dec | 8 · 3 | Deload + retest | Rotational wall throws 2 × 5 per side, 45s rest |
+
+Every other day and week matches `main` exactly.
+
+### PR 27 — Day 3 rotational wall throws *(behavior change)*
+**Steps.**
+1. [x] `weeks` in the wire types, parser and model (rule 1) and the gap
+   warning (rule 2). Unit tests for each rejected value and the warning.
+   `lengthWeeks` is now read before the days, since `weeks` is checked
+   against it.
+2. [x] `buildSession` filtering by week (rule 3). Unit tests for the
+   worked examples. Blocks now carry their `position` in the program day,
+   and Today, the log screen, session progress and the day plans use it,
+   so a block left out of a week doesn't renumber the ones after it. The
+   check that every other session from 2 Nov to 27 Dec matches `main`
+   moves to step 3, where the shipped file changes.
+3. [x] `public/program.json`: the `rotational_wall_throw` exercise and the
+   two Day 3 items (the stop-gap note was only ever in the project-file
+   copy). Data tests over the shipped file, including every session from
+   2 Nov to 27 Dec matching the program without `weeks` except Day 3's
+   explosive block in even weeks. README "Editing program.json" documents
+   `weeks`.
+4. [x] Tests for rule 4 ("Last time", Progress, History), session
+   progress with a block left out, and the day plans by week. E2E: with
+   the start date set so today is Week 2 Day 3, Today shows the throws
+   and not the plyo push-ups; Week 1 shows the reverse.
+5. [x] Copy `public/program.json` to the project files and update
+   "Explosive Endurance Program.md" if its wording differs (it already
+   described the alternation). The doc's Day 3 row still says ~32 min with
+   no core block, from before PR 13; that drift is older than this PR and
+   is left as a separate follow-up.
+6. [x] Fixes from the challenger review. It found no wrong figure: every
+   session from 1 Nov to 29 Dec matches `main` except Day 3's explosive
+   block in weeks 2, 4, 6 and 8, which match the worked examples, and
+   Steady Strength is unchanged. Fixed: the PR 23 example and alternation
+   rule, step ticks, deload weeks losing the "Changed" note (an item is now
+   compared with the last week it ran), the overview naming only plyo
+   push-ups for Day 3, `weeks` with `weeklyIncrease` and a repeated
+   exercise in one block (now parse errors), two doc comments and the
+   evidence link (now a DOI). Left as is: no UI test that Today and the
+   log screen number blocks after a dropped one (no shipped data drops a
+   block, and `buildSession` and session progress test it), and the
+   README gained `weeks` in step 3 rather than step 1.
+- **Merge point:** Day 3 shows the right explosive exercise each week, and
+  every other session is unchanged.
+
+**Open questions for Ed** (with the answer I'm assuming):
+
+1. **Which weeks.** Throws in the even weeks, so the deloads (4 and 8) are
+   throw weeks. Swapping to odd weeks would put throws in week 1, before
+   you've had a week to learn plyo push-ups. Even is my pick.
+2. **No-equipment.** No tick for the throws; the sheet's alternative says
+   to do plyo push-ups instead (rule 5).
 
 ## 6. Worked examples (used as unit-test fixtures)
 

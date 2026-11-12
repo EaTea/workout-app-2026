@@ -14,6 +14,7 @@ const bundle: ExportBundle = {
     },
   },
   fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
+  combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -37,6 +38,7 @@ describe("exportToWire", () => {
         ],
       },
       fatigueChecks: { version: 1, checks: [{ date: "2026-11-09", programWeek: 2, maxPullUps: 10, savedAt: "2026-11-09T07:30:00.000Z" }] },
+      combines: { version: 1, combines: { "2026-11-09": { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" } } },
     });
   });
 

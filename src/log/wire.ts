@@ -1,6 +1,7 @@
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { toDayNumber } from "../program/calendar";
 import type { DayNumber } from "../program/model";
+import { isSetOnDay } from "./setDay";
 
 /**
  * Stored (JSON) shape of the workout log and its mapping to the internal
@@ -9,7 +10,7 @@ import type { DayNumber } from "../program/model";
  *
  *   { "version": 1,
  *     "sessions": [ { "date": "2026-11-02", "programWeek": 1, "day": 1,
- *                     "sets": [ { "exerciseId": "pull_up", "blockPosition": 2,
+ *                     "sets": [ { "exerciseId": "pull_up", "day": 1, "blockPosition": 2,
  *                                 "setNumber": 1, "reps": 6, "loadKg": 6,
  *                                 "note": "...", "loggedAt": "2026-11-02T18:04:00.000Z" } ] } ] }
  */
@@ -17,6 +18,8 @@ import type { DayNumber } from "../program/model";
 /** Wire form of one set. `loggedAt` is an ISO 8601 string. */
 export interface LoggedSetWireV1 {
   exerciseId: string;
+  /** Program day (1-7) of the set's block; absent in older saves, where the session's `day` applies. */
+  day?: DayNumber;
   blockPosition: number;
   setNumber: number;
   reps?: number;
@@ -67,6 +70,7 @@ function setToWire(set: LoggedSet): LoggedSetWireV1 {
     setNumber: set.setNumber,
     loggedAt: set.loggedAt.toISOString(),
   };
+  if (set.day !== undefined) wire.day = set.day;
   if (set.reps !== undefined) wire.reps = set.reps;
   if (set.loadKg !== undefined) wire.loadKg = set.loadKg;
   if (set.note !== undefined) wire.note = set.note;
@@ -166,7 +170,6 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
 
   // An empty session holds no data, so dropping it loses nothing and needs no warning.
   const sets: LoggedSet[] = [];
-  const seenSetIdentities = new Set<string>();
   rawSets.forEach((rawSet, index) => {
     const setPath = `${path}.sets[${index}]`;
     let set: LoggedSet;
@@ -177,12 +180,19 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
       return;
     }
 
-    const identity = `${set.exerciseId}|${set.blockPosition}|${set.setNumber}`;
-    if (seenSetIdentities.has(identity)) {
+    // Same slot = same exercise, block and set number, and days that match (`isSetOnDay`): a set with
+    // no day of its own could be either day's, so it collides with any day; two different days do not.
+    const isDuplicate = sets.some(
+      (kept) =>
+        kept.exerciseId === set.exerciseId &&
+        kept.blockPosition === set.blockPosition &&
+        kept.setNumber === set.setNumber &&
+        isSetOnDay(kept, set.day),
+    );
+    if (isDuplicate) {
       recordProblem(problems, new LogWireError(`${setPath}: duplicate set ${set.exerciseId} block ${set.blockPosition} set ${set.setNumber}`), 1);
       return;
     }
-    seenSetIdentities.add(identity);
     sets.push(set);
   });
 
@@ -230,6 +240,9 @@ function setFromWire(raw: unknown, path: string): LoggedSet {
     setNumber: requirePositiveInteger(record.setNumber, `${path}.setNumber`),
     loggedAt,
   };
+  // A bad per-set day rejects the set (like any other bad field): dropping just the day would
+  // silently move the set onto the session's day.
+  if (record.day !== undefined) set.day = requireDayNumber(record.day, `${path}.day`);
   if (record.reps !== undefined) set.reps = requireNonNegativeNumber(record.reps, `${path}.reps`, true);
   if (record.loadKg !== undefined) set.loadKg = requireNonNegativeNumber(record.loadKg, `${path}.loadKg`, false);
   if (record.note !== undefined) set.note = requireString(record.note, `${path}.note`);

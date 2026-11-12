@@ -66,7 +66,8 @@ saved first, the other merging into it later. Checks are stored in
 under keys that start with its id from `programs.json`: `<programId>.settings`,
 `.max-history`, `.log`, `.fatigue`, `.checkin-snoozed`,
 `.fatigue-warning-dismissed`, `.rotation-dismissed`, `.retest-dismissed`,
-`.retest-jump-skipped`, plus the backup keys `.log.corrupt-<time>`,
+`.retest-jump-skipped`, `.no-equipment` (swap ticks per date, pruned after
+14 days, not exported), plus the backup keys `.log.corrupt-<time>`,
 `.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
 (`explosive-endurance`) these are the keys the app has always used. One key is
 app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
@@ -235,6 +236,11 @@ A program file may leave out `fatigueCheck`, `warmupRotation` and
 banner or retest broad jump; without `warmupRotation` warm-ups never rotate and
 there is no rotation card. When a section is present it is checked as before.
 
+An optional `combining` section, `{ "pairs": [[1, 2], [2, 3]] }`, lists the day
+pairs Today may offer to merge into one session (each pair is two training days
+next to each other, lower day first). A bad pair is shown as a warning and
+ignored; without the section combining is never offered.
+
 `days[].day` and `restDay` are whole numbers from 1 to 7: Day 1 is the session
 on your start date, and Day 7 is the rest day in the shipped program (not
 weekday names). A progression phase can set `"retest": true`; EMOMs in that
@@ -268,6 +274,23 @@ rounds of 90s with 60s rest, Day 6 is ~42 min). Anything but true or false is
 an error, and so is combining it with `weeklyIncrease` or putting it in a block
 with its own `rounds` or `minutes` (both would still change from week to week).
 
+An item can run in only some weeks with `"weeks"`, a list of program weeks:
+`{ "exercise": "plyo_push_up", "weeks": [1, 3, 5, 7], ... }` shows that item in
+weeks 1, 3, 5 and 7 and leaves it out of the others. An item without `weeks`
+runs every week. Two items in one block can take turns: the shipped Day 3
+explosive block has plyo push-ups in the odd weeks and rotational wall throws
+in the even ones. The weeks must be a non-empty list of whole numbers from 1 to
+the program's `lengthWeeks`, with no repeats; anything else is an error naming
+the path. If some week has none of a block's items, the program still loads
+with a warning and that week's block is left out (the other blocks keep their
+place in the day). The same exercise can appear twice in one block only when
+the two items never run in the same week (disjoint `weeks`), because History,
+Last time and Progress match a logged set to the first item with that exercise.
+`weeks` can't be combined with `weeklyIncrease`, whose increase counts every
+week of the program. Deload halving and the power-endurance changes apply to
+whichever item runs that week. `weeks` can't be set inside a `noEquipment`
+swap, because the swap keeps the original's weeks.
+
 An item can carry a household-kit swap, `"noEquipment"`, for days when the
 kit isn't to hand. It is an object next to the item it replaces, with an
 `exercise` (required: a key of `exercises`) and, optionally, `reps`,
@@ -298,6 +321,31 @@ still logged under the original exercise. Every training day of a rotated
 block shows a "Warm-up rotation" card listing the swaps until you tap "Got
 it" (remembered per block; disabled when previewing another date with
 `?date=`). History shows the name the warm-up was performed as.
+
+## No-equipment swaps
+
+Some exercises of Explosive Endurance have a household-items version (a loaded
+backpack, a chair, a table). On Today, every such row has a **No equipment**
+checkbox. Tick it before your first set and the row, its log screen, its timer
+and its details sheet become the swap (for example "Backpack single-leg RDL"),
+with a line "Instead of Single-leg RDL". Untick it to go back. Rows without a
+swap have no checkbox, and the plan, overview and day plans always show the
+program as written.
+
+- **A tick belongs to one session.** It is saved for that date only, so the
+  next session starts as written again.
+- **Logging a set locks the choice.** Once an exercise has a logged set its
+  checkbox is disabled (greyed out, and described to screen readers as locked
+  because sets are logged) and a swapped row's "Instead of <original>" line
+  adds "· sets logged". Delete that exercise's sets to unlock it.
+- **Swapped sets are their own exercise.** They are logged under the swap's
+  name, so History and Progress keep them apart from the real exercise, and
+  "Last time" for a swap only looks at earlier sets of that swap.
+- **Ticks are not exported.** The export carries the logged sets (which already
+  say which exercise you did), not the ticks, so a restored log still shows the
+  swaps you trained.
+- A past date opened with `?date=` can be ticked to backfill; a future one can't,
+  just like logging.
 
 ## Exporting your log
 

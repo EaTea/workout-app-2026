@@ -18,7 +18,7 @@ function makeItem(overrides: Partial<ItemView>): ItemView {
   };
 }
 
-const plainBlock: BlockView = { type: "explosive", format: "straight sets", items: [] };
+const plainBlock: BlockView = { position: 1, type: "explosive", format: "straight sets", items: [] };
 
 /** n identical sets with the given target. */
 function setsOf(count: number, target?: RepTarget) {
@@ -42,7 +42,7 @@ describe("countSetsForItem", () => {
   });
 
   it("uses the block rounds for warm-up items, else one", () => {
-    const warmupBlock: BlockView = { type: "warmup", format: "superset", rounds: { min: 2, max: 2 }, items: [] };
+    const warmupBlock: BlockView = { position: 1, type: "warmup", format: "superset", rounds: { min: 2, max: 2 }, items: [] };
     expect(countSetsForItem(makeItem({ target: { kind: "range", min: 12, max: 15 } }), warmupBlock)).toBe(2);
     expect(countSetsForItem(makeItem({}), plainBlock)).toBe(1);
   });

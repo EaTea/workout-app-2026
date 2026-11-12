@@ -82,6 +82,12 @@ export interface ItemWire {
   weeklyIncrease?: string;
   /** Optional household-kit swap for this item; see `NoEquipmentSwapWire`. */
   noEquipment?: NoEquipmentSwapWire;
+  /**
+   * The program weeks the item runs in: a non-empty list of whole numbers
+   * from 1 to `program.lengthWeeks`, no repeats. Absent means every week.
+   * The model holds it as `BlockItem.runsInWeeks`.
+   */
+  weeks?: number[];
 }
 
 /** One block of a day (warmup, explosive, mainStrength, miniDose, core, finisher). */
@@ -158,6 +164,16 @@ export interface FatigueCheckWire {
   lowerBackRule: string;
 }
 
+/**
+ * Optional `combining` section: which two days Today may offer to merge into
+ * one session. Each pair is `[lowerDay, higherDay]`; `parseProgram` checks
+ * every pair (unusable ones become warnings and are ignored), so entries are
+ * `unknown` here.
+ */
+export interface CombiningWire {
+  pairs: unknown[];
+}
+
 /** The whole `program.json` document. */
 export interface ProgramWire {
   program: ProgramInfoWire;
@@ -170,4 +186,6 @@ export interface ProgramWire {
   warmupRotation?: WarmupRotationWire;
   /** Optional: omitted by programs without a weekly fatigue check-in. */
   fatigueCheck?: FatigueCheckWire;
+  /** Optional: omitted by programs that never offer combining two days (Steady Strength). */
+  combining?: CombiningWire;
 }

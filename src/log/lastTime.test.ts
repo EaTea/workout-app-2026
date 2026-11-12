@@ -149,3 +149,180 @@ describe("lastTimeSetFor", () => {
     expect(lastTimeSetFor(undefined, 1)).toBeUndefined();
   });
 });
+
+describe("findLastTime (sets that carry their own day)", () => {
+  /** One date holding two days: pull-ups as day 1 main strength (block 3) and as day 5 mini-dose (block 4). */
+  const twoDaySession = makeSession("2026-11-02", 1, [
+    { ...makeSet("pull_up", 3, 1, 8), day: 1 },
+    { ...makeSet("pull_up", 4, 1, 3), day: 5 },
+  ]);
+
+  it("finds each day's own sets in a session holding two days", () => {
+    const log = makeLog(twoDaySession);
+
+    const mainStrength = findLastTime(log, program, query("pull_up", 1, "mainStrength"), "2026-11-09");
+    const miniDose = findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09");
+
+    expect(mainStrength?.sets.map((set) => set.reps)).toEqual([8]);
+    expect(miniDose?.sets.map((set) => set.reps)).toEqual([3]);
+  });
+
+  it("counts a session for a day only if one of its sets is on that day, preferring it over a newer session of another day", () => {
+    // Heavy bag is block 6 (finisher) on both Day 1 and Day 5, so the block type cannot tell the days apart: only the day can.
+    const olderDayOne = makeSession("2026-11-02", 1, [makeSet("heavy_bag", 6, 1, 4)]);
+
+    // A newer plain Day 5 session must not win the "same day" tier for a Day 1 query.
+    const newerDayFive = makeLog(olderDayOne, makeSession("2026-11-04", 5, [makeSet("heavy_bag", 6, 1, 7)]));
+    expect(findLastTime(newerDayFive, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // ...but it is the answer for a Day 5 query, and Day 5 would otherwise fall back to it anyway.
+    expect(findLastTime(newerDayFive, program, query("heavy_bag", 5, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(7);
+
+    // A newer combined session (stored day 1) whose heavy-bag set is on Day 5 is not a Day 1 session for this exercise.
+    const newerCombined = makeLog(olderDayOne, makeSession("2026-11-04", 1, [{ ...makeSet("heavy_bag", 6, 1, 7), day: 5 }]));
+    expect(findLastTime(newerCombined, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+
+    // And a set on Day 1 inside a session stored as Day 5 does count for Day 1.
+    const dayOneSetInDayFiveSession = makeLog(
+      makeSession("2026-11-02", 5, [makeSet("heavy_bag", 6, 1, 4)]),
+      makeSession("2026-11-04", 5, [{ ...makeSet("heavy_bag", 6, 1, 7), day: 1 }]),
+    );
+    expect(findLastTime(dayOneSetInDayFiveSession, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(7);
+  });
+
+  it("reads an old-format log (no per-set day) exactly as before: the session's day decides", () => {
+    const log = makeLog(makeSession("2026-11-02", 5, [makeSet("pull_up", 4, 1, 4)]));
+
+    expect(findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // Same block type on another day's query still falls back to "any day".
+    expect(findLastTime(log, program, query("pull_up", 1, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // And a session with no stored day resolves nothing.
+    expect(findLastTime(makeLog(makeSession("2026-11-02", undefined, [makeSet("pull_up", 4, 1, 4)])), program, query("pull_up", 5, "miniDose"), "2026-11-09")).toBeUndefined();
+  });
+});
+
+describe("findLastTime with No equipment swaps", () => {
+  // Day 4: block 3 is the single-leg RDL main strength (swap: backpack_single_leg_rdl); day 2 block 4 is its mini-dose.
+  const swapSets = [makeSet("backpack_single_leg_rdl", 3, 1, 12), makeSet("backpack_single_leg_rdl", 3, 2, 12)];
+
+  it("finds the swap's earlier sets for the swap id, in the same day and block type", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, swapSets));
+
+    const lastTime = findLastTime(log, program, query("backpack_single_leg_rdl", 4, "mainStrength"), "2026-11-12");
+
+    expect(lastTime?.date).toBe("2026-11-05");
+    expect(lastTime?.sets).toHaveLength(2);
+  });
+
+  it("does not show the swap's sets as last time for the original", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, swapSets));
+
+    expect(findLastTime(log, program, query("single_leg_rdl", 4, "mainStrength"), "2026-11-12")).toBeUndefined();
+  });
+
+  it("does not show the original's sets as last time for the swap", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, [makeSet("single_leg_rdl", 3, 1)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 4, "mainStrength"), "2026-11-12")).toBeUndefined();
+  });
+
+  it("keeps the main strength and mini-dose slots apart for the swap", () => {
+    const log = makeLog(makeSession("2026-11-03", 2, [makeSet("backpack_single_leg_rdl", 4, 1, 8)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 4, "mainStrength"), "2026-11-12")).toBeUndefined();
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 2, "miniDose"), "2026-11-12")?.date).toBe("2026-11-03");
+  });
+
+  it("falls back to the same kind of block on another day", () => {
+    // Mini-dose RDL on day 2 stands in for the mini-dose on another day, not for main strength.
+    const log = makeLog(makeSession("2026-11-03", 2, [makeSet("backpack_single_leg_rdl", 4, 1, 8)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 5, "miniDose"), "2026-11-12")?.date).toBe("2026-11-03");
+  });
+
+  it("does not match a swap id logged at a block position whose item has no such swap", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, [makeSet("backpack_single_leg_rdl", 2, 1)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 4, "explosive"), "2026-11-12")).toBeUndefined();
+  });
+});
+
+describe("findLastTime with a combined session (two days on one date)", () => {
+  /**
+   * The shipped program has no exercise at the same block type and position on
+   * two days, which a combined session can produce for other programs. So make
+   * one: Day 2's mini-dose (block 4) becomes Day 1's dip, so both days have a
+   * dip mini-dose at block position 4.
+   */
+  const rawProgram = JSON.parse(readFileSync("public/program.json", "utf-8"));
+  rawProgram.days[1].blocks[3].items = structuredClone(rawProgram.days[0].blocks[3].items);
+  const programWithSharedSlot = parseProgram(rawProgram).program;
+
+  /** A set of a combined session: it carries its own day. */
+  function makeDaySet(day: number, setNumber: number, reps: number): LoggedSet {
+    return { ...makeSet("dip", 4, setNumber, reps), day };
+  }
+
+  const log = makeLog({
+    date: "2026-11-02",
+    day: 1,
+    sets: [makeDaySet(1, 1, 7), makeDaySet(2, 1, 9), makeDaySet(2, 2, 8)],
+  });
+
+  it("asked as Day 1, finds only Day 1's block, not Day 2's sets in the same block position", () => {
+    const lastTime = findLastTime(log, programWithSharedSlot, query("dip", 1, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => [set.day, set.setNumber, set.reps])).toEqual([[1, 1, 7]]);
+  });
+
+  it("asked as Day 2, finds only Day 2's block", () => {
+    const lastTime = findLastTime(log, programWithSharedSlot, query("dip", 2, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => [set.day, set.setNumber, set.reps])).toEqual([[2, 1, 9], [2, 2, 8]]);
+  });
+
+  it("asked as another day, takes the larger block (by day and position) and never blends the two", () => {
+    const lastTime = findLastTime(log, programWithSharedSlot, query("dip", 5, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => [set.day, set.setNumber])).toEqual([[2, 1], [2, 2]]);
+  });
+
+  it("a tie goes to the earlier day", () => {
+    const tied = makeLog({ date: "2026-11-02", day: 1, sets: [makeDaySet(2, 1, 9), makeDaySet(1, 1, 7)] });
+
+    const lastTime = findLastTime(tied, programWithSharedSlot, query("dip", 5, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => set.day)).toEqual([1]);
+  });
+});
+
+describe("findLastTime across alternating weeks (PLAN.md PR 26 rule 4)", () => {
+  // Day 3's explosive block is block 2: plyo push-ups in odd weeks, wall throws in even weeks.
+  const week1Day3 = "2026-11-04";
+  const week2Day3 = "2026-11-11";
+  const week3Day3 = "2026-11-18";
+  const week4Day3 = "2026-11-25";
+
+  it("finds a wall throws set logged in week 2 when asked in week 4", () => {
+    const log = makeLog(makeSession(week2Day3, 3, [makeSet("rotational_wall_throw", 2, 1, 5), makeSet("rotational_wall_throw", 2, 2, 5)]));
+
+    const lastTime = findLastTime(log, program, query("rotational_wall_throw", 3, "explosive"), week4Day3);
+
+    expect(lastTime?.date).toBe(week2Day3);
+    expect(lastTime?.sets.map((set) => set.setNumber)).toEqual([1, 2]);
+  });
+
+  it("finds a plyo push-up set logged in week 1 when asked in week 3", () => {
+    const log = makeLog(makeSession(week1Day3, 3, [makeSet("plyo_push_up", 2, 1, 5)]));
+
+    const lastTime = findLastTime(log, program, query("plyo_push_up", 3, "explosive"), week3Day3);
+
+    expect(lastTime?.date).toBe(week1Day3);
+    expect(lastTimeSetFor(lastTime, 1)?.reps).toBe(5);
+  });
+
+  it("does not mix the two exercises: a plyo set is not last time for the throws", () => {
+    const log = makeLog(makeSession(week1Day3, 3, [makeSet("plyo_push_up", 2, 1, 5)]));
+
+    expect(findLastTime(log, program, query("rotational_wall_throw", 3, "explosive"), week4Day3)).toBeUndefined();
+  });
+});

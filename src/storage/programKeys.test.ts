@@ -17,6 +17,8 @@ describe("storageKeysForProgram", () => {
       rotationDismissed: "explosive-endurance.rotation-dismissed",
       retestDismissed: "explosive-endurance.retest-dismissed",
       retestJumpSkipped: "explosive-endurance.retest-jump-skipped",
+      noEquipment: "explosive-endurance.no-equipment",
+      combines: "explosive-endurance.combines",
       importBackupPrefix: "explosive-endurance.import-backup-",
     });
   });
@@ -26,6 +28,7 @@ describe("storageKeysForProgram", () => {
 
     expect(keys.settings).toBe("steady-strength.settings");
     expect(keys.logCorruptBackupPrefix).toBe("steady-strength.log.corrupt-");
+    expect(keys.noEquipment).toBe("steady-strength.no-equipment");
     expect(keys.importBackupPrefix).toBe("steady-strength.import-backup-");
   });
 

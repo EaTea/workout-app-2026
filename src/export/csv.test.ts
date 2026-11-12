@@ -101,3 +101,41 @@ describe("neutraliseSpreadsheetFormula", () => {
     expect(neutraliseSpreadsheetFormula("  plain")).toBe("  plain");
   });
 });
+
+describe("logToCsv with per-set days", () => {
+  it("writes each row's own day and block type for a session holding two days, day by day", () => {
+    const log = makeLog({
+      date: "2026-11-09",
+      programWeek: 2,
+      day: 1,
+      sets: [
+        makeSet("pull_up", 4, 1, { day: 5, reps: 3 }),
+        makeSet("pull_up", 3, 1, { day: 1, reps: 8 }),
+      ],
+    });
+
+    const rows = logToCsv(log, program).split("\r\n").slice(1, 3).map((line) => line.split(","));
+
+    // Columns: date, week, day, block, block_type, exercise_id ...
+    expect(rows.map((cells) => cells.slice(0, 6))).toEqual([
+      ["2026-11-09", "2", "1", "3", "mainStrength", "pull_up"],
+      ["2026-11-09", "2", "5", "4", "miniDose", "pull_up"],
+    ]);
+  });
+
+  it("exports an old-format session (no per-set day) under the session's day, as before", () => {
+    const log = makeLog({ date: "2026-11-02", programWeek: 1, day: 1, sets: [makeSet("pull_up", 3, 1, { reps: 6 })] });
+
+    expect(logToCsv(log, program).split("\r\n")[1]!.split(",").slice(0, 6)).toEqual(["2026-11-02", "1", "1", "3", "mainStrength", "pull_up"]);
+  });
+});
+
+describe("logToCsv with a No equipment swap", () => {
+  it("writes the swap's id and library name, and resolves the block type from the item it replaces", () => {
+    const log = makeLog({ date: "2026-11-05", programWeek: 1, day: 4, sets: [makeSet("backpack_single_leg_rdl", 3, 1, { reps: 12 })] });
+
+    const csv = logToCsv(log, program);
+
+    expect(csv).toContain("2026-11-05,1,4,3,mainStrength,backpack_single_leg_rdl,Backpack single-leg RDL,Backpack single-leg RDL,1,12,,");
+  });
+});

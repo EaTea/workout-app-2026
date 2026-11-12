@@ -1,5 +1,6 @@
 import type { WorkoutLog } from "../log/model";
 import type { Program } from "../program/model";
+import { setDay } from "../log/setDay";
 import { performedAsName } from "../program/rotation";
 
 /**
@@ -44,7 +45,9 @@ const LINE_ENDING = "\r\n";
  * old logs still export). `exercise_name` is the exercise as the program
  * names it; `performed_as` is the rotated-in name for a warm-up logged in a
  * swapped week, else the same text. The text starts with a UTF-8 byte order
- * mark so Excel reads it as UTF-8. Missing reps, kg, week and day become empty cells.
+ * mark so Excel reads it as UTF-8. The day column and the block type come
+ * from each set's own day (`setDay`), so a session holding two days exports
+ * each row under its own day. Missing reps, kg, week and day become empty cells.
  */
 export function logToCsv(log: WorkoutLog, program: Program): string {
   const rows: string[][] = [[...CSV_COLUMNS]];
@@ -52,19 +55,23 @@ export function logToCsv(log: WorkoutLog, program: Program): string {
   const sessions = Object.values(log.sessions).sort((first, second) => first.date.localeCompare(second.date));
 
   for (const session of sessions) {
+    // Day first, so a session holding two days lists one day's rows, then the other's.
     const sets = [...session.sets].sort(
-      (first, second) => first.blockPosition - second.blockPosition || first.setNumber - second.setNumber,
+      (first, second) =>
+        (setDay(session, first) ?? 0) - (setDay(session, second) ?? 0) ||
+        first.blockPosition - second.blockPosition ||
+        first.setNumber - second.setNumber,
     );
 
     for (const set of sets) {
       const exerciseName = program.exercises[set.exerciseId]?.name ?? set.exerciseId;
-      const blockType =
-        session.day === undefined ? "" : (program.days[session.day]?.blocks[set.blockPosition - 1]?.type ?? "");
+      const day = setDay(session, set);
+      const blockType = day === undefined ? "" : (program.days[day]?.blocks[set.blockPosition - 1]?.type ?? "");
 
       rows.push([
         session.date,
         session.programWeek?.toString() ?? "",
-        session.day?.toString() ?? "",
+        day?.toString() ?? "",
         set.blockPosition.toString(),
         blockType,
         set.exerciseId,

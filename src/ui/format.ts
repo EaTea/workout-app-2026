@@ -81,6 +81,15 @@ export function formatSessionKicker(calendarDate: string, week: number, lengthWe
   return `${formatShortDate(calendarDate)}${DOT}${formatWeekAndDay(week, lengthWeeks, dayNumber)}`;
 }
 
+/**
+ * Kicker of a combined session: "9 Nov · Week 2 of 8 · Day 1 + Day 2". Used
+ * by Today when two days were merged on one date (PR 25).
+ */
+export function formatCombinedSessionKicker(calendarDate: string, week: number, lengthWeeks: number, days: readonly number[]): string {
+  const dayText = days.map((day) => `Day ${day}`).join(" + ");
+  return `${formatShortDate(calendarDate)}${DOT}Week ${week} of ${lengthWeeks}${DOT}${dayText}`;
+}
+
 /** "Week 1 of 8 · Day 7". Only used by `formatSessionKicker`. */
 function formatWeekAndDay(week: number, lengthWeeks: number, dayNumber: number): string {
   return `Week ${week} of ${lengthWeeks}${DOT}Day ${dayNumber}`;

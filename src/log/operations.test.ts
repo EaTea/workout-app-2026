@@ -135,3 +135,92 @@ describe("sessionDates", () => {
     expect(sessionDates(log)).toEqual(["2026-12-01", "2026-11-04", "2026-11-02"]);
   });
 });
+
+describe("sets that carry their own day", () => {
+  it("keeps two sets with the same exercise, block and set number but different days distinct", () => {
+    let log = logSet(emptyLog, "2026-11-09", makeSet({ day: 1, reps: 5 }), { day: 1 });
+    log = logSet(log, "2026-11-09", makeSet({ day: 2, reps: 7 }), { day: 1 });
+
+    expect(log.sessions["2026-11-09"]?.sets.map((set) => [set.day, set.reps])).toEqual([[1, 5], [2, 7]]);
+
+    // Re-logging the day 2 set replaces only that one.
+    log = logSet(log, "2026-11-09", makeSet({ day: 2, reps: 9 }));
+    expect(log.sessions["2026-11-09"]?.sets.map((set) => [set.day, set.reps])).toEqual([[1, 5], [2, 9]]);
+  });
+
+  it("edits and deletes only the set of the key's day", () => {
+    let log = logSet(emptyLog, "2026-11-09", makeSet({ day: 1, reps: 5 }), { day: 1 });
+    log = logSet(log, "2026-11-09", makeSet({ day: 2, reps: 7 }));
+    const key = { exerciseId: "pull_up", day: 2, blockPosition: 2, setNumber: 1 };
+
+    const edited = editSet(log, "2026-11-09", key, { reps: 8 });
+    expect(edited.sessions["2026-11-09"]?.sets.map((set) => set.reps)).toEqual([5, 8]);
+
+    const deleted = deleteSet(log, "2026-11-09", key);
+    expect(deleted.sessions["2026-11-09"]?.sets.map((set) => set.day)).toEqual([1]);
+  });
+
+  it("setsForItem returns only the asked day's sets, while a key without a day means the session's day", () => {
+    let log = logSet(emptyLog, "2026-11-09", makeSet({ day: 1, reps: 5 }), { day: 1 });
+    log = logSet(log, "2026-11-09", makeSet({ day: 2, reps: 7 }));
+
+    expect(setsForItem(log, "2026-11-09", 2, "pull_up", 2).map((set) => set.reps)).toEqual([7]);
+    expect(setsForItem(log, "2026-11-09", 2, "pull_up", 1).map((set) => set.reps)).toEqual([5]);
+    expect(setsForItem(log, "2026-11-09", 2, "pull_up").map((set) => set.reps).sort()).toEqual([5, 7]);
+
+    const deleted = deleteSet(log, "2026-11-09", { exerciseId: "pull_up", blockPosition: 2, setNumber: 1 });
+    expect(deleted.sessions["2026-11-09"]?.sets.map((set) => set.day)).toEqual([2]);
+  });
+
+  it("old sets in a session with no stored day behave as before: they match any day and are replaced by a new set", () => {
+    let log = logSet(emptyLog, "2026-11-02", makeSet({ reps: 5 }));
+
+    expect(setsForItem(log, "2026-11-02", 2, "pull_up", 1)).toHaveLength(1);
+    expect(setsForItem(log, "2026-11-02", 2, "pull_up", 3)).toHaveLength(1);
+
+    log = logSet(log, "2026-11-02", makeSet({ day: 1, reps: 9 }));
+    expect(log.sessions["2026-11-02"]?.sets.map((set) => set.reps)).toEqual([9]);
+  });
+
+  it("old sets in a session with a stored day still count on any day, so a moved start date changes nothing", () => {
+    // The session says Day 1, but after the start date moves the same date can
+    // be Day 3. Before sets carried a day, Today still counted these sets and
+    // re-logging replaced them; that must not change.
+    let log = logSet(emptyLog, "2026-11-02", makeSet({ reps: 5 }), { day: 1 });
+
+    expect(setsForItem(log, "2026-11-02", 2, "pull_up", 1)).toHaveLength(1);
+    expect(setsForItem(log, "2026-11-02", 2, "pull_up", 3)).toHaveLength(1);
+
+    log = logSet(log, "2026-11-02", makeSet({ day: 3, reps: 9 }));
+    expect(log.sessions["2026-11-02"]?.sets.map((set) => set.reps)).toEqual([9]);
+  });
+});
+
+describe("a set logged the way the log screen logs it (no day of its own) after the start date moves", () => {
+  // The log screen records no per-set day for a single-day log: the session's day (1 here) is the only record.
+  const loggedAsDayOne = makeSet({ setNumber: 1, reps: 6 });
+
+  it("still counts for the item when Today now shows the block as another day", () => {
+    const log = logSet(emptyLog, "2026-11-02", loggedAsDayOne, { programWeek: 1, day: 1 });
+
+    expect(setsForItem(log, "2026-11-02", 2, "pull_up", 5)).toEqual([loggedAsDayOne]);
+  });
+
+  it("is overwritten, not duplicated, when re-logged under another day's key", () => {
+    let log = logSet(emptyLog, "2026-11-02", loggedAsDayOne, { programWeek: 1, day: 1 });
+    log = logSet(log, "2026-11-02", makeSet({ setNumber: 1, reps: 9 }), { programWeek: 1, day: 5 });
+
+    expect(log.sessions["2026-11-02"]?.sets.map((set) => set.reps)).toEqual([9]);
+  });
+
+  it("is edited and deleted under another day's key", () => {
+    const dayFiveKey = { exerciseId: "pull_up", day: 5 as const, blockPosition: 2, setNumber: 1 };
+    let log = logSet(emptyLog, "2026-11-02", loggedAsDayOne, { programWeek: 1, day: 1 });
+
+    log = editSet(log, "2026-11-02", dayFiveKey, { reps: 8 });
+    expect(log.sessions["2026-11-02"]?.sets[0]?.reps).toBe(8);
+
+    log = deleteSet(log, "2026-11-02", dayFiveKey);
+    expect(log.sessions["2026-11-02"]).toBeUndefined();
+  });
+});
