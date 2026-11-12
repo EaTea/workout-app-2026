@@ -2162,8 +2162,8 @@ Every other day and week matches `main` exactly.
    2 Nov to 27 Dec matching the program without `weeks` except Day 3's
    explosive block in even weeks. README "Editing program.json" documents
    `weeks`.
-4. [ ] Tests for rule 4 ("Last time", Progress, History) and the day plans
-   by week. E2E: with the start date set so today is Week 2 Day 3, Today
+4. [x] Tests for rule 4 ("Last time", Progress, History), session
+   progress with a block left out, and the day plans by week. E2E: with the start date set so today is Week 2 Day 3, Today
    shows the throws and not the plyo push-ups; Week 1 shows the reverse.
 5. [ ] Copy `public/program.json` to the project files and update
    "Explosive Endurance Program.md" if its wording differs.

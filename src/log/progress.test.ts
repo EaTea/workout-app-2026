@@ -165,3 +165,24 @@ describe("No equipment swaps", () => {
     expect(chartableExercises(stray, program)).toEqual([]);
   });
 });
+
+describe("progress for the alternating Day 3 explosive exercises (PLAN.md PR 26 rule 4)", () => {
+  // Day 3's explosive block is block 2; the throws run in even weeks, the plyo push-ups in odd weeks.
+  const log = makeLog(
+    makeSession("2026-11-04", 1, 3, [makeSet("plyo_push_up", 2, 1, 5)]),
+    makeSession("2026-11-11", 2, 3, [makeSet("rotational_wall_throw", 2, 1, 5), makeSet("rotational_wall_throw", 2, 2, 6)]),
+  );
+
+  it("lists both exercises as explosive, whichever week the program is in now", () => {
+    expect(chartableExercises(log, program).map((exercise) => exercise.key)).toEqual(["plyo_push_up|explosive", "rotational_wall_throw|explosive"]);
+  });
+
+  it("charts a week 2 throws set and a week 1 plyo set from the whole program", () => {
+    expect(progressSeries(log, program, "rotational_wall_throw", "explosive")).toEqual([
+      { date: "2026-11-11", week: 2, day: 3, bestReps: 6, heaviestKg: undefined },
+    ]);
+    expect(progressSeries(log, program, "plyo_push_up", "explosive")).toEqual([
+      { date: "2026-11-04", week: 1, day: 3, bestReps: 5, heaviestKg: undefined },
+    ]);
+  });
+});

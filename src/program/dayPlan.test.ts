@@ -147,3 +147,27 @@ describe("compareWithPreviousWeek", () => {
     expect(changesFor(4, 1).previousWeek).toBe(3);
   });
 });
+
+describe("Day 3 plans by week (PLAN.md PR 26)", () => {
+  /** The exercise ids of the explosive block in a week's Day 3 plan. */
+  function explosiveExercisesOf(week: number): string[] {
+    const plan = training(buildDayPlan(program, settings, week, 3, TODAY));
+    return plan.blocks.find((block) => block.type === "explosive")!.items.map((item) => item.exercise.id);
+  }
+
+  it("shows the wall throws in week 2 and the plyo push-ups in week 3", () => {
+    expect(explosiveExercisesOf(2)).toEqual(["rotational_wall_throw"]);
+    expect(explosiveExercisesOf(3)).toEqual(["plyo_push_up"]);
+  });
+
+  it("does not report the swapped-in item as a change against the previous week", () => {
+    for (const week of [2, 3, 4, 5, 6, 7, 8]) {
+      const swapped = explosiveExercisesOf(week)[0]!;
+      expect(changeFor(week, 3, swapped), `week ${week}`).toBeUndefined();
+    }
+  });
+
+  it("reports no explosive block change in a swap week", () => {
+    expect(changesFor(2, 3).blocks.filter((change) => change.current.type === "explosive")).toEqual([]);
+  });
+});
