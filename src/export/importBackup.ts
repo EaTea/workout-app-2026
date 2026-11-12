@@ -8,7 +8,7 @@ import type { ExportWireV2 } from "./wire";
  *
  *   key   <programId>.import-backup-<ISO timestamp>   (keys.importBackupPrefix + timestamp)
  *   value a whole export file (`ExportWireV2`, written compactly) of what was
- *         there, plus `rawStoredTexts`: the exact stored text of the four data
+ *         there, plus `rawStoredTexts`: the exact stored text of the five data
  *         keys, so an undo puts back even settings or history the loaders
  *         could not read. Importing the file again also puts everything back
  *         (an import ignores `rawStoredTexts`).

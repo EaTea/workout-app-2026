@@ -286,6 +286,25 @@ describe("undoLastImport", () => {
     expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.combines]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
   });
 
+  it("removes the current combines when the backup predates the combines key (there were none before)", () => {
+    const storage = storageWithOldData();
+    storage.removeItem(KEYS.combines);
+    applyImport(storage, KEYS, importedData, NOW);
+    expect(storage.getItem(KEYS.combines)).not.toBeNull();
+
+    // Make the backup look like one written before the combines key existed: no entry for it.
+    const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
+    backupText.rawStoredTexts = backupText.rawStoredTexts.filter((raw: { key: string }) => raw.key !== KEYS.combines);
+    delete backupText.combines;
+    storage.setItem(BACKUP_KEY, JSON.stringify(backupText));
+
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+    expect(result.ok).toBe(true);
+    expect(storage.getItem(KEYS.combines)).toBeNull();
+    expect(readExportSource(storage, KEYS).log.sessions["2026-10-01"]).toBeDefined();
+  });
+
   it("falls back to reading an older backup that has no raw texts", () => {
     const storage = storageWithOldData();
     applyImport(storage, KEYS, importedData, NOW);

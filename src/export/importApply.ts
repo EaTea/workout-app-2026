@@ -107,7 +107,11 @@ export function undoLastImport(
 
   const rawTexts = newest.rawStoredTexts?.filter((raw) => replacedKeys(keys).includes(raw.storageKey));
   if (rawTexts !== undefined && rawTexts.length > 0) {
-    return replaceStoredData(storage, keys, now, () => writeRawTexts(storage, rawTexts));
+    // A backup made before the combines key existed has no entry for it. Those data had no combines, so
+    // undoing must remove the current ones; otherwise the restored log and the combines would disagree.
+    const hasCombinesEntry = rawTexts.some((raw) => raw.storageKey === keys.combines);
+    const textsToRestore = hasCombinesEntry ? rawTexts : [...rawTexts, { storageKey: keys.combines, text: null }];
+    return replaceStoredData(storage, keys, now, () => writeRawTexts(storage, textsToRestore));
   }
 
   const parsed = parseImport(newest.exportText);
