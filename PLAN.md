@@ -1545,7 +1545,7 @@ can be reviewed on a phone before anything changes how a session runs.
    (`applyNoEquipmentSwap`, the retest-week hold, `ItemView.noEquipment`),
    moved here from PR 19 because the sheet shows this week's dose. Unit
    tests for the worked examples.
-3b. [ ] The exercise sheet's "No equipment" section (swap name and this
+3b. [x] The exercise sheet's "No equipment" section (swap name and this
    week's dose). E2E: the Day 4 RDL sheet names "Backpack single-leg RDL,
    3 × 12–15 per leg".
 4. [ ] Copy the new `public/program.json` to the project files (the copy
