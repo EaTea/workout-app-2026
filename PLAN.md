@@ -1752,7 +1752,8 @@ the end of the loop. Head turns and sideways walking show both directions.
  src/demo/skeleton.ts       jointPositions(pose) ─▶ 3D points for every joint (forward
                             kinematics); limb lengths fixed, so a pose can't stretch a limb.
                             Pure TypeScript, no three.js, so the safety tests run in Vitest
- src/demo/timeline.ts       stepAt(demo, elapsedMs, speed) ─▶ { from, to, progress, label }
+ src/demo/timeline.ts       frameAt(demo, elapsedMs) ─▶ { pose, label, stepIndex }; the view
+                            scales elapsed time for Slower and stops it for Pause
                             (pure, unit tested; eased like the crab drill artifact)
  src/demo/steadyStrength.ts the 34 demos, keyed by exercise id
  src/demo/registry.ts       demoFor(programId, exerciseId) ─▶ Demo | undefined
@@ -1821,7 +1822,7 @@ project files under `screenshots/demos/`.
 
 ### PR 21 — "Show me" view and the Day 1 to Day 2 exercises *(behavior change)*
 **Steps.**
-1. [ ] `src/demo/model.ts`, `skeleton.ts` and `timeline.ts`, with unit
+1. [x] `src/demo/model.ts`, `skeleton.ts` and `timeline.ts`, with unit
    tests: forward kinematics, limb lengths unchanged across poses, the
    timeline figures in the worked examples, half speed, and pausing.
 2. [ ] three.js added; `src/demo/render3d.ts` (the mannequin, props,
