@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 15 merged (#3 to #24). PR 16 (Steady Strength and the program picker) is in review.**
+Status: **PR 1 to PR 16 merged (#3 to #25). PR 17 (the plan for no-equipment swaps) is in review; PR 18 and PR 19 wait for Ed's approval of it.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1243,7 +1243,7 @@ program.
 - **Merge point:** the app runs from the catalogue with per-program
   storage, and every existing test still passes.
 
-### PR 16 — Steady Strength program and the program picker *(behavior change)*
+### PR 16 — Steady Strength program and the program picker *(behavior change)* — merged as PR #25
 **Learned from the PR 15 review** (shapes the steps below):
 - **Choosing at startup:** with no stored choice, Explosive Endurance
   opens when it has saved data (start date, log or maxes); otherwise the
@@ -1294,6 +1294,279 @@ program.
 - **Merge point:** a first-time user can choose Steady Strength, read its
   safety notes and train Day 1 from Today.
 
+### PR 17 — Plan: no-equipment swaps for Explosive Endurance *(design)*
+Ed wants to be able to train Explosive Endurance away from his kit. He
+agreed this flow (12 Nov):
+
+1. Before a session, he ticks "No equipment" beside any exercise he can't
+   do with what he has. Unticked exercises stay exactly as written.
+2. Swaps only, chosen per exercise. There is no whole-session switch.
+3. A swapped exercise keeps its sets and rest, and its reps or time go up
+   to make up for the lost load. For example pike push-ups go from 3 × 10–15
+   to 3 × 15–20, and a single-leg RDL with a backpack goes to 3 × 12–15 per
+   leg with a 3s hold at the bottom.
+4. Explosive swaps keep the same reps. Jumps, throws and bounds are about
+   moving fast, not about load, so they need no extra dose.
+
+This section is the plan; PR 18 and PR 19 implement it. The main program
+stays as it is: every swap is an extra, optional field next to the item it
+replaces, so a session with nothing ticked is identical to today's.
+
+**"No equipment" means household items.** The swaps use a backpack loaded
+with books, a full water jug or bottles, a sturdy chair, table, stair or
+door, a sofa and the floor. A band, a bar or a bench doesn't count. The
+med ball slam's existing `alternative` (explosive chest-to-bar pull-ups)
+needs a bar, so it stays as an alternative on the sheet and isn't a swap.
+
+**How the dose is set.** These rules turn the four agreed points into
+something the file and the app can check:
+
+- **Kept from the original, always:** the number of sets, rest, format
+  (straight sets, EMOM, interval), EMOM minutes, interval rounds and work
+  and rest seconds, per side, optional, `weeklyIncrease` and
+  `sameEveryWeek`. The file can't override them, so a swap can't change
+  them by mistake. The deload halving, weekly increases and power
+  endurance timer changes then apply to the swap exactly as they would to
+  the original.
+- **Raised for lost load:** reps (or hold time) on main strength and core
+  items, by roughly 5 reps or a third, rounded to tidy numbers, and
+  sometimes a pause or hold at the hardest point instead of more reps.
+- **Same reps:** explosive items (agreed point 4) and the heavy bag
+  finisher. Shadow boxing is about snapping punches for the same rounds,
+  so it's treated like explosive work.
+- **Same dose:** warm-ups, which are light practice to begin with.
+- **"Easy, ~50% effort" stays as written** on mini-doses, because an
+  effort-based dose already adjusts itself to an easier exercise.
+- **Never from a tested max.** Someone training without a bar can't test
+  max pull-ups, so swaps for max-based items (the pull-up and dip EMOMs
+  and mini-doses) get their own figures: a starting range that still gets
+  "+1 rep per minute" each week, or "easy, ~50% effort" on a mini-dose.
+  In week 8 a swapped EMOM holds week 7's figure for the whole week (as a
+  plain deload holds), whatever max is saved, because it never uses one.
+- **Descriptive text isn't carried over.** The original's `load`, `note`
+  and `tempo` describe its kit ("hold a plate", "wrist straps are fine"),
+  so the swap writes its own, which keeps the JSON readable on its own.
+
+**The swaps.** One swap per item. Where Ed's earlier list gave two options,
+the second becomes a cue when it has the same dose (a water jug instead of
+the backpack), and is dropped when it would need a different dose (see
+"Changes from the earlier list" below). Every swap rests on coaching
+practice, and its `evidence` says so.
+
+Explosive (same sets, reps and rest):
+| Day | Original | Swap | Dose (week 1) | Cues |
+| --- | --- | --- | --- | --- |
+| 1 | Med ball slams 6 × 6, 30–45s rest | Backpack slams | 6 × 6, 30–45s rest | Books only in the bag, no bottles or electronics; slam onto carpet or grass; reach tall, then slam with the whole trunk |
+| 4 | Kettlebell swings, 8-min EMOM × 12–15 | Backpack swings | 8-min EMOM × 12–15 | Hold the top handle with both hands; zip it shut and tuck the straps; a full water jug by its handle works too; snap the hips, arms stay loose |
+| 5 | Dumbbell push press 5 × 5, 45s rest | Backpack push press | 5 × 5, 45s rest | Hug the backpack at the top of the chest, or a water jug in each hand at the shoulders; dip and drive |
+| 2, 3, 6 | Split-squat jumps, plyo push-ups, lateral skater bounds | No swap | — | No kit needed, so no tick shows |
+
+Main strength and mini-dose (same sets and rest, reps raised):
+| Day | Original | Swap | Dose (week 1) | Cues |
+| --- | --- | --- | --- | --- |
+| 1 | Pull-ups, 9-min EMOM at 40% of max, +1 rep per minute each week | Inverted rows under a table | 9-min EMOM × 6–8, +1 rep per minute each week | Test the table first: it mustn't tip or slide. Lie under the middle and grip the edge. Walk the feet in to make it easier. A towel round the handle of a closed door that opens away from you works too |
+| 5 | Pull-ups mini-dose 2 × 50% of max | Inverted rows under a table | 2 × easy, ~50% effort | As above |
+| 3 | Dips, 9-min EMOM at 40–50% of max, +1 rep per minute each week | Chair dips | 9-min EMOM × 8–10, +1 rep per minute each week | Chair against a wall so it can't slide; bend the knees to make it easier, straighten the legs to make it harder; shoulders down |
+| 1 | Dips mini-dose 2 × 50% of max | Chair dips | 2 × easy, ~50% effort | As above |
+| 5 | Overhead press / pike push-up 3 × 10–15, 60s rest, 2s lowering | Pike push-ups | 3 × 15–20, 60s rest, 2s lowering | Hips high, head lowers between the hands. Ed's worked example |
+| 3 | Overhead press / pike push-up mini-dose 2 × easy | Pike push-ups | 2 × easy, ~50% effort | |
+| 2 | Zercher Bulgarian split squat 3 × 12–15 per leg, 45s between rounds | Backpack Bulgarian split squat | 3 × 15–20 per leg, 45s between rounds, 2s pause at the bottom | Hug the backpack in the crook of the elbows (Zercher style), or hold it at the chest goblet style; rear foot on a chair or sofa; torso upright; switch legs without rest |
+| 6 | Zercher Bulgarian split squat mini-dose 2 × easy per leg | Backpack Bulgarian split squat | 2 × easy, ~50% effort per leg | |
+| 4 | Single-leg RDL 3 × 10–12 per leg, 3s lowering | Backpack single-leg RDL | 3 × 12–15 per leg, 3s lowering, 3s hold at the bottom | Backpack or water jug in both hands; hips square. Ed's worked example |
+| 2 | Single-leg RDL mini-dose 2 × easy per leg | Backpack single-leg RDL | 2 × easy, ~50% effort per leg | |
+| 6 | Single-leg calf raise: 1 × 8–10 heavy, then 2 × 15–25, 2s pause at the bottom | Stair calf raise with a backpack on | 3 × 20–30 per leg, 2s pause at the bottom | Heel drops below the stair; hold the rail. The heavy first set can't be matched without weight, so every set is the same |
+| 4 | Single-leg calf raise mini-dose 2 × easy per leg | Stair calf raise | 2 × easy, ~50% effort per leg | |
+
+Core and finisher:
+| Day | Original | Swap | Dose (week 1) | Cues |
+| --- | --- | --- | --- | --- |
+| 1 | Back extension 4 × 12–15 holding a plate, 2s hold at the top | Prone back extension | 4 × 15–20, 2s hold at the top | Face down on the floor, hands by the ears; lift the chest so the extra range comes from the upper back, not the lower back |
+| 5 | Back extension 3 × 20 bodyweight | Prone back extension | 3 × 25, 2s hold at the top, slow | As above. The Day 5 lower-back rule still applies |
+| 1 | Hanging leg raise 3 × 6–10 | Lying leg raise | 3 × 10–15, 2–3s lowering | Hands under the hips, lower back stays down; bent knees to make it easier |
+| 5 | Hanging leg raise 4 × 8–12, 2–3s lowering | Lying leg raise | 4 × 15–20, 2–3s lowering | As above |
+| 1, 5 | Heavy bag 4–5 rounds × 20–30s / 30s rest | Shadow boxing | 4–5 rounds × 20–30s / 30s rest (power endurance +5s still applies) | Snap every punch back as fast as it went out; hands up; move the feet |
+| 1, 3, 5 | Side plank, hollow hold, crab core moves | No swap | — | No kit needed |
+
+Warm-ups (same dose):
+| Day | Original | Swap | Dose | Cues |
+| --- | --- | --- | --- | --- |
+| 1, 3 | Pallof press 12–15 | Plank shoulder taps | 12–15 per side | Feet wide, hips still: the same "don't let it turn you" job as the Pallof press |
+| 3, 5 | Lateral raise 12–15 | Bottle lateral raise | 12–15 | A water bottle in each hand |
+| 3 | Plate halo, 8 each direction, 5–10 kg plate | Water jug halo | 8 each direction | A full water jug or a heavy book, close to the head; ribs down |
+| 2, 4 | Hip abduction / adduction 12–15 | Side-lying hip raises | 12–15 each way | Lie on your side: lift the top leg (abduction), then the bottom leg with the top foot in front (adduction) |
+| 1, 2, 4, 5, 6 | YTWI raises, Cossack squat, single-leg hip thrust | No swap | — | YTWIs work lying face down on the floor, and the hip thrust with the shoulders on a sofa |
+
+Rotated-in warm-ups (Kickbacks, Reverse fly, Ab raises, Tricep pushdown)
+are free text in `warmupRotation`, not items, so they get no tick. In a
+rotated week the item they replace shows no tick either.
+
+**Changes from the earlier list.** Ed's list was a starting point; these
+are the refinements, for him to confirm on the PR:
+
+- **Pallof press:** a towel round a door frame gives nothing to resist, and
+  a band isn't household kit, so the swap is plank shoulder taps, which do
+  the same anti-rotation job.
+- **Dropped second options** that would need a different dose under the
+  "one swap per item" rule: the arm-swing jump (slams), broad jumps
+  (swings), the pike jump (push press), the superman hold (back
+  extension), the reverse crunch and dead bug (leg raise), and the pillow
+  (heavy bag).
+- **Added:** hip abduction / adduction (side-lying raises), which the
+  earlier list didn't cover.
+- **Pull-up and dip swaps don't use the tested max** (see the dose rules).
+
+**What the person sees.**
+
+```
+ Today, Week 1 · Day 4 (Lower: hinge)
+
+ ┌──────────────────────────────────────┐
+ │ 2 EXPLOSIVE                          │
+ │ Kettlebell swings                ⓘ  │
+ │ 8-min EMOM × 12–15                   │
+ │ [ ] No equipment                     │   tick before the first set
+ ├──────────────────────────────────────┤
+ │ 3 MAIN STRENGTH                      │
+ │ Backpack single-leg RDL          ⓘ  │   ticked: name, dose and
+ │ 3 × 12–15 per leg · 3s lowering,     │   sheet are the swap's
+ │ 3s hold at the bottom                │
+ │ Instead of Single-leg RDL            │
+ │ [x] No equipment                     │
+ └──────────────────────────────────────┘
+```
+
+- The tick shows only on items whose file entry has a swap. Ticking or
+  unticking changes the row, its log screen, its timer and its exercise
+  sheet straight away. The sheet for a swapped item shows the swap's cues
+  and evidence and says what it replaces; the sheet for an unticked item
+  with a swap gets a "No equipment" section naming the swap and its dose.
+- **Ticks belong to one session.** A tick is saved for that date only, so
+  every session starts as written (agreed point 1).
+- **Logging decides after the first set.** Sets of a swapped item are
+  logged under the swap's exercise id (for example `backpack_single_leg_rdl`),
+  so "last time", History, Progress charts and the CSV export keep swaps
+  apart from the real thing with no change to the log's wire format: a
+  backpack RDL never pre-fills the loaded RDL's kilograms. Once an item has
+  a logged set, its tick is locked to match ("Logged as Backpack
+  single-leg RDL"); deleting the item's sets unlocks it. Today and the log
+  screen work out "swapped" from the logged sets first and the saved tick
+  second, so a log restored from an export (which doesn't carry ticks)
+  still shows the swap.
+- **Where a tick is allowed:** wherever logging is allowed, so a past date
+  in a `?date=` preview can be ticked to backfill, and a future one can't.
+- **Unchanged:** the overview, day plans, weekly minutes, retest card,
+  check-in and Steady Strength (which has no swaps).
+
+**Code shape.**
+
+```
+ program.json item  { "exercise": "single_leg_rdl", "sets": 3, "reps": "10-12", ...,
+                      "noEquipment": { "exercise": "backpack_single_leg_rdl",
+                                       "reps": "12-15",
+                                       "tempo": "3s lowering, 3s hold at the bottom" } }
+        │ parseProgram()   (NoEquipmentSwapWire → NoEquipmentSwap)
+        ▼
+ BlockItem.noEquipment?  ─────────────┐
+                                      │
+ "<programId>.no-equipment"           │
+   (NoEquipmentTicksWire ⇄ ticks) ──▶ buildSession(program, settings, date, swappedItems)
+ log: sets under the swap's id ─────▶     │ applyNoEquipmentSwap(item) for each swapped item
+                                          ▼
+                                     ItemView (swap's exercise and dose, swappedFrom: original)
+                                          │
+                                          ▼
+                                     Today, log screen, timers, sheet
+```
+
+- **Wire:** a new optional item field `noEquipment` with `exercise`
+  (required, a key of `exercises`) and optional `reps`, `durationSec`,
+  `load`, `note` and `tempo`. Anything else in it (`sets`, `restSec`,
+  `minutes`, `rounds`, `format`, `repsPctOfMax`, ...) is a parse error
+  naming the path, because a swap keeps those from the original. Also
+  errors: a swap exercise that is `maxTested`, a swap of a max-based item
+  with no `reps` of its own, and a swap that is its own original. Like every boundary, it gets its own wire type and
+  mapping function (CLAUDE.md section 6).
+- **Library:** the 16 swap exercises are ordinary `exercises` entries
+  (`backpack_slam`, `backpack_swing`, `backpack_push_press`,
+  `inverted_row`, `chair_dip`, `pike_push_up`,
+  `backpack_bulgarian_split_squat`, `backpack_single_leg_rdl`,
+  `stair_calf_raise`, `prone_back_extension`, `lying_leg_raise`,
+  `shadow_boxing`, `plank_shoulder_tap`, `bottle_lateral_raise`,
+  `water_jug_halo`, `side_lying_hip_raise`), each with a name, the
+  original's category, cues and `"evidence": "coaching practice"`, so the
+  existing sheet, History and charts handle them without special cases.
+- **Schedule:** `applyNoEquipmentSwap(item)` builds the effective item
+  (the original's structure, the swap's exercise, reps and text), and
+  `buildItem` runs on that, so halving, weekly increases and timer
+  adjustments need no new code. The one change in `chooseIncrease`: an
+  EMOM whose effective reps aren't max-based holds the previous week's
+  offset for the whole retest week.
+- **Ticks:** their own key `<programId>.no-equipment`, with a versioned
+  wire type: `{ "version": 1, "ticks": { "2026-11-05": ["3:single_leg_rdl"] } }`
+  (block position and original exercise id). Re-read before each save,
+  like the log. Dates more than 14 days old are dropped on save, since
+  logged sets carry the lasting record. Not exported: an export already
+  carries the swapped sets.
+- **Tests:** unit tests for the parser errors, the worked examples below,
+  and data checks over the shipped file (every explosive and heavy bag
+  swap has the same reps as its original, and no swap needs a max). E2E:
+  tick a swap on Today, see the swapped dose, log a set, see it locked,
+  reload, and see last week's swap as "Last time" next week.
+- Per CLAUDE.md section 10, a lower-cost subagent implements each step,
+  I review and commit it, and a new higher-reasoning subagent challenges
+  each PR before it opens.
+
+**Alternatives considered.**
+- **A whole-session "home day" switch:** simpler UI, but Ed chose per
+  exercise, since he often has some kit (agreed point 2).
+- **The swap on the exercise library entry instead of the item:** one entry
+  per exercise, but the same exercise has different doses on different
+  days (the RDL is 3 × 10–12 on Day 4 and an easy mini-dose on Day 2), so
+  the dose has to live on the item.
+- **A choice of two swaps per item:** keeps all of Ed's options, but turns
+  one tick into a tick plus a picker, and doubles the doses to check. One
+  swap, with same-dose variants as cues, covers the common case.
+- **Remembering ticks between sessions:** fewer taps when kit is missing for
+  weeks, but it contradicts "unticked exercises stay as written" and would
+  silently carry a swap into a gym day. It's an easy follow-up if wanted.
+
+### PR 18 — No-equipment swaps in the program file *(behavior change)*
+The data and the parser, shown only on the exercise sheet, so the doses
+can be reviewed on a phone before anything changes how a session runs.
+
+**Steps.**
+1. [ ] `noEquipment` in the wire types, parser and model, with the errors
+   listed above and the "did you mean" hint for misspelt keys. Unit tests,
+   including the cut-down program fixture.
+2. [ ] The 16 swap exercises and every swap in `public/program.json`
+   exactly as tabled above. Data tests over the shipped file. README:
+   "Editing program.json" documents `noEquipment` and its rules.
+3. [ ] The exercise sheet's "No equipment" section (swap name and this
+   week's dose). E2E: the Day 4 RDL sheet names "Backpack single-leg RDL,
+   3 × 12–15 per leg".
+4. [ ] Copy the new `public/program.json` to the project files (the copy
+   there is from before PR 13) and add a "No-equipment swaps" section to
+   "Explosive Endurance Program.md" with the tables above.
+5. [ ] Fixes from the challenger review.
+- **Merge point:** the file carries every swap, the sheet shows them, and
+  every session is unchanged.
+
+### PR 19 — Tick "No equipment" and train the swap *(behavior change)*
+**Steps.**
+1. [ ] `applyNoEquipmentSwap` and `buildSession` taking the swapped items,
+   with the retest-week hold. Unit tests for the worked examples below.
+2. [ ] The ticks storage key, its wire type, mapping and pruning. Unit
+   tests.
+3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
+   logging under the swap's id, the lock after the first set, and working
+   out "swapped" from the log. Session progress (in progress, complete)
+   counts swapped sets. README.
+4. [ ] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
+   plus an unticked session matching today's exactly.
+5. [ ] Fixes from the challenger review.
+- **Merge point:** Ed can tick any swap on Today, train it with the right
+  dose and timer, and see it in History.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -1339,11 +1612,41 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | (no start date) | — | — | Overview: 8 weeks, 6 training days, about 135 min a week (30+15+30+15+30+15); phases Settle in W1–2, Build W3–5, Strengthen W6–8; "Before you start" card with the 5 safety notes; CTA "Start Day 1: Legs and core" |
 | Switching | — | — | Explosive started 2 Nov with a logged set, then Steady Strength chosen and started 9 Nov: switching back shows Explosive at its 2 Nov start with the set still logged, and Steady Strength still starts 9 Nov |
 
+**No-equipment swaps** (PR 17), Explosive Endurance, start date 2 Nov
+2026, max pull-ups 12, max dips 15, with the named item ticked:
+
+| Date | Week / day | Phase | Example figures |
+| --- | --- | --- | --- |
+| 2 Nov | W1 D1 | Base | Backpack slams 6 × 6, 30–45s rest; inverted rows 9-min EMOM × 6–8 per minute (no max used); chair dips mini-dose 2 × easy, ~50% effort |
+| 2 Nov | W1 D1 | Base | Nothing ticked: the session is exactly as today, pull-up EMOM 9 min × 4 |
+| 16 Nov | W3 D1 | Base | Inverted rows 9 min × 8–10 per minute |
+| 23 Nov | W4 D1 | Deload | Backpack slams 3 × 6; inverted rows 5 min × 8–10 (week 3's, held); chair dips 1 × easy |
+| 30 Nov | W5 D1 | Power endurance | Inverted rows 9 min × 6–8 (block 2 restarts); shadow boxing 4–5 rounds × 25–35s / 30s rest |
+| 21 Dec | W8 D1 | Deload + retest | Inverted rows 5 min × 8–10 (week 7's, held), both before and after a retested pull-up max of 15 is saved on 21 Dec |
+| 4 Nov | W1 D3 | Base | Chair dips 9-min EMOM × 8–10; water jug halo 8 each direction; plank shoulder taps 12–15 per side |
+| 5 Nov | W1 D4 | Base | Backpack swings 8-min EMOM × 12–15; backpack single-leg RDL 3 × 12–15 per leg, 3s lowering, 3s hold at the bottom |
+| 26 Nov | W4 D4 | Deload | Backpack swings 4 min × 12–15; backpack single-leg RDL 2 × 12–15 per leg |
+| 6 Nov | W1 D5 | Base | Backpack push press 5 × 5, 45s rest; pike push-ups 3 × 15–20, 60s rest, 2s lowering; lying leg raise 4 × 15–20; prone back extension 3 × 25 |
+| 7 Nov | W1 D6 | Base | Stair calf raise with a backpack 3 × 20–30 per leg, 2s pause at the bottom |
+| 28 Nov | W4 D6 | Deload | Stair calf raise 2 × 20–30 per leg |
+| Logging | W1 D4 → W2 D4 | Base | Backpack RDL ticked and one set logged on 5 Nov: the set is stored as `backpack_single_leg_rdl` and the tick is locked. On 12 Nov the ticked row's "Last time (5 Nov)" shows it; the unticked RDL's "Last time" ignores it |
+
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
 W2 D1, and 3 Nov is "not started".
 
 ## 7. Open questions
+
+For PR 17 (no-equipment swaps), each with the answer I'm assuming:
+
+1. **The doses in the swap tables.** Especially the starting figures for
+   swapped EMOMs (inverted rows 6–8 and chair dips 8–10 per minute) and
+   the calf raise, where the heavy set becomes a third high-rep set. Are
+   they right for Ed?
+2. **The refinements to the earlier list** ("Changes from the earlier
+   list"), above all the Pallof press becoming plank shoulder taps.
+3. **Ticks reset every session.** I'm reading "before each session, tick"
+   literally. Remembering them would be a small follow-up.
 
 For PR 14 (Steady Strength), each with the answer I'm assuming:
 
