@@ -1964,6 +1964,10 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
       one "alternate" block: a set of one, then a set of the other, so
       each one's rest is spent on the other. An EMOM (kettlebell swings)
       can't alternate, so it runs as its own block after the other.
+      When the two have different set counts (Day 2 + 3 in an even week:
+      split-squat jumps 5 × 6 per leg ⇄ wall throws 4 × 5 per side), they
+      alternate while both have sets left and the longer one finishes
+      alone (assumed; open question for Ed, raised with PR 27).
    3. Main strength, then mini-doses: each day's block as written.
    4. Core, then finishers: each day's blocks, except that items marked
       `"optional": true` (side plank, hollow hold) are left out and the
@@ -2005,7 +2009,7 @@ import (an older export without it imports as no combines).
 | 9 Nov (W2 D1) | Day 2 added | Blocks: D1 warm-up, D2 warm-up, slams ⇄ split-squat jumps, D1 pull-up EMOM, D2 Zercher BSS, D1 dip mini, D2 SL RDL mini, D1 core (no side plank), D1 bag 4 rounds; ~72 min |
 | 10 Nov (W2 D2) | After the combine above | "Day 2 done with Day 1 on 9 Nov", no session, no buttons |
 | 12 Nov (W2 D4) | Day 3 (11 Nov) had nothing logged | "Add missed Day 3 to today"; no "Add Day 5" ([4, 5] isn't a pair) |
-| 12 Nov (W2 D4) | Day 3 added | Explosive: plyo push-ups, then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
+| 12 Nov (W2 D4) | Day 3 added | Explosive: rotational wall throws (Day 3's even-week item, PR 26), then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
 | 23 Nov (W4 D1, deload) | Day 2 added | Both days' sets halved first, then merged |
 | 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~84 min |
 
@@ -2163,10 +2167,14 @@ Every other day and week matches `main` exactly.
    explosive block in even weeks. README "Editing program.json" documents
    `weeks`.
 4. [x] Tests for rule 4 ("Last time", Progress, History), session
-   progress with a block left out, and the day plans by week. E2E: with the start date set so today is Week 2 Day 3, Today
-   shows the throws and not the plyo push-ups; Week 1 shows the reverse.
-5. [ ] Copy `public/program.json` to the project files and update
-   "Explosive Endurance Program.md" if its wording differs.
+   progress with a block left out, and the day plans by week. E2E: with
+   the start date set so today is Week 2 Day 3, Today shows the throws
+   and not the plyo push-ups; Week 1 shows the reverse.
+5. [x] Copy `public/program.json` to the project files and update
+   "Explosive Endurance Program.md" if its wording differs (it already
+   described the alternation). The doc's Day 3 row still says ~32 min with
+   no core block, from before PR 13; that drift is older than this PR and
+   is left as a separate follow-up.
 6. [ ] Fixes from the challenger review.
 - **Merge point:** Day 3 shows the right explosive exercise each week, and
   every other session is unchanged.
