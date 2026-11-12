@@ -19,6 +19,7 @@
  *               ├─ parseExercise  (per library entry)
  *               ├─ parseDay ─ parseBlock ─ parseItem (resolves exercise ids)
  *               │                              └─ parseNoEquipmentSwap (the item's optional swap)
+ *               ├─ parseCombining (the allowed day pairs; bad pairs become warnings)
  *               └─ progression / warmupRotation / fatigueCheck
  *   every parse* function ──unknown key──▶ collectUnknownFields ──▶ warnings
  *   every parse* function ──real problem─▶ fail() ──▶ throws
@@ -45,6 +46,7 @@ import type {
 import { DAYS_PER_WEEK } from "./model";
 import type {
   BlockWire,
+  CombiningWire,
   DayWire,
   EvidenceWire,
   ExerciseWire,
@@ -87,7 +89,7 @@ function allowedKeysOf<WireType>() {
   ): readonly string[] => keys;
 }
 
-const ROOT_KEYS = allowedKeysOf<ProgramWire>()(["program", "exercises", "days", "progression", "coreProgressions", "warmupRotation", "fatigueCheck"]);
+const ROOT_KEYS = allowedKeysOf<ProgramWire>()(["program", "exercises", "days", "progression", "coreProgressions", "warmupRotation", "fatigueCheck", "combining"]);
 const PROGRAM_INFO_KEYS = allowedKeysOf<ProgramInfoWire>()(["name", "goal", "lengthWeeks", "restDay", "sessionOrder", "rules", "safety"]);
 const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues", "alternative", "evidence", "progression", "maxTested"]);
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
@@ -104,6 +106,7 @@ const TIMER_ADJUSTMENT_KEYS = allowedKeysOf<TimerAdjustmentsWire>()(["intervalWo
 const WARMUP_ROTATION_KEYS = allowedKeysOf<WarmupRotationWire>()(["everyWeeks", "swaps", "alsoAvailable"]);
 const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in"]);
 const FATIGUE_CHECK_KEYS = allowedKeysOf<FatigueCheckWire>()(["frequency", "tests", "rule", "lowerBackRule"]);
+const COMBINING_KEYS = allowedKeysOf<CombiningWire>()(["pairs"]);
 
 /** Builds the error every parser failure goes through, so all messages share the "path: problem" shape. */
 function fail(path: string, problem: string): never {
@@ -649,6 +652,75 @@ function parseFatigueCheck(raw: unknown, path: string, warnings: ProgramWarning[
 }
 
 /**
+ * Converts the optional `combining` section into the list of usable day pairs
+ * (rule 1 of the combine design). A pair is usable when it is a list of two
+ * whole-number days that are different training days (in `days`, so never the
+ * rest day), next to each other, lower day first. An unusable pair is not an
+ * error: it becomes a `ProgramWarning` naming its path and reason, and is
+ * left out, so a typo in Ed's file never takes down the app, it just offers
+ * fewer combines. A pair repeated in the file is kept once. A `combining`
+ * section that is not an object, or whose `pairs` is not a list, is a real
+ * error like any other malformed section. Called by `parseProgram` after the
+ * days are known.
+ *
+ *   "combining": { "pairs": [[1, 2], [2, 4]] }  ──▶  [[1, 2]] + a warning for [2, 4]
+ */
+function parseCombining(
+  raw: unknown,
+  days: Partial<Record<DayNumber, Day>>,
+  path: string,
+  warnings: ProgramWarning[],
+): [DayNumber, DayNumber][] {
+  const record = expectRecord(raw, path);
+  collectUnknownFields(record, COMBINING_KEYS, path, warnings);
+
+  const rawPairs = expectArray(record.pairs ?? fail(child(path, "pairs"), "field is missing"), child(path, "pairs"));
+  const pairs: [DayNumber, DayNumber][] = [];
+
+  rawPairs.forEach((rawPair, index) => {
+    const pairPath = `${child(path, "pairs")}[${index}]`;
+    const problem = describeCombinePairProblem(rawPair, days);
+    if (problem !== null) {
+      warnings.push({ path: pairPath, message: `${problem}, so this pair is ignored` });
+      return;
+    }
+
+    const [earlierDay, laterDay] = rawPair as [DayNumber, DayNumber];
+    const alreadyListed = pairs.some(([listedEarlier, listedLater]) => listedEarlier === earlierDay && listedLater === laterDay);
+    if (!alreadyListed) pairs.push([earlierDay, laterDay]);
+  });
+
+  return pairs;
+}
+
+/**
+ * Why `rawPair` cannot be a combine pair, or null when it can. Kept apart
+ * from `parseCombining` so each rule reads as one check, in the order a
+ * person fixing the file would meet them. Only `parseCombining` calls it.
+ */
+function describeCombinePairProblem(rawPair: unknown, days: Partial<Record<DayNumber, Day>>): string | null {
+  if (!Array.isArray(rawPair) || rawPair.length !== 2) {
+    return `expected a pair like [1, 2] but found ${describe(rawPair)}`;
+  }
+
+  const [earlierDay, laterDay] = rawPair as unknown[];
+  for (const day of [earlierDay, laterDay]) {
+    if (typeof day !== "number" || !Number.isInteger(day)) {
+      return `expected two whole day numbers but found ${describe(day)}`;
+    }
+    if (days[day] === undefined) {
+      return `day ${day} is not a training day`;
+    }
+  }
+
+  if (earlierDay === laterDay) return `day ${earlierDay as number} cannot be combined with itself`;
+  if (laterDay !== (earlierDay as number) + 1) {
+    return `days ${earlierDay as number} and ${laterDay as number} are not next to each other, with the lower day first`;
+  }
+  return null;
+}
+
+/**
  * Fails unless the phases cover weeks 1..lengthWeeks exactly once: no week
  * outside the program, none listed twice, none missing. The schedule looks
  * a phase up for every week, so a gap would otherwise crash on that day.
@@ -737,6 +809,7 @@ export function parseProgram(json: unknown): ParseResult {
 
   const rawWarmupRotation = optionalSection(root, "warmupRotation");
   const rawFatigueCheck = optionalSection(root, "fatigueCheck");
+  const rawCombining = optionalSection(root, "combining");
 
   const lengthWeeks = readPositiveInteger(info, "lengthWeeks", "program");
   const progression = expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
@@ -758,6 +831,7 @@ export function parseProgram(json: unknown): ParseResult {
     coreProgressions,
     warmupRotation: rawWarmupRotation === undefined ? undefined : parseWarmupRotation(rawWarmupRotation, "warmupRotation", warnings),
     fatigueCheck: rawFatigueCheck === undefined ? undefined : parseFatigueCheck(rawFatigueCheck, "fatigueCheck", warnings),
+    combinePairs: rawCombining === undefined ? [] : parseCombining(rawCombining, days, "combining", warnings),
   };
 
   return { program, warnings };

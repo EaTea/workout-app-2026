@@ -407,5 +407,9 @@
     "tests": ["Best broad jump", "Max pull-ups"],
     "rule": "If either drops more than ~10% and stays down, or you feel flat for several days, add a rest day or start the deload early",
     "lowerBackRule": "If the lower back feels tight on Day 5, cut back extensions to 2 sets"
+  },
+
+  "combining": {
+    "pairs": [[1, 2], [2, 3], [3, 4], [5, 6]]
   }
 }
