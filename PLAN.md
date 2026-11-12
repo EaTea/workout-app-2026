@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 is under way. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31.**
+Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 is under way. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31; PR 27 (its implementation) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -2146,8 +2146,10 @@ Every other day and week matches `main` exactly.
 
 ### PR 27 — Day 3 rotational wall throws *(behavior change)*
 **Steps.**
-1. [ ] `weeks` in the wire types, parser and model (rule 1) and the gap
+1. [x] `weeks` in the wire types, parser and model (rule 1) and the gap
    warning (rule 2). Unit tests for each rejected value and the warning.
+   `lengthWeeks` is now read before the days, since `weeks` is checked
+   against it.
 2. [ ] `buildSession` filtering by week (rule 3). Unit tests for the
    worked examples, and a check that every other session from 2 Nov to
    27 Dec matches `main`.
