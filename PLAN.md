@@ -1825,10 +1825,14 @@ project files under `screenshots/demos/`.
 1. [x] `src/demo/model.ts`, `skeleton.ts` and `timeline.ts`, with unit
    tests: forward kinematics, limb lengths unchanged across poses, the
    timeline figures in the worked examples, half speed, and pausing.
-2. [ ] three.js added; `src/demo/render3d.ts` (the mannequin, props,
+2. [x] three.js added; `src/demo/render3d.ts` (the mannequin, props,
    lights, the three camera angles) and `renderFlat.ts`. A check that the
    lazily loaded chunk is in the service worker's precache list. Commit
    message records the dependency choice and its size.
+   Built: the three.js chunk is about 540 KB raw, 134 KB gzipped, and
+   only loads when "Show me" first opens. Vite warns about chunks over
+   500 KB; the warning is expected for this chunk and is left on so any
+   other large chunk still shows up.
 3. [ ] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
    stills and "Next step", the flat fallback, Back to close and disposal.
    One demo (high wall sit) to drive it.

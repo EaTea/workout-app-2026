@@ -5,7 +5,7 @@
  * share. Demos are code, not program data, so nothing here crosses a wire
  * boundary and no DTOs are needed.
  *
- * Coordinate system (metres, right-handed):
+ * Coordinate system (metres; note this triple is LEFT-handed):
  *
  *            y (up)
  *            |
@@ -15,8 +15,10 @@
  *           /
  *          z  (the figure's LEFT side)
  *
- * The floor is y = 0. A "side" camera sits on +z looking at the figure's
- * left side. All angles are in degrees.
+ * The floor is y = 0. All angles are in degrees. Because +z is the figure's
+ * left, x/y/z here is a left-handed set; the 3D renderer mirrors z when it
+ * hands points to three.js (see renderer.ts), so the side view shows the
+ * figure facing the viewer's right, as in the approved preview.
  */
 
 /** A point or direction in the world, in metres. */
