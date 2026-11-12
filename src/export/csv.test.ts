@@ -101,3 +101,13 @@ describe("neutraliseSpreadsheetFormula", () => {
     expect(neutraliseSpreadsheetFormula("  plain")).toBe("  plain");
   });
 });
+
+describe("logToCsv with a No equipment swap", () => {
+  it("writes the swap's id and library name, and resolves the block type from the item it replaces", () => {
+    const log = makeLog({ date: "2026-11-05", programWeek: 1, day: 4, sets: [makeSet("backpack_single_leg_rdl", 3, 1, { reps: 12 })] });
+
+    const csv = logToCsv(log, program);
+
+    expect(csv).toContain("2026-11-05,1,4,3,mainStrength,backpack_single_leg_rdl,Backpack single-leg RDL,Backpack single-leg RDL,1,12,,");
+  });
+});

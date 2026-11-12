@@ -149,3 +149,49 @@ describe("lastTimeSetFor", () => {
     expect(lastTimeSetFor(undefined, 1)).toBeUndefined();
   });
 });
+
+describe("findLastTime with No equipment swaps", () => {
+  // Day 4: block 3 is the single-leg RDL main strength (swap: backpack_single_leg_rdl); day 2 block 4 is its mini-dose.
+  const swapSets = [makeSet("backpack_single_leg_rdl", 3, 1, 12), makeSet("backpack_single_leg_rdl", 3, 2, 12)];
+
+  it("finds the swap's earlier sets for the swap id, in the same day and block type", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, swapSets));
+
+    const lastTime = findLastTime(log, program, query("backpack_single_leg_rdl", 4, "mainStrength"), "2026-11-12");
+
+    expect(lastTime?.date).toBe("2026-11-05");
+    expect(lastTime?.sets).toHaveLength(2);
+  });
+
+  it("does not show the swap's sets as last time for the original", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, swapSets));
+
+    expect(findLastTime(log, program, query("single_leg_rdl", 4, "mainStrength"), "2026-11-12")).toBeUndefined();
+  });
+
+  it("does not show the original's sets as last time for the swap", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, [makeSet("single_leg_rdl", 3, 1)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 4, "mainStrength"), "2026-11-12")).toBeUndefined();
+  });
+
+  it("keeps the main strength and mini-dose slots apart for the swap", () => {
+    const log = makeLog(makeSession("2026-11-03", 2, [makeSet("backpack_single_leg_rdl", 4, 1, 8)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 4, "mainStrength"), "2026-11-12")).toBeUndefined();
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 2, "miniDose"), "2026-11-12")?.date).toBe("2026-11-03");
+  });
+
+  it("falls back to the same kind of block on another day", () => {
+    // Mini-dose RDL on day 2 stands in for the mini-dose on another day, not for main strength.
+    const log = makeLog(makeSession("2026-11-03", 2, [makeSet("backpack_single_leg_rdl", 4, 1, 8)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 5, "miniDose"), "2026-11-12")?.date).toBe("2026-11-03");
+  });
+
+  it("does not match a swap id logged at a block position whose item has no such swap", () => {
+    const log = makeLog(makeSession("2026-11-05", 4, [makeSet("backpack_single_leg_rdl", 2, 1)]));
+
+    expect(findLastTime(log, program, query("backpack_single_leg_rdl", 4, "explosive"), "2026-11-12")).toBeUndefined();
+  });
+});

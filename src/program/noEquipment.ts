@@ -1,3 +1,4 @@
+import type { BlockItem } from "./model";
 import type { ItemView, SessionView } from "./schedule";
 
 /*
@@ -62,4 +63,16 @@ export function applyNoEquipmentChoices(session: SessionView, swappedKeys: Reado
   });
 
   return { ...session, blocks };
+}
+
+/**
+ * True when a set logged under `loggedExerciseId` belongs to this program
+ * item: the item's own exercise, or the id of its "No equipment" swap (swapped
+ * sets are logged under the swap's id, in the item's normal block position).
+ * Shared by the "last time", Progress and History lookups, which find a
+ * logged set's program item. Note it says nothing about whether the item was
+ * swapped that day; callers that care ask `swappedItemKeys`.
+ */
+export function isExerciseLoggedForItem(item: Pick<BlockItem, "exerciseId" | "noEquipment">, loggedExerciseId: string): boolean {
+  return item.exerciseId === loggedExerciseId || item.noEquipment?.exercise.id === loggedExerciseId;
 }

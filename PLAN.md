@@ -1587,11 +1587,36 @@ that one exercise's history.
    for the ticked worked examples.
 2. [x] The ticks storage key, its wire type, mapping and pruning. Unit
    tests.
-3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
-   logging under the swap's id, the lock after the first set, and working
-   out "swapped" from the log. "Last time", Progress, History and the log
-   route recognise swap ids (see above). Session progress (in progress, complete)
-   counts swapped sets. README.
+3a. [x] The log side, no UI. `src/noEquipment/choices.ts`:
+   `noEquipmentChoices(unswappedSession, log, date, ticksForDate)` returns
+   `{ swapped, locked }` key sets (sets under the swap's id: swapped and
+   locked; under the original's id: not swapped, locked, whatever the tick
+   says; else swapped iff ticked); `swappedItemKeys` and `lockedItemKeys`
+   are its two halves. `isExerciseLoggedForItem` (in
+   `program/noEquipment.ts`) lets "Last time" (`lastTime.ts`), Progress
+   (`progress.ts`) and History's wording (`historyText.ts`) match a set
+   logged under a swap id to the item it replaces, so a swap has its own
+   last time and chart and an unswapped item ignores swap sets. Unit tests
+   incl. the "Logging" worked example, and a CSV test (swap id and name).
+3b. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
+   logging under the swap's id, the lock after the first set ("Logged as
+   ..."), session progress counting swapped sets. README. Notes from 3a:
+   - Build the unswapped session, call `noEquipmentChoices` with
+     `ticksForDate`, then `applyNoEquipmentChoices(session, choices.swapped)`;
+     use `choices.locked` to disable the tick and show "Logged as <swap
+     name>" (or the original's name when locked off).
+   - `renderLogScreen` (`ui/logScreen.ts`, ~line 110) finds its item with
+     `candidate.exercise.id === exerciseId` on the plain `buildSession`
+     result: it must build the swapped session the same way, so the route's
+     exercise id (the swap's id when swapped) matches. Today's route
+     (`logRouteHash(..., item.exercise.id)`) then carries the swap id.
+   - `isSessionInProgress` (`log/sessionProgress.ts`), Today's "2/6"
+     (`ui/today.ts` ~345) and the log screen's `setsForItem` calls all use
+     `item.exercise.id`, so they count swapped sets once they are handed the
+     swapped session. `isSessionInProgress` must get the swapped session.
+   - The rest-memory key uses `item.exercise.id`, so a swap remembers its
+     own rest, separate from the original's.
+   - A tick toggled after the first set must not change anything (locked).
 4. [ ] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
    plus an unticked session matching today's exactly.
 5. [ ] Fixes from the challenger review.
