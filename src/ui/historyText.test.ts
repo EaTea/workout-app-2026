@@ -175,3 +175,22 @@ describe("formatSessionHeader for a combined session", () => {
     expect(formatSessionHeader(sessionWith({ programWeek: 2, day: 1, sets: [set(1), set(undefined)] }), program)).toBe("9 Nov · Week 2 · Day 1 · Upper: pull");
   });
 });
+
+describe("History text for the alternating Day 3 explosive exercises (PLAN.md PR 26 rule 4)", () => {
+  // Day 3's explosive block is block 2 in every week, so a week 2 throws set and a week 1 plyo set both resolve.
+  const throwsSession = sessionWith({ date: "2026-11-11", programWeek: 2, day: 3 });
+  const plyoSession = sessionWith({ date: "2026-11-04", programWeek: 1, day: 3 });
+
+  it("names a week 2 wall throws set and a week 1 plyo set from the whole program", () => {
+    expect(performedExerciseName(program, throwsSession, 2, "rotational_wall_throw")).toBe("Rotational med ball wall throws");
+    expect(performedExerciseName(program, plyoSession, 2, "plyo_push_up")).toBe("Plyo push-ups");
+  });
+
+  it("finds each item for its noun, label and reps steppers", () => {
+    const throwsSet: LoggedSet = { exerciseId: "rotational_wall_throw", blockPosition: 2, setNumber: 1, reps: 5, loggedAt: new Date("2026-11-11T10:00:00Z") };
+
+    expect(loggedSetNoun(program, throwsSession, 2, "rotational_wall_throw")).toBe("set");
+    expect(loggedSetLabel(program, throwsSession, 2, "rotational_wall_throw")).toBe("Set");
+    expect(loggedSetShowsRepsAndLoad(program, throwsSession, throwsSet)).toBe(true);
+  });
+});

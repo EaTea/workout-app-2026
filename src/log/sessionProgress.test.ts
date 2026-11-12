@@ -195,3 +195,58 @@ describe("isSessionInProgress for a combined session", () => {
     expect(isInProgressAt(session, logWith(hostDate, sets), hostDate, shortlyAfterLogging)).toBe(false);
   });
 });
+
+describe("isSessionInProgress when an earlier block is left out of the week", () => {
+  // A small program whose Day 1 explosive block (block 2) has no item in week 2, so week 2 has
+  // only warm-up (block 1) and core (block 3): the core block keeps position 3, not 2.
+  const gappedJson = {
+    program: { name: "Gapped", goal: "Test", lengthWeeks: 2, restDay: 7, sessionOrder: ["warmup", "explosive", "core"], rules: ["Keep it simple."] },
+    exercises: {
+      arm_circles: { name: "Arm circles", category: "warmup", evidence: "coaching practice" },
+      plyo_push_up: { name: "Plyo push-ups", category: "explosive", evidence: "coaching practice" },
+      plank: { name: "Plank", category: "core", evidence: "coaching practice" },
+    },
+    days: [
+      {
+        day: 1,
+        focus: "Gap",
+        targetMinutes: 20,
+        blocks: [
+          { type: "warmup", items: [{ exercise: "arm_circles", sets: 1, reps: 10 }] },
+          { type: "explosive", items: [{ exercise: "plyo_push_up", weeks: [1], sets: 2, reps: 5, restSec: 45 }] },
+          { type: "core", items: [{ exercise: "plank", sets: 2, reps: 10 }] },
+        ],
+      },
+    ],
+    progression: [{ weeks: [1, 2], phase: "Base", changes: ["Build"] }],
+  };
+  const gapped = parseProgram(gappedJson).program;
+  const gappedSettings: TrainingSettings = { startDate: "2026-11-02", maxReps: {}, maxSavedOn: {}, maxHistory: {} };
+  const week2Day1 = "2026-11-09";
+  const loggedAt = new Date("2026-11-09T18:00:00Z");
+
+  /** Core sets logged under the given block position. */
+  function plankSets(blockPosition: number, count: number): LoggedSet[] {
+    return Array.from({ length: count }, (_unused, index) => ({ exerciseId: "plank", blockPosition, setNumber: index + 1, loggedAt }));
+  }
+
+  it("looks for logged sets at the block's original position", () => {
+    const session = buildSession(gapped, gappedSettings, week2Day1);
+    if (session.kind !== "training") throw new Error("expected a training day");
+    expect(session.blocks.map((block) => block.position)).toEqual([1, 3]);
+
+    // Core logged at position 3 (as Today logs it) with one of two sets still to do: in progress.
+    expect(isSessionInProgress(session, logWith(week2Day1, plankSets(3, 1)), week2Day1)).toBe(true);
+    // Both core sets at position 3 finish the session.
+    expect(isSessionInProgress(session, logWith(week2Day1, plankSets(3, 2)), week2Day1)).toBe(false);
+  });
+
+  it("does not count sets under the position the block would have if the gap renumbered it", () => {
+    const session = buildSession(gapped, gappedSettings, week2Day1);
+
+    // A warm-up set shows the session has started. Position 2 is the left-out explosive block, so
+    // core sets filed there must not complete the core block.
+    const warmupSet: LoggedSet = { exerciseId: "arm_circles", blockPosition: 1, setNumber: 1, loggedAt };
+    expect(isSessionInProgress(session, logWith(week2Day1, [warmupSet, ...plankSets(2, 2)]), week2Day1)).toBe(true);
+  });
+});

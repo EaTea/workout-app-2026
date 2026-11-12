@@ -175,7 +175,7 @@ export function blockSlotsOf(session: TrainingSessionView | CombinedSession): Co
     return session.blocks.flatMap((combinedBlock) => combinedBlock.parts);
   }
 
-  return session.blocks.map((block, blockIndex) => ({ source: { day: session.dayNumber, blockPosition: blockIndex + 1 }, block }));
+  return session.blocks.map((block) => ({ source: { day: session.dayNumber, blockPosition: block.position }, block }));
 }
 
 // ---------------------------------------------------------------------------
@@ -237,8 +237,8 @@ function collectBlockParts(earlier: TrainingSessionView, later: TrainingSessionV
   const explosive: SourcedBlock[] = [];
 
   for (const session of [earlier, later]) {
-    session.blocks.forEach((block, blockIndex) => {
-      const sourced: SourcedBlock = { source: { day: session.dayNumber, blockPosition: blockIndex + 1 }, block };
+    session.blocks.forEach((block) => {
+      const sourced: SourcedBlock = { source: { day: session.dayNumber, blockPosition: block.position }, block };
       byType.set(block.type, [...(byType.get(block.type) ?? []), sourced]);
       if (block.type === EXPLOSIVE_TYPE) explosive.push(sourced);
     });

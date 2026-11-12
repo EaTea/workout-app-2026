@@ -102,11 +102,11 @@ describe("combineSessions, Day 1 + Day 2 on 9 Nov (week 2)", () => {
 describe("combineSessions, Day 2 + Day 3 on 11 Nov", () => {
   const combined = combineDates("2026-11-10", "2026-11-11");
 
-  it("alternates the leg jumps with the plyo push-ups and keeps the crab core", () => {
+  it("alternates the leg jumps with the wall throws (week 2 is even) and keeps the crab core", () => {
     expect(outline(combined.blocks)).toEqual([
       "warmup|single|D2#1:cossack_squat&hip_abduction_adduction",
       "warmup|single|D3#1:pallof_press&lateral_raise&plate_halo",
-      "explosive|alternate|D2#2:split_squat_jump+D3#2:plyo_push_up",
+      "explosive|alternate|D2#2:split_squat_jump+D3#2:rotational_wall_throw",
       "mainStrength|single|D2#3:zercher_bulgarian_split_squat",
       "mainStrength|single|D3#3:dip",
       "miniDose|single|D2#4:single_leg_rdl",
@@ -124,9 +124,9 @@ describe("combineSessions, Day 2 + Day 3 on 11 Nov", () => {
 describe("combineSessions, Day 3 + Day 4 on 12 Nov (Day 4 catching up Day 3)", () => {
   const combined = combineDates("2026-11-11", "2026-11-12");
 
-  it("puts the plyo push-ups first and the kettlebell swing EMOM as its own block after them", () => {
+  it("puts the wall throws (week 2 is even) first and the kettlebell swing EMOM as its own block after them", () => {
     expect(outline(combined.blocks).filter((line) => line.startsWith("explosive"))).toEqual([
-      "explosive|single|D3#2:plyo_push_up",
+      "explosive|single|D3#2:rotational_wall_throw",
       "explosive|single|D4#2:kettlebell_swing",
     ]);
     expect(combined.explosiveAlternates).toBe(false);

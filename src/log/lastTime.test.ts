@@ -294,3 +294,35 @@ describe("findLastTime with a combined session (two days on one date)", () => {
     expect(lastTime?.sets.map((set) => set.day)).toEqual([1]);
   });
 });
+
+describe("findLastTime across alternating weeks (PLAN.md PR 26 rule 4)", () => {
+  // Day 3's explosive block is block 2: plyo push-ups in odd weeks, wall throws in even weeks.
+  const week1Day3 = "2026-11-04";
+  const week2Day3 = "2026-11-11";
+  const week3Day3 = "2026-11-18";
+  const week4Day3 = "2026-11-25";
+
+  it("finds a wall throws set logged in week 2 when asked in week 4", () => {
+    const log = makeLog(makeSession(week2Day3, 3, [makeSet("rotational_wall_throw", 2, 1, 5), makeSet("rotational_wall_throw", 2, 2, 5)]));
+
+    const lastTime = findLastTime(log, program, query("rotational_wall_throw", 3, "explosive"), week4Day3);
+
+    expect(lastTime?.date).toBe(week2Day3);
+    expect(lastTime?.sets.map((set) => set.setNumber)).toEqual([1, 2]);
+  });
+
+  it("finds a plyo push-up set logged in week 1 when asked in week 3", () => {
+    const log = makeLog(makeSession(week1Day3, 3, [makeSet("plyo_push_up", 2, 1, 5)]));
+
+    const lastTime = findLastTime(log, program, query("plyo_push_up", 3, "explosive"), week3Day3);
+
+    expect(lastTime?.date).toBe(week1Day3);
+    expect(lastTimeSetFor(lastTime, 1)?.reps).toBe(5);
+  });
+
+  it("does not mix the two exercises: a plyo set is not last time for the throws", () => {
+    const log = makeLog(makeSession(week1Day3, 3, [makeSet("plyo_push_up", 2, 1, 5)]));
+
+    expect(findLastTime(log, program, query("rotational_wall_throw", 3, "explosive"), week4Day3)).toBeUndefined();
+  });
+});

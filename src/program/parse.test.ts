@@ -583,3 +583,42 @@ describe("an item's noEquipment swap", () => {
     expect(warnings[1]).toMatchObject({ path: `${slamsPath}.noEquipment.colour`, suggestion: undefined });
   });
 });
+
+describe("item weeks combined with other fields", () => {
+  /** The Day 1 pull-up EMOM item, the one with a weeklyIncrease. */
+  function pullUpEmomJson(json: any): any {
+    return json.days[0].blocks.flatMap((jsonBlock: any) => jsonBlock.items).find((jsonItem: any) => jsonItem.weeklyIncrease !== undefined);
+  }
+
+  it("rejects weeks together with weeklyIncrease", () => {
+    const message = errorMessageAfter((json) => {
+      pullUpEmomJson(json).weeks = [1, 3, 5];
+    });
+    expect(message).toContain(`"weeks" can't be combined with "weeklyIncrease"`);
+  });
+
+  it("rejects the same exercise twice in a block when their weeks overlap", () => {
+    const message = errorMessageAfter((json) => {
+      const explosiveBlock = json.days[2].blocks.find((jsonBlock: any) => jsonBlock.type === "explosive");
+      explosiveBlock.items.push({ ...explosiveBlock.items[0], weeks: [1, 2] });
+    });
+    expect(message).toContain("already in this block");
+  });
+
+  it("rejects the same exercise twice in a block when one of them has no weeks", () => {
+    const message = errorMessageAfter((json) => {
+      const explosiveBlock = json.days[2].blocks.find((jsonBlock: any) => jsonBlock.type === "explosive");
+      const { weeks: _weeks, ...withoutWeeks } = explosiveBlock.items[1];
+      explosiveBlock.items.push(withoutWeeks);
+    });
+    expect(message).toContain("already in this block");
+  });
+
+  it("allows the same exercise twice in a block in disjoint weeks", () => {
+    const json = readRealProgramJson();
+    const explosiveBlock = json.days[2].blocks.find((jsonBlock: any) => jsonBlock.type === "explosive");
+    explosiveBlock.items.push({ ...explosiveBlock.items[0], weeks: [2, 4] });
+    explosiveBlock.items[0].weeks = [1, 3, 5, 7];
+    expect(() => parseProgram(json)).not.toThrow();
+  });
+});

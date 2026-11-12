@@ -209,7 +209,7 @@ function renderPhaseChanges(program: Program, session: Extract<SessionView, { ki
 
 /** One block card: numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
 function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
-  const position = blockIndex + 1;
+  const position = block.position;
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
@@ -231,7 +231,7 @@ function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<
     const itemChange = changes?.items.find((change) => change.blockIndex === blockIndex && change.itemIndex === itemIndex);
     // The block line already reports changed minutes/rounds; the item line must not repeat them.
     const blockReportsFigures = blockChange !== undefined && (blockChange.previous.minutes !== block.minutes || !sameRange(blockChange.previous.rounds, block.rounds));
-    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, changes.previousWeek, blockReportsFigures) : undefined;
+    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, itemChange.previousWeek, blockReportsFigures) : undefined;
     card.append(renderPlanItemRow(item, session.phase, changedText));
   });
 

@@ -165,7 +165,8 @@ test("12 Nov: add the missed Day 3, with the kettlebell swings as their own bloc
 
   await expect(page.getByText("12 Nov · Week 2 of 8 · Day 3 + Day 4")).toBeVisible();
   await expect(page.getByText("~70 min")).toBeVisible();
-  await expect(row(page, "Plyo push-ups").locator(".item-day-label")).toHaveText("D3");
+  // Week 2 is even, so Day 3's explosive item is the wall throws (PR 26).
+  await expect(row(page, "Rotational med ball wall throws").locator(".item-day-label")).toHaveText("D3");
   await expect(row(page, "Kettlebell swings").locator(".item-day-label")).toHaveText("D4");
   await expect(page.locator(".combine-alternate-note")).toHaveCount(0);
 

@@ -307,9 +307,10 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => {
-    const slot: RowSlot = { day: session.dayNumber, blockPosition: index + 1, isCombined: false };
-    parts.push(renderBlockCard(program, block, index + 1, slot, session.phase, date, log, locked, noEquipment));
+  // Blocks are numbered by their place in the program day, which a block left out this week doesn't shift.
+  session.blocks.forEach((block) => {
+    const slot: RowSlot = { day: session.dayNumber, blockPosition: block.position, isCombined: false };
+    parts.push(renderBlockCard(program, block, block.position, slot, session.phase, date, log, locked, noEquipment));
   });
 
   return parts;

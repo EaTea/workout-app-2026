@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 is under way. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31.**
+Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 is under way. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31; PR 27 (its implementation) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1968,7 +1968,12 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
       one "alternate" block: a set of one, then a set of the other, so
       each one's rest is spent on the other, so logging a set there does
       not auto-start the rest timer (the Rest button stays for manual
-      use). An EMOM (kettlebell swings) can't alternate, so it runs as its own block after the other.
+      use). An EMOM (kettlebell swings) can't alternate, so it runs as its
+      own block after the other.
+      When the two have different set counts (Day 2 + 3 in an even week:
+      split-squat jumps 5 × 6 per leg ⇄ wall throws 4 × 5 per side), they
+      alternate while both have sets left and the longer one finishes
+      alone (assumed; open question for Ed, raised with PR 27).
    3. Main strength, then mini-doses: each day's block as written.
    4. Core, then finishers: each day's blocks, except that items marked
       `"optional": true` (side plank, hollow hold) are left out and the
@@ -2015,7 +2020,7 @@ import (an older export without it imports as no combines).
 | 9 Nov (W2 D1) | Day 2 added | Blocks: D1 warm-up, D2 warm-up, slams ⇄ split-squat jumps, D1 pull-up EMOM, D2 Zercher BSS, D1 dip mini, D2 SL RDL mini, D1 core (no side plank), D1 bag 4 rounds; ~73 min |
 | 10 Nov (W2 D2) | After the combine above | "Day 2 done with Day 1 on 9 Nov", no session, no buttons |
 | 12 Nov (W2 D4) | Day 3 (11 Nov) had nothing logged | "Add missed Day 3 to today"; no "Add Day 5" ([4, 5] isn't a pair) |
-| 12 Nov (W2 D4) | Day 3 added | Explosive: plyo push-ups, then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
+| 12 Nov (W2 D4) | Day 3 added | Explosive: rotational wall throws (Day 3's even-week item, PR 26), then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
 | 23 Nov (W4 D1, deload) | Day 2 added | Both days' sets halved first, then merged |
 | 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~85 min |
 
@@ -2165,20 +2170,43 @@ Every other day and week matches `main` exactly.
 
 ### PR 27 — Day 3 rotational wall throws *(behavior change)*
 **Steps.**
-1. [ ] `weeks` in the wire types, parser and model (rule 1) and the gap
+1. [x] `weeks` in the wire types, parser and model (rule 1) and the gap
    warning (rule 2). Unit tests for each rejected value and the warning.
-2. [ ] `buildSession` filtering by week (rule 3). Unit tests for the
-   worked examples, and a check that every other session from 2 Nov to
-   27 Dec matches `main`.
-3. [ ] `public/program.json`: the `rotational_wall_throw` exercise and the
-   two Day 3 items, replacing the stop-gap note. Data tests over the
-   shipped file. README "Editing program.json" documents `weeks`.
-4. [ ] Tests for rule 4 ("Last time", Progress, History) and the day plans
-   by week. E2E: with the start date set so today is Week 2 Day 3, Today
-   shows the throws and not the plyo push-ups; Week 1 shows the reverse.
-5. [ ] Copy `public/program.json` to the project files and update
-   "Explosive Endurance Program.md" if its wording differs.
-6. [ ] Fixes from the challenger review.
+   `lengthWeeks` is now read before the days, since `weeks` is checked
+   against it.
+2. [x] `buildSession` filtering by week (rule 3). Unit tests for the
+   worked examples. Blocks now carry their `position` in the program day,
+   and Today, the log screen, session progress and the day plans use it,
+   so a block left out of a week doesn't renumber the ones after it. The
+   check that every other session from 2 Nov to 27 Dec matches `main`
+   moves to step 3, where the shipped file changes.
+3. [x] `public/program.json`: the `rotational_wall_throw` exercise and the
+   two Day 3 items (the stop-gap note was only ever in the project-file
+   copy). Data tests over the shipped file, including every session from
+   2 Nov to 27 Dec matching the program without `weeks` except Day 3's
+   explosive block in even weeks. README "Editing program.json" documents
+   `weeks`.
+4. [x] Tests for rule 4 ("Last time", Progress, History), session
+   progress with a block left out, and the day plans by week. E2E: with
+   the start date set so today is Week 2 Day 3, Today shows the throws
+   and not the plyo push-ups; Week 1 shows the reverse.
+5. [x] Copy `public/program.json` to the project files and update
+   "Explosive Endurance Program.md" if its wording differs (it already
+   described the alternation). The doc's Day 3 row still says ~32 min with
+   no core block, from before PR 13; that drift is older than this PR and
+   is left as a separate follow-up.
+6. [x] Fixes from the challenger review. It found no wrong figure: every
+   session from 1 Nov to 29 Dec matches `main` except Day 3's explosive
+   block in weeks 2, 4, 6 and 8, which match the worked examples, and
+   Steady Strength is unchanged. Fixed: the PR 23 example and alternation
+   rule, step ticks, deload weeks losing the "Changed" note (an item is now
+   compared with the last week it ran), the overview naming only plyo
+   push-ups for Day 3, `weeks` with `weeklyIncrease` and a repeated
+   exercise in one block (now parse errors), two doc comments and the
+   evidence link (now a DOI). Left as is: no UI test that Today and the
+   log screen number blocks after a dropped one (no shipped data drops a
+   block, and `buildSession` and session progress test it), and the
+   README gained `weeks` in step 3 rather than step 1.
 - **Merge point:** Day 3 shows the right explosive exercise each week, and
   every other session is unchanged.
 
