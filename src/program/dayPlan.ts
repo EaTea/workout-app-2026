@@ -32,8 +32,14 @@ export interface ItemChange {
   itemIndex: number;
   /** This week's item, as in the plan. */
   current: ItemView;
-  /** The previous week's version of the same item, for the UI to format. */
+  /** The earlier week's version of the same item, for the UI to format. */
   previous: ItemView;
+  /**
+   * The week `previous` comes from: normally the week before, but the most
+   * recent earlier week in which the item ran when it skipped the week before
+   * (an item with `weeks`, e.g. Day 3's alternating throws).
+   */
+  previousWeek: number;
 }
 
 /** A block whose block-level figures (rounds, minutes, rest between pairs) differ. */
@@ -45,7 +51,7 @@ export interface BlockChange {
 
 /** All differences between a day's plan and the same day one week earlier. */
 export interface DayPlanChanges {
-  /** The week the changes are measured against (this week - 1). */
+  /** The week the block changes are measured against (this week - 1); items carry their own `previousWeek`. */
   previousWeek: number;
   blocks: BlockChange[];
   items: ItemChange[];
@@ -94,7 +100,10 @@ export function buildDayPlan(program: Program, settings: TrainingSettings, week:
  * none is saved). Returns undefined when there is nothing to compare: week 1,
  * invalid input, or either week's day is not a training day (rest day).
  *
- * An item only in one of the two weeks is skipped. A rotated warm-up has the
+ * An item is compared with its version in the previous week; when it did not
+ * run then (it has `weeks`), with the most recent earlier week in which it ran
+ * (same block position, same exercise id), and the change records that week.
+ * An item that never ran before (its first week) is skipped. A rotated warm-up has the
  * same exercise id, so it matches and its display-name change is reported. Compared figures are those Today
  * shows (see `itemSignature`), so a change here is always visible on screen.
  */
@@ -114,23 +123,57 @@ export function compareWithPreviousWeek(program: Program, settings: TrainingSett
   current.blocks.forEach((currentBlock, blockIndex) => {
     // Matched by position in the day, not index: a block can be left out of one week.
     const previousBlock = previous.blocks.find((candidate) => candidate.position === currentBlock.position);
-    if (previousBlock === undefined) {
-      return;
-    }
 
-    if (blockSignature(currentBlock) !== blockSignature(previousBlock)) {
+    if (previousBlock !== undefined && blockSignature(currentBlock) !== blockSignature(previousBlock)) {
       changes.blocks.push({ blockIndex, current: currentBlock, previous: previousBlock });
     }
 
     currentBlock.items.forEach((currentItem, itemIndex) => {
-      const previousItem = previousBlock.items.find((candidate) => candidate.exercise.id === currentItem.exercise.id);
-      if (previousItem !== undefined && itemSignature(currentItem) !== itemSignature(previousItem)) {
-        changes.items.push({ blockIndex, itemIndex, current: currentItem, previous: previousItem });
+      const match = findPreviousItem(program, settings, week, dayNumber, today, currentBlock.position, currentItem, previousBlock);
+      if (match !== undefined && itemSignature(currentItem) !== itemSignature(match.item)) {
+        changes.items.push({ blockIndex, itemIndex, current: currentItem, previous: match.item, previousWeek: match.week });
       }
     });
   });
 
   return changes;
+}
+
+/**
+ * Finds the version of `currentItem` to compare against: first in
+ * `previousBlock` (week - 1, already built by the caller), then, for an item
+ * that skipped the week before, in each earlier week going back to week 1 (the
+ * block matched by `blockPosition`, the item by exercise id). Returns the item
+ * with the week it came from, or undefined when it never ran earlier. Called
+ * by `compareWithPreviousWeek`; earlier weeks are only built when needed.
+ */
+function findPreviousItem(
+  program: Program,
+  settings: TrainingSettings,
+  week: number,
+  dayNumber: number,
+  today: string,
+  blockPosition: number,
+  currentItem: ItemView,
+  previousBlock: BlockView | undefined,
+): { item: ItemView; week: number } | undefined {
+  const inPreviousWeek = previousBlock?.items.find((candidate) => candidate.exercise.id === currentItem.exercise.id);
+  if (inPreviousWeek !== undefined) {
+    return { item: inPreviousWeek, week: week - 1 };
+  }
+
+  for (let earlierWeek = week - 2; earlierWeek >= 1; earlierWeek--) {
+    const earlierPlan = buildDayPlan(program, settings, earlierWeek, dayNumber, today);
+    if (earlierPlan?.kind !== "training") continue;
+
+    const earlierBlock = earlierPlan.blocks.find((candidate) => candidate.position === blockPosition);
+    const earlierItem = earlierBlock?.items.find((candidate) => candidate.exercise.id === currentItem.exercise.id);
+    if (earlierItem !== undefined) {
+      return { item: earlierItem, week: earlierWeek };
+    }
+  }
+
+  return undefined;
 }
 
 /**

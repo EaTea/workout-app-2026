@@ -38,3 +38,11 @@ test("week 1 day 3 shows the plyo push-ups and not the wall throws", async ({ pa
   await expect(row(page, "Plyo push-ups").locator(".item-dose-main")).toHaveText("5 × 5");
   await expect(row(page, "Rotational med ball wall throws")).toHaveCount(0);
 });
+
+test("Day 3 plan for week 4 compares the wall throws with week 2, when they last ran", async ({ page }) => {
+  await seedStartedProgram(page);
+  await page.goto("/#/plan/3/4");
+
+  await expect(row(page, "Rotational med ball wall throws").locator(".item-dose-main")).toHaveText("2 × 5");
+  await expect(row(page, "Rotational med ball wall throws").locator(".plan-changed")).toHaveText("Changed: 4 × 5 in week 2");
+});

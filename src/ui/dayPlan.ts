@@ -179,7 +179,7 @@ function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<
     const itemChange = changes?.items.find((change) => change.blockIndex === blockIndex && change.itemIndex === itemIndex);
     // The block line already reports changed minutes/rounds; the item line must not repeat them.
     const blockReportsFigures = blockChange !== undefined && (blockChange.previous.minutes !== block.minutes || !sameRange(blockChange.previous.rounds, block.rounds));
-    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, changes.previousWeek, blockReportsFigures) : undefined;
+    const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, itemChange.previousWeek, blockReportsFigures) : undefined;
     card.append(renderPlanItemRow(item, session.phase, changedText));
   });
 

@@ -160,11 +160,28 @@ describe("Day 3 plans by week (PLAN.md PR 26)", () => {
     expect(explosiveExercisesOf(3)).toEqual(["plyo_push_up"]);
   });
 
-  it("does not report the swapped-in item as a change against the previous week", () => {
-    for (const week of [2, 3, 4, 5, 6, 7, 8]) {
-      const swapped = explosiveExercisesOf(week)[0]!;
-      expect(changeFor(week, 3, swapped), `week ${week}`).toBeUndefined();
-    }
+  it("compares an alternating item with the most recent earlier week it ran", () => {
+    // Week 2 throws are the first time they run: nothing to compare with.
+    expect(changeFor(2, 3, "rotational_wall_throw")).toBeUndefined();
+
+    // Week 3 plyo push-ups vs week 1 (week 2 had the throws): same figures, no change.
+    expect(changeFor(3, 3, "plyo_push_up")).toBeUndefined();
+
+    // Week 4 throws (deload) vs week 2.
+    const deloadThrows = changeFor(4, 3, "rotational_wall_throw");
+    expect(deloadThrows?.previousWeek).toBe(2);
+    expect(deloadThrows?.previous.sets).toHaveLength(4);
+    expect(deloadThrows?.current.sets).toHaveLength(2);
+
+    // Week 6 throws come back up from week 4's two sets.
+    const recoveredThrows = changeFor(6, 3, "rotational_wall_throw");
+    expect(recoveredThrows?.previousWeek).toBe(4);
+    expect(recoveredThrows?.previous.sets).toHaveLength(2);
+    expect(recoveredThrows?.current.sets).toHaveLength(4);
+  });
+
+  it("gives items that ran the week before a previousWeek of week - 1", () => {
+    expect(changeFor(2, 1, "pull_up")?.previousWeek).toBe(1);
   });
 
   it("reports no explosive block change in a swap week", () => {
