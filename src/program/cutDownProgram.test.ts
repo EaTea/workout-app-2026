@@ -63,6 +63,24 @@ describe("a program without fatigueCheck, warmupRotation or coreProgressions", (
     expect(() => parseProgram(json)).toThrow(/warmupRotation/);
   });
 
+  it("parses an item's noEquipment swap and leaves the session unchanged", () => {
+    const json = cutDownProgramJson();
+    json.exercises.wall_squat = { name: "Wall squat", category: "strength", evidence: "coaching practice" };
+    json.days[0].blocks[1].items[0].noEquipment = { exercise: "wall_squat", reps: "12-15", tempo: "2s pause" };
+
+    const swapped = parseProgram(json);
+    expect(swapped.warnings).toEqual([]);
+    expect(swapped.program.days[1]!.blocks[1]!.items[0]!.noEquipment).toMatchObject({
+      exercise: { id: "wall_squat" },
+      reps: { kind: "range", min: 12, max: 15 },
+      tempo: "2s pause",
+    });
+    expect(program.days[1]!.blocks[1]!.items[0]!.noEquipment).toBeUndefined();
+
+    // Nothing ticks a swap yet, so the built session is identical.
+    expect(buildSession(swapped.program, settings, "2026-11-02")).toEqual(buildSession(program, settings, "2026-11-02"));
+  });
+
   it("builds sessions on several dates, with the warm-up unrotated in every week", () => {
     for (const date of ["2026-11-02", "2026-11-04", "2026-11-09", "2026-11-18", "2026-11-25"]) {
       const session = buildSession(program, settings, date);

@@ -40,6 +40,25 @@ export interface ExerciseWire {
   maxTested?: boolean;
 }
 
+/**
+ * An item's optional household-kit swap (`noEquipment`). It holds only what
+ * the swap changes: its own exercise and dose text. Everything structural
+ * (sets, rest, format, minutes, rounds, workSec, perSide, optional,
+ * weeklyIncrease, sameEveryWeek) is kept from the original item, so those
+ * keys are parse errors here. `load`, `note` and `tempo` are the swap's own
+ * and never carried over from the original.
+ */
+export interface NoEquipmentSwapWire {
+  /** A key of `exercises`; must not be max-tested or the item's own exercise. */
+  exercise: string;
+  /** Required when the original item's reps are a percentage of a tested max. */
+  reps?: RepsWire;
+  durationSec?: number;
+  load?: string;
+  note?: string;
+  tempo?: string;
+}
+
 /** One exercise inside a block. `exercise` is a key of `exercises`. */
 export interface ItemWire {
   exercise: string;
@@ -61,6 +80,8 @@ export interface ItemWire {
   note?: string;
   tempo?: string;
   weeklyIncrease?: string;
+  /** Optional household-kit swap for this item; see `NoEquipmentSwapWire`. */
+  noEquipment?: NoEquipmentSwapWire;
 }
 
 /** One block of a day (warmup, explosive, mainStrength, miniDose, core, finisher). */

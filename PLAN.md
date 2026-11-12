@@ -1535,7 +1535,7 @@ The data and the parser, shown only on the exercise sheet, so the doses
 can be reviewed on a phone before anything changes how a session runs.
 
 **Steps.**
-1. [ ] `noEquipment` in the wire types, parser and model, with the errors
+1. [x] `noEquipment` in the wire types, parser and model, with the errors
    listed above and the "did you mean" hint for misspelt keys. Unit tests,
    including the cut-down program fixture.
 2. [ ] The 16 swap exercises and every swap in `public/program.json`
