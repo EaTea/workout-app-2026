@@ -2043,10 +2043,10 @@ days, so each set needs to carry its own day.
    its place in the JSON export and import.
 3. [x] The pure merge function (rules 4 and 5), tested against the worked
    examples above.
-4. [ ] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
+4. [x] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
    Undo (rule 3), the merged session with day labels, the donor day's
    card (rule 6), and the "Combined" note on the day plans.
-5. [ ] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
+5. [x] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
    History heading.
    Everything keyed by a date and block position needs the day too, since
    both days have a block 2 (found in the PR 24 review): the log screen

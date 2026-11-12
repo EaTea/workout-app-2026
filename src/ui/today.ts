@@ -20,13 +20,18 @@ import type { WorkoutLog } from "../log/model";
 import { setsForItem } from "../log/operations";
 import { hasNoEquipmentSwap, noEquipmentItemKey, originalExerciseIdOf } from "../program/noEquipment";
 import type { NoEquipmentTicks } from "../noEquipment/model";
-import { buildSwappedSession } from "../noEquipment/session";
+import { buildSwappedSessionFor } from "../noEquipment/session";
+import type { CombinesByDate } from "../combine/model";
+import { type CombinedBlock, type CombinedSession, type TrainingSessionView } from "../program/combine";
+import { activeDonorOn, combineOffersFor } from "../program/combineOffers";
+import { programStatus } from "../program/calendar";
+import { renderCombineOffers, renderDonorCard, renderUndoCombine, type CombineActions } from "./combineCards";
 import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 import { openTimer } from "./timerView";
-import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicker, formatTimerAdjustment, formatShortDate, isAwaitingRetest } from "./format";
+import { blockLabel, formatBlockTitle, formatCombinedSessionKicker, formatItemDetails, formatItemDose, formatSessionKicker, formatTimerAdjustment, formatShortDate, isAwaitingRetest } from "./format";
 
 /**
  * The Today screen. Rendered by app.ts for `#/today`.
@@ -37,6 +42,10 @@ import { formatBlockTitle, formatItemDetails, formatItemDose, formatSessionKicke
  *        rest / notStarted / complete ─▶ a single message card
  *        (noStartDate never reaches Today: app.ts shows the Overview instead)
  *        every screen carries a small "Program overview" link (#/overview)
+ *
+ * Two days can be merged into one session (PR 25): `buildSwappedSessionFor`
+ * then returns a `CombinedSession`, whose rows each remember their own day and
+ * block position (see `RowSlot`), and a donor date shows a "done with" card.
  *
  * It renders exactly what `buildSession` returns; all numbers are final. On
  * a retest-week training day a "Retest week" card (retestCard.ts) goes above
@@ -105,8 +114,18 @@ export interface NoEquipmentOptions {
   onToggle: (itemKey: string, ticked: boolean) => string | null;
 }
 
+/** What Today needs for combining two days; supplied by app.ts, which owns the stored combines. */
+export interface CombineOptions {
+  /** All stored combines (Today reads the shown date's, as host or donor). */
+  combines: CombinesByDate;
+  actions: CombineActions;
+}
+
 /** Placeholder ticks for callers (tests) that pass none. */
 const NO_TICKS: NoEquipmentTicks = new Map();
+
+/** Placeholder combines for callers (tests) that pass none. */
+const NO_COMBINES: CombinesByDate = new Map();
 
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). Starting the program is
@@ -122,13 +141,25 @@ export function renderTodayScreen(
   checkIn?: CheckInOptions,
   rotation?: RotationOptions,
   noEquipment?: NoEquipmentOptions,
+  combine?: CombineOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
+
+  // A date whose day was folded into another date's session shows a card and no session.
+  const donor = activeDonorOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES);
+  const donorStatus = programStatus(settings.startDate, program.lengthWeeks, date);
+  if (donor !== undefined && donorStatus.kind === "active") {
+    screen.append(renderDonorCard(donor, date, donorStatus.week, program.lengthWeeks, program.safety));
+    return screen;
+  }
+
   // The swapped session: ticked (or already logged) swaps show as their own exercise.
-  const { session, locked } = buildSwappedSession(program, settings, log, noEquipment?.ticks ?? NO_TICKS, date);
+  // A combined date gives the merged session of both days.
+  const { session, locked } = buildSwappedSessionFor(program, settings, log, noEquipment?.ticks ?? NO_TICKS, combine?.combines ?? NO_COMBINES, date);
 
   switch (session.kind) {
     case "training":
+    case "combined":
       if (retest !== undefined) {
         const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
         // The broad jump is part of the fatigue check; a program without one has no jump to ask for.
@@ -160,7 +191,11 @@ export function renderTodayScreen(
           screen.append(renderRotationCard(describeSwaps(program, program.warmupRotation), program.warmupRotation, rotation.onDismiss, rotation.canDismiss));
         }
       }
-      screen.append(...renderTrainingDay(program, session, date, log, locked, noEquipment));
+      if (session.kind === "combined") {
+        screen.append(...renderCombinedDay(program, session, date, log, locked, noEquipment, combine));
+      } else {
+        screen.append(...renderTrainingDay(program, session, date, log, locked, noEquipment, combine, settings.startDate));
+      }
       break;
     default:
       screen.append(renderMessageCard(session, program.lengthWeeks, date, program.safety));
@@ -232,11 +267,13 @@ function settingsButton(label: string): HTMLAnchorElement {
 /** Everything for a training day, in display order. */
 function renderTrainingDay(
   program: Program,
-  session: Extract<SessionView, { kind: "training" }>,
+  session: TrainingSessionView,
   date: string,
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  combine: CombineOptions | undefined,
+  startDate: string | null,
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
@@ -258,7 +295,64 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, session.phase, date, log, locked, noEquipment)));
+  session.blocks.forEach((block, index) => {
+    const slot: RowSlot = { day: session.dayNumber, blockPosition: index + 1, isCombined: false };
+    parts.push(renderBlockCard(program, block, index + 1, slot, session.phase, date, log, locked, noEquipment));
+  });
+
+  // "Short on time? Add Day N to today" and "Add missed Day N to today", while nothing is logged and the pair is allowed.
+  if (combine !== undefined) {
+    const offers = combineOffersFor(program, startDate, date, log, combine.combines);
+    if (offers.length > 0) parts.push(renderCombineOffers(offers, combine.actions));
+  }
+  return parts;
+}
+
+/**
+ * Everything for a combined day (two days merged, PR 25), in display order:
+ * the header naming both days, the phase strip, the deload note, one card per
+ * merged block and the "Undo combine" button (only while nothing is logged on
+ * the date). The blocks are numbered 1..n in the merged order; each ROW still
+ * logs under its own day and block position (`RowSlot`).
+ *
+ *   CombinedSession.blocks ─▶ "single" block   ─▶ one card, its rows labelled D1 / D2
+ *                          └▶ "alternate" block ─▶ one card for both days' explosive rows + how to alternate
+ */
+function renderCombinedDay(
+  program: Program,
+  session: CombinedSession,
+  date: string,
+  log: WorkoutLog,
+  locked: ReadonlySet<string>,
+  noEquipment: NoEquipmentOptions | undefined,
+  combine: CombineOptions | undefined,
+): HTMLElement[] {
+  const header = element("header", "today-header");
+  header.append(
+    element("div", "kicker", formatCombinedSessionKicker(date, session.week, program.lengthWeeks, session.days)),
+    element("h1", "today-title", session.focus),
+    element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
+    renderProgramOverviewLink(),
+  );
+  if (program.safety.length > 0) {
+    header.append(renderSafetyNotesLink(program.safety));
+  }
+
+  const parts: HTMLElement[] = [header, renderPhaseStrip(program, session.phase, session.isDeload)];
+
+  if (session.isDeload) {
+    const note = element("div", "deload-note", "Deload week: sets halved");
+    note.setAttribute("role", "note");
+    parts.push(note);
+  }
+
+  session.blocks.forEach((combinedBlock, index) => {
+    parts.push(renderCombinedBlockCard(program, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment));
+  });
+
+  // Undo only while nothing is logged on the date: afterwards the logged sets belong to the combined session.
+  const nothingLogged = (log.sessions[date]?.sets.length ?? 0) === 0;
+  if (combine !== undefined && nothingLogged) parts.push(renderUndoCombine(combine.actions));
   return parts;
 }
 
@@ -294,14 +388,34 @@ function renderPhaseStrip(program: Program, phaseName: string, isDeload: boolean
 const SAME_EVERY_WEEK_TEXT = "Same every week";
 
 /**
- * One card for a block: numbered title, then one row per item. `phase` names
- * the progression phase for the timer-adjustment lines.
+ * Where a row's block lives in the log: the program day it belongs to and its
+ * 1-based position within THAT day's blocks (not its number on the screen,
+ * which differs in a combined session). Logging, "last time", progress, rest
+ * memory and the No equipment tick all key by this. `isCombined` marks rows of
+ * a combined session: they get a "D1"/"D2" label and day-qualified keys and
+ * links (two days share one date, and both have a block 2).
+ */
+interface RowSlot {
+  day: number;
+  blockPosition: number;
+  isCombined: boolean;
+}
+
+/** The day to put in keys and links for `slot`: its day when combined, else undefined so a normal session's keys stay as they were. */
+function keyDayOf(slot: RowSlot): number | undefined {
+  return slot.isCombined ? slot.day : undefined;
+}
+
+/**
+ * One card for a block: numbered title (`displayNumber`, the number on the
+ * screen), then one row per item. `phase` names the progression phase for the
+ * timer-adjustment lines.
  */
 function renderBlockCard(
   program: Program,
   block: BlockView,
-  position: number,
-  dayNumber: number,
+  displayNumber: number,
+  slot: RowSlot,
   phase: string,
   date: string,
   log: WorkoutLog,
@@ -309,15 +423,73 @@ function renderBlockCard(
   noEquipment: NoEquipmentOptions | undefined,
 ): HTMLElement {
   const card = element("section", "card block-card");
-  card.append(element("h2", "block-title", formatBlockTitle(position, block)));
+  card.append(element("h2", "block-title", formatBlockTitle(displayNumber, block)));
+  appendBlockBody(card, program, block, slot, phase, date, log, locked, noEquipment);
+  return card;
+}
 
+/**
+ * One merged block of a combined session as a card. A "single" block is the
+ * ordinary card for its one part (rows labelled with their day). An
+ * "alternate" block is one card holding both days' explosive rows under a
+ * line saying to alternate them set by set.
+ */
+function renderCombinedBlockCard(
+  program: Program,
+  combinedBlock: CombinedBlock,
+  displayNumber: number,
+  phase: string,
+  date: string,
+  log: WorkoutLog,
+  locked: ReadonlySet<string>,
+  noEquipment: NoEquipmentOptions | undefined,
+): HTMLElement {
+  const slotOf = (part: CombinedBlock["parts"][number]): RowSlot => ({ day: part.source.day, blockPosition: part.source.blockPosition, isCombined: true });
+
+  if (combinedBlock.arrangement === "single") {
+    const [part] = combinedBlock.parts;
+    return renderBlockCard(program, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment);
+  }
+
+  const card = element("section", "card block-card");
+  card.append(
+    element("h2", "block-title", `${displayNumber}${DISPLAY_SEPARATOR}${blockLabel(combinedBlock.type)}${DISPLAY_SEPARATOR}alternate`),
+    element("p", "combine-alternate-note", alternateNote(combinedBlock)),
+  );
+  for (const part of combinedBlock.parts) {
+    appendBlockBody(card, program, part.block, slotOf(part), phase, date, log, locked, noEquipment);
+  }
+  return card;
+}
+
+/** Separator in block titles, as in `formatBlockTitle`. */
+const DISPLAY_SEPARATOR = " · ";
+
+/** "Alternate set by set: one set of A, then one set of B, and repeat. Each rest is spent on the other exercise." */
+function alternateNote(combinedBlock: CombinedBlock): string {
+  const names = combinedBlock.parts.map((part) => part.block.items.map(itemDisplayName).join(" + "));
+  return `Alternate set by set: one set of ${names.join(", then one set of ")}, and repeat. Each rest is spent on the other exercise.`;
+}
+
+/** The between-pairs rest (supersets) and one row per item of `block`, appended to `card`. Shared by the normal and the alternate card. */
+function appendBlockBody(
+  card: HTMLElement,
+  program: Program,
+  block: BlockView,
+  slot: RowSlot,
+  phase: string,
+  date: string,
+  log: WorkoutLog,
+  locked: ReadonlySet<string>,
+  noEquipment: NoEquipmentOptions | undefined,
+): void {
   // Supersets rest between pairs, so the rest button belongs to the block rather than to one row.
   if (block.restSecBetweenPairs) {
     const restRow = element("div", "block-rest");
     restRow.append(renderStartRestButton(
       block.restSecBetweenPairs,
       "Between pairs",
-      restMemoryKey(date, position, "between-pairs"),
+      restMemoryKey(date, slot.blockPosition, "between-pairs", keyDayOf(slot)),
       undefined,
       " between pairs",
     ));
@@ -330,9 +502,8 @@ function renderBlockCard(
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(program, item, block, dayNumber, phase, date, position, log, locked, noEquipment));
+    card.append(renderItemRow(program, item, block, slot, phase, date, log, locked, noEquipment));
   }
-  return card;
 }
 
 /**
@@ -354,14 +525,15 @@ function renderItemRow(
   program: Program,
   item: ItemView,
   block: BlockView,
-  dayNumber: number,
+  slot: RowSlot,
   phase: string,
   date: string,
-  blockPosition: number,
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
 ): HTMLElement {
+  const { day: dayNumber, blockPosition } = slot;
+  const keyDay = keyDayOf(slot);
   const row = element("div", "item-row");
   const dose = formatItemDose(item);
 
@@ -369,7 +541,16 @@ function renderItemRow(
   openButton.type = "button";
 
   const text = element("span", "item-text");
-  text.append(element("span", "item-name", itemDisplayName(item)));
+  if (slot.isCombined) {
+    // "D2  Split squat": which of the two days this row comes from.
+    const nameLine = element("span", "item-name-line");
+    const dayLabel = element("span", "item-day-label", `D${dayNumber}`);
+    dayLabel.title = `Day ${dayNumber}`;
+    nameLine.append(dayLabel, element("span", "item-name", itemDisplayName(item)));
+    text.append(nameLine);
+  } else {
+    text.append(element("span", "item-name", itemDisplayName(item)));
+  }
   if (item.rotatedIn !== undefined) {
     text.append(element("span", "item-rotated-in", `Rotated in for ${item.rotatedIn.originalName}`));
   }
@@ -377,7 +558,7 @@ function renderItemRow(
   if (details.length > 0) {
     text.append(element("span", "item-details", details.join(" · ")));
   }
-  const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item));
+  const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item), keyDay);
   const isLocked = locked.has(itemKey);
   const noEquipmentLine = noEquipmentLineFor(item, isLocked);
   // When sets are logged on a swapped row, this visible line also explains the disabled box (aria-describedby).
@@ -437,7 +618,7 @@ function renderItemRow(
 
   // Straight-set items with a prescribed rest get a rest button, tapped after each set.
   if (item.format !== "interval" && item.restSec) {
-    row.append(renderStartRestButton(item.restSec, itemDisplayName(item), restMemoryKey(date, blockPosition, item.exercise.id), itemDisplayName(item)));
+    row.append(renderStartRestButton(item.restSec, itemDisplayName(item), restMemoryKey(date, blockPosition, item.exercise.id, keyDay), itemDisplayName(item)));
   }
 
   // Heavy bag intervals likewise.
@@ -452,7 +633,7 @@ function renderItemRow(
   }
 
   openButton.addEventListener("click", () => {
-    window.location.hash = logRouteHash(date, blockPosition, item.exercise.id);
+    window.location.hash = logRouteHash(date, blockPosition, item.exercise.id, keyDay);
   });
   return row;
 }
