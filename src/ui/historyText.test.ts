@@ -89,3 +89,29 @@ describe("performedExerciseName", () => {
     expect(performedExerciseName(program, sessionWith({ day: 1 }), warmupPosition, "ytwi")).toBe("YTWI raises");
   });
 });
+
+describe("No equipment swap ids", () => {
+  const session = sessionWith({ programWeek: 1, day: 1 });
+
+  it("find the program item through the swap id, so an inverted-row EMOM minute reads 'minute' / 'Min' (not the 'set' fallback)", () => {
+    // Day 1 block 3 is the pull-up EMOM, swapped for inverted rows.
+    expect(loggedSetNoun(program, session, 3, "inverted_row")).toBe("minute");
+    expect(loggedSetLabel(program, session, 3, "inverted_row")).toBe("Min");
+  });
+
+  it("read rounds for shadow boxing in the heavy bag's interval block", () => {
+    expect(loggedSetNoun(program, session, 6, "shadow_boxing")).toBe("round");
+    expect(loggedSetLabel(program, session, 6, "shadow_boxing")).toBe("Round");
+  });
+
+  it("offer reps and kg for a rep-based swap logged without reps, because the item is found", () => {
+    const bareSwapSet: LoggedSet = { exerciseId: "inverted_row", blockPosition: 3, setNumber: 1, loggedAt: new Date("2026-11-02T10:00:00Z") };
+
+    expect(loggedSetShowsRepsAndLoad(program, session, bareSwapSet)).toBe(true);
+  });
+
+  it("show the swap's library name", () => {
+    expect(exerciseDisplayName(program, "backpack_single_leg_rdl")).toBe("Backpack single-leg RDL");
+    expect(performedExerciseName(program, sessionWith({ programWeek: 1, day: 4 }), 3, "backpack_single_leg_rdl")).toBe("Backpack single-leg RDL");
+  });
+});

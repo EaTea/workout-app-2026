@@ -1,4 +1,5 @@
 import type { DayNumber, Program } from "../program/model";
+import { isExerciseLoggedForItem } from "../program/noEquipment";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { sessionDates } from "./operations";
 
@@ -15,6 +16,13 @@ import { sessionDates } from "./operations";
  * raise, the pull-up), and those must never stand in for each other. The log
  * stores a block position, not a block type, so the type of an old set is
  * looked up in the program: `program.days[session.day].blocks[position - 1]`.
+ *
+ * "No equipment" swaps: a swapped item's sets are logged under the swap's id
+ * (e.g. `backpack_single_leg_rdl`) in the item's normal block position. The
+ * lookup matches by exercise id, so a swapped item's last time is the swap's
+ * earlier sets in the same slot, and an unswapped item never sees them. The
+ * block type of a swap's set is the type of the item it replaces
+ * (`isExerciseLoggedForItem`).
  */
 
 /** The most recent earlier session's sets of one exercise. */
@@ -84,13 +92,13 @@ function firstLastTimeAmong(log: WorkoutLog, program: Program, query: LastTimeQu
  * The type of the block a logged set was done in, resolved from the program
  * for the session's stored day number. Undefined when that cannot be done
  * (no stored day, no such day or block in the program now, or the exercise is
- * not in that block any more), which callers treat as "no match".
+ * not in that block any more; a swap's id counts as being in its item's block), which callers treat as "no match".
  */
 function blockTypeOfLoggedSet(program: Program, session: LoggedSession, set: LoggedSet): string | undefined {
   if (session.day === undefined) return undefined;
 
   const block = program.days[session.day]?.blocks[set.blockPosition - 1];
-  const isExerciseInBlock = block?.items.some((item) => item.exerciseId === set.exerciseId) ?? false;
+  const isExerciseInBlock = block?.items.some((item) => isExerciseLoggedForItem(item, set.exerciseId)) ?? false;
   return isExerciseInBlock ? block?.type : undefined;
 }
 

@@ -374,6 +374,7 @@ body {
 
 .item-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-height: 48px;
@@ -1427,4 +1428,48 @@ body {
 .retest-skip-jump:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* "No equipment" tick under a swappable Today row, on its own full-width line. */
+.item-no-equipment-group {
+  flex: 1 0 100%;
+}
+
+.item-no-equipment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.item-no-equipment input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
+
+/* A disabled box (sets logged, or a future date) looks inert. */
+.item-no-equipment:has(input:disabled) {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Text for screen readers only (explains a disabled box). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* "Instead of <original>" (plus " · sets logged" once locked) under a swappable row's details. */
+.item-no-equipment-note {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
 }

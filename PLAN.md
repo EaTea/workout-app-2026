@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) was agreed by Ed on 12 Nov after a preview of two exercises, and is waiting to merge; PR 21 is under way. PR 23 (the plan for combining two days on Today) is in review. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is in review.**
+Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 is under way. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1447,8 +1447,8 @@ are the refinements, for him to confirm on the PR:
   so "last time", History, Progress charts and the CSV export keep swaps
   apart from the real thing with no change to the log's wire format: a
   backpack RDL never pre-fills the loaded RDL's kilograms. Once an item has
-  a logged set, its tick is locked to match ("Logged as Backpack
-  single-leg RDL"); deleting the item's sets unlocks it. Today and the log
+  a logged set, its tick is locked to match (the row keeps
+  "Instead of Single-leg RDL" and adds "· sets logged"); deleting the item's sets unlocks it. Today and the log
   screen work out "swapped" from the logged sets first and the saved tick
   second, so a log restored from an export (which doesn't carry ticks)
   still shows the swap.
@@ -1530,7 +1530,7 @@ are the refinements, for him to confirm on the PR:
   weeks, but it contradicts "unticked exercises stay as written" and would
   silently carry a swap into a gym day. It's an easy follow-up if wanted.
 
-### PR 18 — No-equipment swaps in the program file *(behavior change)*
+### PR 18 — No-equipment swaps in the program file *(behavior change)* — merged as PR #27
 The data and the parser, shown only on the exercise sheet, so the doses
 can be reviewed on a phone before anything changes how a session runs.
 
@@ -1577,20 +1577,59 @@ with a test. Pike push-ups are logged as `pike_push_up`, separately from
 that one exercise's history.
 
 **Steps.**
-1. [ ] `buildSession` taking the swapped items: a ticked item uses its
-   swap view (`applyNoEquipmentSwap`, the retest-week hold and
-   `ItemView.noEquipment` landed in PR 18). Unit tests for the ticked
-   worked examples below.
-2. [ ] The ticks storage key, its wire type, mapping and pruning. Unit
+1. [x] A ticked item uses its swap view: `buildSession` is unchanged; the
+   pure `applyNoEquipmentChoices(session, swappedKeys)` in
+   `src/program/noEquipment.ts` replaces items whose key
+   (`noEquipmentItemKey(blockPosition, originalExerciseId)`, e.g.
+   "3:single_leg_rdl") is ticked with their `ItemView.noEquipment` view and
+   sets `ItemView.swappedFrom`. Helpers `hasNoEquipmentSwap` and
+   `originalExerciseIdOf` build keys for Today and the log screen. Unit tests
+   for the ticked worked examples.
+2. [x] The ticks storage key, its wire type, mapping and pruning. Unit
    tests.
-3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
-   logging under the swap's id, the lock after the first set, and working
-   out "swapped" from the log. "Last time", Progress, History and the log
-   route recognise swap ids (see above). Session progress (in progress, complete)
-   counts swapped sets. README.
-4. [ ] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
+3a. [x] The log side, no UI. `src/noEquipment/choices.ts`:
+   `noEquipmentChoices(unswappedSession, log, date, ticksForDate)` returns
+   `{ swapped, locked }` key sets (sets under the swap's id: swapped and
+   locked; under the original's id: not swapped, locked, whatever the tick
+   says; else swapped iff ticked); `isExerciseLoggedForItem` (in
+   `program/noEquipment.ts`) lets "Last time" (`lastTime.ts`), Progress
+   (`progress.ts`) and History's wording (`historyText.ts`) match a set
+   logged under a swap id to the item it replaces, so a swap has its own
+   last time and chart and an unswapped item ignores swap sets. Unit tests
+   incl. the "Logging" worked example, and a CSV test (swap id and name).
+3b. [x] The tick on Today, the swapped row, log screen, timers and sheet,
+   logging under the swap's id, the lock after the first set ("Instead of
+   ... · sets logged"), session progress counting swapped sets. README. Notes from 3a:
+   - Build the unswapped session, call `noEquipmentChoices` with
+     `ticksForDate`, then `applyNoEquipmentChoices(session, choices.swapped)`;
+     use `choices.locked` to disable the tick (the row keeps "Instead of
+     <original>" when swapped).
+   - `renderLogScreen` (`ui/logScreen.ts`, ~line 110) finds its item with
+     `candidate.exercise.id === exerciseId` on the plain `buildSession`
+     result: it must build the swapped session the same way, so the route's
+     exercise id (the swap's id when swapped) matches. Today's route
+     (`logRouteHash(..., item.exercise.id)`) then carries the swap id.
+   - `isSessionInProgress` (`log/sessionProgress.ts`), Today's "2/6"
+     (`ui/today.ts` ~345) and the log screen's `setsForItem` calls all use
+     `item.exercise.id`, so they count swapped sets once they are handed the
+     swapped session. `isSessionInProgress` must get the swapped session.
+   - The rest-memory key uses `item.exercise.id`, so a swap remembers its
+     own rest, separate from the original's.
+   - A tick toggled after the first set must not change anything (locked).
+4. [x] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
    plus an unticked session matching today's exactly.
-5. [ ] Fixes from the challenger review.
+5. [x] Fixes from the challenger review. It checked every worked
+   example with every box ticked, and Today with nothing ticked matched
+   `main` on every date apart from the new tick lines. Fixed: a backfill
+   tick on a date more than 14 days old was silently pruned; Today's
+   wording ("Instead of ..." stays when sets are logged, no extra line on
+   an unswapped row, a dimmed disabled box that tells screen readers
+   why); stale doc comments and two unused helpers; and E2E for deleting
+   the set to unlock, the lock on the original, a restored log and the
+   backfill. Left as they are, with reasons in the PR: a log address
+   with the other exercise's id says "nothing to log"; a second open tab
+   only sees new ticks once it toggles or reloads, as with the log; and
+   each swappable row is about 56px taller, as in the approved mockup.
 - **Merge point:** Ed can tick any swap on Today, train it with the right
   dose and timer, and see it in History.
 

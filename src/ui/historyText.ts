@@ -1,6 +1,7 @@
 import type { Program } from "../program/model";
 import type { LoggedSession, LoggedSet } from "../log/model";
 import { itemTracksReps, setNounFor, setWord } from "../log/itemSets";
+import { isExerciseLoggedForItem } from "../program/noEquipment";
 import { performedAsName } from "../program/rotation";
 import { formatShortDate } from "./format";
 
@@ -57,7 +58,7 @@ export function performedExerciseName(program: Program, session: LoggedSession, 
 function findProgramItem(program: Program, session: LoggedSession, blockPosition: number, exerciseId: string) {
   if (session.day === undefined) return undefined;
 
-  return program.days[session.day]?.blocks[blockPosition - 1]?.items.find((item) => item.exerciseId === exerciseId);
+  return program.days[session.day]?.blocks[blockPosition - 1]?.items.find((item) => isExerciseLoggedForItem(item, exerciseId));
 }
 
 /**

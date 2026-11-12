@@ -34,6 +34,7 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   content.push(
     element("div", "kicker", category),
     title,
+    ...(item.swappedFrom !== undefined ? [element("p", "sheet-text", `Instead of ${item.swappedFrom.name}`)] : []),
     element("p", "sheet-summary", formatPrescriptionSummary(item)),
   );
 

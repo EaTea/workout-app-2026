@@ -1,6 +1,8 @@
 import "./rotation.css";
 import { itemDisplayName } from "../program/rotation";
-import { buildSession, type BlockView, type ItemView } from "../program/schedule";
+import type { BlockView, ItemView } from "../program/schedule";
+import type { NoEquipmentTicks } from "../noEquipment/model";
+import { buildSwappedSession } from "../noEquipment/session";
 import { todayLocalDate } from "../program/calendar";
 import type { Program } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
@@ -102,9 +104,12 @@ export function renderLogScreen(
   initialLog: WorkoutLog,
   changeLog: ChangeLog,
   realToday: string = todayLocalDate(),
+  noEquipmentTicks: NoEquipmentTicks = new Map(),
 ): HTMLElement {
   const screen = element("section", "screen log-screen");
-  const session = buildSession(program, settings, date);
+  // The swapped session, so a swapped item is found under the swap's id (the one in the address)
+  // and logs, pre-fills and shows "last time" as the swap.
+  const { session } = buildSwappedSession(program, settings, initialLog, noEquipmentTicks, date);
 
   const block = session.kind === "training" ? session.blocks[blockPosition - 1] : undefined;
   const item = block?.items.find((candidate) => candidate.exercise.id === exerciseId);
@@ -386,6 +391,9 @@ export function renderLogScreen(
     );
     if (trackedItem.rotatedIn !== undefined) {
       heading.append(element("p", "log-rotated-in", `Rotated in for ${trackedItem.rotatedIn.originalName}`));
+    }
+    if (trackedItem.swappedFrom !== undefined) {
+      heading.append(element("p", "log-rotated-in", `Instead of ${trackedItem.swappedFrom.name}`));
     }
 
     const infoButton = element("button", "log-info", "ⓘ");
