@@ -138,6 +138,28 @@ describe("log mapping", () => {
     expect(setResult.log.sessions["2026-11-02"]?.sets).toHaveLength(1);
   });
 
+  it("treats an old set and a set with a day in the same slot as duplicates, but keeps the same slot on two different days", () => {
+    const oldSet: Record<string, unknown> = { exerciseId: "pull_up", blockPosition: 2, setNumber: 1, reps: 6, loggedAt: "2026-11-02T10:00:00.000Z" };
+    type WireSet = ReturnType<typeof validWire>["sessions"][number]["sets"][number];
+    const asWireSets = (sets: Record<string, unknown>[]) => sets as unknown as WireSet[];
+
+    const oldThenDay = validWire();
+    oldThenDay.sessions[0]!.sets = asWireSets([structuredClone(oldSet), { ...oldSet, day: 1 }]);
+    const oldThenDayResult = logFromWire(oldThenDay);
+    expect(oldThenDayResult.problems.messages[0]).toContain("duplicate set");
+    expect(oldThenDayResult.log.sessions["2026-11-02"]?.sets).toHaveLength(1);
+
+    const dayThenOld = validWire();
+    dayThenOld.sessions[0]!.sets = asWireSets([{ ...oldSet, day: 1 }, structuredClone(oldSet)]);
+    expect(logFromWire(dayThenOld).problems.messages[0]).toContain("duplicate set");
+
+    const twoDays = validWire();
+    twoDays.sessions[0]!.sets = asWireSets([{ ...oldSet, day: 1 }, { ...oldSet, day: 2 }]);
+    const twoDaysResult = logFromWire(twoDays);
+    expect(twoDaysResult.problems.messages).toEqual([]);
+    expect(twoDaysResult.log.sessions["2026-11-02"]?.sets.map((set) => set.day)).toEqual([1, 2]);
+  });
+
   it("checks programWeek and a day number of 1 to 7, dropping a bad value but keeping the sets", () => {
     const wire = validWire();
     Object.assign(wire.sessions[0]!, { programWeek: "1", day: 8 });

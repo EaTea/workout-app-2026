@@ -127,7 +127,7 @@ export function deleteSet(log: WorkoutLog, date: string, key: SetKey): WorkoutLo
  * mixed (an old set with no day of its own still counts, as before).
  * Leave it out to ignore the day.
  */
-export function setsForItem(log: WorkoutLog, date: string, blockPosition: number, exerciseId: string, day?: number): LoggedSet[] {
+export function setsForItem(log: WorkoutLog, date: string, blockPosition: number, exerciseId: string, day?: DayNumber): LoggedSet[] {
   const session = Object.hasOwn(log.sessions, date) ? log.sessions[date] : undefined;
   if (session === undefined) {
     return [];

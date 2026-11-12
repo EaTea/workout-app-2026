@@ -1,6 +1,7 @@
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { toDayNumber } from "../program/calendar";
 import type { DayNumber } from "../program/model";
+import { isSetOnDay } from "./setDay";
 
 /**
  * Stored (JSON) shape of the workout log and its mapping to the internal
@@ -169,7 +170,6 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
 
   // An empty session holds no data, so dropping it loses nothing and needs no warning.
   const sets: LoggedSet[] = [];
-  const seenSetIdentities = new Set<string>();
   rawSets.forEach((rawSet, index) => {
     const setPath = `${path}.sets[${index}]`;
     let set: LoggedSet;
@@ -180,13 +180,19 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
       return;
     }
 
-    // A set's own day is part of its identity: Day 1 block 2 and Day 2 block 2 are different slots.
-    const identity = `${set.day ?? ""}|${set.exerciseId}|${set.blockPosition}|${set.setNumber}`;
-    if (seenSetIdentities.has(identity)) {
+    // Same slot = same exercise, block and set number, and days that match (`isSetOnDay`): a set with
+    // no day of its own could be either day's, so it collides with any day; two different days do not.
+    const isDuplicate = sets.some(
+      (kept) =>
+        kept.exerciseId === set.exerciseId &&
+        kept.blockPosition === set.blockPosition &&
+        kept.setNumber === set.setNumber &&
+        isSetOnDay(kept, set.day),
+    );
+    if (isDuplicate) {
       recordProblem(problems, new LogWireError(`${setPath}: duplicate set ${set.exerciseId} block ${set.blockPosition} set ${set.setNumber}`), 1);
       return;
     }
-    seenSetIdentities.add(identity);
     sets.push(set);
   });
 
