@@ -433,9 +433,9 @@ describe("an item's noEquipment swap", () => {
     json.days[0].blocks[2].items[0].noEquipment = swap;
   }
 
-  it("is undefined on every item of the shipped file", () => {
-    const everyItem = Object.values(program.days).flatMap((day) => day!.blocks.flatMap((block) => block.items));
-    expect(everyItem.every((item) => item.noEquipment === undefined)).toBe(true);
+  it("is read from the shipped file (every swap is tabled in noEquipmentSwaps.test.ts)", () => {
+    const rdl = program.days[4]!.blocks[2]!.items[0]!;
+    expect(rdl.noEquipment?.exercise.id).toBe("backpack_single_leg_rdl");
   });
 
   it("maps a valid swap: exercise resolved, reps parsed, text copied", () => {

@@ -244,6 +244,23 @@ rounds of 90s with 60s rest, Day 6 is ~42 min). Anything but true or false is
 an error, and so is combining it with `weeklyIncrease` or putting it in a block
 with its own `rounds` or `minutes` (both would still change from week to week).
 
+An item can carry a household-kit swap, `"noEquipment"`, for days when the
+kit isn't to hand. It is an object next to the item it replaces, with an
+`exercise` (required: a key of `exercises`) and, optionally, `reps`,
+`durationSec`, `load`, `note` and `tempo`. Whatever the swap leaves out comes
+from the original item. `sets`, `restSec`, `format`, `minutes`, `rounds`,
+`workSec`, `perSide`, `optional`, `weeklyIncrease` and `sameEveryWeek` always
+come from the original, so setting any of them inside `noEquipment` is an
+error naming the path, and so is nesting a swap. The original's `load`,
+`note` and `tempo` don't carry over (they describe its kit), so write the
+swap's own. A swap can't use a tested max: its exercise can't be `maxTested`,
+and if the original's reps are a percentage of a tested max the swap must
+give its own `reps` (for example `"6-8"`, or `"easy, ~50% effort"` for a
+mini-dose). A swap can't be the item's own exercise. The app shows the swap
+on the item's exercise sheet. The shipped program gives swaps only to items
+that need kit; the swap exercises are ordinary `exercises` entries with
+`"evidence": "coaching practice"`.
+
 ## Warm-up rotation
 
 Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the

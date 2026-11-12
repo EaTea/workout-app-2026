@@ -1538,7 +1538,7 @@ can be reviewed on a phone before anything changes how a session runs.
 1. [x] `noEquipment` in the wire types, parser and model, with the errors
    listed above and the "did you mean" hint for misspelt keys. Unit tests,
    including the cut-down program fixture.
-2. [ ] The 16 swap exercises and every swap in `public/program.json`
+2. [x] The 16 swap exercises and every swap in `public/program.json`
    exactly as tabled above. Data tests over the shipped file. README:
    "Editing program.json" documents `noEquipment` and its rules.
 3. [ ] The exercise sheet's "No equipment" section (swap name and this
