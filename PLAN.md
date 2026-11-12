@@ -1584,7 +1584,7 @@ Endurance is out of scope: its rows don't change.
  ┌────────────────────────────────────┐         ┌────────────────────────────────────┐
  │ High wall sit          3 × 20s     │         │ ‹ Close            High wall sit   │
  │ [ Rest 40s ]  [ ▶ Show me ]        │──tap──▶ │ ┌────────────────────────────────┐ │
- └────────────────────────────────────┘         │ │  (wall)  big stick figure      │ │
+ └────────────────────────────────────┘         │ │  (wall)  big 3D mannequin      │ │
                                                 │ │   │  O    sliding a little way   │ │
                                                 │ │   │ /|    down the wall        │ │
                                                 │ │   │  |_                        │ │
@@ -1592,7 +1592,7 @@ Endurance is out of scope: its rows don't change.
                                                 │        HOLD                        │  ◀ big step label
                                                 │ Back on the wall. Slide down a     │  ◀ one-line cue
                                                 │ little and hold.                   │
-                                                │ [ Side view | Front view ]         │  ◀ only if it has two
+                                                │ [ ↻ Turn: side · front · angle ]   │  ◀ turns the camera
                                                 │ [ ❚❚ Pause ]   [ Slower ]          │
                                                 └────────────────────────────────────┘
 ```
@@ -1606,13 +1606,19 @@ Endurance is out of scope: its rows don't change.
 2. **The view.** A full-screen overlay like the timer: the Back button or
    gesture, Escape and "Close" all close it and return focus to the button
    that opened it (it reuses `closeOnBack`). The screen behind is inert.
-3. **The figure.** One large stick figure on a plain black panel: limbs
-   about 14px thick at phone width, white, with the limbs that move in
-   yellow (#FFD60A) so the eye goes straight to them. The far-side limbs
-   in a side view are a lighter grey, still at least 3:1 against the
-   background. Furniture (counter, chair, wall, door frame, stair, bed) is a
-   simple grey outline; things held (band, ball, bag, tin) are yellow like
-   the moving limbs. No floor patterns, shadows or background detail.
+3. **The figure.** One large 3D mannequin, like an artist's wooden
+   figure, on a plain black background (Ed, 12 Nov: 3D rather than stick
+   figures; white on black). It is built from smooth rounded shapes (a
+   head, a chest and pelvis, and tapered limbs with rounded joints and
+   simple hands and feet), with no face, hair or clothing detail to pick
+   out. The body is matt white with soft lighting from the front and above,
+   so its shape reads in 3D without dark shadows; the body parts that move
+   are yellow (#FFD60A) so the eye goes straight to them. The far-side limbs
+   are naturally shaded a little darker, which tells near from far.
+   Furniture (counter, chair, wall, door frame, stair, bed) is plain mid
+   grey blocks; things held (band, ball, bag, tin) are yellow like the
+   moving parts. A faint floor line under the feet and nothing else: no
+   room, textures or cast shadows.
 4. **Start and end of each rep.** A rep is: start position held 1.5s, a
    slow 2.5s move, end position held 1.5s (or 4s for a hold exercise,
    labelled "Hold"), a slow 2.5s move back. About 8 to 10 seconds a loop,
@@ -1621,15 +1627,23 @@ Endurance is out of scope: its rows don't change.
    halves the speed. "Pause" freezes the figure where it is.
 5. **One-line cue.** One sentence per exercise in at least 24px type
    under the step label (table below). The full cues stay on the ⓘ sheet.
-6. **Views.** Side view by default. Exercises whose movement is sideways
-   (a hip raise to the side, sideways walking) use the front view instead.
-   A few need both, and get a "Side view / Front view" switch (table).
-   Hand and foot exercises (grip squeeze, wrist curl, ankle pumps) are
-   drawn close up so the hand or foot fills the panel.
+6. **Views.** Each exercise opens at the camera angle that shows its
+   movement best ("View" in the table): side, front, or a three-quarter
+   angle, which shows depth best in 3D. One "↻ Turn" button moves the
+   camera smoothly round to the next of side, front and three-quarter, and
+   the loop keeps its place. There is no drag-to-rotate, so a shaky touch
+   can't knock the view sideways. Hand and foot exercises (grip squeeze,
+   wrist curl, ankle pumps) are framed close up so the hand or foot fills
+   the panel.
 7. **Reduced motion.** With "Reduce motion" on in the phone's settings, the
    figure doesn't move by itself. It shows the start and end positions side
    by side, labelled "Start" and "End" (and "Hold" for hold exercises),
    with a "Next step" button that steps through the positions on a tap.
+   "Turn" jumps straight to the next angle instead of swinging round.
+8a. **No 3D on the phone.** If the browser can't draw 3D (WebGL is off or
+   missing), the view draws the same poses flat, as a thick outline figure
+   from the same joint positions, so every exercise still has its
+   animation and cue.
 8. **The dose isn't animated.** The view says this week's dose in its
    header (for example "3 × 20s") from the same text as the row, but the
    loop shows one rep (or a short hold) only. Showing a real 20s hold or
@@ -1659,8 +1673,9 @@ it:
 | Counter plank, counter push-up, wall side plank | Body in a straight line from head to heels in every pose |
 | Calf, doorway chest stretch | A gentle lean only; no bouncing (the move into it is as slow as any other) |
 
-**The exercises.** All 34 in `public/steady-strength.json`. "Moves" is
-what is in yellow.
+**The exercises.** All 34 in `public/steady-strength.json`. "View" is the
+camera angle it opens at ("Turn" reaches the others); "Moves" is what is
+in yellow.
 
 | # | Exercise | View | Start → end | Moves | One-line cue |
 | --- | --- | --- | --- | --- | --- |
@@ -1668,13 +1683,13 @@ what is in yellow.
 | 2 | Neck retraction | Side, close up | Head forward, hand on the chin → head slid straight back, chin level | Head, hand | With a hand on your chin, slide your head straight back. |
 | 3 | Standing back extension | Side | Standing, hands on the lower back → leaning back a little | Trunk | Hands on your lower back, lean back just a little. |
 | 4 | Ankle pumps, seated | Side, close up | Foot flat → toes pulled up → toes pointed | Foot | Sitting, pull your toes up, then point them. |
-| 5 | Single-leg stand | Side and front | Both feet down, hand on the counter → one foot lifted a little | Lifted leg | Hold the counter and lift one foot a little off the floor. |
+| 5 | Single-leg stand | Three-quarter | Both feet down, hand on the counter → one foot lifted a little | Lifted leg | Hold the counter and lift one foot a little off the floor. |
 | 6 | Heel-to-toe stand | Side | Feet side by side → one foot stepped in front, heel touching toe, held | Front foot | Hold the counter, put one foot right in front of the other and stand still. |
 | 7 | Heel-to-toe walk | Side | Steps along the counter, each heel to the other toe | Legs | One hand on the counter, walk with each heel touching the other toe. |
 | 8 | Sideways walking | Front | Side steps along the counter, feet never crossing | Legs | One hand on the counter, step sideways and don't cross your feet. |
 | 9 | High wall sit | Side | Standing, back on the wall → slid a little way down, held | Legs | Back on the wall, slide down a little and hold. |
 | 10 | Glute bridge hold | Side | Lying, knees bent → hips lifted to a straight line, held | Hips | Lying with knees bent, lift your hips into a straight line and hold. |
-| 11 | Pallof press hold | Side and front | Hands at the chest, band from the door at the side → arms straight out, held | Arms, band | Side-on to the door, push your hands straight out and hold. Don't turn. |
+| 11 | Pallof press hold | Three-quarter | Hands at the chest, band from the door at the side → arms straight out, held | Arms, band | Side-on to the door, push your hands straight out and hold. Don't turn. |
 | 12 | Wall push hold | Side | Hands on the wall → leaning in on bent elbows, held | Arms | Hands on the wall, lean in on bent elbows and hold. |
 | 13 | Grip squeeze | Front, close up | Open hand round the ball → fingers squeezed, held | Fingers | Squeeze the soft ball at half effort, hold, then let go. |
 | 14 | Counter plank | Side | Standing at the counter → hands on it, feet back, body straight, held | Whole body | Hands on the counter, step back, keep your body straight and hold. |
@@ -1691,7 +1706,7 @@ what is in yellow.
 | 25 | Stair step-up | Side | At the bottom stair, hand on the rail → stepped up with the whole foot → stepped down | Legs | Hold the rail, step up with your whole foot, then step back down. |
 | 26 | Back knee bend | Side | Standing at the counter → heel brought up behind towards the bottom | Lower leg | Hold the counter and bend one knee to bring the heel up behind you. |
 | 27 | Standing bird dog | Side | Both hands on the counter → one leg slid straight back, held | Leg | Hands on the counter, slide one leg straight back and hold. Keep your back flat. |
-| 28 | Pallof press | Side and front | Hands at the chest → pressed straight out → back to the chest | Arms, band | Side-on to the door, push your hands straight out and back. Don't turn. |
+| 28 | Pallof press | Three-quarter | Hands at the chest → pressed straight out → back to the chest | Arms, band | Side-on to the door, push your hands straight out and back. Don't turn. |
 | 29 | Wall side plank | Front | Side-on to the wall → forearm on it, feet a step away, body straight, held | Whole body | Side-on to the wall, forearm on it, feet a step away, body straight and hold. |
 | 30 | Tall sitting hold | Side | Sitting back on the chair → shuffled forward, sitting tall, held | Trunk | Sit forward away from the chair back, sit tall, breathe and hold. |
 | 31 | Slow walk | Side | A slow walking step, looping | Legs | Walk slowly for a few minutes. |
@@ -1706,22 +1721,40 @@ the end of the loop. Head turns and sideways walking show both directions.
 **Code shape.**
 
 ```
- src/demo/model.ts          Pose (joint angles + where the figure stands), Prop, Demo
- src/demo/figure.ts         forwardKinematics(pose) ─▶ joint points; limb lengths fixed,
-                            so a pose can't stretch a limb
+ src/demo/model.ts          Pose (3D joint rotations + where the figure stands), Prop, Demo
+ src/demo/skeleton.ts       jointPositions(pose) ─▶ 3D points for every joint (forward
+                            kinematics); limb lengths fixed, so a pose can't stretch a limb.
+                            Pure TypeScript, no three.js, so the safety tests run in Vitest
  src/demo/timeline.ts       stepAt(demo, elapsedMs, speed) ─▶ { from, to, progress, label }
                             (pure, unit tested; eased like the crab drill artifact)
  src/demo/steadyStrength.ts the 34 demos, keyed by exercise id
  src/demo/registry.ts       demoFor(programId, exerciseId) ─▶ Demo | undefined
- src/ui/demoView.ts         the overlay: SVG drawing, controls, reduced motion, Back to close
+ src/demo/render3d.ts       three.js scene: mannequin meshes posed from jointPositions(),
+                            props, lights, camera angles (loaded only when "Show me" opens)
+ src/demo/renderFlat.ts     the flat fallback, drawn from the same jointPositions()
+ src/ui/demoView.ts         the overlay: picks a renderer, controls, reduced motion, Back to close
  src/ui/today.ts, dayPlan.ts, logScreen.ts   the "▶ Show me" buttons (only when demoFor finds one)
+
+   Demo (poses) ──timeline──▶ blended Pose ──skeleton──▶ joint points ──┬─▶ render3d (WebGL)
+                                                                        └─▶ renderFlat (no WebGL)
 ```
 
-- **Poses are joint angles, not points.** The crab drill artifact used
-  points, which let a forearm grow or shrink between poses. Angles from
-  the hip (trunk, then each limb) keep every limb its own length, make the
-  safety limits above direct to test (a knee angle is a number in the
-  pose) and blend smoothly.
+- **Poses are joint rotations, not points.** The crab drill artifact used
+  points, which let a forearm grow or shrink between poses. Rotations at
+  each joint (bend, out to the side, twist), worked out from the pelvis
+  outwards, keep every limb its own length, make the safety limits above
+  direct to test (a knee bend is a number in the pose) and blend smoothly.
+  One pose drives every camera angle, so the side and front views can
+  never disagree.
+- **The mannequin is built in code, not downloaded.** Each body part is a
+  rounded shape (three.js capsules and spheres) placed between two joint
+  points, so no model file, rig or licence is involved, and the figure
+  can't move in a way the skeleton doesn't allow.
+- **three.js** (MIT licence) is the one new dependency. It is loaded as a
+  separate chunk the first time "Show me" opens, so Today doesn't get any
+  slower, and the service worker's precache list picks the chunk up like
+  any other build file, so it works offline. Expected size: about 150 KB
+  gzipped; the PR reports the real figure.
 - **The demos are code, not program data.** They describe drawing, not the
   program, so they don't go in `steady-strength.json` and need no wire
   type: nothing crosses a boundary (CLAUDE.md section 6 doesn't apply).
@@ -1730,15 +1763,23 @@ the end of the loop. Head turns and sideways walking show both directions.
   fails if any Steady Strength exercise has no demo, so a new exercise in
   the file can't ship without one.
 - **Animation.** One `requestAnimationFrame` loop while the view is open,
-  stopped on close and while the tab is hidden. No CSS animation, so the
+  stopped on close and while the tab is hidden, and the 3D renderer is
+  disposed on close so its memory is given back. No CSS animation, so the
   reduced-motion path is just "don't start the loop".
-- **Accessibility.** The SVG is `role="img"` with a label naming the
+- **Accessibility.** The canvas is `role="img"` with a label naming the
   movement and the start and end ("High wall sit: standing with your back
   on the wall, then slid a little way down and held"). The step label is
   not a live region, so a screen reader isn't interrupted every 2
   seconds. Buttons are at least 56px tall.
 
-**Alternatives considered.** Video clips or GIFs of a real person (clearer
+**Alternatives considered.** A realistic 3D human from a model library,
+rigged and animated (more lifelike, but it needs a model with a licence
+that allows shipping it, is 1 to 3 MB to cache, and skinned animation is
+much harder to keep inside the tested safe range; fine detail such as
+fingers and a face is also harder to read with poor eyesight than a clean
+mannequin). Stick figures, as first planned (simplest and smallest, but
+Ed asked for 3D, and a solid body shows which way a limb points much
+better). Video clips or GIFs of a real person (clearer
 for some people, but they need filming or licensing, are large to cache
 offline, and can't highlight the moving limb or be slowed reliably).
 Drawing each frame by hand as SVG files (no shared engine, so 34 drawings
@@ -1753,23 +1794,29 @@ project files under `screenshots/demos/`.
 
 ### PR 21 — "Show me" view and the Day 1 to Day 2 exercises *(behavior change)*
 **Steps.**
-1. [ ] `src/demo/model.ts`, `figure.ts` and `timeline.ts`, with unit tests:
-   forward kinematics, limb lengths unchanged across poses, the timeline
-   figures in the worked examples, half speed, and pausing.
-2. [ ] `src/ui/demoView.ts`: the overlay, controls, view switch,
-   reduced-motion stills and "Next step", Back to close. One demo (high wall
-   sit) to drive it.
-3. [ ] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
+1. [ ] `src/demo/model.ts`, `skeleton.ts` and `timeline.ts`, with unit
+   tests: forward kinematics, limb lengths unchanged across poses, the
+   timeline figures in the worked examples, half speed, and pausing.
+2. [ ] three.js added; `src/demo/render3d.ts` (the mannequin, props,
+   lights, the three camera angles) and `renderFlat.ts`. A check that the
+   lazily loaded chunk is in the service worker's precache list. Commit
+   message records the dependency choice and its size.
+3. [ ] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
+   stills and "Next step", the flat fallback, Back to close and disposal.
+   One demo (high wall sit) to drive it.
+4. [ ] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
    17–19, 27, 31–34), with the safety tests above that apply to them.
-4. [ ] The "▶ Show me" buttons on Today, the day plan and the log screen.
+5. [ ] The "▶ Show me" buttons on Today, the day plan and the log screen.
    README: a line on "Show me".
-5. [ ] E2E (`e2e/showMe.spec.ts`): on Steady Strength Day 1 the high wall
-   sit row opens the view with its cue, Pause freezes it, Back closes it
-   and focus returns to the button; with reduced motion the Start and End
-   stills show and "Next step" moves between them; the single-leg stand
-   switches to the front view; Explosive Endurance Day 1 has no "Show me".
-6. [ ] The contact sheet for these 18.
-7. [ ] Fixes from the challenger review.
+6. [ ] E2E (`e2e/showMe.spec.ts`): on Steady Strength Day 1 the high wall
+   sit row opens the view with its cue and a drawn 3D canvas, Pause freezes
+   it, Back closes it and focus returns to the button; with reduced motion
+   the Start and End stills show and "Next step" moves between them; Turn
+   on the single-leg stand moves to the front angle; with WebGL switched
+   off the flat figure shows instead; Explosive Endurance Day 1 has no
+   "Show me". Screenshots of the 3D view for Ed.
+7. [ ] The contact sheet for these 18.
+8. [ ] Fixes from the challenger review.
 - **Merge point:** Days 1, 2, 4 and 6 have an animation for every
   exercise. Days 3 and 5 show "Show me" only where they share an exercise
   with Day 1.
@@ -1858,7 +1905,8 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 2 Nov, W1 D1, Today | Every row has "▶ Show me" (15 rows); tapping the high wall sit row's name still opens its log screen |
 | High wall sit view | Header "High wall sit · 3 × 20s"; cue "Back on the wall, slide down a little and hold."; side view only; loop: Start 1.5s, move 2.5s, Hold 4s, move back 2.5s = 10.5s |
 | Sit-to-stand view | Loop: Start (seated) 1.5s, "Stand up" 2.5s, End (standing) 1.5s, "Sit down slowly" 2.5s = 8s; at "Slower", 16s |
-| Single-leg stand view | Side view first; "Front view" switches the drawing and keeps the loop's place |
+| Single-leg stand view | Opens at the three-quarter angle; "Turn" swings round to side, then front, keeping the loop's place |
+| No WebGL, high wall sit | The flat outline figure with the same loop, cue and controls |
 | Reduced motion, high wall sit | Two stills, "Start" and "Hold", nothing moves; "Next step" swaps which one is large |
 | Pause at 3s, high wall sit | The figure stays at the frame shown at 3s (in the move down); Play carries on from there |
 | 2 Nov, Explosive Endurance W1 D1 | No "Show me" on any row |
@@ -1873,14 +1921,12 @@ W2 D1, and 3 Nov is "not started".
 
 For PR 20 ("Show me" animations), each with the answer I'm assuming:
 
-1. **Colours.** White figure, moving limbs in yellow, on a black panel, to
-   match the app's dark screens without a bright glare. A black figure on
-   white is the other option if that suits the person's eyes better.
+1. **A mannequin, not a realistic person.** The 3D figure is a smooth
+   artist's-mannequin shape built in code, not a lifelike human model
+   (see "Alternatives considered").
 2. **Where it opens.** A "Show me" button on each row of Today and the day
    plan, and on the log screen. Not on the ⓘ sheet.
-3. **One rep, not the dose.** The loop shows one rep or a short hold, and
-   the header says the real dose.
-4. **Supported stage.** Exercises with a progression of supports show the
+3. **Supported stage.** Exercises with a progression of supports show the
    most supported stage (holding the counter, two hands on the chair).
 
 For PR 17 (no-equipment swaps), each with the answer I'm assuming:
@@ -1907,6 +1953,11 @@ For PR 14 (Steady Strength), each with the answer I'm assuming:
    name such as "Workouts" would be a small follow-up if Ed wants it.
 
 Resolved:
+
+- **3D, not stick figures (PR 20):** Ed, 12 Nov.
+- **Colours (PR 20):** white on black, moving parts in yellow (Ed, 12 Nov).
+- **One rep, not the dose (PR 20):** the loop shows one rep or a short
+  hold, and the header says the real dose (Ed, 12 Nov).
 
 - **Which discs (PR 14):** the lower back (Ed, 11 Nov). The plan already
   keeps the lumbar spine neutral and avoids loaded bending and twisting.
