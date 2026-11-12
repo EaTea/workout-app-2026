@@ -195,3 +195,32 @@ describe("sets that carry their own day", () => {
     expect(log.sessions["2026-11-02"]?.sets.map((set) => set.reps)).toEqual([9]);
   });
 });
+
+describe("a set logged the way the log screen logs it (no day of its own) after the start date moves", () => {
+  // The log screen records no per-set day for a single-day log: the session's day (1 here) is the only record.
+  const loggedAsDayOne = makeSet({ setNumber: 1, reps: 6 });
+
+  it("still counts for the item when Today now shows the block as another day", () => {
+    const log = logSet(emptyLog, "2026-11-02", loggedAsDayOne, { programWeek: 1, day: 1 });
+
+    expect(setsForItem(log, "2026-11-02", 2, "pull_up", 5)).toEqual([loggedAsDayOne]);
+  });
+
+  it("is overwritten, not duplicated, when re-logged under another day's key", () => {
+    let log = logSet(emptyLog, "2026-11-02", loggedAsDayOne, { programWeek: 1, day: 1 });
+    log = logSet(log, "2026-11-02", makeSet({ setNumber: 1, reps: 9 }), { programWeek: 1, day: 5 });
+
+    expect(log.sessions["2026-11-02"]?.sets.map((set) => set.reps)).toEqual([9]);
+  });
+
+  it("is edited and deleted under another day's key", () => {
+    const dayFiveKey = { exerciseId: "pull_up", day: 5 as const, blockPosition: 2, setNumber: 1 };
+    let log = logSet(emptyLog, "2026-11-02", loggedAsDayOne, { programWeek: 1, day: 1 });
+
+    log = editSet(log, "2026-11-02", dayFiveKey, { reps: 8 });
+    expect(log.sessions["2026-11-02"]?.sets[0]?.reps).toBe(8);
+
+    log = deleteSet(log, "2026-11-02", dayFiveKey);
+    expect(log.sessions["2026-11-02"]).toBeUndefined();
+  });
+});

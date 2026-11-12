@@ -121,7 +121,8 @@ export function renderLogScreen(
   const week = session.week;
   const isFutureDate = date > realToday;
 
-  // The program day this item's block belongs to; every set logged here records it (see `LoggedSet.day`).
+  // The program day this item's block belongs to. Used to find sets and name keys; new sets do not store it
+  // (single-day logs keep the session's day; only combined sessions record a per-set `day`, see `LoggedSet.day`).
   const dayNumber = session.dayNumber;
   const sessionContext = { programWeek: week, day: dayNumber };
   const totalSets = countSetsForItem(trackedItem, trackedBlock);
@@ -189,7 +190,7 @@ export function renderLogScreen(
 
   /** Builds a `LoggedSet` for `setNumber` from reps/kg/note values; zero kg and an empty note are left out. */
   function buildLoggedSet(setNumber: number, values: SetDraft): LoggedSet {
-    const set: LoggedSet = { exerciseId: trackedItem.exercise.id, day: dayNumber, blockPosition, setNumber, loggedAt: new Date() };
+    const set: LoggedSet = { exerciseId: trackedItem.exercise.id, blockPosition, setNumber, loggedAt: new Date() };
     if (tracksReps && values.reps !== undefined) set.reps = values.reps;
     if (tracksReps && values.loadKg > 0) set.loadKg = values.loadKg;
     const note = values.note.trim();
