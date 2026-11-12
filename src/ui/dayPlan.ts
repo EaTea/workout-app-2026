@@ -7,6 +7,7 @@ import { element } from "./dom";
 import { formatBlockChange, formatBlockTitle, formatItemChange, formatItemDetails, formatItemDose, formatPlanKicker, formatRange, formatTimerAdjustment } from "./format";
 import { planRouteHash } from "./router";
 import "./dayPlan.css";
+import { renderShowMeButton } from "./showMeButton";
 
 /**
  * The read-only Day plan screen, rendered by app.ts for `#/plan/<day>/<week>`
@@ -34,9 +35,10 @@ const REST_DAY_MESSAGE = "Recover; no training is planned.";
  * undefined when they are outside the program (app.ts then shows the
  * Overview). `today` is the shown date, used as the stand-in start when no
  * start date is saved; `search` is `location.search`, kept by the week links
- * so a `?date=` preview survives.
+ * so a `?date=` preview survives. `programId` is the active program's catalogue
+ * id, used to look up "Show me" animations for the rows.
  */
-export function renderDayPlanScreen(program: Program, settings: TrainingSettings, week: number, dayNumber: number, today: string, search: string): HTMLElement | undefined {
+export function renderDayPlanScreen(program: Program, programId: string, settings: TrainingSettings, week: number, dayNumber: number, today: string, search: string): HTMLElement | undefined {
   const session = buildDayPlan(program, settings, week, dayNumber, today);
   if (session === undefined) {
     return undefined;
@@ -64,7 +66,7 @@ export function renderDayPlanScreen(program: Program, settings: TrainingSettings
   );
 
   screen.append(header, renderWeekPicker(program, dayNumber, week, search), renderPhaseChanges(program, session));
-  session.blocks.forEach((block, index) => screen.append(renderPlanBlock(block, index, session, changes)));
+  session.blocks.forEach((block, index) => screen.append(renderPlanBlock(programId, block, index, session, changes)));
   return screen;
 }
 
@@ -155,8 +157,8 @@ function renderPhaseChanges(program: Program, session: Extract<SessionView, { ki
   return card;
 }
 
-/** One block card: numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
-function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
+/** One block card (`programId` is passed on to the rows for "Show me"): numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
+function renderPlanBlock(programId: string, block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
   const position = blockIndex + 1;
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
@@ -180,7 +182,7 @@ function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<
     // The block line already reports changed minutes/rounds; the item line must not repeat them.
     const blockReportsFigures = blockChange !== undefined && (blockChange.previous.minutes !== block.minutes || !sameRange(blockChange.previous.rounds, block.rounds));
     const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, changes.previousWeek, blockReportsFigures) : undefined;
-    card.append(renderPlanItemRow(item, session.phase, changedText));
+    card.append(renderPlanItemRow(programId, item, session.phase, changedText));
   });
 
   return card;
@@ -193,10 +195,11 @@ function sameRange(first: Range | undefined, second: Range | undefined): boolean
 
 /**
  * One read-only item row, laid out like Today's (name, details, dose) but
- * with no button, link or timer. `changedText` is the "Changed: ..." line for
+ * with no button, link or timer apart from the sibling "Show me" button for
+ * exercises that have an animation (`programId` says which program's). `changedText` is the "Changed: ..." line for
  * an item that differs from the previous week, or undefined.
  */
-function renderPlanItemRow(item: ItemView, phase: string, changedText: string | undefined): HTMLElement {
+function renderPlanItemRow(programId: string, item: ItemView, phase: string, changedText: string | undefined): HTMLElement {
   const row = element("div", "item-row");
   const content = element("div", "item-open plan-item");
 
@@ -229,5 +232,11 @@ function renderPlanItemRow(item: ItemView, phase: string, changedText: string | 
 
   content.append(text, doseBox);
   row.append(content);
+
+  // The same sibling "Show me" button as Today's rows; the plan row itself stays read-only.
+  const showMeButton = renderShowMeButton(programId, item, "item-start item-show-me");
+  if (showMeButton !== undefined) {
+    row.append(showMeButton);
+  }
   return row;
 }

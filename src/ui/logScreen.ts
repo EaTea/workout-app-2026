@@ -17,6 +17,7 @@ import { KILOGRAM_STEP } from "./kilograms";
 import { renderActionButton, renderDeleteButton, renderNoteInput, renderStepper, MINIMUM_REPS } from "./setEditor";
 import { restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
+import { renderShowMeButton } from "./showMeButton";
 
 /**
  * The log screen for one item (mockup 2), at `#/log/<date>/<blockPosition>/<exerciseId>`.
@@ -92,9 +93,12 @@ interface SetDraft {
  * inline when saving failed or was refused. `realToday` is the real local date
  * (never a `?date=` preview); a `date` after it cannot be logged to. Unknown
  * block/exercise, or a day with no training, gives a "Nothing to log here" card.
+ * `programId` is the active program's catalogue id; with it the header offers
+ * "Show me" for exercises that have an animation.
  */
 export function renderLogScreen(
   program: Program,
+  programId: string,
   settings: TrainingSettings,
   date: string,
   blockPosition: number,
@@ -371,7 +375,7 @@ export function renderLogScreen(
     target?.focus();
   }
 
-  /** Title row: back link, kicker + exercise name, and the ⓘ button that opens the details sheet. */
+  /** Title row: back link, kicker + exercise name, "Show me" (when the exercise has an animation) and the ⓘ button that opens the details sheet. */
   function renderHeader(): HTMLElement {
     const header = element("header", "log-header");
 
@@ -395,6 +399,9 @@ export function renderLogScreen(
 
     // A rotated-in exercise has no library entry, so there are no details to show.
     header.append(back, heading);
+    // "Show me" sits next to ⓘ; it only exists for exercises with an animation.
+    const showMeButton = renderShowMeButton(programId, trackedItem, "log-show-me");
+    if (showMeButton !== undefined) header.append(showMeButton);
     if (trackedItem.rotatedIn === undefined) header.append(infoButton);
     return header;
   }

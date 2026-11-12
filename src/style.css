@@ -1428,3 +1428,47 @@ body {
   opacity: 0.4;
   cursor: default;
 }
+
+/*
+ * "▶ Show me" beside an exercise row (Today, day plan): a larger sibling of
+ * the row button, so it is easy to hit and read for someone with poor eyesight.
+ *
+ * A row with Show me wraps, so the name and dose keep the full width of the
+ * first line and the buttons (Show me, then Start timer / Rest) sit together
+ * on a line of their own, instead of squeezing the name into a few letters.
+ *
+ *   ┌──────────────────────────────────┐
+ *   │ High wall sit              3 × 20s │   .item-open takes the whole line
+ *   │ [ ▶ Show me ]  [ Start timer ]     │   buttons wrap onto the next line
+ *   └──────────────────────────────────┘
+ */
+.item-row:has(.item-show-me) {
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+}
+
+.item-row:has(.item-show-me) .item-open {
+  flex: 1 1 100%;
+}
+
+.item-show-me {
+  flex: 1 1 140px;
+  min-height: 56px;
+  font-size: 16px;
+}
+
+/* "▶ Show me" in the log screen header, between the title and ⓘ. */
+.log-show-me {
+  flex: none;
+  min-width: 96px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-text);
+  border-radius: 12px;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}

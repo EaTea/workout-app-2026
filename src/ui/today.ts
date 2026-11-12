@@ -7,6 +7,7 @@ import { element } from "./dom";
 import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
 import { renderProgramOverviewLink } from "./overview";
+import { renderShowMeButton } from "./showMeButton";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderRotationCard } from "./rotationCard";
@@ -93,10 +94,12 @@ export interface CheckInOptions {
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). Starting the program is
  * no longer done here: with no start date app.ts shows the Overview instead
- * (see overview.ts), so Today never has a first-run card.
+ * (see overview.ts), so Today never has a first-run card. `programId` is the
+ * active program's catalogue id, used to decide which rows get a "Show me" button.
  */
 export function renderTodayScreen(
   program: Program,
+  programId: string,
   settings: TrainingSettings,
   date: string,
   log: WorkoutLog = { sessions: {} },
@@ -140,7 +143,7 @@ export function renderTodayScreen(
           screen.append(renderRotationCard(describeSwaps(program, program.warmupRotation), program.warmupRotation, rotation.onDismiss, rotation.canDismiss));
         }
       }
-      screen.append(...renderTrainingDay(program, session, date, log));
+      screen.append(...renderTrainingDay(program, programId, session, date, log));
       break;
     default:
       screen.append(renderMessageCard(session, program.lengthWeeks, date, program.safety));
@@ -212,6 +215,7 @@ function settingsButton(label: string): HTMLAnchorElement {
 /** Everything for a training day, in display order. */
 function renderTrainingDay(
   program: Program,
+  programId: string,
   session: Extract<SessionView, { kind: "training" }>,
   date: string,
   log: WorkoutLog,
@@ -236,7 +240,7 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, session.phase, date, log)));
+  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, programId, block, index + 1, session.dayNumber, session.phase, date, log)));
   return parts;
 }
 
@@ -275,7 +279,7 @@ const SAME_EVERY_WEEK_TEXT = "Same every week";
  * One card for a block: numbered title, then one row per item. `phase` names
  * the progression phase for the timer-adjustment lines.
  */
-function renderBlockCard(program: Program, block: BlockView, position: number, dayNumber: number, phase: string, date: string, log: WorkoutLog): HTMLElement {
+function renderBlockCard(program: Program, programId: string, block: BlockView, position: number, dayNumber: number, phase: string, date: string, log: WorkoutLog): HTMLElement {
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
@@ -298,7 +302,7 @@ function renderBlockCard(program: Program, block: BlockView, position: number, d
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(program, item, block, dayNumber, phase, date, position, log));
+    card.append(renderItemRow(program, programId, item, block, dayNumber, phase, date, position, log));
   }
   return card;
 }
@@ -318,7 +322,7 @@ function describeSwaps(program: Program, rotation: WarmupRotation): string[] {
  * "Last time (2 Nov): ..." line when the exercise has been logged before (not on warm-ups). When the dose needs a max, the dose is a separate link to
  * Settings instead (a link can't live inside a button).
  */
-function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNumber: number, phase: string, date: string, blockPosition: number, log: WorkoutLog): HTMLElement {
+function renderItemRow(program: Program, programId: string, item: ItemView, block: BlockView, dayNumber: number, phase: string, date: string, blockPosition: number, log: WorkoutLog): HTMLElement {
   const row = element("div", "item-row");
   const dose = formatItemDose(item);
 
@@ -375,6 +379,12 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
     updateLink.href = "#/settings";
     updateLink.setAttribute("aria-label", `Update max for ${item.exercise.name}`);
     row.append(updateLink);
+  }
+
+  // Exercises with a "Show me" animation get a sibling button (never for programs without demos).
+  const showMeButton = renderShowMeButton(programId, item, "item-start item-show-me");
+  if (showMeButton !== undefined) {
+    row.append(showMeButton);
   }
 
   // EMOM items get their own Start button, a sibling so the row button keeps opening the log screen.

@@ -132,6 +132,14 @@ Today's header that opens the same list in the bottom sheet (Back, Close,
 Escape or a tap outside closes it). A program without safety notes (Explosive
 Endurance) shows none of these.
 
+"Show me": in Steady Strength, a large "▶ Show me" button sits beside each
+exercise that has an animation, on Today, on the day plan, and in the log
+screen's header next to ⓘ. It opens a full-screen 3D mannequin showing one
+slow rep (or a short hold) with a step label, a one-line cue, Pause, Slower
+and Turn; with "Reduce motion" on it shows still positions and a "Next step"
+button, and without WebGL it draws a flat figure. Back, Escape or Close
+closes it. Explosive Endurance rows have no button.
+
 So the order of `programs.json` no longer decides what opens. To switch later,
 use "Switch program" at the top of the Overview, or the "Program: `<name>` ·
 Switch program" row in Settings. Switching never deletes anything: each program
