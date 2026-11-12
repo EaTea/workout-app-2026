@@ -84,7 +84,7 @@ describe("the shipped file's Day 3 explosive block", () => {
     expect(exercise.category).toBe("explosive");
     expect(exercise.cues).toHaveLength(5);
     expect(exercise.alternative).toBe("No ball or no solid wall: do plyo push-ups, 5 x 5");
-    expect(exercise.evidence).toEqual({ kind: "url", url: "https://bvbvf1.bib-bvb.de/vufind/PrimoRecord/cdi_proquest_miscellaneous_69055658" });
+    expect(exercise.evidence).toEqual({ kind: "url", url: "https://doi.org/10.1519/R-18255.1" });
   });
 });
 
