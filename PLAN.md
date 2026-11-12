@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) merged as #28; PR 21 is under way.**
+Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) merged as #28; PR 21 (the view and the Day 1 and Day 2 animations) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1849,7 +1849,7 @@ project files under `screenshots/demos/`.
    off the flat figure shows instead; Explosive Endurance Day 1 has no
    "Show me". Screenshots of the 3D view for Ed.
 7. [x] The contact sheet for these 18 (`node docs/demos/render.cjs`, see README).
-8. [ ] **Fixes from the challenger review.** Every suite passed and the
+8. [x] **Fixes from the challenger review.** Every suite passed and the
    mechanics (kinematics, clock, Back and focus, disposal, offline cache)
    checked out, but several drawings taught the wrong thing:
    - [x] Start-up: all demos were built at import, which made Today about
@@ -1887,7 +1887,7 @@ project files under `screenshots/demos/`.
      wrong trade for someone with poor eyesight.
 - **Merge point:** Days 1, 2, 4 and 6 have an animation for every
   exercise. Days 3 and 5 show "Show me" only where they share an exercise
-  with Day 1.
+  with Day 1 or Day 2.
 
 ### PR 22 — The Day 3 and Day 5 exercises *(behavior change)*
 **Steps.**
@@ -1978,7 +1978,7 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | Reduced motion, high wall sit | Two stills, "Start" and "Hold", nothing moves; "Next step" swaps which one is large |
 | Pause at 3s, high wall sit | The figure stays at the frame shown at 3s (in the move down); Play carries on from there |
 | 2 Nov, Explosive Endurance W1 D1 | No "Show me" on any row |
-| 4 Nov, W1 D3, before PR 22 | "Show me" on the warm-up and cool-down rows only; after PR 22 on every row |
+| 4 Nov, W1 D3, before PR 22 | "Show me" on the warm-up, heel-to-toe stand and cool-down rows only (the exercises Day 3 shares with Days 1 and 2); after PR 22 on every row |
 | Glute bridge hold view | The bridge on the bed, not the standing buttock squeeze |
 
 A second start date shows the cycle doesn't depend on the weekday: start
