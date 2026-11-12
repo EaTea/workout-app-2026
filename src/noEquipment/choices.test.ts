@@ -6,7 +6,7 @@ import { applyNoEquipmentChoices } from "../program/noEquipment";
 import { parseProgram } from "../program/parse";
 import { buildSession } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
-import { lockedItemKeys, noEquipmentChoices, swappedItemKeys } from "./choices";
+import { noEquipmentChoices } from "./choices";
 
 /** Worked examples (PLAN.md section 6, "Logging"), against the shipped program starting 2 Nov 2026. */
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
@@ -68,7 +68,7 @@ describe("noEquipmentChoices (the decision per item)", () => {
 
   it("lets the swap win if both ids have sets", () => {
     const log = logWith(THURSDAY, makeSet("single_leg_rdl", 3), makeSet("backpack_single_leg_rdl", 3, 2));
-    expect([...swappedItemKeys(thursday, log, THURSDAY, new Set())]).toEqual([RDL_KEY]);
+    expect([...noEquipmentChoices(thursday, log, THURSDAY, new Set()).swapped]).toEqual([RDL_KEY]);
   });
 
   it("decides each item on its own", () => {
@@ -84,8 +84,8 @@ describe("noEquipmentChoices (the decision per item)", () => {
     const log = logWith(THURSDAY, makeSet("backpack_single_leg_rdl", 4));
     const otherDate = logWith("2026-11-04", makeSet("backpack_single_leg_rdl", 3));
 
-    expect(swappedItemKeys(thursday, log, THURSDAY, new Set(["9:nonexistent", "1:nothing"])).size).toBe(0);
-    expect(swappedItemKeys(thursday, otherDate, THURSDAY, new Set()).size).toBe(0);
+    expect(noEquipmentChoices(thursday, log, THURSDAY, new Set(["9:nonexistent", "1:nothing"])).swapped.size).toBe(0);
+    expect(noEquipmentChoices(thursday, otherDate, THURSDAY, new Set()).swapped.size).toBe(0);
   });
 
   it("is empty for a rest day", () => {
@@ -93,16 +93,10 @@ describe("noEquipmentChoices (the decision per item)", () => {
     expect(noEquipmentChoices(restDay, noSets, "2026-11-08", new Set([RDL_KEY]))).toEqual({ swapped: new Set(), locked: new Set() });
   });
 
-  it("exposes the two halves through swappedItemKeys and lockedItemKeys", () => {
-    const log = logWith(THURSDAY, makeSet("single_leg_rdl", 3));
-    expect(swappedItemKeys(thursday, log, THURSDAY, new Set([CALF_KEY]))).toEqual(new Set([CALF_KEY]));
-    expect(lockedItemKeys(thursday, log, THURSDAY, new Set([CALF_KEY]))).toEqual(new Set([RDL_KEY]));
-  });
-
   it("feeds applyNoEquipmentChoices: the locked swap becomes the backpack RDL view", () => {
     const log = logWith(THURSDAY, makeSet("backpack_single_leg_rdl", 3));
 
-    const swappedSession = applyNoEquipmentChoices(thursday, swappedItemKeys(thursday, log, THURSDAY, new Set()));
+    const swappedSession = applyNoEquipmentChoices(thursday, noEquipmentChoices(thursday, log, THURSDAY, new Set()).swapped);
 
     const ids = swappedSession.kind === "training" ? swappedSession.blocks[2]!.items.map((item) => item.exercise.id) : [];
     expect(ids).toEqual(["backpack_single_leg_rdl"]);
@@ -126,7 +120,7 @@ describe("worked example: backpack RDL logged on 5 Nov, then 12 Nov", () => {
   it("keeps 5 Nov's lock on 5 Nov and leaves 12 Nov's choice open", () => {
     const nextThursday = buildSession(program, settings, "2026-11-12");
 
-    expect(lockedItemKeys(thursday, log, THURSDAY, new Set()).has(RDL_KEY)).toBe(true);
-    expect(lockedItemKeys(nextThursday, log, "2026-11-12", new Set()).size).toBe(0);
+    expect(noEquipmentChoices(thursday, log, THURSDAY, new Set()).locked.has(RDL_KEY)).toBe(true);
+    expect(noEquipmentChoices(nextThursday, log, "2026-11-12", new Set()).locked.size).toBe(0);
   });
 });

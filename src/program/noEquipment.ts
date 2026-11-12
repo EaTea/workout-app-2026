@@ -4,13 +4,14 @@ import type { ItemView, SessionView } from "./schedule";
 /*
  * How a ticked "No equipment" swap reaches the screen:
  *
- *   ticks + log ──▶ swappedKeys ──▶ applyNoEquipmentChoices(buildSession(...)) ──▶ Today / log screen
- *   (later steps)   (Set of keys)   (this module, pure)
+ *   ticks + log ──▶ noEquipmentChoices ──▶ applyNoEquipmentChoices(buildSession(...)) ──▶ Today / log screen
+ *   (noEquipment/   (noEquipment/        (this module, pure)
+ *    storage.ts)     choices.ts)
  *
- * The ticks and log part (storing ticks, working out "swapped" from logged
- * sets) comes in later steps of PR 19; this module only turns a set of keys
- * into swapped views. `buildSession` itself is unchanged and knows nothing
- * about ticks.
+ * `noEquipment/session.ts` (`buildSwappedSession`) chains these steps for
+ * Today and the log screen. This module only turns a set of keys into
+ * swapped views. `buildSession` itself is unchanged and knows nothing about
+ * ticks.
  */
 
 /**
@@ -71,7 +72,7 @@ export function applyNoEquipmentChoices(session: SessionView, swappedKeys: Reado
  * sets are logged under the swap's id, in the item's normal block position).
  * Shared by the "last time", Progress and History lookups, which find a
  * logged set's program item. Note it says nothing about whether the item was
- * swapped that day; callers that care ask `swappedItemKeys`.
+ * swapped that day; callers that care use `noEquipmentChoices` (via `buildSwappedSession`).
  */
 export function isExerciseLoggedForItem(item: Pick<BlockItem, "exerciseId" | "noEquipment">, loggedExerciseId: string): boolean {
   return item.exerciseId === loggedExerciseId || item.noEquipment?.exercise.id === loggedExerciseId;

@@ -148,7 +148,7 @@ test("logging a set on the swap logs it under the swap and locks the tick", asyn
 
   await page.getByRole("link", { name: "Today" }).first().click();
   const swappedRow = todayRow(page, "Backpack single-leg RDL");
-  await expect(swappedRow).toContainText("Logged as Backpack single-leg RDL");
+  await expect(swappedRow).toContainText("Instead of Single-leg RDL");
   await expect(swappedRow.locator(".item-progress")).toHaveText("1/3");
   await expect(noEquipmentBox(page, "Single-leg RDL")).toBeDisabled();
   await expect(noEquipmentBox(page, "Single-leg RDL")).toBeChecked();
@@ -228,4 +228,93 @@ test("a future preview date cannot be ticked", async ({ page }) => {
 
   await expect(todayRow(page, "Single-leg RDL")).toBeVisible();
   await expect(noEquipmentBox(page, "Single-leg RDL")).toBeDisabled();
+});
+
+test("deleting the only logged set unlocks the box, still ticked, and it can be unticked", async ({ page }) => {
+  await seedSettingsAndClock(page, WEEK_1_DAY_4);
+  await page.goto(`/?date=${WEEK_1_DAY_4}`);
+
+  await noEquipmentBox(page, "Single-leg RDL").check();
+  await todayRow(page, "Backpack single-leg RDL").locator(".item-open").click();
+  await logSetsAsPlanned(page, 1);
+
+  // Tap the logged set to edit it; deleting then asks for a second tap to confirm.
+  await page.locator(".log-set-row", { hasText: "Set 1" }).click();
+  await page.locator(".log-danger").click();
+  await page.locator(".log-danger").click();
+  await expect(page.locator(".log-set-logged")).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Today" }).first().click();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toBeEnabled();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toBeChecked();
+
+  await noEquipmentBox(page, "Single-leg RDL").uncheck();
+  await expect(todayRow(page, "Single-leg RDL")).not.toContainText("Backpack");
+});
+
+test("a set logged on the unticked original disables the box, leaves it unticked and shows no Instead of line", async ({ page }) => {
+  await seedSettingsAndClock(page, WEEK_1_DAY_4);
+  await page.goto(`/?date=${WEEK_1_DAY_4}`);
+
+  await todayRow(page, "Single-leg RDL").locator(".item-open").click();
+  await logSetsAsPlanned(page, 1);
+
+  await page.getByRole("link", { name: "Today" }).first().click();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toBeDisabled();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).not.toBeChecked();
+  await expect(page.getByText("Instead of")).toHaveCount(0);
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toHaveAccessibleDescription(/sets are logged/);
+});
+
+test("a restored log with a swap set and no ticks shows the swap, checked and disabled", async ({ page }) => {
+  await seedSettingsAndClock(page, WEEK_1_DAY_4);
+  await page.addInitScript(() => {
+    if (window.localStorage.getItem("explosive-endurance.log") === null) {
+      window.localStorage.setItem(
+        "explosive-endurance.log",
+        JSON.stringify({
+          version: 1,
+          sessions: [
+            {
+              date: "2026-11-05",
+              programWeek: 1,
+              day: 4,
+              sets: [{ exerciseId: "backpack_single_leg_rdl", blockPosition: 3, setNumber: 1, reps: 12, loggedAt: "2026-11-05T10:00:00.000Z" }],
+            },
+          ],
+        }),
+      );
+    }
+  });
+  await page.goto(`/?date=${WEEK_1_DAY_4}`);
+
+  await expect(todayRow(page, "Backpack single-leg RDL")).toBeVisible();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toBeChecked();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toBeDisabled();
+});
+
+test("a tick on a backfilled date older than two weeks survives a reload", async ({ page }) => {
+  await seedSettingsAndClock(page, "2026-11-30");
+  await page.goto(`/?date=${WEEK_1_DAY_4}`);
+
+  await noEquipmentBox(page, "Single-leg RDL").check();
+  await expect(todayRow(page, "Backpack single-leg RDL")).toBeVisible();
+
+  await page.reload();
+  await expect(todayRow(page, "Backpack single-leg RDL")).toBeVisible();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toBeChecked();
+});
+
+test("a disabled box is described to screen readers: sets logged, or a future date", async ({ page }) => {
+  await seedSettingsAndClock(page, WEEK_1_DAY_4);
+  await page.goto(`/?date=${WEEK_1_DAY_4}`);
+
+  await noEquipmentBox(page, "Single-leg RDL").check();
+  await todayRow(page, "Backpack single-leg RDL").locator(".item-open").click();
+  await logSetsAsPlanned(page, 1);
+  await page.getByRole("link", { name: "Today" }).first().click();
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toHaveAccessibleDescription(/sets logged/);
+
+  await page.goto(`/?date=${WEEK_2_DAY_4}`);
+  await expect(noEquipmentBox(page, "Single-leg RDL")).toHaveAccessibleDescription(/future date/);
 });

@@ -289,8 +289,9 @@ program as written.
 - **A tick belongs to one session.** It is saved for that date only, so the
   next session starts as written again.
 - **Logging a set locks the choice.** Once an exercise has a logged set its
-  checkbox is disabled and the row says "Logged as <name>". Delete that
-  exercise's sets to unlock it.
+  checkbox is disabled (greyed out, and described to screen readers as locked
+  because sets are logged) and a swapped row's "Instead of <original>" line
+  adds "· sets logged". Delete that exercise's sets to unlock it.
 - **Swapped sets are their own exercise.** They are logged under the swap's
   name, so History and Progress keep them apart from the real exercise, and
   "Last time" for a swap only looks at earlier sets of that swap.

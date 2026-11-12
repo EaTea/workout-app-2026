@@ -1451,7 +1451,23 @@ body {
   margin: 0;
 }
 
-/* "Instead of <original>" / "Logged as <name>" under a swappable row's details. */
+/* A disabled box (sets logged, or a future date) looks inert. */
+.item-no-equipment:has(input:disabled) {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Text for screen readers only (explains a disabled box). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* "Instead of <original>" (plus " · sets logged" once locked) under a swappable row's details. */
 .item-no-equipment-note {
   display: block;
   color: var(--muted);

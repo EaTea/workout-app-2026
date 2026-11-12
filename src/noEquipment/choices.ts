@@ -28,7 +28,7 @@ export interface NoEquipmentChoices {
 
   /**
    * Keys of items whose choice is fixed by logged sets (swapped or not).
-   * The Today tick is disabled for these and the row says "Logged as <name>".
+   * The Today tick is disabled for these and the row's "Instead of ..." line adds "sets logged" when swapped.
    */
   locked: Set<string>;
 }
@@ -67,14 +67,4 @@ export function noEquipmentChoices(session: SessionView, log: WorkoutLog, date: 
   });
 
   return choices;
-}
-
-/** The swapped keys only, for callers that do not need the lock (see `noEquipmentChoices`). */
-export function swappedItemKeys(session: SessionView, log: WorkoutLog, date: string, ticks: ReadonlySet<string>): Set<string> {
-  return noEquipmentChoices(session, log, date, ticks).swapped;
-}
-
-/** The locked keys only: items whose choice logged sets have fixed (see `noEquipmentChoices`). */
-export function lockedItemKeys(session: SessionView, log: WorkoutLog, date: string, ticks: ReadonlySet<string>): Set<string> {
-  return noEquipmentChoices(session, log, date, ticks).locked;
 }

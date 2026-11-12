@@ -380,8 +380,12 @@ function renderItemRow(
   const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item));
   const isLocked = locked.has(itemKey);
   const noEquipmentLine = noEquipmentLineFor(item, isLocked);
+  // When sets are logged on a swapped row, this visible line also explains the disabled box (aria-describedby).
+  const noEquipmentNoteId = `no-equipment-note-${itemKey.replace(/[^A-Za-z0-9_-]/g, "-")}`;
   if (noEquipmentLine !== undefined) {
-    text.append(element("span", "item-no-equipment-note", noEquipmentLine));
+    const note = element("span", "item-no-equipment-note", noEquipmentLine);
+    note.id = noEquipmentNoteId;
+    text.append(note);
   }
   // The phase's work-time adjustment, so the row's seconds and the timer's defaults are explained.
   if (item.workSecAdjustment !== undefined) {
@@ -444,7 +448,7 @@ function renderItemRow(
 
   // Items with a swap get the "No equipment" tick on its own line at the bottom of the row.
   if (hasNoEquipmentSwap(item) && noEquipment !== undefined) {
-    row.append(renderNoEquipmentTick(item, itemKey, isLocked, noEquipment));
+    row.append(renderNoEquipmentTick(item, itemKey, isLocked, noEquipment, noEquipmentLine !== undefined ? noEquipmentNoteId : undefined));
   }
 
   openButton.addEventListener("click", () => {
@@ -574,15 +578,17 @@ function renderStartRestButton(
 
 /**
  * The line under a swappable item's details: "Instead of <original>" while
- * swapped, "Logged as <current name>" once sets are logged (the tick is
- * locked), nothing for an unticked, unlogged item. Locked and unswapped (sets
- * logged under the original) reads "Logged as <original>".
+ * swapped, with " · sets logged" appended once sets are logged (the tick is
+ * locked, which also explains the disabled box to screen readers). Nothing
+ * for an item that is not swapped, locked or not: the title already says
+ * what it is.
  */
 function noEquipmentLineFor(item: ItemView, isLocked: boolean): string | undefined {
   if (!hasNoEquipmentSwap(item)) return undefined;
-  if (isLocked) return `Logged as ${item.exercise.name}`;
-  if (item.swappedFrom !== undefined) return `Instead of ${item.swappedFrom.name}`;
-  return undefined;
+  if (item.swappedFrom === undefined) return undefined;
+
+  const insteadOf = `Instead of ${item.swappedFrom.name}`;
+  return isLocked ? `${insteadOf} · sets logged` : insteadOf;
 }
 
 /**
@@ -592,8 +598,13 @@ function noEquipmentLineFor(item: ItemView, isLocked: boolean): string | undefin
  * through `onToggle` (which re-renders Today on success); on failure the box
  * goes back and the message appears under it, like other save failures. The
  * label wraps the input so the whole 48px line is the tap target.
+ *
+ * A disabled box says why to screen readers through `aria-describedby`: the
+ * row's visible "Instead of ... · sets logged" line (`swapNoteId`) when sets
+ * are logged on a swapped row, else a visually hidden note in this group
+ * ("Locked: sets are logged" or "Can't tick a future date").
  */
-function renderNoEquipmentTick(item: ItemView, itemKey: string, isLocked: boolean, options: NoEquipmentOptions): HTMLElement {
+function renderNoEquipmentTick(item: ItemView, itemKey: string, isLocked: boolean, options: NoEquipmentOptions, swapNoteId: string | undefined): HTMLElement {
   const label = element("label", "item-no-equipment");
   const checkbox = element("input");
   checkbox.type = "checkbox";
@@ -618,5 +629,14 @@ function renderNoEquipmentTick(item: ItemView, itemKey: string, isLocked: boolea
 
   const group = element("div", "item-no-equipment-group");
   group.append(label, errorLine);
+
+  if (isLocked && swapNoteId !== undefined) {
+    checkbox.setAttribute("aria-describedby", swapNoteId);
+  } else if (checkbox.disabled) {
+    const reasonNote = element("span", "visually-hidden", isLocked ? "Locked: sets are logged" : "Can't tick a future date");
+    reasonNote.id = `no-equipment-reason-${itemKey.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+    checkbox.setAttribute("aria-describedby", reasonNote.id);
+    group.append(reasonNote);
+  }
   return group;
 }
