@@ -1585,7 +1585,7 @@ that one exercise's history.
    sets `ItemView.swappedFrom`. Helpers `hasNoEquipmentSwap` and
    `originalExerciseIdOf` build keys for Today and the log screen. Unit tests
    for the ticked worked examples.
-2. [ ] The ticks storage key, its wire type, mapping and pruning. Unit
+2. [x] The ticks storage key, its wire type, mapping and pruning. Unit
    tests.
 3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
    logging under the swap's id, the lock after the first set, and working

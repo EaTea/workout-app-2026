@@ -66,7 +66,8 @@ saved first, the other merging into it later. Checks are stored in
 under keys that start with its id from `programs.json`: `<programId>.settings`,
 `.max-history`, `.log`, `.fatigue`, `.checkin-snoozed`,
 `.fatigue-warning-dismissed`, `.rotation-dismissed`, `.retest-dismissed`,
-`.retest-jump-skipped`, plus the backup keys `.log.corrupt-<time>`,
+`.retest-jump-skipped`, `.no-equipment` (swap ticks per date, pruned after
+14 days, not exported), plus the backup keys `.log.corrupt-<time>`,
 `.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
 (`explosive-endurance`) these are the keys the app has always used. One key is
 app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
