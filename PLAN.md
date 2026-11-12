@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) was agreed by Ed on 12 Nov after a preview of two exercises, and is waiting to merge; PR 21 is under way. PR 23 (the plan for combining two days on Today) is in review.**
+Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) was agreed by Ed on 12 Nov after a preview of two exercises, and is waiting to merge; PR 21 is under way. PR 23 (the plan for combining two days on Today) is in review. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -2000,6 +2000,125 @@ days, so each set needs to carry its own day.
    undo before logging puts both days back.
 7. [ ] Fixes from the challenger review.
 - **Merge point:** Ed can combine any allowed pair on Today and log it.
+
+### PR 26 — Plan: Day 3 rotational wall throws on even weeks *(design)*
+Ed asked (12 Nov) to add rotational medicine ball wall throws to Explosive
+Endurance as a Day 3 alternate, after research in the project thread
+"Add rotational wall throws to Day 3". The agreed shape:
+
+- **Odd weeks (1, 3, 5, 7):** plyo push-ups, 5 × 5, 45s rest, as now.
+- **Even weeks (2, 4, 6, 8):** rotational med ball wall throws, 4 × 5 per
+  side, 45s rest, 3–4 kg ball. Weeks 4 and 8 are deloads, so they halve to
+  2 × 5 per side like every other item.
+- **Cues:** side-on, 1–2 m from a solid wall; turn from the hips, ribs
+  stacked over the pelvis; catch and reset each rep in weeks 1–4; from
+  week 5 a catch-and-rebound is fine if the back feels fine.
+- **Evidence:** Szymanski et al. (2007), with Brazier et al. (2026) and
+  Vera-Garcia et al. (2014) in the program doc.
+
+The project-file copies of `program.json` and "Explosive Endurance
+Program.md" already carry the dose, as a stop-gap `note` on the plyo
+push-up ("Odd weeks only…") and a new `rotational_wall_throw` exercise that
+no day uses yet. PR 27 replaces the note with real week-by-week items.
+
+**What the person sees.**
+
+```
+ Today · Week 1 · Day 3              Today · Week 2 · Day 3
+ ┌───────────────────────────┐       ┌────────────────────────────────────┐
+ │ 2 Explosive               │       │ 2 Explosive                        │
+ │   Plyo push-ups  5 × 5    │       │   Rotational med ball wall throws  │
+ │   45s rest                │       │   4 × 5 · per side · 45s rest      │
+ └───────────────────────────┘       └────────────────────────────────────┘
+```
+
+Only one of the two shows on a given week, on Today, on the day plans by
+week (PR 12) and on a combined day (PR 25). The other never appears as
+"missed" or "not done".
+
+**How the file says it.** A new optional item field, `weeks`, lists the
+program weeks an item runs in. An item without it runs every week, so
+every existing item and the Steady Strength program are unchanged.
+
+```json
+{ "type": "explosive", "items": [
+  { "exercise": "plyo_push_up", "weeks": [1, 3, 5, 7], "sets": 5, "reps": 5, "restSec": 45 },
+  { "exercise": "rotational_wall_throw", "weeks": [2, 4, 6, 8], "sets": 4, "reps": 5, "perSide": true, "restSec": 45 }
+]}
+```
+
+Alternatives considered: a swap-style field on the plyo item
+(`alternateWeeks: { exercise, … }`, like `noEquipment`) keeps one item but
+needs its own rules for which fields carry over, and the throws differ in
+sets and "per side"; an `everyOtherWeek` flag is shorter but can't express
+anything else. A plain week list is the easiest for Ed to read and edit.
+
+**Rules.**
+
+1. **Parsing.** `weeks` is a non-empty list of whole numbers from 1 to
+   `lengthWeeks`, with no repeats. Anything else is a parse error, like
+   other malformed fields (it would silently drop or double an exercise).
+   It lives in the wire type only as `weeks`, and the model holds it as
+   `runsInWeeks: ReadonlySet<number> | "everyWeek"`.
+2. **A gap is a warning.** If a block has items with `weeks` and some
+   week has none of the block's items, the program loads with a warning
+   naming the block and the weeks, and that week's block is left out.
+3. **Schedule.** `buildSession` drops items whose `weeks` don't include
+   the current week, before the deload halving and power-endurance
+   changes, which then apply as usual. A block left with no items is
+   dropped (only possible after a rule 2 warning). Block positions are
+   unchanged, because the filter works within a block, so logging,
+   History and "Last time" keep their keys.
+4. **Lookups stay on the whole program.** "Last time", Progress and
+   History find a logged set's item in `program.days` (not the week's
+   session), so a week 2 throws set still matches in week 4. Each gets a
+   test.
+5. **No equipment.** The throws get no `noEquipment` swap: a swap keeps the
+   original's sets and "per side", which would make plyo push-ups 4 × 5 per
+   side. The exercise's `alternative` ("No ball or no solid wall: do plyo
+   push-ups, 5 × 5") shows on its sheet instead, as the slam's does.
+6. **Retest and fatigue checks** are unaffected: neither exercise is
+   max-tested.
+
+**Worked examples** (start date 2 Nov, so Week 1 Day 3 is 4 Nov):
+
+| Date | Week · Day | Phase | Explosive block |
+| --- | --- | --- | --- |
+| 4 Nov | 1 · 3 | Base | Plyo push-ups 5 × 5, 45s rest |
+| 11 Nov | 2 · 3 | Base | Rotational wall throws 4 × 5 per side, 45s rest |
+| 25 Nov | 4 · 3 | Deload | Rotational wall throws 2 × 5 per side, 45s rest |
+| 9 Dec | 6 · 3 | Power endurance | Rotational wall throws 4 × 5 per side, 45s rest |
+| 16 Dec | 7 · 3 | Power endurance | Plyo push-ups 5 × 5, 45s rest |
+| 23 Dec | 8 · 3 | Deload + retest | Rotational wall throws 2 × 5 per side, 45s rest |
+
+Every other day and week matches `main` exactly.
+
+### PR 27 — Day 3 rotational wall throws *(behavior change)*
+**Steps.**
+1. [ ] `weeks` in the wire types, parser and model (rule 1) and the gap
+   warning (rule 2). Unit tests for each rejected value and the warning.
+2. [ ] `buildSession` filtering by week (rule 3). Unit tests for the
+   worked examples, and a check that every other session from 2 Nov to
+   27 Dec matches `main`.
+3. [ ] `public/program.json`: the `rotational_wall_throw` exercise and the
+   two Day 3 items, replacing the stop-gap note. Data tests over the
+   shipped file. README "Editing program.json" documents `weeks`.
+4. [ ] Tests for rule 4 ("Last time", Progress, History) and the day plans
+   by week. E2E: with the start date set so today is Week 2 Day 3, Today
+   shows the throws and not the plyo push-ups; Week 1 shows the reverse.
+5. [ ] Copy `public/program.json` to the project files and update
+   "Explosive Endurance Program.md" if its wording differs.
+6. [ ] Fixes from the challenger review.
+- **Merge point:** Day 3 shows the right explosive exercise each week, and
+  every other session is unchanged.
+
+**Open questions for Ed** (with the answer I'm assuming):
+
+1. **Which weeks.** Throws in the even weeks, so the deloads (4 and 8) are
+   throw weeks. Swapping to odd weeks would put throws in week 1, before
+   you've had a week to learn plyo push-ups. Even is my pick.
+2. **No-equipment.** No tick for the throws; the sheet's alternative says
+   to do plyo push-ups instead (rule 5).
 
 ## 6. Worked examples (used as unit-test fixtures)
 
