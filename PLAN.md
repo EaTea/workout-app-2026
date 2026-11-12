@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 16 merged (#3 to #25). PR 17 (the plan for no-equipment swaps) is in review; PR 18 and PR 19 wait for Ed's approval of it.**
+Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1294,7 +1294,7 @@ program.
 - **Merge point:** a first-time user can choose Steady Strength, read its
   safety notes and train Day 1 from Today.
 
-### PR 17 — Plan: no-equipment swaps for Explosive Endurance *(design)*
+### PR 17 — Plan: no-equipment swaps for Explosive Endurance *(design)* — merged as PR #26
 Ed wants to be able to train Explosive Endurance away from his kit. He
 agreed this flow (12 Nov):
 
@@ -1548,14 +1548,34 @@ can be reviewed on a phone before anything changes how a session runs.
 3b. [x] The exercise sheet's "No equipment" section (swap name and this
    week's dose). E2E: the Day 4 RDL sheet names "Backpack single-leg RDL:
    3 × 12–15 · per side" (the app's formatter says "per side", as on Today).
-4. [ ] Copy the new `public/program.json` to the project files (the copy
+4. [x] Copy the new `public/program.json` to the project files (the copy
    there is from before PR 13) and add a "No-equipment swaps" section to
    "Explosive Endurance Program.md" with the tables above.
-5. [ ] Fixes from the challenger review.
+5. [x] Fixes from the challenger review. It found no wrong figure: every
+   unticked session for 2 Nov to 31 Dec matches `main`, every original
+   item is unchanged, and every swap dose matches the tables and worked
+   examples. Fixed: the Day 5 lower-back rule moved from a cue (it showed
+   on Day 1 too) to a Day 5 note, stale doc comments, the step 3b text, a
+   cue to check the backpack's handle, en dashes in the warm-up reps, the
+   parser refusing a swap that changes hold to reps or reps to hold, and
+   rotated-in warm-ups dropping the original's swap. Carried into PR 19
+   (below): the log lookups that need to know swap ids. Left as is: the
+   swap data test doesn't pin cues, loads and notes word for word.
 - **Merge point:** the file carries every swap, the sheet shows them, and
   every session is unchanged.
 
 ### PR 19 — Tick "No equipment" and train the swap *(behavior change)*
+**Learned from the PR 18 review** (shapes the steps below): logging swapped
+sets under the swap's id isn't free. These lookups match a logged set to a
+program item by `item.exerciseId` alone, so a swapped set would match no
+item: "Last time" (`log/lastTime.ts`, `blockTypeOfLoggedSet`), Progress
+charts (`log/progress.ts`), History's set/minute wording
+(`ui/historyText.ts`, `findProgramItem`) and the log screen's route
+(`ui/logScreen.ts`). Each must also match `item.noEquipment?.exercise.id`,
+with a test. Pike push-ups are logged as `pike_push_up`, separately from
+"Overhead press / pike push-up", which is the point of a swap but splits
+that one exercise's history.
+
 **Steps.**
 1. [ ] `buildSession` taking the swapped items: a ticked item uses its
    swap view (`applyNoEquipmentSwap`, the retest-week hold and
@@ -1565,7 +1585,8 @@ can be reviewed on a phone before anything changes how a session runs.
    tests.
 3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
    logging under the swap's id, the lock after the first set, and working
-   out "swapped" from the log. Session progress (in progress, complete)
+   out "swapped" from the log. "Last time", Progress, History and the log
+   route recognise swap ids (see above). Session progress (in progress, complete)
    counts swapped sets. README.
 4. [ ] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
    plus an unticked session matching today's exactly.
