@@ -2009,6 +2009,12 @@ import (an older export without it imports as no combines).
 | 23 Nov (W4 D1, deload) | Day 2 added | Both days' sets halved first, then merged |
 | 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~85 min |
 
+**Notes from implementing PR 25 steps 1 to 3.**
+- *The no-equipment ticks are not in the export*, so the combines store was
+  modelled on the fatigue/max-history sections instead: `combines` is an
+  optional top-level section of export v2, read tolerantly on import, and the
+  key is one of the keys an import replaces (so an import without it clears
+  combines).
 ### PR 24 — Logged sets remember their own day *(internal refactor)*
 No behavior change. Today each logged set's slot is found from the
 session's day plus the set's block position. A combined session holds two
@@ -2030,7 +2036,7 @@ days, so each set needs to carry its own day.
 **Steps.**
 1. [x] `combining.pairs` in `program.json`, its wire type, parse and
    validation (rule 1), with tests for each rejected pair.
-2. [ ] The combines store (wire type, parse/serialize, per program) and
+2. [x] The combines store (wire type, parse/serialize, per program) and
    its place in the JSON export and import.
 3. [ ] The pure merge function (rules 4 and 5), tested against the worked
    examples above.

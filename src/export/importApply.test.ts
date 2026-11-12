@@ -24,9 +24,10 @@ const importedData: ImportedData = {
     },
   },
   fatigueHistory: { checks: [{ date: "2026-11-09", maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
+  combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
 };
 
-/** Storage holding some older data under all four keys. */
+/** Storage holding some older data under all five keys. */
 function storageWithOldData(): FakeStorage {
   return new FakeStorage({
     [KEYS.settings]: JSON.stringify({ version: 2, startDate: "2026-10-01", maxReps: { dip: 9 }, maxSavedOn: { dip: "2026-10-01" } }),
@@ -36,12 +37,13 @@ function storageWithOldData(): FakeStorage {
       sessions: [{ date: "2026-10-01", programWeek: 1, day: 1, sets: [{ exerciseId: "dip", blockPosition: 3, setNumber: 1, reps: 6, loggedAt: "2026-10-01T18:00:00.000Z" }] }],
     }),
     [KEYS.fatigue]: JSON.stringify({ version: 1, checks: [{ date: "2026-10-05", maxPullUps: 8, savedAt: "2026-10-05T07:00:00.000Z" }] }),
+    [KEYS.combines]: JSON.stringify({ version: 1, combines: { "2026-10-05": { hostDay: 3, addedDay: 4, addedDate: "2026-10-06" } } }),
   });
 }
 
-/** The four data keys' current raw text. */
+/** The five data keys' current raw text. */
 function dataKeys(storage: FakeStorage): Record<string, string | null> {
-  return Object.fromEntries([KEYS.log, KEYS.fatigue, KEYS.settings, KEYS.maxHistory].map((key) => [key, storage.getItem(key)]));
+  return Object.fromEntries([KEYS.log, KEYS.fatigue, KEYS.combines, KEYS.settings, KEYS.maxHistory].map((key) => [key, storage.getItem(key)]));
 }
 
 describe("applyImport", () => {
@@ -56,6 +58,26 @@ describe("applyImport", () => {
     expect(source.settings).toEqual(importedData.settings);
     expect(source.log).toEqual(importedData.log);
     expect(source.fatigueHistory).toEqual(importedData.fatigueHistory);
+    expect(source.combines).toEqual(importedData.combines);
+  });
+
+  it("replaces the stored combines, and an import with none clears them", () => {
+    const storage = storageWithOldData();
+
+    applyImport(storage, KEYS, { ...importedData, combines: new Map() }, NOW);
+
+    expect(readExportSource(storage, KEYS).combines).toEqual(new Map());
+  });
+
+  it("puts the old combines back when the combines write fails", () => {
+    const storage = storageWithOldData();
+    const before = dataKeys(storage);
+    storage.failingKeys.add(KEYS.combines);
+
+    const result = applyImport(storage, KEYS, importedData, NOW);
+
+    expect(result.ok).toBe(false);
+    expect(dataKeys(storage)).toEqual(before);
   });
 
   it("keeps the replaced data in the backup as an export file that imports back to it", () => {
@@ -137,7 +159,7 @@ describe("applyImport", () => {
     const result = applyImport(storage, KEYS, importedData, NOW);
 
     expect(result.ok).toBe(false);
-    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
+    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.combines]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
   });
 
   it("says where the data is when even the rollback fails", () => {
@@ -170,7 +192,7 @@ describe("applyImport", () => {
     expect(listImportBackups(storage, KEYS)).toEqual([]);
   });
 
-  it("writes the backup as compact JSON that holds the raw text of the four keys", () => {
+  it("writes the backup as compact JSON that holds the raw text of the five keys", () => {
     const storage = storageWithOldData();
     const before = dataKeys(storage);
 
@@ -261,7 +283,7 @@ describe("undoLastImport", () => {
 
     undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
 
-    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
+    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.combines]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
   });
 
   it("falls back to reading an older backup that has no raw texts", () => {

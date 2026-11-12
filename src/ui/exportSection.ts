@@ -2,6 +2,7 @@ import "./export.css";
 import { logToCsv } from "../export/csv";
 import { exportFileName, saveExportFile } from "../export/download";
 import { exportToWire, serializeExport } from "../export/wire";
+import type { CombinesByDate } from "../combine/model";
 import type { FatigueHistory } from "../fatigue/model";
 import type { WorkoutLog } from "../log/model";
 import type { ImportBackup } from "../export/importBackup";
@@ -24,6 +25,7 @@ export interface ExportSource {
   settings: TrainingSettings;
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
+  combines: CombinesByDate;
   corruptLogBackups: CorruptLogBackup[];
   importBackups: ImportBackup[];
 }
@@ -65,6 +67,7 @@ export function renderExportSection(program: Program, getSource: () => ExportSou
       settings: source.settings,
       log: source.log,
       fatigueHistory: source.fatigueHistory,
+      combines: source.combines,
       corruptLogBackups: source.corruptLogBackups,
       importBackups: source.importBackups,
     });

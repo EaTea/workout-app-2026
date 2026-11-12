@@ -1,3 +1,5 @@
+import { combinesToWire, type CombinesWireV1 } from "../combine/wire";
+import type { CombinesByDate } from "../combine/model";
 import { fatigueHistoryToWire, type FatigueHistoryWireV1 } from "../fatigue/wire";
 import type { FatigueHistory } from "../fatigue/model";
 import { logToWire, type LogWireV1 } from "../log/wire";
@@ -20,6 +22,7 @@ import { maxHistoryToWire, type MaxHistoryWireV1 } from "../settings/maxHistoryS
  *       settings.maxHistory ─maxHistoryToWire─▶ maxHistory
  *       log ─────logToWire──────▶ log
  *       fatigue ─fatigueHistoryToWire─▶ fatigueChecks
+ *       combines ─combinesToWire─▶ combines
  *       corrupt log backups ─▶ corruptLogBackups (only when any)
  *       import backups ─────▶ importBackups (only when any)
  */
@@ -47,6 +50,9 @@ export interface ExportBundle {
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
 
+  /** The combined days (host date to the day added); empty when none. */
+  combines: CombinesByDate;
+
   /** Backups of unreadable log text kept by the log storage; empty when none. */
   corruptLogBackups: CorruptLogBackup[];
 
@@ -73,6 +79,13 @@ export interface ExportWireV1 {
   maxHistory?: MaxHistoryWireV1;
   log: LogWireV1;
   fatigueChecks: FatigueHistoryWireV1;
+
+  /**
+   * Which dates had a second day combined into their session. Written since
+   * PR 25; optional so files from before it still fit (an import then
+   * restores no combines).
+   */
+  combines?: CombinesWireV1;
 
   /** Present only when the log storage holds backups of unreadable log text. */
   corruptLogBackups?: CorruptLogBackupWire[];
@@ -130,6 +143,7 @@ export function exportToWire(bundle: ExportBundle): ExportWireV2 {
     maxHistory: maxHistoryToWire(bundle.settings.maxHistory),
     log: logToWire(bundle.log),
     fatigueChecks: fatigueHistoryToWire(bundle.fatigueHistory),
+    combines: combinesToWire(bundle.combines),
   };
 
   if (bundle.corruptLogBackups.length > 0) {

@@ -1,3 +1,4 @@
+import { loadCombines, type CombinesStorage } from "../combine/storage";
 import { loadFatigueHistory, type FatigueStorage } from "../fatigue/storage";
 import { listCorruptLogBackups, loadLog, type KeyListingStorage, type LogStorage } from "../log/storage";
 import { listImportBackups } from "./importBackup";
@@ -17,7 +18,7 @@ import type { ExportSource } from "../ui/exportSection";
  */
 
 /** Storage as `readExportSource` needs it: reads, and key listing for the backups. */
-export type ExportReadStorage = KeyListingStorage & LogStorage & FatigueStorage & Storage;
+export type ExportReadStorage = KeyListingStorage & LogStorage & FatigueStorage & CombinesStorage & Storage;
 
 /**
  * Wraps `storage` so reads work but writes are refused. `loadLog` and
@@ -39,7 +40,7 @@ function readOnlyView(storage: ExportReadStorage): ExportReadStorage {
   });
 }
 
-/** Reads settings (with the max history), log, fatigue checks, corrupt-log backups and import backups of the active program (`keys`) fresh from `storage`. Never throws. */
+/** Reads settings (with the max history), log, fatigue checks, combines, corrupt-log backups and import backups of the active program (`keys`) fresh from `storage`. Never throws. */
 export function readExportSource(storage: ExportReadStorage, keys: ProgramStorageKeys): ExportSource {
   const readOnlyStorage = readOnlyView(storage);
 
@@ -48,6 +49,7 @@ export function readExportSource(storage: ExportReadStorage, keys: ProgramStorag
     settings: loadSettings(readOnlyStorage, keys),
     log: loadLog(readOnlyStorage, keys).log,
     fatigueHistory: loadFatigueHistory(readOnlyStorage, keys).history,
+    combines: loadCombines(readOnlyStorage, keys.combines),
     corruptLogBackups: listCorruptLogBackups(readOnlyStorage, keys),
     importBackups: listImportBackups(readOnlyStorage, keys),
   };
