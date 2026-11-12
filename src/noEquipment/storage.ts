@@ -51,8 +51,9 @@ export function ticksForDate(ticks: NoEquipmentTicks, date: string): ReadonlySet
  * Ticks or unticks one item on one date and saves. Read-modify-write: it
  * re-reads the stored ticks first and applies only this change, so a second
  * open copy of the app cannot have its ticks overwritten (as for the log).
- * Dates more than `TICK_RETENTION_DAYS` before `today` are pruned, and a date
- * left with no ticks is removed. `today` is passed in rather than read from
+ * OTHER dates more than `TICK_RETENTION_DAYS` before `today` are pruned, and a
+ * date left with no ticks is removed. The date being written is never pruned,
+ * so backfilling an old past date (allowed in a `?date=` preview) is kept. `today` is passed in rather than read from
  * the clock so tests are deterministic; callers pass the real
  * `todayLocalDate()`. Never throws: a write failure returns `{ ok: false }`.
  */
@@ -66,7 +67,7 @@ export function setTick(storage: NoEquipmentStorage, key: string, date: string, 
 
   const oldestKeptDate = addDaysToDate(today, -TICK_RETENTION_DAYS);
   for (const storedDate of [...ticks.keys()]) {
-    const isTooOld = storedDate < oldestKeptDate; // YYYY-MM-DD strings sort chronologically
+    const isTooOld = storedDate !== date && storedDate < oldestKeptDate; // YYYY-MM-DD strings sort chronologically
     const isEmpty = (ticks.get(storedDate)?.size ?? 0) === 0;
     if (isTooOld || isEmpty) ticks.delete(storedDate);
   }

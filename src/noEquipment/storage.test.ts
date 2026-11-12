@@ -128,6 +128,18 @@ describe("setTick", () => {
     expect(Object.keys((storedWire(storage) as { ticks: object }).ticks)).toEqual(["2026-11-06", TODAY]);
   });
 
+  it("keeps a backfilled date older than the retention window but still prunes an older other date", () => {
+    const storage = new FakeStorage({
+      [KEY]: JSON.stringify({ version: 1, ticks: { "2026-10-01": ["1:a"] } }),
+    });
+
+    // 2026-10-31 is 20 days before TODAY: written on purpose, so it must stay.
+    const result = setTick(storage, KEY, "2026-10-31", "3:single_leg_rdl", true, TODAY);
+
+    expect(result.ok).toBe(true);
+    expect(storedWire(storage)).toEqual({ version: 1, ticks: { "2026-10-31": ["3:single_leg_rdl"] } });
+  });
+
   it("removes a date whose last tick is unticked", () => {
     const storage = new FakeStorage();
     setTick(storage, KEY, TODAY, "3:a", true, TODAY);
