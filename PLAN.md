@@ -1840,7 +1840,7 @@ project files under `screenshots/demos/`.
    17–19, 27, 31–34), with the safety tests above that apply to them.
 5. [x] The "▶ Show me" buttons on Today, the day plan and the log screen.
    README: a line on "Show me".
-6. [ ] E2E (`e2e/showMe.spec.ts`): on Steady Strength Day 1 the high wall
+6. [x] E2E (`e2e/showMe.spec.ts`): on Steady Strength Day 1 the high wall
    sit row opens the view with its cue and a drawn 3D canvas, Pause freezes
    it, Back closes it and focus returns to the button; with reduced motion
    the Start and End stills show and "Next step" moves between them; Turn
