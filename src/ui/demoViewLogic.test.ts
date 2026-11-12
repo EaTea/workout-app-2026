@@ -2,21 +2,25 @@ import { describe, expect, it } from "vitest";
 import { steadyStrengthDemos } from "../demo/steadyStrength";
 import {
   MAX_FRAME_DELTA_MS, TURN_DURATION_MS, advanceClock, frameDeltaMs, nextView, pauseButtonLabel,
-  speedButtonLabel, stillIndexForStep, turnAzimuth, turnButtonLabel, viewCycle,
+  speedButtonLabel, stillIndexForStep, turnAzimuth, turnButtonLabel,
 } from "./demoViewLogic";
 
-describe("viewCycle and nextView", () => {
-  it("starts with the demo's own view, then the other two in side, front, angle order", () => {
-    expect(viewCycle("side")).toEqual(["side", "front", "threeQuarter"]);
-    expect(viewCycle("threeQuarter")).toEqual(["threeQuarter", "side", "front"]);
-    expect(viewCycle("front")).toEqual(["front", "side", "threeQuarter"]);
+describe("nextView", () => {
+  it("walks through the demo's own views in order and wraps round", () => {
+    const views = ["threeQuarter", "front"] as const;
+    expect(nextView(views, "threeQuarter")).toBe("front");
+    expect(nextView(views, "front")).toBe("threeQuarter");
   });
 
-  it("wraps round after the last view", () => {
-    const cycle = viewCycle("threeQuarter");
-    expect(nextView(cycle, "threeQuarter")).toBe("side");
-    expect(nextView(cycle, "side")).toBe("front");
-    expect(nextView(cycle, "front")).toBe("threeQuarter");
+  it("stays put with a single view (the Turn button is hidden then)", () => {
+    expect(nextView(["side"], "side")).toBe("side");
+  });
+
+  it("every demo has at least one view, none repeated", () => {
+    for (const demo of Object.values(steadyStrengthDemos)) {
+      expect(demo.views.length).toBeGreaterThan(0);
+      expect(new Set(demo.views).size).toBe(demo.views.length);
+    }
   });
 });
 

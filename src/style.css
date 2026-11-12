@@ -859,6 +859,7 @@ body {
 /* Log screen (mockup 2) */
 .log-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin: 4px 0 4px -8px;
@@ -1457,9 +1458,12 @@ body {
   font-size: 16px;
 }
 
-/* "▶ Show me" in the log screen header, between the title and ⓘ. */
+/* "▶ Show me" in the log screen header: on its own line under the title row. */
 .log-show-me {
-  flex: none;
+  /* Its own line under the title, so a long name never squeezes it at 320 px. */
+  order: 3;
+  flex: 0 0 calc(100% - 8px);
+  margin: 4px 0 0 8px;
   min-width: 96px;
   min-height: 48px;
   padding: 0 12px;

@@ -8,7 +8,7 @@ const standing = neutralStandingPose();
 /** A minimal demo holding one pose, for exercising framing. */
 function demoWith(overrides: Partial<Demo>): Demo {
   return {
-    exerciseId: "test", cue: "", ariaLabel: "", view: "side", framing: "body", moving: [], props: [],
+    exerciseId: "test", cue: "", ariaLabel: "", views: ["side"], framing: "body", moving: [], props: [],
     steps: [{ kind: "hold", pose: standing, ms: 1000, label: "Start" }],
     ...overrides,
   };
@@ -104,5 +104,13 @@ describe("computeFraming", () => {
 
     expect(left.centre.z).toBeGreaterThan(0);
     expect(right.centre.z).toBeLessThan(0);
+  });
+});
+
+describe("computeFraming with a bed", () => {
+  it("frames the near part of a long bed, so a 2 m bed does not shrink the figure", () => {
+    const shortBed = computeFraming(demoWith({ props: [{ kind: "bed", x: 0, height: 0.5, length: 0.5 }] }));
+    const longBed = computeFraming(demoWith({ props: [{ kind: "bed", x: 0, height: 0.5, length: 2.0 }] }));
+    expect(longBed.radius).toBeLessThan(shortBed.radius + 0.35);
   });
 });

@@ -399,7 +399,7 @@ export function renderLogScreen(
 
     // A rotated-in exercise has no library entry, so there are no details to show.
     header.append(back, heading);
-    // "Show me" sits next to ⓘ; it only exists for exercises with an animation.
+    // "Show me" wraps onto its own line under the title (CSS order); it only exists for exercises with an animation.
     const showMeButton = renderShowMeButton(programId, trackedItem, "log-show-me");
     if (showMeButton !== undefined) header.append(showMeButton);
     if (trackedItem.rotatedIn === undefined) header.append(infoButton);

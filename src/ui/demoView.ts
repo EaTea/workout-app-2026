@@ -5,8 +5,8 @@ import type { DemoRenderer } from "../demo/renderer";
 import { frameAt, nextHoldTime, stillFrames } from "../demo/timeline";
 import { closeOnBack } from "./backToClose";
 import {
-  NORMAL_SPEED, SLOW_SPEED, advanceClock, azimuthOf, frameDeltaMs, nextView, pauseButtonLabel,
-  speedButtonLabel, stillIndexForStep, turnAzimuth, turnButtonLabel, viewCycle,
+  NORMAL_SPEED, SLOW_SPEED, TURN_DURATION_MS, advanceClock, azimuthOf, frameDeltaMs, nextView, pauseButtonLabel,
+  speedButtonLabel, stillIndexForStep, turnAzimuth, turnButtonLabel,
 } from "./demoViewLogic";
 import { element } from "./dom";
 
@@ -28,7 +28,8 @@ import { element } from "./dom";
  *        │
  *        └─ one requestAnimationFrame loop while open and visible:
  *              delta = real time since last frame (capped)
- *              clock += delta × speed            (not while paused)
+ *              clock += delta × speed            (not while paused; a paused loop
+ *                                                 goes to sleep once any turn has settled)
  *              azimuth eases towards the Turn target
  *              frameAt(demo, clock) ──▶ renderer.draw(pose, azimuth) + step label
  *
@@ -154,8 +155,8 @@ export function openDemoView(loadingDemo: Promise<Demo | undefined>, options: De
     /** Milliseconds into the demo's loop. */
     let clockMs = 0;
 
-    const cycle = viewCycle(demo.view);
-    let currentView: CameraView = demo.view;
+    const cycle = demo.views;
+    let currentView: CameraView = demo.views[0]!;
     let currentAzimuth = azimuthOf(currentView);
     let turnFromAzimuth = currentAzimuth;
     let turnToAzimuth = currentAzimuth;
@@ -191,6 +192,8 @@ export function openDemoView(loadingDemo: Promise<Demo | undefined>, options: De
     const turnButton = element("button", "demo-button");
     turnButton.type = "button";
     const controls = element("div", "demo-controls");
+    // With only one useful angle there is nothing to turn to.
+    turnButton.hidden = cycle.length < 2;
     controls.append(primaryButton, speedButton, turnButton);
 
     overlay.append(stepLabel, cue, stillCaption, controls);
@@ -234,6 +237,10 @@ export function openDemoView(loadingDemo: Promise<Demo | undefined>, options: De
       currentAzimuth = turnAzimuth(turnFromAzimuth, turnToAzimuth, sinceTurnStartMs);
 
       drawNow();
+
+      // Paused with no turn still swinging: the picture cannot change, so stop redrawing
+      // every frame (saves battery). Play, Turn, a resize or the page coming back restart it.
+      if (isPaused && sinceTurnStartMs >= TURN_DURATION_MS) return;
       animationFrameId = window.requestAnimationFrame(onAnimationFrame);
     }
 
@@ -266,6 +273,7 @@ export function openDemoView(loadingDemo: Promise<Demo | undefined>, options: De
         drawNow();
       } else {
         isPaused = !isPaused;
+        if (!isPaused) startLoop();
       }
       updateControls();
     }
@@ -285,6 +293,8 @@ export function openDemoView(loadingDemo: Promise<Demo | undefined>, options: De
       if (prefersReducedMotion) {
         currentAzimuth = turnToAzimuth;
         drawNow();
+      } else {
+        startLoop(); // The loop may be asleep while paused; it needs to run to animate the swing.
       }
       updateControls();
     }

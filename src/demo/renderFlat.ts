@@ -114,7 +114,7 @@ export function createRendererFlat(container: HTMLElement, demo: Demo): DemoRend
     limb("shoulderRight", "elbowRight", "armRight"), limb("elbowRight", "wristRight", "forearmRight"), limb("wristRight", "handRight", "handRight"),
   ];
   const headCircle = create("circle", { r: String(0.1 * scale) });
-  const noseDot = create("circle", { r: String(0.025 * scale) });
+  const noseDot = create("circle", { r: String(0.04 * scale) });
 
   for (const segment of segments) segment.element.setAttribute("stroke", isMoving(demo, segment.part) ? "#FFD60A" : "#f4f4f4");
   const headColour = isMoving(demo, "head") ? "#FFD60A" : "#f4f4f4";

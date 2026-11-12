@@ -17,7 +17,7 @@ const wallSit: Demo = {
   exerciseId: "wall-sit",
   cue: "Back on the wall, slide down a little and hold.",
   ariaLabel: "High wall sit",
-  view: "side",
+  views: ["side"],
   framing: "body",
   moving: ["thighLeft", "thighRight"],
   props: [{ kind: "wall", x: -0.15 }],

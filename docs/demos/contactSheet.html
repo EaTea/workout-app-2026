@@ -5,8 +5,8 @@
   A design-check page, not app code. render.cjs serves it through Vite (so the
   TypeScript demos and the real createRenderer3d are used as they are) and
   calls window.renderContactSheet(ids). For every demo it draws one cell per
-  still frame (the demo's hold steps) at the demo's own view, plus one extra
-  cell at the other main angle of the last still. Each cell is a still image
+  still frame (the demo's hold steps) at the demo's opening view, plus one extra
+  cell for each other angle Turn offers (the last still). Each cell is a still image
   made from the real 3D renderer, captioned with the exercise name and label.
 
     demo ──stillFrames──▶ poses ──createRenderer3d.draw──▶ canvas ──▶ <img> cell
@@ -81,13 +81,14 @@
         const stills = stillFrames(demo);
 
         for (const still of stills) {
-          addCell(snapshot(demo, still.pose, CAMERA_AZIMUTH[demo.view]), id, still.label, demo.view);
+          addCell(snapshot(demo, still.pose, CAMERA_AZIMUTH[demo.views[0]]), id, still.label, demo.views[0]);
         }
 
-        // One extra cell: the last still from the other main angle.
-        const otherView = demo.view === "side" ? "front" : "side";
+        // One extra cell for each other angle Turn offers: the last still from there.
         const last = stills[stills.length - 1];
-        addCell(snapshot(demo, last.pose, CAMERA_AZIMUTH[otherView]), id, last.label, otherView);
+        for (const otherView of demo.views.slice(1)) {
+          addCell(snapshot(demo, last.pose, CAMERA_AZIMUTH[otherView]), id, last.label, otherView);
+        }
       }
       document.body.dataset.done = "true";
     };

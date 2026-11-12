@@ -25,6 +25,8 @@ import { BODY, jointPositions } from "./skeleton";
 import { computeFraming, isMoving, propBoxes, type DemoRenderer } from "./renderer";
 
 const WHITE_COLOUR = 0xf4f4f4;
+/** The dark band across the face that shows which way the head is turned. */
+const VISOR_COLOUR = 0x1c2230;
 const YELLOW_COLOUR = 0xffd60a;
 const GREY_COLOUR = 0x5d636e;
 /**
@@ -240,7 +242,7 @@ function makeBlob(scene: Scene, semiAxes: [number, number, number], material: Ma
  * Builds every body part once and returns a function that poses them from
  * a set of joint positions.
  *
- *            head (ellipsoid) + nose bump
+ *            head (ellipsoid) + big nose + dark visor band
  *            neck
  *      shoulder bar ── chest (ellipsoid)
  *      upper arm        waist (capsule)
@@ -276,7 +278,9 @@ function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material)
   const headMaterial = materialFor("head");
   const neck = makeCapsule(scene, 0.042, 0.06, headMaterial);
   const head = makeBlob(scene, [0.095, 0.115, 0.09], headMaterial);
-  const nose = makeBlob(scene, [0.024, 0.024, 0.024], headMaterial);
+  // A big nose and a dark visor band across the face make a 45 degree head turn obvious from any angle.
+  const nose = makeBlob(scene, [0.04, 0.04, 0.04], headMaterial);
+  const visor = makeBlob(scene, [0.03, 0.024, 0.078], new MeshStandardMaterial({ color: VISOR_COLOUR, roughness: 0.6, metalness: 0 }));
 
   return (joints) => {
     const point = (name: JointName): Vector3 => toScene(joints[name]);
@@ -328,6 +332,8 @@ function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material)
     head.position.copy(headPoint);
     head.quaternion.copy(orientation(headForward, headUp, headSideways));
     nose.position.copy(point("nose"));
+    visor.position.copy(headPoint).addScaledVector(headForward, 0.068).addScaledVector(headUp, 0.025);
+    visor.quaternion.copy(head.quaternion);
   };
 }
 

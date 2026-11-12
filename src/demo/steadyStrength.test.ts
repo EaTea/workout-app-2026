@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { loopLengthMs, frameAt, stillFrames } from "./timeline";
 import { BODY, angleAtJoint, distance, jointPositions } from "./skeleton";
-import type { Demo, JointName, Pose, Vec3 } from "./model";
+import { START_HOLD_MS, type Demo, type JointName, type Pose, type Vec3 } from "./model";
 import { steadyStrengthDemos } from "./steadyStrength";
 import { DEMO_EXERCISE_IDS, hasDemo, loadDemo } from "./registry";
 import { propBoxes, type PropBox } from "./renderer";
@@ -42,7 +42,7 @@ describe("high wall sit demo", () => {
   const demo = steadyStrengthDemos.high_wall_sit!;
 
   it("matches the plan: side view, body framing, wall, cue and the 10.5 s loop", () => {
-    expect(demo.view).toBe("side");
+    expect(demo.views[0]).toBe("side");
     expect(demo.framing).toBe("body");
     expect(demo.props.map((prop) => prop.kind)).toEqual(["wall"]);
     expect(demo.cue).toBe("Back on the wall, slide down a little and hold.");
@@ -96,7 +96,7 @@ describe("high wall sit demo", () => {
 // ---------------------------------------------------------------------------
 
 /** The cue, view and framing each demo must have: copied from the plan's table of 34 exercises. */
-const PLAN_TABLE: Record<string, { cue: string; view: Demo["view"]; framing: Demo["framing"] }> = {
+const PLAN_TABLE: Record<string, { cue: string; view: Demo["views"][number]; framing: Demo["framing"] }> = {
   head_turns: { cue: "Sit or stand tall and turn your head slowly to one side, then the other.", view: "front", framing: "closeUpHead" },
   neck_retraction: { cue: "With a hand on your chin, slide your head straight back.", view: "side", framing: "closeUpHead" },
   standing_back_extension: { cue: "Hands on your lower back, lean back just a little.", view: "side", framing: "body" },
@@ -248,7 +248,7 @@ describe("every Steady Strength demo", () => {
       it("matches the plan table: cue, view and framing", () => {
         const planned = PLAN_TABLE[demo.exerciseId]!;
         expect(demo.cue).toBe(planned.cue);
-        expect(demo.view).toBe(planned.view);
+        expect(demo.views[0]).toBe(planned.view);
         expect(demo.framing).toBe(planned.framing);
         expect(demo.ariaLabel.length).toBeGreaterThan(20);
       });
@@ -791,6 +791,15 @@ describe("standing bird dog", () => {
 });
 
 describe("walking demos", () => {
+  it("walk at about 70 (slow) and 95 (comfortable) steps a minute", () => {
+    // Each demo shows two steps per loop; the loop is the Start hold plus six moves.
+    const stepsPerMinute = (id: string) => (60000 * 2) / (loopLengthMs(steadyStrengthDemos[id]!) - START_HOLD_MS);
+    expect(stepsPerMinute("slow_walk")).toBeGreaterThan(66);
+    expect(stepsPerMinute("slow_walk")).toBeLessThan(74);
+    expect(stepsPerMinute("comfortable_walk")).toBeGreaterThan(90);
+    expect(stepsPerMinute("comfortable_walk")).toBeLessThan(100);
+  });
+
   it("the comfortable walk is quicker per step than the slow walk", () => {
     const slow = steadyStrengthDemos.slow_walk!;
     const comfortable = steadyStrengthDemos.comfortable_walk!;
@@ -894,6 +903,6 @@ describe("doorway chest stretch", () => {
   });
 
   it("opens in a view where the moving arm is not hidden by the near post", () => {
-    expect(demo.view).not.toBe("side");
+    expect(demo.views[0]).not.toBe("side");
   });
 });

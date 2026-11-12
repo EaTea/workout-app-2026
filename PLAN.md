@@ -1873,13 +1873,13 @@ project files under `screenshots/demos/`.
      fail; it now checks which side of the shoulder–knee line the hips
      are. Hands on supports are checked against the furniture, every
      frame. Spine extension is capped at 0° except the back extension.
-   - [ ] Turn reached angles where a wall, counter or bed hid the figure.
+   - [x] Turn reached angles where a wall, counter or bed hid the figure.
      Each demo now lists the angles that show it, and Turn cycles only
      those (a demo with one useful angle has no Turn button).
-   - [ ] Small screens: Show me moves under the title on the log screen,
+   - [x] Small screens: Show me moves under the title on the log screen,
      the controls fit a 568 px tall screen, and landscape gets a bigger
      stage. The view stops redrawing while paused.
-   - [ ] A bolder face marker so head turns show, closer framing for the
+   - [x] A bolder face marker so head turns show, closer framing for the
      bridge, and walks at a real slow and comfortable step rate.
    - Changed from the plan: reduced motion shows one large still at a
      time with "Next step" and a "Start → Hold" caption, not two stills

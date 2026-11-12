@@ -12,7 +12,7 @@ import { createDemoRenderer } from "./loadRenderer";
 import { createRendererFlat } from "./renderFlat";
 
 const demo: Demo = {
-  exerciseId: "test", cue: "", ariaLabel: "", view: "side", framing: "body", moving: [], props: [],
+  exerciseId: "test", cue: "", ariaLabel: "", views: ["side"], framing: "body", moving: [], props: [],
   steps: [{ kind: "hold", pose: neutralStandingPose(), ms: 1000, label: "Start" }],
 };
 const container = {} as HTMLElement;

@@ -8,9 +8,6 @@ import { CAMERA_AZIMUTH } from "../demo/renderer";
 import type { CameraView, Demo } from "../demo/model";
 import { ease } from "../demo/timeline";
 
-/** The order Turn walks through the angles, after the demo's own first. */
-const VIEW_ORDER: readonly CameraView[] = ["side", "front", "threeQuarter"];
-
 /** How long the camera takes to swing to the next angle, in ms. */
 export const TURN_DURATION_MS = 800;
 
@@ -21,16 +18,7 @@ export const MAX_FRAME_DELTA_MS = 250;
 export const NORMAL_SPEED = 1;
 export const SLOW_SPEED = 0.5;
 
-/**
- * The camera angles in the order Turn visits them: the demo's own view
- * first, then the other two in side, front, three-quarter order. Used by the
- * view to pick the next angle (it wraps around).
- */
-export function viewCycle(demoView: CameraView): CameraView[] {
-  return [demoView, ...VIEW_ORDER.filter((view) => view !== demoView)];
-}
-
-/** The angle after `current` in `cycle`, wrapping back to the first. */
+/** The angle after `current` in `cycle` (a demo's `views`), wrapping back to the first; with one view it stays on it. */
 export function nextView(cycle: readonly CameraView[], current: CameraView): CameraView {
   const index = cycle.indexOf(current);
   return cycle[(index + 1) % cycle.length] as CameraView;

@@ -185,7 +185,8 @@ export type Demo = {
   cue: string;
   /** Spoken description of the movement for screen readers. */
   ariaLabel: string;
-  view: CameraView;
+  /** The camera angles Turn cycles through; the first is the opening view. Only angles where furniture never hides the figure or its yellow parts. */
+  views: CameraView[];
   framing: Framing;
   /** Parts drawn yellow. */
   moving: BodyPart[];

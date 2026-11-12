@@ -166,6 +166,8 @@ export type CameraFraming = { centre: Vec3; radius: number };
 
 /** Padding in metres added around the sampled points to cover limb thickness. */
 const FRAMING_PADDING = 0.12;
+/** How far past the figure a bed is still framed, in metres. */
+const BED_FRAMING_MARGIN = 0.25;
 /** Smallest radius for the close-ups, so they never zoom in so far that nothing is recognisable. */
 const CLOSE_UP_MIN_RADIUS = { closeUpHead: 0.4, closeUpHand: 0.4, closeUpFoot: 0.45 } as const;
 
@@ -238,7 +240,12 @@ export function computeFraming(demo: Demo): CameraFraming {
 
   if (demo.framing === "body") {
     for (const pose of poses) points.push(...Object.values(jointPositions(pose)));
-    for (const prop of demo.props) points.push(...furniturePointsForFraming(prop));
+    // A bed is long; frame only the part near the body, not its far end.
+    const nearestBedEndX = Math.max(...points.map((point) => point.x)) + BED_FRAMING_MARGIN;
+    for (const prop of demo.props) {
+      const propPoints = furniturePointsForFraming(prop);
+      points.push(...(prop.kind === "bed" ? propPoints.map((point) => ({ ...point, x: Math.min(point.x, nearestBedEndX) })) : propPoints));
+    }
     points.push({ x: 0, y: 0, z: 0 });
   } else {
     const joints = closeUpJoints(demo);
