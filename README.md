@@ -254,7 +254,11 @@ in the even ones. The weeks must be a non-empty list of whole numbers from 1 to
 the program's `lengthWeeks`, with no repeats; anything else is an error naming
 the path. If some week has none of a block's items, the program still loads
 with a warning and that week's block is left out (the other blocks keep their
-place in the day). Deload halving and the power-endurance changes apply to
+place in the day). The same exercise can appear twice in one block only when
+the two items never run in the same week (disjoint `weeks`), because History,
+Last time and Progress match a logged set to the first item with that exercise.
+`weeks` can't be combined with `weeklyIncrease`, whose increase counts every
+week of the program. Deload halving and the power-endurance changes apply to
 whichever item runs that week. `weeks` can't be set inside a `noEquipment`
 swap, because the swap keeps the original's weeks.
 

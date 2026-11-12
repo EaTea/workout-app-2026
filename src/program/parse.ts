@@ -519,6 +519,12 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, lengthWeek
     fail(path, `"sameEveryWeek" can't be combined with "weeklyIncrease", which changes the reps each week`);
   }
 
+  // The weekly-increase offsets and the week-8 hold count every week, so
+  // skipped weeks would make the shown reps wrong.
+  if (record.weeks !== undefined && record.weeklyIncrease !== undefined) {
+    fail(path, `"weeks" can't be combined with "weeklyIncrease", whose increase counts every week of the program`);
+  }
+
   const load = readOptionalString(record, "load", path);
   const sets = record.sets === undefined ? [] : parseSets(record.sets, reps, load, child(path, "sets"), warnings);
 
@@ -560,6 +566,31 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, lengthWeek
 }
 
 /**
+ * Fails when a block lists the same exercise id twice and both items run in
+ * some common week (overlapping `weeks`, or either without `weeks`): History,
+ * Last time and Progress resolve a logged set to the first matching item, so
+ * the second would be unreachable. The same exercise in disjoint weeks is
+ * fine. Called by `parseBlock`.
+ */
+function failOnExerciseRepeatedInSameWeek(items: BlockItem[], itemsPath: string): void {
+  items.forEach((item, index) => {
+    for (let earlierIndex = 0; earlierIndex < index; earlierIndex++) {
+      const earlier = items[earlierIndex]!;
+      if (earlier.exerciseId !== item.exerciseId) continue;
+
+      const runInCommonWeek =
+        earlier.runsInWeeks === "everyWeek" || item.runsInWeeks === "everyWeek" || [...item.runsInWeeks].some((week) => (earlier.runsInWeeks as ReadonlySet<number>).has(week));
+      if (runInCommonWeek) {
+        fail(
+          `${itemsPath}[${index}]`,
+          `exercise ${JSON.stringify(item.exerciseId)} is already in this block (items[${earlierIndex}]) and both run in the same week; give them separate "weeks" or use it once`,
+        );
+      }
+    }
+  });
+}
+
+/**
  * Converts one block and all of its items. Refuses a `sameEveryWeek` item in
  * a block with its own `rounds` or `minutes`: a deload halves those for the
  * whole block, so the item couldn't stay the same every week.
@@ -583,6 +614,8 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, lengthWee
       `"sameEveryWeek" can't be used in a block with its own "rounds" or "minutes", which a deload halves; put the item in a block without them`,
     );
   }
+
+  failOnExerciseRepeatedInSameWeek(parsedItems, itemsPath);
 
   return {
     type: readString(record, "type", path),
@@ -613,7 +646,10 @@ function readDayNumber(record: UnknownRecord, key: string, path: string): DayNum
   return value;
 }
 
-/** Converts one training day and its blocks. */
+/**
+ * Converts one training day and its blocks, and records a warning for each
+ * block with weeks in which none of its items run (see `warnAboutWeeksWithNoItems`).
+ */
 function parseDay(raw: unknown, exercises: Record<string, Exercise>, lengthWeeks: number, path: string, warnings: ProgramWarning[]): Day {
   const record = expectRecord(raw, path);
   collectUnknownFields(record, DAY_KEYS, path, warnings);

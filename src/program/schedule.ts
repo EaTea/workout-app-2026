@@ -212,7 +212,9 @@ export type SessionView =
 
 /**
  * Builds the session for `date` ("YYYY-MM-DD", the caller's local today).
- * Called by the Today screen on every render; has no side effects.
+ * Called by the Today screen on every render; has no side effects. Items that
+ * do not run in this week (their `weeks` exclude it) are left out, and a block
+ * left with no items is dropped; the remaining blocks keep their positions.
  */
 export function buildSession(program: Program, settings: TrainingSettings, date: string): SessionView {
   const status = programStatus(settings.startDate, program.lengthWeeks, date);
