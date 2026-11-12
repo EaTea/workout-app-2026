@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) was agreed by Ed on 12 Nov after a preview of two exercises, and is waiting to merge; PR 21 is under way.**
+Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) was agreed by Ed on 12 Nov after a preview of two exercises, and is waiting to merge; PR 21 is under way. PR 23 (the plan for combining two days on Today) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1860,6 +1860,146 @@ project files under `screenshots/demos/`.
 4. [ ] The contact sheet for all 34.
 5. [ ] Fixes from the challenger review.
 - **Merge point:** every exercise in Steady Strength has an animation.
+
+### PR 23 — Plan: combine two days on Today *(design)*
+Ed asked (12 Nov) for a way to fit a week's work into fewer sessions when
+time is short and availability is patchy. From a draft with three options,
+Ed chose **combine on the day**: Today offers to merge one more day into
+today's session, either the next day (pulled forward) or a day just missed
+(caught up). Ed also asked that **warm-ups are not cut** on a combined day.
+Steady Strength is out of scope: it shows no combine button.
+
+PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
+"Combining two days when short on time" in the project thread.
+
+**What the person sees.**
+
+```
+ Today · Week 2 · Day 1                  Today · Week 2 · Day 1 + Day 2
+ Upper: pull · ~50 min                   Upper: pull + Lower: knee · ~72 min
+ ┌──────────────────────────────┐        ┌──────────────────────────────────┐
+ │ 1 Warm-up  YTWI · Pallof     │        │ 1 Warm-up   D1 YTWI · Pallof     │
+ │ 2 Explosive  Med ball slams  │ tap    │ 2 Warm-up   D2 Cossack · Hip ab  │
+ │ ...                          │──────▶ │ 3 Explosive D1 Slams  ⇄ alternate│
+ │ [ Short on time?             │        │             D2 Split-squat jumps │
+ │   Add Day 2 to today ]       │        │ 4 Main      D1 Pull-up EMOM      │
+ └──────────────────────────────┘        │ 5 Main      D2 Zercher BSS       │
+                                         │ ...                              │
+                                         │ [ Undo combine ]                 │
+                                         └──────────────────────────────────┘
+
+ Tomorrow (Day 2's date) then shows:  "Day 2 done with Day 1 on 9 Nov"
+                                      and no session, like a rest day.
+```
+
+**Rules.**
+
+1. **Allowed pairs** live in `program.json`, so Ed can edit them:
+   `"combining": { "pairs": [[1, 2], [2, 3], [3, 4], [5, 6]] }`. Each pair
+   is one upper day and the lower day next to it in the same week. Left
+   out on purpose: Day 4 + 5 (swings, single-leg RDL and back extensions
+   in one session load the lower back three times), any two upper days or
+   two lower days (an exercise would appear twice, or two leg plyometric
+   blocks), and Day 6 + the next Day 1 (crosses into a new week, so phase
+   and deload would differ). Validation: each pair is two different
+   training days (1–6, not the rest day) that are next to each other; a
+   bad pair is a program warning and is ignored, like other bad fields.
+   A program without `combining` (Steady Strength) never offers combining.
+2. **When Today offers it.** On a training day D in week W, before any
+   set is logged today:
+   - "Add Day D+1 to today" when [D, D+1] is an allowed pair and Day D+1
+     hasn't been combined already.
+   - "Add missed Day D−1 to today" when [D−1, D] is an allowed pair, Day
+     D−1's date is in the past, nothing was logged on it, and it wasn't
+     combined already. When both apply, both buttons show.
+   - Never on the rest day, before the start date or after week 8.
+3. **Undo.** "Undo combine" shows until the first set of the combined
+   session is logged, and puts both days back as they were.
+4. **Merged session order.** Built by a pure function from the two days'
+   sessions as Today already builds them for week W (deload halving,
+   power-endurance changes, max-rep targets and no-equipment swaps
+   already applied). Block types follow `sessionOrder`, and within each
+   type the earlier day's block comes first:
+   1. Warm-ups: both days' warm-up blocks in full (Ed: never cut).
+   2. Explosive: both blocks. When both are set-based they are shown as
+      one "alternate" block: a set of one, then a set of the other, so
+      each one's rest is spent on the other. An EMOM (kettlebell swings)
+      can't alternate, so it runs as its own block after the other.
+   3. Main strength, then mini-doses: each day's block as written.
+   4. Core, then finishers: each day's blocks, except that items marked
+      `"optional": true` (side plank, hollow hold) are left out and the
+      heavy bag's rounds are capped at the bottom of their range (4).
+   Rows carry a "D1"/"D2" label so it's clear where each came from.
+5. **Length.** The header shows the two days' `targetMinutes` added up,
+   minus 3 minutes when the explosive blocks alternate and minus 4 when
+   optional core items and a bag round are dropped. That gives Day 1 + 2
+   ~72, Day 2 + 3 ~66, Day 3 + 4 ~70 and Day 5 + 6 ~84 minutes (estimates,
+   not timings).
+6. **The donor day.** The day that was folded in shows "Day N done with
+   Day M on <date>" on its own date and no session. The day plans by week
+   (PR 12) show both days as planned, with a "Combined" note.
+7. **Logging.** Sets from a combined session are saved on today's date.
+   Each set records the day and block position it has in **its own day**
+   (not in the merged view), so "last time" hints, History and the CSV
+   and JSON exports keep working: a Day 2 split squat logged on Day 1's
+   date still finds the last Day 2 split squat. History headings read
+   "Week 2 · Day 1 + Day 2".
+8. **What doesn't change.** Week, phase, deload and weekly increases come
+   from the date, and both days of a pair are in the same week. The
+   week 8 retest prompt and the weekly fatigue check are unaffected.
+
+**Storage.** A new key per program, `combines`, holds one record per host
+date: `{ "2026-11-09": { "hostDay": 1, "addedDay": 2, "addedDate":
+"2026-11-10" } }`. It has its own wire type and `parse`/`serialize`
+functions, like the other stores, and is included in the JSON export and
+import (an older export without it imports as no combines).
+
+**Worked examples** (start 2 Nov, as in section 6):
+
+| Date | Situation | Expected |
+| --- | --- | --- |
+| 9 Nov (W2 D1) | Nothing logged yet | "Add Day 2 to today" shows; no "missed" button (no pair ends on Day 1) |
+| 9 Nov (W2 D1) | Day 2 added | Blocks: D1 warm-up, D2 warm-up, slams ⇄ split-squat jumps, D1 pull-up EMOM, D2 Zercher BSS, D1 dip mini, D2 SL RDL mini, D1 core (no side plank), D1 bag 4 rounds; ~72 min |
+| 10 Nov (W2 D2) | After the combine above | "Day 2 done with Day 1 on 9 Nov", no session, no buttons |
+| 12 Nov (W2 D4) | Day 3 (11 Nov) had nothing logged | "Add missed Day 3 to today"; no "Add Day 5" ([4, 5] isn't a pair) |
+| 12 Nov (W2 D4) | Day 3 added | Explosive: plyo push-ups, then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
+| 23 Nov (W4 D1, deload) | Day 2 added | Both days' sets halved first, then merged |
+| 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~84 min |
+
+### PR 24 — Logged sets remember their own day *(internal refactor)*
+No behavior change. Today each logged set's slot is found from the
+session's day plus the set's block position. A combined session holds two
+days, so each set needs to carry its own day.
+
+**Steps.**
+1. [ ] `LoggedSet` gets `day` (the day the set's block belongs to). The
+   log wire format gains an optional per-set `day`; old saves and old
+   exports without it read the session's `day`, so nothing is migrated.
+2. [ ] `findLastTime`, History and the CSV export read the set's `day`
+   instead of the session's. Unit tests for an old-format log and for a
+   session whose sets carry two different days.
+3. [ ] Fixes from the challenger review.
+- **Merge point:** all existing tests and E2E pass unchanged; the log can
+  hold two days on one date.
+
+### PR 25 — Combine two days on Today *(behavior change)*
+**Steps.**
+1. [ ] `combining.pairs` in `program.json`, its wire type, parse and
+   validation (rule 1), with tests for each rejected pair.
+2. [ ] The combines store (wire type, parse/serialize, per program) and
+   its place in the JSON export and import.
+3. [ ] The pure merge function (rules 4 and 5), tested against the worked
+   examples above.
+4. [ ] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
+   Undo (rule 3), the merged session with day labels, the donor day's
+   card (rule 6), and the "Combined" note on the day plans.
+5. [ ] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
+   History heading.
+6. [ ] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
+   set, see 10 Nov's "done with Day 1" card, and see the set in History;
+   undo before logging puts both days back.
+7. [ ] Fixes from the challenger review.
+- **Merge point:** Ed can combine any allowed pair on Today and log it.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
