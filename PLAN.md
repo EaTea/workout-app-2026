@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) was agreed by Ed on 12 Nov after a preview of two exercises, and is waiting to merge; PR 21 is under way.**
+Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) merged as #28; PR 21 is under way.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1594,7 +1594,7 @@ that one exercise's history.
 - **Merge point:** Ed can tick any swap on Today, train it with the right
   dose and timer, and see it in History.
 
-### PR 20 — Plan: "Show me" animations for Steady Strength *(design)*
+### PR 20 — Plan: "Show me" animations for Steady Strength *(design)* — merged as PR #28
 Ed asked (12 Nov) for an animation of every exercise in Steady Strength,
 opened from the exercise, so that someone aged 75 or over with poor
 eyesight can see quickly how to do the movement. The program is for a
@@ -1833,7 +1833,7 @@ project files under `screenshots/demos/`.
    only loads when "Show me" first opens. Vite warns about chunks over
    500 KB; the warning is expected for this chunk and is left on so any
    other large chunk still shows up.
-3. [ ] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
+3. [x] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
    stills and "Next step", the flat fallback, Back to close and disposal.
    One demo (high wall sit) to drive it.
 4. [ ] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
