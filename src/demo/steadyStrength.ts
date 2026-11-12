@@ -1,7 +1,8 @@
 /**
  * The "Show me" demos for the Steady Strength program, keyed by exercise id
- * (the ids in public/steady-strength.json). registry.ts exposes this map to
- * the view; later PR 21/22 steps add the other exercises here.
+ * (the ids in public/steady-strength.json). registry.ts lazy-loads
+ * this module (it is heavy to build, so it must stay out of the main bundle)
+ * and lists its keys in DEMO_EXERCISE_IDS.
  *
  * Every demo is built from `neutralStandingPose()` and changes only what
  * differs, so a pose reads as "standing, except ...". Safe ranges from the

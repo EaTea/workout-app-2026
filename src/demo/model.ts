@@ -1,7 +1,7 @@
 /**
  * Types for the "Show me" animations (see PLAN.md, PR 20 and PR 21).
  *
- * These are the INTERNAL types the skeleton, timeline and (later) renderers
+ * These are the INTERNAL types the skeleton, timeline and renderers
  * share. Demos are code, not program data, so nothing here crosses a wire
  * boundary and no DTOs are needed.
  *
@@ -151,8 +151,9 @@ export type CameraView = "side" | "front" | "threeQuarter";
 export type Framing = "body" | "closeUpHead" | "closeUpHand" | "closeUpFoot";
 
 /**
- * Furniture and held things, as plain data (positions in metres). Renderers
- * come in a later step and may extend this union. Furniture is drawn grey,
+ * Furniture and held things, as plain data (positions in metres). Both
+ * renderers (renderFlat.ts, render3d.ts) draw every kind; a new kind must be
+ * added to both. Furniture is drawn grey,
  * held things yellow.
  */
 export type Prop =
