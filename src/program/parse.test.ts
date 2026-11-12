@@ -410,3 +410,176 @@ describe("program.safety", () => {
     expect(result.warnings).toEqual([expect.objectContaining({ path: "program.saftey", suggestion: "safety" })]);
   });
 });
+
+describe("an item's noEquipment swap", () => {
+  const slamsPath = "days[0].blocks[1].items[0]";
+  const pullUpPath = "days[0].blocks[2].items[0]";
+  const sidePlankPath = "days[0].blocks[4].items[2]";
+
+  /** Adds two library entries a swap can point at (the shipped file has none yet). */
+  function addSwapExercises(json: any): void {
+    json.exercises.backpack_slam = { name: "Backpack slams", category: "explosive", evidence: "coaching practice", cues: ["Books only"] };
+    json.exercises.inverted_row = { name: "Inverted rows", category: "main strength", evidence: "coaching practice" };
+  }
+
+  /** Gives day 1's slams the swap `swap` (after adding the swap exercises). */
+  function withSlamsSwap(json: any, swap: unknown): void {
+    addSwapExercises(json);
+    json.days[0].blocks[1].items[0].noEquipment = swap;
+  }
+
+  /** Gives day 1's timed side plank (2 × 30s per side) the swap `swap`. */
+  function withSidePlankSwap(json: any, swap: unknown): void {
+    addSwapExercises(json);
+    json.exercises.wall_plank = { name: "Wall plank", category: "core", evidence: "coaching practice" };
+    json.days[0].blocks[4].items[2].noEquipment = swap;
+  }
+
+  it("lets a timed hold swap to another hold with its own time", () => {
+    const json = readRealProgramJson();
+    withSidePlankSwap(json, { exercise: "wall_plank", durationSec: 45 });
+    const sidePlank = parseProgram(json).program.days[1]!.blocks[4]!.items[2]!;
+
+    expect(sidePlank.exerciseId).toBe("side_plank");
+    expect(sidePlank.noEquipment?.durationSec).toBe(45);
+    expect(sidePlank.noEquipment?.reps).toBeUndefined();
+  });
+
+  it("refuses a swap that changes the kind of dose (hold to reps, or reps to hold)", () => {
+    expect(errorMessageAfter((json) => withSidePlankSwap(json, { exercise: "wall_plank", reps: 10 }))).toBe(
+      `${sidePlankPath}.noEquipment.reps: the original item is a timed hold, so its swap is a hold too: give "durationSec", not "reps"`,
+    );
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", durationSec: 30 }))).toBe(
+      `${slamsPath}.noEquipment.durationSec: the original item is done in reps, so its swap is too: give "reps", not "durationSec"`,
+    );
+  });
+
+  /** Gives day 1's max-based pull-up EMOM the swap `swap`. */
+  function withPullUpSwap(json: any, swap: unknown): void {
+    addSwapExercises(json);
+    json.days[0].blocks[2].items[0].noEquipment = swap;
+  }
+
+  it("is read from the shipped file (every swap is tabled in noEquipmentSwaps.test.ts)", () => {
+    const rdl = program.days[4]!.blocks[2]!.items[0]!;
+    expect(rdl.noEquipment?.exercise.id).toBe("backpack_single_leg_rdl");
+  });
+
+  it("maps a valid swap: exercise resolved, reps parsed, text copied", () => {
+    const json = readRealProgramJson();
+    withSlamsSwap(json, { exercise: "backpack_slam", reps: "8-10", load: "Loaded backpack", note: "On carpet", tempo: "Fast" });
+    const result = parseProgram(json);
+    const slams = result.program.days[1]!.blocks[1]!.items[0]!;
+
+    expect(result.warnings).toEqual([]);
+    expect(slams.noEquipment).toEqual({
+      exercise: result.program.exercises.backpack_slam,
+      reps: { kind: "range", min: 8, max: 10 },
+      durationSec: undefined,
+      load: "Loaded backpack",
+      note: "On carpet",
+      tempo: "Fast",
+    });
+    expect(slams.noEquipment!.exercise.name).toBe("Backpack slams");
+    // The original is untouched.
+    expect(slams.sets).toEqual(dayOf(1).blocks[1]!.items[0]!.sets);
+  });
+
+  it("accepts a swap with only an exercise when the original is not max-based", () => {
+    const json = readRealProgramJson();
+    withSlamsSwap(json, { exercise: "backpack_slam" });
+    const swap = parseProgram(json).program.days[1]!.blocks[1]!.items[0]!.noEquipment!;
+    expect(swap.reps).toBeUndefined();
+    expect(swap.load).toBeUndefined();
+  });
+
+  it("accepts a max-based original when the swap has its own reps", () => {
+    const json = readRealProgramJson();
+    withPullUpSwap(json, { exercise: "inverted_row", reps: "6-8" });
+    const swap = parseProgram(json).program.days[1]!.blocks[2]!.items[0]!.noEquipment!;
+    expect(swap.reps).toEqual({ kind: "range", min: 6, max: 8 });
+  });
+
+  it("rejects a swap that is not an object", () => {
+    expect(errorMessageAfter((json) => withSlamsSwap(json, "backpack_slam"))).toBe(`${slamsPath}.noEquipment: expected an object but found "backpack_slam"`);
+    expect(errorMessageAfter((json) => withSlamsSwap(json, [1]))).toContain(`${slamsPath}.noEquipment:`);
+  });
+
+  it("rejects a missing or non-string exercise", () => {
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { reps: 8 }))).toBe(`${slamsPath}.noEquipment.exercise: expected text but found nothing (field is missing)`);
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: 5 }))).toBe(`${slamsPath}.noEquipment.exercise: expected text but found 5`);
+  });
+
+  it("rejects an unknown exercise id", () => {
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "nope" }))).toBe(`${slamsPath}.noEquipment.exercise: unknown exercise "nope"`);
+  });
+
+  it.each([
+    "sets", "restSec", "minutes", "rounds", "workSec", "format", "repsPctOfMax", "perSide", "optional", "sameEveryWeek", "weeklyIncrease", "noEquipment",
+  ])("rejects %s, which the swap keeps from the original", (key) => {
+    const message = errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", [key]: 1 }));
+    expect(message).toContain(`${slamsPath}.noEquipment.${key}:`);
+    expect(message).toContain("keeps");
+    expect(message).toContain("from the original item");
+  });
+
+  it("rejects a swap exercise that is max-tested", () => {
+    const message = errorMessageAfter((json) => {
+      withSlamsSwap(json, { exercise: "backpack_slam" });
+      json.exercises.backpack_slam.maxTested = true;
+    });
+    expect(message).toContain(`${slamsPath}.noEquipment.exercise:`);
+    expect(message).toContain("max-tested");
+  });
+
+  it("rejects a swap that is the item's own exercise", () => {
+    const message = errorMessageAfter((json) => withSlamsSwap(json, { exercise: json.days[0].blocks[1].items[0].exercise }));
+    expect(message).toContain(`${slamsPath}.noEquipment.exercise:`);
+    expect(message).toContain("own exercise");
+  });
+
+  it("rejects a swap of a max-based item that has no reps of its own", () => {
+    const message = errorMessageAfter((json) => withPullUpSwap(json, { exercise: "inverted_row" }));
+    expect(message).toContain(`${pullUpPath}.noEquipment.reps:`);
+    expect(message).toContain("percentage of a tested max");
+  });
+
+  it("treats an item as max-based when its percentage of max ends up in its sets", () => {
+    const message = errorMessageAfter((json) => {
+      addSwapExercises(json);
+      const item = json.days[0].blocks[1].items[0];
+      delete item.reps;
+      // With a set count, the percentage ends up in each set rather than on the item.
+      item.sets = 2;
+      item.repsPctOfMax = 0.5;
+      item.noEquipment = { exercise: "inverted_row" };
+    });
+    expect(message).toContain("noEquipment.reps:");
+  });
+
+  it("validates reps, durationSec, load, note and tempo like the item does", () => {
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", reps: true }))).toBe(
+      `${slamsPath}.noEquipment.reps: expected a number or text but found true`,
+    );
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", reps: "15-10" }))).toContain("rep range minimum 15 is larger than maximum 10");
+    expect(errorMessageAfter((json) => withSidePlankSwap(json, { exercise: "wall_plank", durationSec: "30" }))).toBe(
+      `${sidePlankPath}.noEquipment.durationSec: expected a number but found "30"`,
+    );
+    for (const key of ["load", "note", "tempo"]) {
+      expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", [key]: 3 }))).toBe(
+        `${slamsPath}.noEquipment.${key}: expected text but found 3`,
+      );
+    }
+  });
+
+  it("warns, with a suggestion, about a misspelt key inside the swap", () => {
+    const json = readRealProgramJson();
+    withSlamsSwap(json, { exercise: "backpack_slam", tempoo: "Fast", colour: "red" });
+    const { warnings } = parseProgram(json);
+
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toMatchObject({ path: `${slamsPath}.noEquipment.tempoo`, suggestion: "tempo" });
+    expect(warnings[0]!.message).toContain('did you mean "tempo"');
+    expect(warnings[1]).toMatchObject({ path: `${slamsPath}.noEquipment.colour`, suggestion: undefined });
+  });
+});

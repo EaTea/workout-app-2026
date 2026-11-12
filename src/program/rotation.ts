@@ -74,7 +74,9 @@ export function applyRotationToBlocks(blocks: BlockView[], week: number, rotatio
         const displayName = rotatedName(item.exercise.id, rotation);
         if (displayName === undefined) return item;
 
-        return { ...item, rotatedIn: { displayName, originalName: item.exercise.name } };
+        // A rotated-in warm-up is a different exercise, so the original's
+        // "No equipment" swap no longer applies to it: no swap view, no tick.
+        return { ...item, rotatedIn: { displayName, originalName: item.exercise.name }, noEquipment: undefined };
       }),
     };
   });
