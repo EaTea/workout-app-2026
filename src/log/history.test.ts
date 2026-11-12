@@ -55,3 +55,36 @@ describe("groupSetsByExercise with per-set days", () => {
     expect(groupSetsByExercise(session).map((group) => [group.day, group.sets.length])).toEqual([[1, 2], [5, 1]]);
   });
 });
+
+describe("groupSetsByExercise for a combined session", () => {
+  /** A set of a combined session: it carries its own day. */
+  function makeDaySet(day: number, exerciseId: string, blockPosition: number, setNumber: number): LoggedSet {
+    return { ...makeSet(exerciseId, blockPosition, setNumber), day };
+  }
+
+  it("lists one day's blocks, then the other's, whatever order they were logged in", () => {
+    const session: LoggedSession = {
+      date: "2026-11-09",
+      day: 1,
+      sets: [
+        makeDaySet(2, "split_squat_jump", 2, 1),
+        makeDaySet(1, "pull_up", 3, 1),
+        makeDaySet(2, "zercher_bulgarian_split_squat", 3, 1),
+        makeDaySet(1, "med_ball_slam", 2, 1),
+      ],
+    };
+
+    expect(groupSetsByExercise(session).map((group) => [group.day, group.blockPosition, group.exerciseId])).toEqual([
+      [1, 2, "med_ball_slam"],
+      [1, 3, "pull_up"],
+      [2, 2, "split_squat_jump"],
+      [2, 3, "zercher_bulgarian_split_squat"],
+    ]);
+  });
+
+  it("keeps the same exercise in the same block position of two days as two groups", () => {
+    const session: LoggedSession = { date: "2026-11-09", day: 1, sets: [makeDaySet(2, "dip", 3, 1), makeDaySet(1, "dip", 3, 1)] };
+
+    expect(groupSetsByExercise(session).map((group) => group.day)).toEqual([1, 2]);
+  });
+});

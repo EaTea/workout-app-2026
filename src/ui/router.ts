@@ -4,7 +4,10 @@ import { toDayNumber } from "../program/calendar";
  * Minimal hash router. Screens are addressed as `#/today`, `#/overview`, `#/history`, `#/settings`, `#/programs` (the program picker) and
  * `#/plan/<day>/<week>` (the read-only Day plan, e.g. `#/plan/1/4`) and
  * `#/log/<date>/<blockPosition>/<exerciseId>` (the log screen for one item of
- * the session on `<date>`, `YYYY-MM-DD`); anything else (including an empty
+ * the session on `<date>`, `YYYY-MM-DD`), which for a combined session (two
+ * days on one date) gains a trailing `/day/<n>` naming the program day the
+ * block belongs to: `#/log/<date>/<blockPosition>/<exerciseId>/day/2`. A
+ * link without it still works and means the date's own day; anything else (including an empty
  * or malformed hash, or an old-form `#/log/<block>/<exercise>` without a
  * date) falls back to Today (except a malformed `#/plan...` address, which shows the Overview). The date in the log address is what pins a log
  * screen to its session: logging goes to that date even if the clock has
@@ -16,15 +19,24 @@ import { toDayNumber } from "../program/calendar";
 /** The screens the app can show. */
 export type Route = "today" | "overview" | "history" | "settings" | "programs" | "log" | "plan";
 
-/** Which item the log screen is for: its session date, the block's 1-based position on Today, and the exercise id. */
+/**
+ * Which item the log screen is for: its session date, the block's 1-based
+ * position within its own day, and the exercise id. `day` names that day for
+ * a row of a combined session (both days have a block 2); absent in the old
+ * form of the link, meaning the date's own day.
+ */
 export interface LogRouteTarget {
   date: string;
   blockPosition: number;
   exerciseId: string;
+  day?: number;
 }
 
-/** Matches `#/log/<YYYY-MM-DD>/<positive integer>/<exercise id>`; ids are letters, digits, underscore and hyphen. */
-const LOG_HASH_PATTERN = /^#\/log\/(\d{4}-\d{2}-\d{2})\/(\d+)\/([A-Za-z0-9_-]+)$/;
+/**
+ * Matches `#/log/<YYYY-MM-DD>/<positive integer>/<exercise id>` with an
+ * optional `/day/<positive integer>`; ids are letters, digits, underscore and hyphen.
+ */
+const LOG_HASH_PATTERN = /^#\/log\/(\d{4}-\d{2}-\d{2})\/(\d+)\/([A-Za-z0-9_-]+)(?:\/day\/(\d+))?$/;
 
 /**
  * Reads the item a `#/log/...` hash points at, or undefined if the hash is
@@ -38,7 +50,9 @@ export function parseLogRoute(hash: string): LogRouteTarget | undefined {
   const date = match[1];
   const blockPosition = Number(match[2]);
   const exerciseId = match[3];
+  const day = match[4] === undefined ? undefined : Number(match[4]);
   if (date === undefined || exerciseId === undefined || blockPosition < 1) return undefined;
+  if (day !== undefined && day < 1) return undefined;
 
   try {
     toDayNumber(date);
@@ -46,12 +60,17 @@ export function parseLogRoute(hash: string): LogRouteTarget | undefined {
     return undefined;
   }
 
-  return { date, blockPosition, exerciseId };
+  return day === undefined ? { date, blockPosition, exerciseId } : { date, blockPosition, exerciseId, day };
 }
 
-/** Builds the hash for an item's log screen; the inverse of `parseLogRoute`. Used for the Today row links. */
-export function logRouteHash(date: string, blockPosition: number, exerciseId: string): string {
-  return `#/log/${date}/${blockPosition}/${exerciseId}`;
+/**
+ * Builds the hash for an item's log screen; the inverse of `parseLogRoute`.
+ * Used for the Today row links. Pass `day` only for a row of a combined
+ * session; without it the link is the plain form every older link used.
+ */
+export function logRouteHash(date: string, blockPosition: number, exerciseId: string, day?: number): string {
+  const base = `#/log/${date}/${blockPosition}/${exerciseId}`;
+  return day === undefined ? base : `${base}/day/${day}`;
 }
 
 /** Which Day plan a `#/plan/<day>/<week>` hash asks for: day number 1-7 is not checked here, only that both are positive integers. */

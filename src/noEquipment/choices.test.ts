@@ -124,3 +124,29 @@ describe("worked example: backpack RDL logged on 5 Nov, then 12 Nov", () => {
     expect(noEquipmentChoices(nextThursday, log, "2026-11-12", new Set()).locked.size).toBe(0);
   });
 });
+
+describe("noEquipmentChoices for one day of a combined session", () => {
+  /** A set of a combined session: it carries its own day. */
+  function makeDaySet(day: number, exerciseId: string, blockPosition: number): LoggedSet {
+    return { ...makeSet(exerciseId, blockPosition), day };
+  }
+
+  it("uses day-qualified keys when asked", () => {
+    const choices = noEquipmentChoices(thursday, noSets, THURSDAY, new Set(["4.3:single_leg_rdl"]), true);
+
+    expect([...choices.swapped]).toEqual(["4.3:single_leg_rdl"]);
+    // The plain key means nothing in qualified mode.
+    expect(noEquipmentChoices(thursday, noSets, THURSDAY, new Set([RDL_KEY]), true).swapped.size).toBe(0);
+  });
+
+  it("looks for sets by the session's own day: another day's set in the same block locks nothing", () => {
+    // Thursday is Day 4. A Day 2 set (a combined date) at block 3 must not lock Day 4's block 3.
+    const otherDay = logWith(THURSDAY, makeDaySet(2, "backpack_single_leg_rdl", 3));
+    expect(noEquipmentChoices(thursday, otherDay, THURSDAY, new Set(), true)).toEqual({ swapped: new Set(), locked: new Set() });
+
+    const sameDay = logWith(THURSDAY, makeDaySet(4, "backpack_single_leg_rdl", 3));
+    const choices = noEquipmentChoices(thursday, sameDay, THURSDAY, new Set(), true);
+    expect([...choices.swapped]).toEqual(["4.3:single_leg_rdl"]);
+    expect([...choices.locked]).toEqual(["4.3:single_leg_rdl"]);
+  });
+});

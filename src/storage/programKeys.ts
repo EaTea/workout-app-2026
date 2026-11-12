@@ -42,6 +42,8 @@ export interface ProgramStorageKeys {
   retestJumpSkipped: string;
   /** Today's "No equipment" swap ticks per date (throwaway pre-session state, pruned after 14 days, not exported). */
   noEquipment: string;
+  /** Which dates had a second day combined into their session (exported and imported with the rest). */
+  combines: string;
   /** Prefix of the backups an import keeps of the data it replaces (followed by an ISO timestamp). */
   importBackupPrefix: string;
 }
@@ -68,6 +70,7 @@ export function storageKeysForProgram(programId: string): ProgramStorageKeys {
     retestDismissed: `${programId}.retest-dismissed`,
     retestJumpSkipped: `${programId}.retest-jump-skipped`,
     noEquipment: `${programId}.no-equipment`,
+    combines: `${programId}.combines`,
     importBackupPrefix: `${programId}.import-backup-`,
   };
 }

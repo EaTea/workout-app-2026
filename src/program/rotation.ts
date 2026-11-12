@@ -1,5 +1,6 @@
 import type { Program, WarmupRotation } from "./model";
 import type { BlockView, SessionView } from "./schedule";
+import type { CombinedSession } from "./combine";
 
 /**
  * Pure rules for the warm-up rotation (program.json `warmupRotation`).
@@ -41,8 +42,9 @@ export function rotatedName(exerciseId: string, rotation: WarmupRotation): strin
  * start week is dismissed; the dismissal is keyed by this number. Called by
  * `renderTodayScreen` and app.ts `handleDismissRotation`.
  */
-export function rotationBlockStartWeek(program: Program, session: SessionView): number | undefined {
-  if (session.kind !== "training") return undefined;
+export function rotationBlockStartWeek(program: Program, session: SessionView | CombinedSession): number | undefined {
+  // A combined session (two days of one week) is a training day like any other.
+  if (session.kind !== "training" && session.kind !== "combined") return undefined;
 
   // No rotation in the program: no swapped block, so no card.
   if (program.warmupRotation === undefined) return undefined;

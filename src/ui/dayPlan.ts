@@ -1,5 +1,10 @@
 import type { Program, Range } from "../program/model";
-import { compareWithPreviousWeek, buildDayPlan, type DayPlanChanges } from "../program/dayPlan";
+import type { CombinesByDate } from "../combine/model";
+import type { WorkoutLog } from "../log/model";
+import { todayLocalDate } from "../program/calendar";
+import { compareWithPreviousWeek, buildDayPlan, planDateFor, type DayPlanChanges } from "../program/dayPlan";
+import { activeCombineOn, activeDonorOn } from "../program/combineOffers";
+import { renderCombinedNote } from "./combineCards";
 import { itemDisplayName } from "../program/rotation";
 import type { BlockView, ItemView, SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
@@ -34,9 +39,24 @@ const REST_DAY_MESSAGE = "Recover; no training is planned.";
  * undefined when they are outside the program (app.ts then shows the
  * Overview). `today` is the shown date, used as the stand-in start when no
  * start date is saved; `search` is `location.search`, kept by the week links
- * so a `?date=` preview survives.
+ * so a `?date=` preview survives. When `combines` holds a combine that involves
+ * this day of this week (as the day that was added or the day it was added to),
+ * a short "Combined with Day M on <date>" note sits under the header on both
+ * days; the plan itself stays as planned. A lapsed combine (its host date
+ * passed with nothing logged; see `isLapsedCombine`) shows no note, hence the
+ * `log` and the device's `realToday`.
  */
-export function renderDayPlanScreen(program: Program, settings: TrainingSettings, week: number, dayNumber: number, today: string, search: string): HTMLElement | undefined {
+export function renderDayPlanScreen(
+  program: Program,
+  settings: TrainingSettings,
+  week: number,
+  dayNumber: number,
+  today: string,
+  search: string,
+  combines: CombinesByDate = new Map(),
+  log: WorkoutLog = { sessions: {} },
+  realToday: string = todayLocalDate(),
+): HTMLElement | undefined {
   const session = buildDayPlan(program, settings, week, dayNumber, today);
   if (session === undefined) {
     return undefined;
@@ -63,9 +83,41 @@ export function renderDayPlanScreen(program: Program, settings: TrainingSettings
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
   );
 
-  screen.append(header, renderWeekPicker(program, dayNumber, week, search), renderPhaseChanges(program, session));
+  screen.append(header);
+  const combinedNote = renderCombinedNoteFor(program, settings, week, dayNumber, combines, log, realToday);
+  if (combinedNote !== undefined) screen.append(combinedNote);
+
+  screen.append(renderWeekPicker(program, dayNumber, week, search), renderPhaseChanges(program, session));
   session.blocks.forEach((block, index) => screen.append(renderPlanBlock(block, index, session, changes)));
   return screen;
+}
+
+/**
+ * The "Combined with Day M on <date>" note for this day of this week, or
+ * undefined. Works out the day's calendar date from the saved start date, then
+ * asks whether it is a host date (combined with the added day) or a donor date
+ * (combined into the host day). No start date, or no combine: no note.
+ */
+function renderCombinedNoteFor(
+  program: Program,
+  settings: TrainingSettings,
+  week: number,
+  dayNumber: number,
+  combines: CombinesByDate,
+  log: WorkoutLog,
+  realToday: string,
+): HTMLElement | undefined {
+  if (settings.startDate === null) return undefined;
+
+  const date = planDateFor(settings.startDate, week, dayNumber);
+
+  const hostCombine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
+  if (hostCombine !== undefined) return renderCombinedNote(hostCombine.addedDay, hostCombine.addedDate);
+
+  const donor = activeDonorOn(program, settings.startDate, date, combines, log, realToday);
+  if (donor !== undefined) return renderCombinedNote(donor.hostDay, donor.hostDate);
+
+  return undefined;
 }
 
 /** The "‹ Program overview" link back to `#/overview` (hash only, so a `?date=` preview survives). */

@@ -107,6 +107,19 @@ describe("applyNoEquipmentChoices", () => {
     expect(applyNoEquipmentChoices(built, new Set([noEquipmentItemKey(2, "split_squat_jump")]))).toEqual(built);
   });
 
+  it("day-qualified keys: builds them with the day and matches them only when asked to", () => {
+    expect(noEquipmentItemKey(3, "pull_up")).toBe("3:pull_up");
+    expect(noEquipmentItemKey(3, "pull_up", 1)).toBe("1.3:pull_up");
+
+    // 2 Nov is Day 1: the pull-up (block 3) has a swap. A qualified key only counts in qualified mode.
+    const built = buildSession(program, settings, "2026-11-02");
+    const qualified = new Set([noEquipmentItemKey(3, "pull_up", 1)]);
+    expect(applyNoEquipmentChoices(built, qualified)).toEqual(built);
+    expect(applyNoEquipmentChoices(built, qualified, true)).not.toEqual(built);
+    // The other day's qualified key does not match this day's block.
+    expect(applyNoEquipmentChoices(built, new Set([noEquipmentItemKey(3, "pull_up", 2)]), true)).toEqual(built);
+  });
+
   it("a key with the wrong block position changes nothing", () => {
     const built = buildSession(program, settings, "2026-11-02");
 

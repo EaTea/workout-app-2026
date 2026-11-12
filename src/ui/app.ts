@@ -30,7 +30,10 @@ import type { LoadedCatalogueEntry } from "../program/load";
 import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramLink } from "./programPicker";
 import { renderTodayScreen } from "./today";
 import { loadTicks, setTick } from "../noEquipment/storage";
-import { buildSwappedSession } from "../noEquipment/session";
+import { buildSwappedSessionFor } from "../noEquipment/session";
+import type { Combine, CombinesByDate } from "../combine/model";
+import { activeCombineOn } from "../program/combineOffers";
+import { addCombine, loadCombines, removeCombine } from "../combine/storage";
 import type { NoEquipmentTicks } from "../noEquipment/model";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
 import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
@@ -239,6 +242,8 @@ export function startApp(
   let fatigueLoadWarningDismissed = false;
   /** The "No equipment" ticks per date (kept in localStorage too; throwaway, see noEquipment/storage.ts). */
   let noEquipmentTicks: NoEquipmentTicks = loadTicks(localStorage, storageKeys.noEquipment);
+  /** The days combined into another day's session, by host date (kept in localStorage too; see combine/storage.ts). */
+  let combines: CombinesByDate = loadCombines(localStorage, storageKeys.combines);
   /** The date "Remind me tomorrow" was tapped on the check-in card (kept in localStorage too), or undefined. */
   let checkInSnoozedDate = loadStoredValue(storageKeys.checkInSnoozed, checkInSnoozedFromWire);
   /** The program week whose drop banner was dismissed (kept in localStorage too), or undefined. */
@@ -288,7 +293,7 @@ export function startApp(
     let isWanted = false;
     if (sessionDate !== undefined && sessionDate === resolveToday(window.location.search)) {
       try {
-        isWanted = isSessionInProgress(buildSwappedSession(program, settings, log, noEquipmentTicks, sessionDate).session, log, sessionDate, new Date());
+        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate()).session, log, sessionDate, new Date());
       } catch {
         isWanted = false;
       }
@@ -304,12 +309,48 @@ export function startApp(
    * Returns null on success or the failure message for Today to show.
    */
   function handleToggleNoEquipment(itemKey: string, ticked: boolean): string | null {
-    const result = setTick(localStorage, storageKeys.noEquipment, shownDate, itemKey, ticked, todayLocalDate());
+    let result = setTick(localStorage, storageKeys.noEquipment, shownDate, itemKey, ticked, todayLocalDate());
     if (!result.ok) return result.error;
+
+    // A combined session reads a plain key ticked before combining ("3:pull_up") as the host day's tick
+    // ("1.3:pull_up"). Unticking the qualified key must also clear that plain key, or it would tick again.
+    const hostDayOfKey = /^(\d+)\.(\d+:.+)$/.exec(itemKey);
+    if (!ticked && hostDayOfKey !== null) {
+      const hostCombine = activeCombineOn(program, settings.startDate, shownDate, combines, log, todayLocalDate());
+      if (hostCombine !== undefined && hostCombine.hostDay === Number(hostDayOfKey[1])) {
+        const plainResult = setTick(localStorage, storageKeys.noEquipment, shownDate, hostDayOfKey[2]!, false, todayLocalDate());
+        if (!plainResult.ok) return plainResult.error;
+        result = plainResult;
+      }
+    }
 
     noEquipmentTicks = result.ticks;
     render();
     document.querySelector<HTMLInputElement>(`input[data-no-equipment-key="${CSS.escape(itemKey)}"]`)?.focus();
+    return null;
+  }
+
+  /**
+   * "Add Day N to today" tapped on the shown date: stores the combine
+   * (`addCombine`) and re-renders Today, which now shows the merged session.
+   * Returns null on success or the failure message for Today to show.
+   */
+  function handleAddCombine(combine: Combine): string | null {
+    const result = addCombine(localStorage, storageKeys.combines, shownDate, combine);
+    if (!result.ok) return result.error;
+
+    combines = result.combines;
+    render();
+    return null;
+  }
+
+  /** "Undo combine" tapped on the shown date: removes the combine (`removeCombine`) and re-renders Today with both days back. */
+  function handleUndoCombine(): string | null {
+    const result = removeCombine(localStorage, storageKeys.combines, shownDate);
+    if (!result.ok) return result.error;
+
+    combines = result.combines;
+    render();
     return null;
   }
 
@@ -382,6 +423,8 @@ export function startApp(
     log = loadedLog.log;
     loadedFatigue = loadFatigueHistory(localStorage, storageKeys);
     fatigueHistory = loadedFatigue.history;
+    // An import replaces the stored combines too (an import without any clears them).
+    combines = loadCombines(localStorage, storageKeys.combines);
     logWarningDismissed = false;
     fatigueLoadWarningDismissed = false;
     checkInDraft = undefined;
@@ -721,11 +764,11 @@ export function startApp(
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
-        main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks));
+        main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
       } else if (route === "plan" && planTarget !== undefined) {
-        const planScreen = renderDayPlanScreen(program, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search);
+        const planScreen = renderDayPlanScreen(program, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
         if (planScreen !== undefined) main.append(planScreen);
       } else if (route === "overview") {
         const status = programStatus(settings.startDate, program.lengthWeeks, shownDate);
@@ -753,6 +796,14 @@ export function startApp(
           // Ticks follow logging rules: past dates and today, not a future preview.
           canTick: shownDate <= todayLocalDate(),
           onToggle: handleToggleNoEquipment,
+        }, {
+          combines,
+          // Combining is "on the day": offers and Undo show only when the shown date is this real today.
+          realToday: todayLocalDate(),
+          actions: {
+            onAdd: handleAddCombine,
+            onUndo: handleUndoCombine,
+          },
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.

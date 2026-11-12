@@ -1,3 +1,4 @@
+import { loadCombines, saveCombines } from "../combine/storage";
 import { loadFatigueHistory, saveFatigueHistory } from "../fatigue/storage";
 import { loadLog, saveLog } from "../log/storage";
 import { loadSettings, saveSettings } from "../settings/storage";
@@ -15,14 +16,14 @@ import { exportToWire, VERSION_1_PROGRAM_ID } from "./wire";
  *
  *   1. Read what is stored now. If the log or check-ins cannot be read safely
  *      (the loaders' `saveRefusedReason`), stop: nothing is written.
- *   2. Note the raw text of the four data keys (log, check-ins, settings, max
- *      history), for step 5.
+ *   2. Note the raw text of the five data keys (log, check-ins, combines,
+ *      settings, max history), for step 5.
  *   3. BACKUP FIRST: write the current data as a whole export file (compact
  *      JSON, with the raw texts of step 2 inside) under
  *      `<programId>.import-backup-<ISO timestamp>`. If this fails,
  *      stop; nothing was changed.
  *   4. Write the new data key by key with the existing savers, in this order:
- *      log, check-ins, max history, settings. Each `setItem` either stores the
+ *      log, check-ins, combines, max history, settings. Each `setItem` either stores the
  *      whole new value or leaves the old one, so every key is old or new.
  *   5. If any write fails, put every key that was already replaced back to the
  *      text noted in step 2, so the result is all old data, and say so. When
@@ -45,9 +46,9 @@ import { exportToWire, VERSION_1_PROGRAM_ID } from "./wire";
 /** Outcome of `applyImport`: the backup key on success, or a readable reason (nothing half-written). */
 export type ApplyImportResult = { ok: true; backupKey: string } | { ok: false; error: string };
 
-/** The four keys of the active program an import replaces, in the order they are written (settings last; `saveSettings` writes max history before it). */
+/** The five keys of the active program an import replaces, in the order they are written (settings last; `saveSettings` writes max history before it). */
 function replacedKeys(keys: ProgramStorageKeys): string[] {
-  return [keys.log, keys.fatigue, keys.maxHistory, keys.settings];
+  return [keys.log, keys.fatigue, keys.combines, keys.maxHistory, keys.settings];
 }
 
 /** Describes a caught value for a message. */
@@ -106,7 +107,11 @@ export function undoLastImport(
 
   const rawTexts = newest.rawStoredTexts?.filter((raw) => replacedKeys(keys).includes(raw.storageKey));
   if (rawTexts !== undefined && rawTexts.length > 0) {
-    return replaceStoredData(storage, keys, now, () => writeRawTexts(storage, rawTexts));
+    // A backup made before the combines key existed has no entry for it. Those data had no combines, so
+    // undoing must remove the current ones; otherwise the restored log and the combines would disagree.
+    const hasCombinesEntry = rawTexts.some((raw) => raw.storageKey === keys.combines);
+    const textsToRestore = hasCombinesEntry ? rawTexts : [...rawTexts, { storageKey: keys.combines, text: null }];
+    return replaceStoredData(storage, keys, now, () => writeRawTexts(storage, textsToRestore));
   }
 
   const parsed = parseImport(newest.exportText);
@@ -135,13 +140,16 @@ function backupProgramIdOf(backupText: string): string | null {
   }
 }
 
-/** Writes imported data with the normal savers (log, check-ins, then max history and settings). Throws on failure; the caller rolls back. */
+/** Writes imported data with the normal savers (log, check-ins, combines, then max history and settings). Throws on failure; the caller rolls back. */
 function writeParsedData(storage: Storage, keys: ProgramStorageKeys, data: ImportedData): void {
   const logResult = saveLog(storage, keys, data.log);
   if (!logResult.ok) throw new Error(logResult.error);
 
   const fatigueResult = saveFatigueHistory(storage, keys, data.fatigueHistory);
   if (!fatigueResult.ok) throw new Error(fatigueResult.error);
+
+  const combinesResult = saveCombines(storage, keys.combines, data.combines);
+  if (!combinesResult.ok) throw new Error(combinesResult.error);
 
   saveSettings(data.settings, storage, keys); // max history, then settings; throws on failure
 }
@@ -193,6 +201,7 @@ function replaceStoredData(storage: Storage, keys: ProgramStorageKeys, now: Date
       settings: currentSettings,
       log: currentLog.log,
       fatigueHistory: currentFatigue.history,
+      combines: loadCombines(storage, keys.combines),
       // Left out so backups do not nest inside each other; those keys stay in storage untouched.
       corruptLogBackups: [],
       importBackups: [],

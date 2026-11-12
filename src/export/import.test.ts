@@ -27,6 +27,7 @@ const bundle: ExportBundle = {
     },
   },
   fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
+  combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -44,7 +45,7 @@ describe("parseImport", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
+    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines });
     expect(result.problems).toEqual([]);
   });
 
@@ -190,7 +191,36 @@ describe("parseImport", () => {
       file.importBackups = [{ key: "explosive-endurance.import-backup-x", text: "{}" }];
     }));
 
-    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory });
+    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines });
+  });
+
+  it("imports an older export without a combines section as no combines", () => {
+    const result = parseImport(fileText((file) => {
+      delete file.combines;
+    }));
+
+    expect(result.ok && result.data.combines).toEqual(new Map());
+    expect(result.ok && result.problems).toEqual([]);
+  });
+
+  it("drops bad combines entries, or a combines section it cannot read, without refusing the file", () => {
+    const withBadEntry = parseImport(fileText((file) => {
+      file.combines = {
+        version: 1,
+        combines: {
+          "2026-11-09": { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" },
+          "2026-11-11": { hostDay: 3, addedDay: 3, addedDate: "2026-11-12" },
+        },
+      };
+    }));
+    expect(withBadEntry.ok && [...withBadEntry.data.combines.keys()]).toEqual(["2026-11-09"]);
+
+    for (const unreadable of [5, "x", [], { version: 2, combines: {} }]) {
+      const result = parseImport(fileText((file) => {
+        file.combines = unreadable;
+      }));
+      expect(result.ok && result.data.combines).toEqual(new Map());
+    }
   });
 
   it("refuses text that is not JSON", () => {

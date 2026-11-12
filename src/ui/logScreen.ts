@@ -2,9 +2,12 @@ import "./rotation.css";
 import { itemDisplayName } from "../program/rotation";
 import type { BlockView, ItemView } from "../program/schedule";
 import type { NoEquipmentTicks } from "../noEquipment/model";
-import { buildSwappedSession } from "../noEquipment/session";
+import type { CombinesByDate } from "../combine/model";
+import { buildSwappedSessionFor } from "../noEquipment/session";
 import { todayLocalDate } from "../program/calendar";
-import type { Program } from "../program/model";
+import { blockSlotsOf } from "../program/combine";
+import { activeCombineOn, activeDonorOn } from "../program/combineOffers";
+import type { DayNumber, Program } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
 import { countSetsForItem, formatLoggedSet, itemTracksReps, nextSetNumber, prefillForSet, setNeedsMax, setNounFor, setWord } from "../log/itemSets";
 import type { LoggedSet, WorkoutLog } from "../log/model";
@@ -27,6 +30,12 @@ import { currentRestSeconds, openRestTimer } from "./restTimer";
  * 23:50 keeps logging to that day after midnight.
  *
  *   Today row tap ──▶ #/log/2026-11-09/2/med_ball_slam ──▶ renderLogScreen
+ *   (combined row)    #/log/2026-11-09/2/split_squat/day/2   (the block is Day 2's block 2)
+ *
+ * On a combined date (two days merged, PR 25) the address also names the
+ * program day, because both days have a block 2. The screen finds the row by
+ * (day, block position, exercise), and every set it logs there carries that
+ * `day` (a normal session's sets carry none, as before).
  *
  *   state: log (this screen's copy) · currentSetNumber · draft {reps, kg, note}
  *
@@ -94,6 +103,10 @@ interface SetDraft {
  * inline when saving failed or was refused. `realToday` is the real local date
  * (never a `?date=` preview); a `date` after it cannot be logged to. Unknown
  * block/exercise, or a day with no training, gives a "Nothing to log here" card.
+ *
+ * `day` is the program day from the route (absent in an old-form link: the
+ * date's own day), and `combines` the stored combines, so the screen builds the
+ * same session Today showed (`buildSwappedSessionFor`).
  */
 export function renderLogScreen(
   program: Program,
@@ -105,16 +118,36 @@ export function renderLogScreen(
   changeLog: ChangeLog,
   realToday: string = todayLocalDate(),
   noEquipmentTicks: NoEquipmentTicks = new Map(),
+  day?: DayNumber,
+  combines: CombinesByDate = new Map(),
 ): HTMLElement {
   const screen = element("section", "screen log-screen");
   // The swapped session, so a swapped item is found under the swap's id (the one in the address)
-  // and logs, pre-fills and shows "last time" as the swap.
-  const { session } = buildSwappedSession(program, settings, initialLog, noEquipmentTicks, date);
+  // and logs, pre-fills and shows "last time" as the swap. A combined date gives the merged session.
+  const { session } = buildSwappedSessionFor(program, settings, initialLog, noEquipmentTicks, combines, date, realToday);
+  const combine = activeCombineOn(program, settings.startDate, date, combines, initialLog, realToday);
 
-  const block = session.kind === "training" ? session.blocks.find((candidate) => candidate.position === blockPosition) : undefined;
+  // A donor date (its day was folded into another date) shows "Day N done with ..." on Today and no
+  // rows, so a direct link to it must not save a set that Today would then hide.
+  if (activeDonorOn(program, settings.startDate, date, combines, initialLog, realToday) !== undefined) {
+    screen.append(renderNothingToLogCard());
+    return screen;
+  }
+
+  // Find the row by (day, block position, exercise). An old-form link has no day: the date's own day.
+  // On a normal date a link naming another day matches nothing (e.g. a stale link after "Undo combine").
+  const wantedDay = day ?? combine?.hostDay;
+  const slot = session.kind === "training" || session.kind === "combined"
+    ? blockSlotsOf(session).find((candidate) =>
+        candidate.source.blockPosition === blockPosition &&
+        (wantedDay === undefined || candidate.source.day === wantedDay) &&
+        candidate.block.items.some((candidateItem) => candidateItem.exercise.id === exerciseId))
+    : undefined;
+  const block = slot?.block;
   const item = block?.items.find((candidate) => candidate.exercise.id === exerciseId);
 
-  if (session.kind !== "training" || block === undefined || item === undefined) {
+  const hasTraining = session.kind === "training" || session.kind === "combined";
+  if (!hasTraining || slot === undefined || block === undefined || item === undefined) {
     screen.append(renderNothingToLogCard());
     return screen;
   }
@@ -126,14 +159,21 @@ export function renderLogScreen(
   const week = session.week;
   const isFutureDate = date > realToday;
 
-  // The program day this item's block belongs to. Used to find sets and name keys; new sets do not store it
-  // (single-day logs keep the session's day; only combined sessions record a per-set `day`, see `LoggedSet.day`).
-  const dayNumber = session.dayNumber;
-  const sessionContext = { programWeek: week, day: dayNumber };
+  // The program day this item's block belongs to. Used to find sets and name keys. A normal session's new
+  // sets do not store it (they keep the session's day); a combined session's sets always do (`LoggedSet.day`),
+  // since two days share the date.
+  const dayNumber = slot.source.day;
+  const isCombined = session.kind === "combined";
+  const sessionContext = { programWeek: week, day: combine?.hostDay ?? dayNumber };
   const totalSets = countSetsForItem(trackedItem, trackedBlock);
   const tracksReps = itemTracksReps(trackedItem);
   const word = setWord(trackedItem);
-  const restMemory = restMemoryKey(date, blockPosition, trackedItem.exercise.id);
+  // In an "alternate" block (rule 4.2) each rest is spent on the other exercise, so logging a set must not
+  // start the rest timer; the Rest button stays for manual use.
+  const isInAlternateBlock = session.kind === "combined" && session.blocks.some((combinedBlock) =>
+    combinedBlock.arrangement === "alternate" &&
+    combinedBlock.parts.some((part) => part.source.day === dayNumber && part.source.blockPosition === blockPosition));
+  const restMemory = restMemoryKey(date, blockPosition, trackedItem.exercise.id, isCombined ? dayNumber : undefined);
 
   // A rest button only makes sense for straight/EMOM items with a prescribed rest. Heavy-bag
   // intervals have their own timer, and superset blocks rest between pairs (a block button on Today).
@@ -141,7 +181,7 @@ export function renderLogScreen(
 
   // Last time is looked up once: it only reads dates before this one, which edits here never touch.
   // The hint and the pre-fill share this one result, so they cannot disagree.
-  const lastTime = lastTimeForItem(initialLog, program, trackedItem, trackedBlock, session.dayNumber, date);
+  const lastTime = lastTimeForItem(initialLog, program, trackedItem, trackedBlock, dayNumber, date);
   const lastTimeText = lastTime === undefined ? undefined : formatLastTime(lastTime, setNounFor(trackedItem));
 
   let log = initialLog;
@@ -196,6 +236,8 @@ export function renderLogScreen(
   /** Builds a `LoggedSet` for `setNumber` from reps/kg/note values; zero kg and an empty note are left out. */
   function buildLoggedSet(setNumber: number, values: SetDraft): LoggedSet {
     const set: LoggedSet = { exerciseId: trackedItem.exercise.id, blockPosition, setNumber, loggedAt: new Date() };
+    // Two days share this date in a combined session, so each set says which day's block it is in.
+    if (isCombined) set.day = dayNumber;
     if (tracksReps && values.reps !== undefined) set.reps = values.reps;
     if (tracksReps && values.loadKg > 0) set.loadKg = values.loadKg;
     const note = values.note.trim();
@@ -233,10 +275,11 @@ export function renderLogScreen(
     focusSet(upNext);
     drawAndFocus();
 
+    // (Not in an alternate block of a combined session: the rest is spent on the other exercise.)
     // The rest opens already running (this tap is the user gesture that lets it make sound). When
     // it closes, the screen is redrawn (the label shows the remembered seconds) and focus goes
     // back to the current set, since the button that opened it no longer exists.
-    if (restRange !== undefined && upNext !== undefined) {
+    if (restRange !== undefined && upNext !== undefined && !isInAlternateBlock) {
       openRestTimer(restRange, itemDisplayName(trackedItem), restMemory, { startImmediately: true, onClose: drawAndFocus });
     }
   }
@@ -389,7 +432,7 @@ export function renderLogScreen(
 
     const heading = element("div", "log-heading");
     heading.append(
-      element("div", "kicker", `${blockLabel(trackedBlock.type)} · Week ${week}`),
+      element("div", "kicker", `${blockLabel(trackedBlock.type)} · Week ${week}${isCombined ? ` · Day ${dayNumber}` : ""}`),
       element("h1", "log-title", itemDisplayName(trackedItem)),
     );
     if (trackedItem.rotatedIn !== undefined) {
@@ -525,7 +568,7 @@ export function renderLogScreen(
     skip.disabled = currentSetNumber === undefined || nextSetNumber(currentSetNumber, totalSets, loggedNumbers()) === undefined;
 
     // Label shows the rest only when logging will actually start it (a set is still to come).
-    const startsRest = restRange !== undefined && nextSetNumber(currentSetNumber ?? 0, totalSets, loggedNumbers()) !== undefined;
+    const startsRest = restRange !== undefined && !isInAlternateBlock && nextSetNumber(currentSetNumber ?? 0, totalSets, loggedNumbers()) !== undefined;
     const logLabel = startsRest ? `✓ Log set · rest ${formatClock(currentRestSeconds(restRange, restMemory))}` : "✓ Log set";
     const logButton = renderActionButton("log-primary", logLabel, handleLogSet);
     logButton.disabled = isFutureDate;

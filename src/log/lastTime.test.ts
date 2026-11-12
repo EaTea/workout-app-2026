@@ -246,6 +246,55 @@ describe("findLastTime with No equipment swaps", () => {
   });
 });
 
+describe("findLastTime with a combined session (two days on one date)", () => {
+  /**
+   * The shipped program has no exercise at the same block type and position on
+   * two days, which a combined session can produce for other programs. So make
+   * one: Day 2's mini-dose (block 4) becomes Day 1's dip, so both days have a
+   * dip mini-dose at block position 4.
+   */
+  const rawProgram = JSON.parse(readFileSync("public/program.json", "utf-8"));
+  rawProgram.days[1].blocks[3].items = structuredClone(rawProgram.days[0].blocks[3].items);
+  const programWithSharedSlot = parseProgram(rawProgram).program;
+
+  /** A set of a combined session: it carries its own day. */
+  function makeDaySet(day: number, setNumber: number, reps: number): LoggedSet {
+    return { ...makeSet("dip", 4, setNumber, reps), day };
+  }
+
+  const log = makeLog({
+    date: "2026-11-02",
+    day: 1,
+    sets: [makeDaySet(1, 1, 7), makeDaySet(2, 1, 9), makeDaySet(2, 2, 8)],
+  });
+
+  it("asked as Day 1, finds only Day 1's block, not Day 2's sets in the same block position", () => {
+    const lastTime = findLastTime(log, programWithSharedSlot, query("dip", 1, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => [set.day, set.setNumber, set.reps])).toEqual([[1, 1, 7]]);
+  });
+
+  it("asked as Day 2, finds only Day 2's block", () => {
+    const lastTime = findLastTime(log, programWithSharedSlot, query("dip", 2, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => [set.day, set.setNumber, set.reps])).toEqual([[2, 1, 9], [2, 2, 8]]);
+  });
+
+  it("asked as another day, takes the larger block (by day and position) and never blends the two", () => {
+    const lastTime = findLastTime(log, programWithSharedSlot, query("dip", 5, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => [set.day, set.setNumber])).toEqual([[2, 1], [2, 2]]);
+  });
+
+  it("a tie goes to the earlier day", () => {
+    const tied = makeLog({ date: "2026-11-02", day: 1, sets: [makeDaySet(2, 1, 9), makeDaySet(1, 1, 7)] });
+
+    const lastTime = findLastTime(tied, programWithSharedSlot, query("dip", 5, "miniDose"), "2026-11-09");
+
+    expect(lastTime?.sets.map((set) => set.day)).toEqual([1]);
+  });
+});
+
 describe("findLastTime across alternating weeks (PLAN.md PR 26 rule 4)", () => {
   // Day 3's explosive block is block 2: plyo push-ups in odd weeks, wall throws in even weeks.
   const week1Day3 = "2026-11-04";

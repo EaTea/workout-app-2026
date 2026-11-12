@@ -18,6 +18,7 @@ describe("storageKeysForProgram", () => {
       retestDismissed: "explosive-endurance.retest-dismissed",
       retestJumpSkipped: "explosive-endurance.retest-jump-skipped",
       noEquipment: "explosive-endurance.no-equipment",
+      combines: "explosive-endurance.combines",
       importBackupPrefix: "explosive-endurance.import-backup-",
     });
   });

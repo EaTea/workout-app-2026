@@ -34,3 +34,15 @@ describe("restMemoryKey", () => {
     expect(restMemoryKey("2026-11-09", 2, "med_ball_slam")).toBe(base);
   });
 });
+
+describe("restMemoryKey for a combined session", () => {
+  it("keeps Day 1's and Day 2's block 2 apart, and the plain key unchanged", () => {
+    const plain = restMemoryKey("2026-11-09", 2, "med_ball_slam");
+    expect(plain).toBe("2026-11-09|block 2|med_ball_slam");
+
+    const dayOne = restMemoryKey("2026-11-09", 2, "med_ball_slam", 1);
+    const dayTwo = restMemoryKey("2026-11-09", 2, "med_ball_slam", 2);
+    expect(dayOne).not.toBe(dayTwo);
+    expect(dayOne).not.toBe(plain);
+  });
+});

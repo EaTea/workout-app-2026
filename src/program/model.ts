@@ -217,6 +217,14 @@ export interface Program {
   warmupRotation?: WarmupRotation;
   /** Undefined when the program has no fatigue check: no weekly check-in card, no drop banner, no broad jump on the retest card. */
   fatigueCheck?: FatigueCheck;
+  /**
+   * The day pairs Today may combine into one session, each `[earlierDay,
+   * laterDay]` with the later day exactly one after the earlier, both
+   * training days. Empty when the file has no `combining` section (Steady
+   * Strength), which means combining is never offered. Pairs the parser
+   * rejected are not here (they are `ProgramWarning`s).
+   */
+  combinePairs: readonly (readonly [DayNumber, DayNumber])[];
 }
 
 /**

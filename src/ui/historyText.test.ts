@@ -156,6 +156,26 @@ describe("No equipment swap ids", () => {
   });
 });
 
+describe("formatSessionHeader for a combined session", () => {
+  const set = (day: number | undefined): LoggedSet => ({ exerciseId: "split_squat_jump", day, blockPosition: 2, setNumber: 1, loggedAt: new Date("2026-11-09T10:00:00Z") });
+
+  it("reads Day 1 + Day 2 when the sets span both days", () => {
+    expect(formatSessionHeader(sessionWith({ programWeek: 2, day: 1, sets: [set(1), set(2)] }), program)).toBe("9 Nov · Week 2 · Day 1 + Day 2");
+  });
+
+  it("still reads Day 1 + Day 2 when only the added day's set is logged (the session's own day counts)", () => {
+    expect(formatSessionHeader(sessionWith({ programWeek: 2, day: 1, sets: [set(2)] }), program)).toBe("9 Nov · Week 2 · Day 1 + Day 2");
+  });
+
+  it("lists a missed day before the host day", () => {
+    expect(formatSessionHeader(sessionWith({ programWeek: 2, day: 4, sets: [set(4), set(3)] }), program)).toBe("9 Nov · Week 2 · Day 3 + Day 4");
+  });
+
+  it("keeps the single-day heading, with its title, when every set is on the session's day or has none", () => {
+    expect(formatSessionHeader(sessionWith({ programWeek: 2, day: 1, sets: [set(1), set(undefined)] }), program)).toBe("9 Nov · Week 2 · Day 1 · Upper: pull");
+  });
+});
+
 describe("History text for the alternating Day 3 explosive exercises (PLAN.md PR 26 rule 4)", () => {
   // Day 3's explosive block is block 2 in every week, so a week 2 throws set and a week 1 plyo set both resolve.
   const throwsSession = sessionWith({ date: "2026-11-11", programWeek: 2, day: 3 });

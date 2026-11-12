@@ -1915,7 +1915,7 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
 
 ```
  Today · Week 2 · Day 1                  Today · Week 2 · Day 1 + Day 2
- Upper: pull · ~50 min                   Upper: pull + Lower: knee · ~72 min
+ Upper: pull · ~50 min                   Upper: pull + Lower: knee · ~73 min
  ┌──────────────────────────────┐        ┌──────────────────────────────────┐
  │ 1 Warm-up  YTWI · Pallof     │        │ 1 Warm-up   D1 YTWI · Pallof     │
  │ 2 Explosive  Med ball slams  │ tap    │ 2 Warm-up   D2 Cossack · Hip ab  │
@@ -1952,8 +1952,12 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
      D−1's date is in the past, nothing was logged on it, and it wasn't
      combined already. When both apply, both buttons show.
    - Never on the rest day, before the start date or after week 8.
-3. **Undo.** "Undo combine" shows until the first set of the combined
-   session is logged, and puts both days back as they were.
+   - Only on the real today (the device's date), never on a `?date=`
+     preview: combining is "on the day". The buttons sit just under the
+     session header card, so there is no scrolling to find them.
+3. **Undo.** "Undo combine" shows (just under the header, on the real
+   today only) until the first set of the combined session is logged, and
+   puts both days back as they were.
 4. **Merged session order.** Built by a pure function from the two days'
    sessions as Today already builds them for week W (deload halving,
    power-endurance changes, max-rep targets and no-equipment swaps
@@ -1962,8 +1966,10 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
    1. Warm-ups: both days' warm-up blocks in full (Ed: never cut).
    2. Explosive: both blocks. When both are set-based they are shown as
       one "alternate" block: a set of one, then a set of the other, so
-      each one's rest is spent on the other. An EMOM (kettlebell swings)
-      can't alternate, so it runs as its own block after the other.
+      each one's rest is spent on the other, so logging a set there does
+      not auto-start the rest timer (the Rest button stays for manual
+      use). An EMOM (kettlebell swings) can't alternate, so it runs as its
+      own block after the other.
       When the two have different set counts (Day 2 + 3 in an even week:
       split-squat jumps 5 × 6 per leg ⇄ wall throws 4 × 5 per side), they
       alternate while both have sets left and the longer one finishes
@@ -1976,11 +1982,16 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
 5. **Length.** The header shows the two days' `targetMinutes` added up,
    minus 3 minutes when the explosive blocks alternate and minus 4 when
    optional core items and a bag round are dropped. That gives Day 1 + 2
-   ~72, Day 2 + 3 ~66, Day 3 + 4 ~70 and Day 5 + 6 ~84 minutes (estimates,
+   ~73, Day 2 + 3 ~67, Day 3 + 4 ~70 and Day 5 + 6 ~85 minutes (estimates,
    not timings).
 6. **The donor day.** The day that was folded in shows "Day N done with
    Day M on <date>" on its own date and no session. The day plans by week
-   (PR 12) show both days as planned, with a "Combined" note.
+   (PR 12) show both days as planned, with a "Combined" note. A combine
+   *lapses* when its host date is before the real today and nothing is
+   logged on it: it is then treated as if it never existed (the donor date
+   shows its normal session, offers ignore it, no "Combined" note, and the
+   host date's past view is the single day). A host date of today or
+   later, or with sets logged, stays active.
 7. **Logging.** Sets from a combined session are saved on today's date.
    Each set records the day and block position it has in **its own day**
    (not in the merged view), so "last time" hints, History and the CSV
@@ -2006,12 +2017,21 @@ import (an older export without it imports as no combines).
 | Date | Situation | Expected |
 | --- | --- | --- |
 | 9 Nov (W2 D1) | Nothing logged yet | "Add Day 2 to today" shows; no "missed" button (no pair ends on Day 1) |
-| 9 Nov (W2 D1) | Day 2 added | Blocks: D1 warm-up, D2 warm-up, slams ⇄ split-squat jumps, D1 pull-up EMOM, D2 Zercher BSS, D1 dip mini, D2 SL RDL mini, D1 core (no side plank), D1 bag 4 rounds; ~72 min |
+| 9 Nov (W2 D1) | Day 2 added | Blocks: D1 warm-up, D2 warm-up, slams ⇄ split-squat jumps, D1 pull-up EMOM, D2 Zercher BSS, D1 dip mini, D2 SL RDL mini, D1 core (no side plank), D1 bag 4 rounds; ~73 min |
 | 10 Nov (W2 D2) | After the combine above | "Day 2 done with Day 1 on 9 Nov", no session, no buttons |
 | 12 Nov (W2 D4) | Day 3 (11 Nov) had nothing logged | "Add missed Day 3 to today"; no "Add Day 5" ([4, 5] isn't a pair) |
 | 12 Nov (W2 D4) | Day 3 added | Explosive: rotational wall throws (Day 3's even-week item, PR 26), then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
 | 23 Nov (W4 D1, deload) | Day 2 added | Both days' sets halved first, then merged |
-| 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~84 min |
+| 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~85 min |
+
+**Notes from implementing PR 25 steps 1 to 3.**
+- *The no-equipment ticks are not in the export*, so the combines store was
+  modelled on the fatigue/max-history sections instead: `combines` is an
+  optional top-level section of export v2, read tolerantly on import, and the
+  key is one of the keys an import replaces (so an import without it clears
+  combines).
+- Offers (`program/combineOffers.ts`) also refuse when the added day's date
+  has something logged on it, not only the missed day's.
 
 ### PR 24 — Logged sets remember their own day *(internal refactor)*
 No behavior change. Today each logged set's slot is found from the
@@ -2032,16 +2052,16 @@ days, so each set needs to carry its own day.
 
 ### PR 25 — Combine two days on Today *(behavior change)*
 **Steps.**
-1. [ ] `combining.pairs` in `program.json`, its wire type, parse and
+1. [x] `combining.pairs` in `program.json`, its wire type, parse and
    validation (rule 1), with tests for each rejected pair.
-2. [ ] The combines store (wire type, parse/serialize, per program) and
+2. [x] The combines store (wire type, parse/serialize, per program) and
    its place in the JSON export and import.
-3. [ ] The pure merge function (rules 4 and 5), tested against the worked
+3. [x] The pure merge function (rules 4 and 5), tested against the worked
    examples above.
-4. [ ] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
+4. [x] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
    Undo (rule 3), the merged session with day labels, the donor day's
    card (rule 6), and the "Combined" note on the day plans.
-5. [ ] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
+5. [x] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
    History heading.
    Everything keyed by a date and block position needs the day too, since
    both days have a block 2 (found in the PR 24 review): the log screen
@@ -2050,7 +2070,7 @@ days, so each set needs to carry its own day.
    (`noEquipment/choices.ts`), Today's row progress and session
    progress (one day per session today), the History group order, and
    "last time"'s `setsOfLargestBlock`, which groups by block only.
-6. [ ] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
+6. [x] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
    set, see 10 Nov's "done with Day 1" card, and see the set in History;
    undo before logging puts both days back.
 7. [ ] Fixes from the challenger review.

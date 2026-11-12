@@ -1,3 +1,5 @@
+import type { CombinesByDate } from "../combine/model";
+import { combinesFromWire } from "../combine/wire";
 import type { FatigueHistory } from "../fatigue/model";
 import { fatigueHistoryFromWire } from "../fatigue/wire";
 import type { WorkoutLog } from "../log/model";
@@ -17,7 +19,8 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  *   file text ─JSON.parse─▶ unknown ─┬─ settings ─┐
  *                                    ├─ maxHistory ┴▶ settingsFromWire ─▶ TrainingSettings
  *                                    ├─ log ───────▶ logFromWire ──────▶ WorkoutLog
- *                                    └─ fatigueChecks ▶ fatigueHistoryFromWire ▶ FatigueHistory
+ *                                    ├─ fatigueChecks ▶ fatigueHistoryFromWire ▶ FatigueHistory
+ *                                    └─ combines (optional) ▶ combinesFromWire ▶ CombinesByDate
  *
  * What is refused (nothing is read at all): text that is not JSON, a file
  * that is not our format, a version other than 1 or 2, a version 2 file whose `programId` is not a valid
@@ -27,7 +30,10 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  * block that is not version 1 (replacing the athlete's data with defaults
  * because of a file from a newer app would be the worst outcome), and files
  * over 10 MB. What is tolerated: individual bad sets or checks, which are
- * left out and listed in `problems`, exactly as the loaders do. Parsing never
+ * left out and listed in `problems`, exactly as the loaders do. The
+ * `combines` section is optional (files from before PR 25 have none and import
+ * as no combines) and never refuses a file: unusable entries are dropped, as
+ * the loader does. Parsing never
  * throws: anything unexpected becomes "could not be read".
  * `corruptLogBackups` and `importBackups` in the file are ignored: they are
  * not part of the data an import restores.
@@ -54,6 +60,8 @@ export interface ImportedData {
   settings: TrainingSettings;
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
+  /** The file's combined days; empty when the file has none (an older export). */
+  combines: CombinesByDate;
 }
 
 /** What the confirmation step shows about the file. Dates are "YYYY-MM-DD"; the session dates are absent for an empty log. `exportedAt` is the file's ISO timestamp, absent when the file's is not a real date. */
@@ -148,7 +156,10 @@ function parseImportUnguarded(fileText: string): ImportParseResult {
   if (!settingsResult.ok) return settingsResult;
   const settings = settingsResult.settings;
 
-  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory };
+  // Absent in files from before combines existed: the same as an empty store.
+  const combines = combinesFromWire(parsed.combines);
+
+  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory, combines };
   return { ok: true, data, summary: summarize(data, parsed.exportedAt), problems };
 }
 

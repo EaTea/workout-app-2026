@@ -212,6 +212,11 @@ A program file may leave out `fatigueCheck`, `warmupRotation` and
 banner or retest broad jump; without `warmupRotation` warm-ups never rotate and
 there is no rotation card. When a section is present it is checked as before.
 
+An optional `combining` section, `{ "pairs": [[1, 2], [2, 3]] }`, lists the day
+pairs Today may offer to merge into one session (each pair is two training days
+next to each other, lower day first). A bad pair is shown as a warning and
+ignored; without the section combining is never offered.
+
 `days[].day` and `restDay` are whole numbers from 1 to 7: Day 1 is the session
 on your start date, and Day 7 is the rest day in the shipped program (not
 weekday names). A progression phase can set `"retest": true`; EMOMs in that
