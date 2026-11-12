@@ -18,9 +18,13 @@ import { element } from "./dom";
  * phone's Back (backToClose.ts) / hashchange close it, and focus returns to
  * the button that opened it.
  *
- *   openDemoView(demo, { title, dose, opener })
+ *   openDemoView(loadingDemo, { title, dose, opener })
  *        │
- *        ├─ createDemoRenderer(stage, demo) ──▶ 3D (three.js) or flat SVG
+ *        ├─ at once: overlay with the header (title, dose, Close) and a black stage
+ *        │
+ *        ├─ when loadingDemo resolves (the demo is built in a lazy chunk, see
+ *        │  demo/registry.ts): the step label, cue and controls appear, and
+ *        │  createDemoRenderer(stage, demo) ──▶ 3D (three.js) or flat SVG
  *        │
  *        └─ one requestAnimationFrame loop while open and visible:
  *              delta = real time since last frame (capped)
@@ -57,30 +61,22 @@ export interface DemoViewHandle {
   close(): void;
 }
 
-/** Opens the "Show me" overlay for `demo` and returns a handle to close it. */
-export function openDemoView(demo: Demo, options: DemoViewOptions): DemoViewHandle {
+/**
+ * Opens the "Show me" overlay at once and returns a handle to close it. The
+ * demo arrives as a promise because building it is deferred until the first
+ * tap (demo/registry.ts `loadDemo`); until then the overlay shows only the
+ * header and the black stage. If the promise rejects or resolves to undefined,
+ * the cue line says the demo could not be loaded and Close still works.
+ */
+export function openDemoView(loadingDemo: Promise<Demo | undefined>, options: DemoViewOptions): DemoViewHandle {
   const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-  const stills = stillFrames(demo);
 
-  // --- State ---
+  // --- State that exists before the demo has loaded ---
   let isClosed = false;
-  let isPaused = false;
-  let speed = NORMAL_SPEED;
-  /** Milliseconds into the demo's loop. */
-  let clockMs = 0;
+  /** Stops the loop, frees the renderer and removes the listeners that only exist while a demo is playing; replaced by playDemo. */
+  let stopDemo: () => void = () => {};
 
-  const cycle = viewCycle(demo.view);
-  let currentView: CameraView = demo.view;
-  let currentAzimuth = azimuthOf(currentView);
-  let turnFromAzimuth = currentAzimuth;
-  let turnToAzimuth = currentAzimuth;
-  let sinceTurnStartMs = Number.POSITIVE_INFINITY;
-
-  let renderer: DemoRenderer | null = null;
-  let animationFrameId: number | null = null;
-  let previousTimestamp: number | null = null;
-
-  // --- Structure (built once; updateControls/draw only change text and attributes) ---
+  // --- Structure that needs no demo (built once) ---
   const overlay = element("div", "demo-view");
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
@@ -94,135 +90,12 @@ export function openDemoView(demo: Demo, options: DemoViewOptions): DemoViewHand
   const topBar = element("div", "demo-top");
   topBar.append(closeButton, heading);
 
+  // Stays black until the demo has loaded and a renderer is drawing into it.
   const stage = element("div", "demo-stage");
   stage.setAttribute("role", "img");
-  stage.setAttribute("aria-label", demo.ariaLabel);
+  stage.setAttribute("aria-label", `${options.title}, loading the demonstration`);
 
-  // Purely visual and not a live region: the cue and the aria label already say what happens.
-  const stepLabel = element("div", "demo-step");
-  stepLabel.setAttribute("aria-hidden", "true");
-  const cue = element("p", "demo-cue", demo.cue);
-
-  // Reduced motion only: "Start → Hold" with the current still highlighted.
-  const stillCaption = element("p", "demo-stills");
-  const stillCaptionItems = stills.map((still) => element("span", "demo-still", still.label));
-  stillCaptionItems.forEach((item, index) => {
-    if (index > 0) stillCaption.append(" → ");
-    stillCaption.append(item);
-  });
-  stillCaption.hidden = !prefersReducedMotion;
-
-  const primaryButton = element("button", "demo-button");
-  primaryButton.type = "button";
-  const speedButton = element("button", "demo-button");
-  speedButton.type = "button";
-  speedButton.hidden = prefersReducedMotion;
-  const turnButton = element("button", "demo-button");
-  turnButton.type = "button";
-  const controls = element("div", "demo-controls");
-  controls.append(primaryButton, speedButton, turnButton);
-
-  overlay.append(topBar, stage, stepLabel, cue, stillCaption, controls);
-
-  // --- Behaviour ---
-
-  /** Updates button texts and the test-hook attributes from the current state. */
-  function updateControls(): void {
-    primaryButton.textContent = prefersReducedMotion ? "Next step" : pauseButtonLabel(isPaused);
-    speedButton.textContent = speedButtonLabel(speed);
-    turnButton.textContent = turnButtonLabel(nextView(cycle, currentView));
-
-    overlay.dataset.paused = String(isPaused);
-    overlay.dataset.speed = String(speed);
-    overlay.dataset.view = currentView;
-    overlay.dataset.reducedMotion = String(prefersReducedMotion);
-  }
-
-  /** Draws the frame for the current clock and azimuth, and updates the step label. Called by the loop and after any change while it is not running. */
-  function drawNow(): void {
-    const frame = frameAt(demo, clockMs);
-    stepLabel.textContent = frame.label;
-    overlay.dataset.stepLabel = frame.label;
-
-    const currentStill = stillIndexForStep(demo, frame.stepIndex);
-    stillCaptionItems.forEach((item, index) => item.classList.toggle("demo-still-current", index === currentStill));
-
-    renderer?.draw(frame.pose, currentAzimuth);
-  }
-
-  /** One animation frame: advance the clock and the camera by the real time since the last frame, then draw. */
-  function onAnimationFrame(timestamp: number): void {
-    animationFrameId = null;
-    if (isClosed || document.hidden) return;
-
-    const deltaMs = frameDeltaMs(previousTimestamp, timestamp);
-    previousTimestamp = timestamp;
-
-    clockMs = advanceClock(clockMs, deltaMs, speed, isPaused);
-    sinceTurnStartMs += deltaMs;
-    currentAzimuth = turnAzimuth(turnFromAzimuth, turnToAzimuth, sinceTurnStartMs);
-
-    drawNow();
-    animationFrameId = window.requestAnimationFrame(onAnimationFrame);
-  }
-
-  /** Starts the loop if it should be running (open, visible, motion allowed, renderer ready). */
-  function startLoop(): void {
-    if (isClosed || prefersReducedMotion || renderer === null || document.hidden || animationFrameId !== null) return;
-    // The first frame after (re)starting counts as zero time, so the clock never jumps.
-    previousTimestamp = null;
-    animationFrameId = window.requestAnimationFrame(onAnimationFrame);
-  }
-
-  /** Stops the loop (on close and while the page is hidden). */
-  function stopLoop(): void {
-    if (animationFrameId !== null) {
-      window.cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    }
-  }
-
-  /** Stops the loop while the page is hidden and restarts it, with a fresh time base, when it comes back. */
-  function handleVisibilityChange(): void {
-    if (document.hidden) stopLoop();
-    else startLoop();
-  }
-
-  /** Pause/Play, or with reduced motion "Next step": jump the clock to the next hold. */
-  function handlePrimary(): void {
-    if (prefersReducedMotion) {
-      clockMs = nextHoldTime(demo, clockMs);
-      drawNow();
-    } else {
-      isPaused = !isPaused;
-    }
-    updateControls();
-  }
-
-  /** Toggles between normal and half speed. */
-  function handleSpeed(): void {
-    speed = speed === NORMAL_SPEED ? SLOW_SPEED : NORMAL_SPEED;
-    updateControls();
-  }
-
-  /** Turns the camera to the next angle: eased over ~0.8 s, or at once with reduced motion. The demo clock is untouched. */
-  function handleTurn(): void {
-    currentView = nextView(cycle, currentView);
-    turnFromAzimuth = currentAzimuth;
-    turnToAzimuth = azimuthOf(currentView);
-    sinceTurnStartMs = 0;
-    if (prefersReducedMotion) {
-      currentAzimuth = turnToAzimuth;
-      drawNow();
-    }
-    updateControls();
-  }
-
-  /** Re-fits the picture when the window changes size (a phone turned on its side, say). */
-  function handleResize(): void {
-    renderer?.resize();
-    if (renderer !== null && (prefersReducedMotion || isPaused)) drawNow();
-  }
+  overlay.append(topBar, stage);
 
   /** Escape closes; Tab stays inside the overlay. */
   function handleKeydown(event: KeyboardEvent): void {
@@ -259,13 +132,9 @@ export function openDemoView(demo: Demo, options: DemoViewOptions): DemoViewHand
     if (isClosed) return;
     isClosed = true;
 
-    stopLoop();
-    renderer?.dispose();
-    renderer = null;
+    stopDemo();
     document.removeEventListener("keydown", handleKeydown);
-    document.removeEventListener("visibilitychange", handleVisibilityChange);
     window.removeEventListener("hashchange", close);
-    window.removeEventListener("resize", handleResize);
     backToClose.release();
     for (const region of backgroundRegions) region.inert = false;
     document.body.style.overflow = previousBodyOverflow;
@@ -273,33 +142,216 @@ export function openDemoView(demo: Demo, options: DemoViewOptions): DemoViewHand
     if (options.opener.isConnected) options.opener.focus();
   }
 
-  closeButton.addEventListener("click", close);
-  primaryButton.addEventListener("click", handlePrimary);
-  speedButton.addEventListener("click", handleSpeed);
-  turnButton.addEventListener("click", handleTurn);
-  document.addEventListener("keydown", handleKeydown);
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-  window.addEventListener("hashchange", close);
-  window.addEventListener("resize", handleResize);
+  /**
+   * Once the demo has loaded: adds the step label, cue and controls under the
+   * stage, starts the renderer (the 3D chunk loads on first use) and the loop.
+   * Everything it sets up is undone by `stopDemo`, which close() calls.
+   */
+  function playDemo(demo: Demo): void {
+    // --- State that needs the demo ---
+    let isPaused = false;
+    let speed = NORMAL_SPEED;
+    /** Milliseconds into the demo's loop. */
+    let clockMs = 0;
 
-  updateControls();
-  overlay.dataset.renderer = "";
-  drawNow();
-  document.body.append(overlay);
-  primaryButton.focus();
+    const cycle = viewCycle(demo.view);
+    let currentView: CameraView = demo.view;
+    let currentAzimuth = azimuthOf(currentView);
+    let turnFromAzimuth = currentAzimuth;
+    let turnToAzimuth = currentAzimuth;
+    let sinceTurnStartMs = Number.POSITIVE_INFINITY;
 
-  // The renderer arrives a moment later (the 3D chunk loads on first use). If the view was closed meanwhile, free it at once.
-  void createDemoRenderer(stage, demo).then(({ renderer: created, kind }) => {
-    if (isClosed) {
-      created.dispose();
-      return;
+    let renderer: DemoRenderer | null = null;
+    let animationFrameId: number | null = null;
+    let previousTimestamp: number | null = null;
+
+    const stills = stillFrames(demo);
+    stage.setAttribute("aria-label", demo.ariaLabel);
+
+    // --- Structure (built once; updateControls/draw only change text and attributes) ---
+    // Purely visual and not a live region: the cue and the aria label already say what happens.
+    const stepLabel = element("div", "demo-step");
+    stepLabel.setAttribute("aria-hidden", "true");
+    const cue = element("p", "demo-cue", demo.cue);
+
+    // Reduced motion only: "Start → Hold" with the current still highlighted.
+    const stillCaption = element("p", "demo-stills");
+    const stillCaptionItems = stills.map((still) => element("span", "demo-still", still.label));
+    stillCaptionItems.forEach((item, index) => {
+      if (index > 0) stillCaption.append(" → ");
+      stillCaption.append(item);
+    });
+    stillCaption.hidden = !prefersReducedMotion;
+
+    const primaryButton = element("button", "demo-button");
+    primaryButton.type = "button";
+    const speedButton = element("button", "demo-button");
+    speedButton.type = "button";
+    speedButton.hidden = prefersReducedMotion;
+    const turnButton = element("button", "demo-button");
+    turnButton.type = "button";
+    const controls = element("div", "demo-controls");
+    controls.append(primaryButton, speedButton, turnButton);
+
+    overlay.append(stepLabel, cue, stillCaption, controls);
+
+    // --- Behaviour ---
+
+    /** Updates button texts and the test-hook attributes from the current state. */
+    function updateControls(): void {
+      primaryButton.textContent = prefersReducedMotion ? "Next step" : pauseButtonLabel(isPaused);
+      speedButton.textContent = speedButtonLabel(speed);
+      turnButton.textContent = turnButtonLabel(nextView(cycle, currentView));
+
+      overlay.dataset.paused = String(isPaused);
+      overlay.dataset.speed = String(speed);
+      overlay.dataset.view = currentView;
+      overlay.dataset.reducedMotion = String(prefersReducedMotion);
     }
-    renderer = created;
-    overlay.dataset.renderer = kind;
-    renderer.resize();
+
+    /** Draws the frame for the current clock and azimuth, and updates the step label. Called by the loop and after any change while it is not running. */
+    function drawNow(): void {
+      const frame = frameAt(demo, clockMs);
+      stepLabel.textContent = frame.label;
+      overlay.dataset.stepLabel = frame.label;
+
+      const currentStill = stillIndexForStep(demo, frame.stepIndex);
+      stillCaptionItems.forEach((item, index) => item.classList.toggle("demo-still-current", index === currentStill));
+
+      renderer?.draw(frame.pose, currentAzimuth);
+    }
+
+    /** One animation frame: advance the clock and the camera by the real time since the last frame, then draw. */
+    function onAnimationFrame(timestamp: number): void {
+      animationFrameId = null;
+      if (isClosed || document.hidden) return;
+
+      const deltaMs = frameDeltaMs(previousTimestamp, timestamp);
+      previousTimestamp = timestamp;
+
+      clockMs = advanceClock(clockMs, deltaMs, speed, isPaused);
+      sinceTurnStartMs += deltaMs;
+      currentAzimuth = turnAzimuth(turnFromAzimuth, turnToAzimuth, sinceTurnStartMs);
+
+      drawNow();
+      animationFrameId = window.requestAnimationFrame(onAnimationFrame);
+    }
+
+    /** Starts the loop if it should be running (open, visible, motion allowed, renderer ready). */
+    function startLoop(): void {
+      if (isClosed || prefersReducedMotion || renderer === null || document.hidden || animationFrameId !== null) return;
+      // The first frame after (re)starting counts as zero time, so the clock never jumps.
+      previousTimestamp = null;
+      animationFrameId = window.requestAnimationFrame(onAnimationFrame);
+    }
+
+    /** Stops the loop (on close and while the page is hidden). */
+    function stopLoop(): void {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    }
+
+    /** Stops the loop while the page is hidden and restarts it, with a fresh time base, when it comes back. */
+    function handleVisibilityChange(): void {
+      if (document.hidden) stopLoop();
+      else startLoop();
+    }
+
+    /** Pause/Play, or with reduced motion "Next step": jump the clock to the next hold. */
+    function handlePrimary(): void {
+      if (prefersReducedMotion) {
+        clockMs = nextHoldTime(demo, clockMs);
+        drawNow();
+      } else {
+        isPaused = !isPaused;
+      }
+      updateControls();
+    }
+
+    /** Toggles between normal and half speed. */
+    function handleSpeed(): void {
+      speed = speed === NORMAL_SPEED ? SLOW_SPEED : NORMAL_SPEED;
+      updateControls();
+    }
+
+    /** Turns the camera to the next angle: eased over ~0.8 s, or at once with reduced motion. The demo clock is untouched. */
+    function handleTurn(): void {
+      currentView = nextView(cycle, currentView);
+      turnFromAzimuth = currentAzimuth;
+      turnToAzimuth = azimuthOf(currentView);
+      sinceTurnStartMs = 0;
+      if (prefersReducedMotion) {
+        currentAzimuth = turnToAzimuth;
+        drawNow();
+      }
+      updateControls();
+    }
+
+    /** Re-fits the picture when the window changes size (a phone turned on its side, say). */
+    function handleResize(): void {
+      renderer?.resize();
+      if (renderer !== null && (prefersReducedMotion || isPaused)) drawNow();
+    }
+
+    // --- Wiring ---
+    primaryButton.addEventListener("click", handlePrimary);
+    speedButton.addEventListener("click", handleSpeed);
+    turnButton.addEventListener("click", handleTurn);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("resize", handleResize);
+
+    stopDemo = () => {
+      stopLoop();
+      renderer?.dispose();
+      renderer = null;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("resize", handleResize);
+    };
+
+    updateControls();
     drawNow();
-    startLoop();
-  });
+    primaryButton.focus();
+
+    // The renderer arrives a moment later (the 3D chunk loads on first use). If the view was closed meanwhile, free it at once.
+    void createDemoRenderer(stage, demo).then(({ renderer: created, kind }) => {
+      if (isClosed) {
+        created.dispose();
+        return;
+      }
+      renderer = created;
+      overlay.dataset.renderer = kind;
+      renderer.resize();
+      drawNow();
+      startLoop();
+    });
+  }
+
+  /** The demo could not be built or fetched: say so in the cue line; Close still works. */
+  function showLoadFailure(): void {
+    overlay.append(element("p", "demo-cue", "Sorry, this demonstration could not be loaded."));
+    overlay.dataset.renderer = "";
+  }
+
+  closeButton.addEventListener("click", close);
+  document.addEventListener("keydown", handleKeydown);
+  window.addEventListener("hashchange", close);
+
+  overlay.dataset.renderer = "";
+  document.body.append(overlay);
+  closeButton.focus();
+
+  loadingDemo.then(
+    (demo) => {
+      if (isClosed) return;
+      if (demo === undefined) showLoadFailure();
+      else playDemo(demo);
+    },
+    () => {
+      if (!isClosed) showLoadFailure();
+    },
+  );
 
   return { close };
 }

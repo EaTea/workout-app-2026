@@ -1756,12 +1756,13 @@ the end of the loop. Head turns and sideways walking show both directions.
                             scales elapsed time for Slower and stops it for Pause
                             (pure, unit tested; eased like the crab drill artifact)
  src/demo/steadyStrength.ts the 34 demos, keyed by exercise id
- src/demo/registry.ts       demoFor(programId, exerciseId) ─▶ Demo | undefined
+ src/demo/registry.ts       hasDemo(programId, exerciseId) (cheap id list, in the main bundle);
+                            loadDemo(...) ─▶ Promise<Demo | undefined> (builds demos in a lazy chunk)
  src/demo/render3d.ts       three.js scene: mannequin meshes posed from jointPositions(),
                             props, lights, camera angles (loaded only when "Show me" opens)
  src/demo/renderFlat.ts     the flat fallback, drawn from the same jointPositions()
  src/ui/demoView.ts         the overlay: picks a renderer, controls, reduced motion, Back to close
- src/ui/today.ts, dayPlan.ts, logScreen.ts   the "▶ Show me" buttons (only when demoFor finds one)
+ src/ui/today.ts, dayPlan.ts, logScreen.ts   the "▶ Show me" buttons (only when hasDemo is true)
 
    Demo (poses) ──timeline──▶ blended Pose ──skeleton──▶ joint points ──┬─▶ render3d (WebGL)
                                                                         └─▶ renderFlat (no WebGL)
@@ -1786,7 +1787,7 @@ the end of the loop. Head turns and sideways walking show both directions.
 - **The demos are code, not program data.** They describe drawing, not the
   program, so they don't go in `steady-strength.json` and need no wire
   type: nothing crosses a boundary (CLAUDE.md section 6 doesn't apply).
-  `demoFor` is keyed by program id too, so an id that happens to match in
+  `hasDemo` and `loadDemo` are keyed by program id too, so an id that happens to match in
   another program doesn't pick up a Steady Strength drawing. A unit test
   fails if any Steady Strength exercise has no demo, so a new exercise in
   the file can't ship without one.
@@ -1848,7 +1849,42 @@ project files under `screenshots/demos/`.
    off the flat figure shows instead; Explosive Endurance Day 1 has no
    "Show me". Screenshots of the 3D view for Ed.
 7. [x] The contact sheet for these 18 (`node docs/demos/render.cjs`, see README).
-8. [ ] Fixes from the challenger review.
+8. [ ] **Fixes from the challenger review.** Every suite passed and the
+   mechanics (kinematics, clock, Back and focus, disposal, offline cache)
+   checked out, but several drawings taught the wrong thing:
+   - [x] Start-up: all demos were built at import, which made Today about
+     1.4 s slower to open on a slow phone. Only the list of ids is in the
+     main bundle now; demos are built in a lazy chunk when "Show me" opens.
+   - [x] Stale "later step" comments in the demo modules.
+   - [ ] Sit-to-stand stood up with the weight behind the feet (a fall
+     back into the chair). Feet tucked back, the lean held through
+     seat-off, and a test that the body's centre of mass is over the feet
+     once the hands leave the chair.
+   - [ ] Doorway chest stretch: the near post hid the arm, the forearm sat
+     on the side of the post, and the hold showed no stretch.
+   - [ ] Calf stretch moved the wrong foot (forward, not back).
+   - [ ] Heel-to-toe stand slid one foot through the other.
+   - [ ] Sideways walking went one way and jumped at the loop restart; it
+     now steps out and back, so it shows both directions.
+   - [ ] Pallof press faced the door instead of standing side-on to it.
+   - [ ] Ankle pumps held the leg off the floor (a leg raise the program
+     doesn't ask for); the heel now rests on the floor.
+   - [ ] The bridge's "no higher than a straight line" test could never
+     fail; it now checks which side of the shoulder–knee line the hips
+     are. Hands on supports are checked against the furniture, every
+     frame. Spine extension is capped at 0° except the back extension.
+   - [ ] Turn reached angles where a wall, counter or bed hid the figure.
+     Each demo now lists the angles that show it, and Turn cycles only
+     those (a demo with one useful angle has no Turn button).
+   - [ ] Small screens: Show me moves under the title on the log screen,
+     the controls fit a 568 px tall screen, and landscape gets a bigger
+     stage. The view stops redrawing while paused.
+   - [ ] A bolder face marker so head turns show, closer framing for the
+     bridge, and walks at a real slow and comfortable step rate.
+   - Changed from the plan: reduced motion shows one large still at a
+     time with "Next step" and a "Start → Hold" caption, not two stills
+     side by side. Two stills would each be half the size, which is the
+     wrong trade for someone with poor eyesight.
 - **Merge point:** Days 1, 2, 4 and 6 have an animation for every
   exercise. Days 3 and 5 show "Show me" only where they share an exercise
   with Day 1.

@@ -4,7 +4,7 @@ import { loopLengthMs, frameAt, stillFrames } from "./timeline";
 import { BODY, angleAtJoint, distance, jointPositions } from "./skeleton";
 import type { Demo, JointName, Pose, Vec3 } from "./model";
 import { steadyStrengthDemos } from "./steadyStrength";
-import { demoFor } from "./registry";
+import { DEMO_EXERCISE_IDS, hasDemo, loadDemo } from "./registry";
 
 /** Every 100 ms across one whole loop, including the blended frames inside the moves. */
 function sampleTimes(loopMs: number): number[] {
@@ -14,15 +14,25 @@ function sampleTimes(loopMs: number): number[] {
 }
 
 describe("registry", () => {
-  it("finds a Steady Strength demo by program id and exercise id", () => {
-    expect(demoFor("steady-strength", "high_wall_sit")).toBe(steadyStrengthDemos.high_wall_sit);
+  it("loads a Steady Strength demo by program id and exercise id", async () => {
+    expect(await loadDemo("steady-strength", "high_wall_sit")).toBe(steadyStrengthDemos.high_wall_sit);
   });
 
-  it("returns nothing for other programs, unknown exercises and inherited object keys", () => {
-    expect(demoFor("explosive-endurance", "high_wall_sit")).toBeUndefined();
-    expect(demoFor("steady-strength", "pull_up")).toBeUndefined();
-    expect(demoFor("steady-strength", "toString")).toBeUndefined();
-    expect(demoFor("constructor", "high_wall_sit")).toBeUndefined();
+  it("builds each program's demos once and reuses them", async () => {
+    expect(await loadDemo("steady-strength", "sit_to_stand")).toBe(await loadDemo("steady-strength", "sit_to_stand"));
+  });
+
+  it("has nothing for other programs, unknown exercises and inherited object keys", async () => {
+    expect(hasDemo("explosive-endurance", "high_wall_sit")).toBe(false);
+    expect(hasDemo("steady-strength", "pull_up")).toBe(false);
+    expect(hasDemo("steady-strength", "toString")).toBe(false);
+    expect(hasDemo("constructor", "high_wall_sit")).toBe(false);
+    expect(await loadDemo("explosive-endurance", "high_wall_sit")).toBeUndefined();
+    expect(await loadDemo("steady-strength", "toString")).toBeUndefined();
+  });
+
+  it("lists exactly the exercise ids of the built demos, so the cheap list cannot drift from them", () => {
+    expect([...DEMO_EXERCISE_IDS["steady-strength"]!].sort()).toEqual(Object.keys(steadyStrengthDemos).sort());
   });
 });
 

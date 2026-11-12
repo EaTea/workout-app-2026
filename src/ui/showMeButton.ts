@@ -1,4 +1,4 @@
-import { demoFor } from "../demo/registry";
+import { hasDemo, loadDemo } from "../demo/registry";
 import type { ItemView } from "../program/schedule";
 import { itemDisplayName } from "../program/rotation";
 import { element } from "./dom";
@@ -13,10 +13,13 @@ import { openDemoView } from "./demoView";
  *   today.ts / dayPlan.ts / logScreen.ts
  *        │  renderShowMeButton(programId, item, className)
  *        ▼
- *   demoFor(programId, exerciseId) ──none──▶ undefined (no button)
- *        │ found
+ *   hasDemo(programId, exerciseId) ──no──▶ undefined (no button)
+ *        │ yes (a cheap id lookup; the demos themselves are not built yet)
  *        ▼
- *   <button> ──tap──▶ openDemoView(demo, { title, dose, opener: the button })
+ *   <button> ──tap──▶ openDemoView(loadDemo(programId, exerciseId), { title, dose, opener })
+ *
+ * The view opens at once with its header and a black stage; the demo is built
+ * (a lazy chunk, once) and starts playing when loadDemo resolves.
  *
  * The button is always a SIBLING of a row's main button, so tapping the row
  * still opens the log screen (as with "Start EMOM").
@@ -43,12 +46,12 @@ export function showMeHeaderText(item: ItemView): ShowMeHeaderText {
  * Builds the "▶ Show me" button for `item`, or returns undefined when program
  * `programId` has no demo for that exercise. `className` lets each screen style
  * it (Today and the plan use "item-show-me", the log header "log-show-me").
- * Opening the view needs the dynamic renderer chunk only once the view is
+ * The demo and the renderer chunks are only loaded once the view is
  * opened, so building a screen full of these buttons stays cheap.
  */
 export function renderShowMeButton(programId: string, item: ItemView, className: string): HTMLButtonElement | undefined {
-  const demo = demoFor(programId, item.exercise.id);
-  if (demo === undefined) {
+  const exerciseId = item.exercise.id;
+  if (!hasDemo(programId, exerciseId)) {
     return undefined;
   }
 
@@ -60,7 +63,7 @@ export function renderShowMeButton(programId: string, item: ItemView, className:
   button.setAttribute("aria-label", `Show me how, ${headerText.title}`);
 
   button.addEventListener("click", () => {
-    openDemoView(demo, { title: headerText.title, dose: headerText.dose, opener: button });
+    openDemoView(loadDemo(programId, exerciseId), { title: headerText.title, dose: headerText.dose, opener: button });
   });
   return button;
 }
