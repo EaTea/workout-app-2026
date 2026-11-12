@@ -1617,7 +1617,7 @@ that one exercise's history.
    - The rest-memory key uses `item.exercise.id`, so a swap remembers its
      own rest, separate from the original's.
    - A tick toggled after the first set must not change anything (locked).
-4. [ ] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
+4. [x] E2E (`e2e/noEquipment.spec.ts`): the flow in the code shape notes,
    plus an unticked session matching today's exactly.
 5. [ ] Fixes from the challenger review.
 - **Merge point:** Ed can tick any swap on Today, train it with the right
