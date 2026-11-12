@@ -77,8 +77,9 @@ export interface Exercise {
  * come from the original item, and the original's load, note and tempo never
  * carry over. The parser guarantees the swap is not max-tested, is not the
  * item's own exercise, and has its own `reps` when the original is max-based.
- * The schedule applies it in a later PR; for now it is only shown on the
- * exercise sheet.
+ * The schedule builds its view for the week (`applyNoEquipmentSwap`,
+ * `ItemView.noEquipment`), which the exercise sheet shows; PR 19 adds the
+ * tick on Today that switches a row over to it.
  */
 export interface NoEquipmentSwap {
   /** The swap's library entry, resolved from its id. */

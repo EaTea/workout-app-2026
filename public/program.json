@@ -135,7 +135,7 @@
     "backpack_swing": {
       "name": "Backpack swings",
       "category": "explosive",
-      "cues": ["Hold the top handle with both hands", "Zip the bag shut and tuck the straps in", "A full water jug held by its handle works too", "Snap the hips; the arms stay loose"],
+      "cues": ["Hold the top handle with both hands", "Zip the bag shut and tuck the straps in", "Check the handle is firmly sewn on, and clear the space in front of you", "A full water jug held by its handle works too", "Snap the hips; the arms stay loose"],
       "evidence": "coaching practice"
     },
     "backpack_push_press": {
@@ -183,7 +183,7 @@
     "prone_back_extension": {
       "name": "Prone back extension",
       "category": "core",
-      "cues": ["Lie face down on the floor with the hands by the ears", "Lift the chest so the extra range comes from the upper back, not the lower back", "The Day 5 lower-back rule still applies: cut to 2 sets if the lower back feels tight"],
+      "cues": ["Lie face down on the floor with the hands by the ears", "Lift the chest so the extra range comes from the upper back, not the lower back"],
       "evidence": "coaching practice"
     },
     "lying_leg_raise": {
@@ -232,7 +232,7 @@
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
           { "exercise": "ytwi", "reps": "12-15" },
-          { "exercise": "pallof_press", "reps": "12-15", "noEquipment": { "exercise": "plank_shoulder_tap", "reps": "12-15 per side" } }
+          { "exercise": "pallof_press", "reps": "12-15", "noEquipment": { "exercise": "plank_shoulder_tap", "reps": "12–15 per side" } }
         ]},
         { "type": "explosive", "items": [
           { "exercise": "med_ball_slam", "sets": 6, "reps": 6, "restSec": [30, 45], "noEquipment": { "exercise": "backpack_slam", "load": "backpack with books" } }
@@ -260,7 +260,7 @@
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
           { "exercise": "cossack_squat", "reps": "12-15" },
-          { "exercise": "hip_abduction_adduction", "reps": "12-15", "noEquipment": { "exercise": "side_lying_hip_raise", "reps": "12-15 each way" } }
+          { "exercise": "hip_abduction_adduction", "reps": "12-15", "noEquipment": { "exercise": "side_lying_hip_raise", "reps": "12–15 each way" } }
         ]},
         { "type": "explosive", "items": [
           { "exercise": "split_squat_jump", "sets": 5, "reps": 6, "perSide": true, "restSec": 45 }
@@ -279,7 +279,7 @@
       "targetMinutes": 40,
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
-          { "exercise": "pallof_press", "reps": "12-15", "noEquipment": { "exercise": "plank_shoulder_tap", "reps": "12-15 per side" } },
+          { "exercise": "pallof_press", "reps": "12-15", "noEquipment": { "exercise": "plank_shoulder_tap", "reps": "12–15 per side" } },
           { "exercise": "lateral_raise", "reps": "12-15", "noEquipment": { "exercise": "bottle_lateral_raise" } },
           { "exercise": "plate_halo", "reps": "8 each direction", "load": "5-10 kg plate", "noEquipment": { "exercise": "water_jug_halo" } }
         ]},
@@ -305,7 +305,7 @@
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
           { "exercise": "single_leg_hip_thrust", "reps": "12-15" },
-          { "exercise": "hip_abduction_adduction", "reps": "12-15", "noEquipment": { "exercise": "side_lying_hip_raise", "reps": "12-15 each way" } }
+          { "exercise": "hip_abduction_adduction", "reps": "12-15", "noEquipment": { "exercise": "side_lying_hip_raise", "reps": "12–15 each way" } }
         ]},
         { "type": "explosive", "items": [
           { "exercise": "kettlebell_swing", "format": "emom", "minutes": 8, "reps": "12-15", "noEquipment": { "exercise": "backpack_swing", "load": "backpack with books" } }
@@ -338,7 +338,7 @@
         ]},
         { "type": "core", "format": "superset", "restSecBetweenPairs": 45, "items": [
           { "exercise": "hanging_leg_raise", "sets": 4, "reps": "8-12", "note": "No swinging, 2-3s lowering", "noEquipment": { "exercise": "lying_leg_raise", "reps": "15-20", "tempo": "2-3s lowering" } },
-          { "exercise": "back_extension", "sets": 3, "reps": 20, "load": "bodyweight", "note": "Slow; stays bodyweight because Day 4 loads the lower back", "noEquipment": { "exercise": "prone_back_extension", "reps": 25, "tempo": "2s hold at the top, slow" } },
+          { "exercise": "back_extension", "sets": 3, "reps": 20, "load": "bodyweight", "note": "Slow; stays bodyweight because Day 4 loads the lower back", "noEquipment": { "exercise": "prone_back_extension", "reps": 25, "note": "The Day 5 lower-back rule still applies: cut to 2 sets if the lower back feels tight", "tempo": "2s hold at the top, slow" } },
           { "exercise": "hollow_hold", "sets": 2, "durationSec": 30, "optional": true }
         ]},
         { "type": "finisher", "items": [
@@ -364,7 +364,7 @@
             { "reps": "15-25", "load": "moderate" },
             { "reps": "15-25", "load": "moderate" }
           ], "tempo": "2s pause at the bottom",
-            "noEquipment": { "exercise": "stair_calf_raise", "reps": "20-30", "load": "backpack on", "note": "Without weight the heavy first set can't be matched, so every set is the same", "tempo": "2s pause at the bottom" } }
+            "noEquipment": { "exercise": "stair_calf_raise", "reps": "20-30", "load": "backpack on", "note": "Without a heavy weight the heavy first set can't be matched, so every set is the same", "tempo": "2s pause at the bottom" } }
         ]},
         { "type": "miniDose", "items": [
           { "exercise": "zercher_bulgarian_split_squat", "sets": 2, "reps": "easy, ~50% effort", "perSide": true, "noEquipment": { "exercise": "backpack_bulgarian_split_squat" } }

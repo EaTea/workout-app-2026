@@ -1546,8 +1546,8 @@ can be reviewed on a phone before anything changes how a session runs.
    moved here from PR 19 because the sheet shows this week's dose. Unit
    tests for the worked examples.
 3b. [x] The exercise sheet's "No equipment" section (swap name and this
-   week's dose). E2E: the Day 4 RDL sheet names "Backpack single-leg RDL,
-   3 × 12–15 per leg".
+   week's dose). E2E: the Day 4 RDL sheet names "Backpack single-leg RDL:
+   3 × 12–15 · per side" (the app's formatter says "per side", as on Today).
 4. [ ] Copy the new `public/program.json` to the project files (the copy
    there is from before PR 13) and add a "No-equipment swaps" section to
    "Explosive Endurance Program.md" with the tables above.

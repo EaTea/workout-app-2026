@@ -154,7 +154,7 @@ describe("swap views: worked examples (PR 17)", () => {
 
     const taps = swapOn("2026-11-04", "warmup", "pallof_press");
     expect(taps.exercise.id).toBe("plank_shoulder_tap");
-    expect(taps.target).toEqual({ kind: "text", text: "12-15 per side" });
+    expect(taps.target).toEqual({ kind: "text", text: "12–15 per side" });
   });
 
   it("5 Nov W1 D4: backpack swings 8-min EMOM x 12-15; backpack single-leg RDL 3 x 12-15 per leg, 3s lowering, 3s hold at the bottom", () => {

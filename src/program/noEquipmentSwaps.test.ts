@@ -29,7 +29,7 @@ const EASY = "easy, ~50% effort";
  */
 const EXPECTED_SWAPS: Record<string, ExpectedSwap> = {
   // Day 1
-  "1:warmup:pallof_press": { swapExerciseId: "plank_shoulder_tap", reps: "12-15 per side" },
+  "1:warmup:pallof_press": { swapExerciseId: "plank_shoulder_tap", reps: "12–15 per side" },
   "1:explosive:med_ball_slam": { swapExerciseId: "backpack_slam" },
   "1:mainStrength:pull_up": { swapExerciseId: "inverted_row", reps: "6-8" },
   "1:miniDose:dip": { swapExerciseId: "chair_dip", reps: EASY },
@@ -37,7 +37,7 @@ const EXPECTED_SWAPS: Record<string, ExpectedSwap> = {
   "1:core:hanging_leg_raise": { swapExerciseId: "lying_leg_raise", reps: "10-15", tempo: "2-3s lowering" },
   "1:finisher:heavy_bag": { swapExerciseId: "shadow_boxing" },
   // Day 2
-  "2:warmup:hip_abduction_adduction": { swapExerciseId: "side_lying_hip_raise", reps: "12-15 each way" },
+  "2:warmup:hip_abduction_adduction": { swapExerciseId: "side_lying_hip_raise", reps: "12–15 each way" },
   "2:mainStrength:zercher_bulgarian_split_squat": {
     swapExerciseId: "backpack_bulgarian_split_squat",
     reps: "15-20",
@@ -45,13 +45,13 @@ const EXPECTED_SWAPS: Record<string, ExpectedSwap> = {
   },
   "2:miniDose:single_leg_rdl": { swapExerciseId: "backpack_single_leg_rdl" },
   // Day 3
-  "3:warmup:pallof_press": { swapExerciseId: "plank_shoulder_tap", reps: "12-15 per side" },
+  "3:warmup:pallof_press": { swapExerciseId: "plank_shoulder_tap", reps: "12–15 per side" },
   "3:warmup:lateral_raise": { swapExerciseId: "bottle_lateral_raise" },
   "3:warmup:plate_halo": { swapExerciseId: "water_jug_halo" },
   "3:mainStrength:dip": { swapExerciseId: "chair_dip", reps: "8-10" },
   "3:miniDose:overhead_press": { swapExerciseId: "pike_push_up" },
   // Day 4
-  "4:warmup:hip_abduction_adduction": { swapExerciseId: "side_lying_hip_raise", reps: "12-15 each way" },
+  "4:warmup:hip_abduction_adduction": { swapExerciseId: "side_lying_hip_raise", reps: "12–15 each way" },
   "4:explosive:kettlebell_swing": { swapExerciseId: "backpack_swing" },
   "4:mainStrength:single_leg_rdl": {
     swapExerciseId: "backpack_single_leg_rdl",
@@ -166,8 +166,8 @@ describe("shipped program.json no-equipment swaps", () => {
     const warmupSwaps = allItems().filter(({ blockType, item }) => blockType === "warmup" && item.noEquipment);
     expect(warmupSwaps).toHaveLength(7);
 
-    // Only plank shoulder taps ("12-15 per side") and side-lying hip raises
-    // ("12-15 each way") restate the reps, because the original's item can't
+    // Only plank shoulder taps ("12–15 per side") and side-lying hip raises
+    // ("12–15 each way") restate the reps, because the original's item can't
     // say "per side" for them; every other warm-up swap has no reps.
     const wordedByTheSwap = new Set(["plank_shoulder_tap", "side_lying_hip_raise"]);
     for (const { item } of warmupSwaps) {

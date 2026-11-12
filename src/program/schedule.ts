@@ -361,6 +361,8 @@ function shiftRange(range: Range, seconds: number, ceiling: number): Range {
  * marked `sameEveryWeek` ignores `blockHalve` and the phase's interval work
  * adjustment; the parser makes sure such an item has no weekly increase and
  * no block-level rounds or minutes, so it really is the same every week.
+ * An item with a "No equipment" swap also gets the swap's view for the same
+ * week attached as `noEquipment` (both views come from `buildItemView`).
  */
 function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
   const view = buildItemView(item, settings, blockHalve, week);
@@ -470,7 +472,7 @@ export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
  *   retest week, EMOM:
  *     max saved this week  -> offset 0, from the retested max
  *     no max saved yet     -> hold last week's offset, awaiting a retest
- *     reps not max-based (a swap's EMOM) -> always hold last week's offset
+ *     reps not max-based (e.g. a swap's) -> always hold last week's offset
  *   other weeks            -> week.offset (held in a plain deload)
  */
 function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekContext): IncreaseChoice {
@@ -479,8 +481,9 @@ function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekC
   }
 
   if (week.isRetest && item.reps?.kind !== "percentOfMax") {
-    // A swap's EMOM (inverted rows, chair dips) never uses a tested max, so a
-    // saved max can't "retest" it: it always holds last week's figure.
+    // Any EMOM whose reps aren't max-based (in the shipped program, only the
+    // swaps: inverted rows, chair dips) never uses a tested max, so a saved
+    // max can't "retest" it: it always holds last week's figure.
     return { increase: week.retestHeldOffset, heldForDeload: true, usesRetestedMax: false, awaitingRetest: false };
   }
 
