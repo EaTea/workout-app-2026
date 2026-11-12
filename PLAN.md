@@ -2015,6 +2015,9 @@ import (an older export without it imports as no combines).
   optional top-level section of export v2, read tolerantly on import, and the
   key is one of the keys an import replaces (so an import without it clears
   combines).
+- Offers (`program/combineOffers.ts`) also refuse when the added day's date
+  has something logged on it, not only the missed day's.
+
 ### PR 24 — Logged sets remember their own day *(internal refactor)*
 No behavior change. Today each logged set's slot is found from the
 session's day plus the set's block position. A combined session holds two
@@ -2038,7 +2041,7 @@ days, so each set needs to carry its own day.
    validation (rule 1), with tests for each rejected pair.
 2. [x] The combines store (wire type, parse/serialize, per program) and
    its place in the JSON export and import.
-3. [ ] The pure merge function (rules 4 and 5), tested against the worked
+3. [x] The pure merge function (rules 4 and 5), tested against the worked
    examples above.
 4. [ ] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
    Undo (rule 3), the merged session with day labels, the donor day's
