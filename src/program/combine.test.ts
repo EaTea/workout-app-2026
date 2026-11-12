@@ -10,10 +10,9 @@ import { applyNoEquipmentChoices } from "./noEquipment";
  * Tests for the merge (rules 4 and 5 of the PR 23 design) against the worked
  * examples, using the shipped public/program.json and a 2 Nov 2026 start.
  *
- * Minutes: the plan's text rule (sum, minus 3 when explosive alternates,
- * minus 4 when optional items or a bag round are dropped) gives 73, 67, 70
- * and 85 for Day 1+2, 2+3, 3+4 and 5+6, while the plan's "about" figures are
- * ~72, ~66, ~70 and ~84. These tests follow the rule; see the note in PLAN.md.
+ * Minutes: the plan's rule (sum, minus 3 when explosive alternates, minus 4
+ * when optional items or a bag round are dropped) gives 73, 67, 70 and 85 for
+ * Day 1+2, 2+3, 3+4 and 5+6, the figures the plan states.
  */
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;

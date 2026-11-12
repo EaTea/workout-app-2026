@@ -6,14 +6,18 @@ import type { DayNumber, Program } from "./model";
 /**
  * Which "Add Day N" buttons Today offers (rule 2 of the PR 23 design) and
  * which dates are donor dates (rule 6). Pure: the caller passes in everything
- * (program, start date, the date being shown, the log and the stored
- * combines), so there is no clock or storage in here.
+ * (program, start date, the date being shown, the log, the stored combines and
+ * the device's real today), so there is no clock or storage in here.
  *
  *   program.combinePairs ─┐
- *   start date, today ────┤
+ *   start date, date ─────┤
  *   log (what is logged) ─┼─▶ combineOffersFor ─▶ ["Add Day D+1", "Add missed Day D-1"]
- *   combines store ───────┘
- *   combines store, date ───────▶ donorOnDate ─▶ "Day N done with Day M on <date>"
+ *   combines store ───────┤
+ *   real today ───────────┘
+ *   combines, log, real today ──▶ activeCombineOn / activeDonorOn ─▶ "Day N done with Day M on <date>"
+ *
+ * A stored combine only counts while it is ACTIVE: it still fits the program
+ * (`activeCombineOn`) and it has not lapsed (`isLapsedCombine`).
  *
  * `CombineOffer.combine` is the record Today stores when the button is
  * tapped (`addCombine` in `combine/storage.ts`).
@@ -52,6 +56,8 @@ export interface DonorInfo {
 /**
  * The buttons to offer on `today`, in the order Today lists them ("Add Day
  * D+1" before "Add missed Day D-1"). Empty when none apply. An offer needs:
+ *  - `today` is the device's real today (`realToday`): combining is "on the
+ *    day", so a `?date=` preview of any other date offers nothing;
  *  - today is a training day D inside the program (not the rest day, not
  *    before the start date, not after the last week) with nothing logged
  *    today, and today is not already part of a combine (host or donor);
@@ -59,8 +65,9 @@ export interface DonorInfo {
  *    [D, D+1] for "addNext", [D-1, D] for "addMissed";
  *  - the other day is in the same week (always true for adjacent days
  *    inside one week), its date has nothing logged on it, and its date is
- *    not part of a combine. "addMissed" therefore only ever looks at a date
- *    in the past, and "addNext" at the next date.
+ *    not part of an ACTIVE combine (a stale or lapsed one is ignored, so a
+ *    day whose host never got trained can be caught up again). "addMissed"
+ *    also requires the missed date to be before `realToday`.
  * `startDate` is the settings' start date (null when not set: no offers).
  */
 export function combineOffersFor(
@@ -69,12 +76,18 @@ export function combineOffersFor(
   today: string,
   log: WorkoutLog,
   combines: CombinesByDate,
+  realToday: string,
 ): CombineOffer[] {
+  // Combining is "on the day": no buttons on a preview of any other date.
+  if (today !== realToday) return [];
+
   const status = programStatus(startDate, program.lengthWeeks, today);
   if (status.kind !== "active") return [];
 
+  const activeCombines = activeCombinesOf(program, startDate, combines, log, realToday);
+
   const todayDay = status.dayNumber;
-  const todayIsFree = program.days[todayDay] !== undefined && !hasLoggedSets(log, today) && !isPartOfCombine(combines, today);
+  const todayIsFree = program.days[todayDay] !== undefined && !hasLoggedSets(log, today) && !isPartOfCombine(activeCombines, today);
   if (!todayIsFree) return [];
 
   const offers: CombineOffer[] = [];
@@ -82,7 +95,7 @@ export function combineOffersFor(
   const nextDay = todayDay + 1;
   if (isAllowedPair(program, todayDay, nextDay)) {
     const nextDate = addDaysToDate(today, 1);
-    if (canBeAdded(log, combines, nextDate)) {
+    if (canBeAdded(log, activeCombines, nextDate)) {
       offers.push({ kind: "addNext", day: nextDay, date: nextDate, combine: { hostDay: todayDay, addedDay: nextDay, addedDate: nextDate } });
     }
   }
@@ -90,7 +103,7 @@ export function combineOffersFor(
   const previousDay = todayDay - 1;
   if (isAllowedPair(program, previousDay, todayDay)) {
     const previousDate = addDaysToDate(today, -1);
-    if (canBeAdded(log, combines, previousDate)) {
+    if (previousDate < realToday && canBeAdded(log, activeCombines, previousDate)) {
       offers.push({ kind: "addMissed", day: previousDay, date: previousDate, combine: { hostDay: todayDay, addedDay: previousDay, addedDate: previousDate } });
     }
   }
@@ -121,11 +134,21 @@ export function donorOnDate(combines: CombinesByDate, date: string): DonorInfo |
  * program whose day is the combine's `hostDay`, the two days are an allowed
  * pair, and `addedDate` is where the added day falls in the same week.
  * Used by Today, the log screen and the wake lock to decide whether to build
- * a combined session.
+ * a combined session. A combine that has LAPSED (`isLapsedCombine`: its host
+ * date passed with nothing logged) is not active either: it is treated as if
+ * it had never been made, so both days can be trained or caught up again.
  */
-export function activeCombineOn(program: Program, startDate: string | null, date: string, combines: CombinesByDate): Combine | undefined {
+export function activeCombineOn(
+  program: Program,
+  startDate: string | null,
+  date: string,
+  combines: CombinesByDate,
+  log: WorkoutLog,
+  realToday: string,
+): Combine | undefined {
   const combine = combines.get(date);
   if (combine === undefined) return undefined;
+  if (isLapsedCombine(date, log, realToday)) return undefined;
 
   const status = programStatus(startDate, program.lengthWeeks, date);
   if (status.kind !== "active" || status.dayNumber !== combine.hostDay) return undefined;
@@ -145,15 +168,33 @@ export function activeCombineOn(program: Program, startDate: string | null, date
  * must be the added day's date and the host's combine must be active. Today
  * shows the "done with" card only for this.
  */
-export function activeDonorOn(program: Program, startDate: string | null, date: string, combines: CombinesByDate): DonorInfo | undefined {
+export function activeDonorOn(
+  program: Program,
+  startDate: string | null,
+  date: string,
+  combines: CombinesByDate,
+  log: WorkoutLog,
+  realToday: string,
+): DonorInfo | undefined {
   const donor = donorOnDate(combines, date);
   if (donor === undefined) return undefined;
 
   const status = programStatus(startDate, program.lengthWeeks, date);
   if (status.kind !== "active" || status.dayNumber !== donor.day) return undefined;
-  if (activeCombineOn(program, startDate, donor.hostDate, combines) === undefined) return undefined;
+  if (activeCombineOn(program, startDate, donor.hostDate, combines, log, realToday) === undefined) return undefined;
 
   return donor;
+}
+
+/**
+ * Rule 6's lapse: a combine is lapsed when its host date is before the
+ * device's real today and nothing is logged on the host date. Then the person
+ * never trained the combined session, so the combine is dropped (not deleted:
+ * it is just ignored) and the donor day gets its normal session back. A host
+ * date of today or later, or one with sets logged, is not lapsed.
+ */
+export function isLapsedCombine(hostDate: string, log: WorkoutLog, realToday: string): boolean {
+  return hostDate < realToday && !hasLoggedSets(log, hostDate);
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +206,17 @@ function isAllowedPair(program: Program, earlierDay: DayNumber, laterDay: DayNum
   return program.combinePairs.some(([allowedEarlier, allowedLater]) => allowedEarlier === earlierDay && allowedLater === laterDay);
 }
 
-/** True when `date` is a host date or a donor date of any combine. */
+/** The stored combines that are active (valid for the program and not lapsed); the offers only look at these. */
+function activeCombinesOf(program: Program, startDate: string | null, combines: CombinesByDate, log: WorkoutLog, realToday: string): CombinesByDate {
+  const active: CombinesByDate = new Map();
+  for (const hostDate of combines.keys()) {
+    const combine = activeCombineOn(program, startDate, hostDate, combines, log, realToday);
+    if (combine !== undefined) active.set(hostDate, combine);
+  }
+  return active;
+}
+
+/** True when `date` is a host date or a donor date of any of the (active) `combines`. */
 function isPartOfCombine(combines: CombinesByDate, date: string): boolean {
   return combines.has(date) || donorOnDate(combines, date) !== undefined;
 }
@@ -176,6 +227,6 @@ function hasLoggedSets(log: WorkoutLog, date: string): boolean {
 }
 
 /** True when the other day's date is free to be added: nothing logged on it and not already combined. */
-function canBeAdded(log: WorkoutLog, combines: CombinesByDate, otherDate: string): boolean {
-  return !hasLoggedSets(log, otherDate) && !isPartOfCombine(combines, otherDate);
+function canBeAdded(log: WorkoutLog, activeCombines: CombinesByDate, otherDate: string): boolean {
+  return !hasLoggedSets(log, otherDate) && !isPartOfCombine(activeCombines, otherDate);
 }

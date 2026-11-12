@@ -24,7 +24,7 @@ import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { CombinesByDate } from "../combine/model";
 import { type CombinedBlock, type CombinedSession, type TrainingSessionView } from "../program/combine";
 import { activeDonorOn, combineOffersFor } from "../program/combineOffers";
-import { programStatus } from "../program/calendar";
+import { programStatus, todayLocalDate } from "../program/calendar";
 import { renderCombineOffers, renderDonorCard, renderUndoCombine, type CombineActions } from "./combineCards";
 import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
@@ -118,6 +118,9 @@ export interface NoEquipmentOptions {
 export interface CombineOptions {
   /** All stored combines (Today reads the shown date's, as host or donor). */
   combines: CombinesByDate;
+
+  /** The device's real today (never a `?date=` preview): offers and Undo show only when the shown date is this date, and lapsed combines are found with it. */
+  realToday: string;
   actions: CombineActions;
 }
 
@@ -146,7 +149,7 @@ export function renderTodayScreen(
   const screen = element("section", "screen");
 
   // A date whose day was folded into another date's session shows a card and no session.
-  const donor = activeDonorOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES);
+  const donor = activeDonorOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate());
   const donorStatus = programStatus(settings.startDate, program.lengthWeeks, date);
   if (donor !== undefined && donorStatus.kind === "active") {
     screen.append(renderDonorCard(donor, date, donorStatus.week, program.lengthWeeks, program.safety));
@@ -155,7 +158,7 @@ export function renderTodayScreen(
 
   // The swapped session: ticked (or already logged) swaps show as their own exercise.
   // A combined date gives the merged session of both days.
-  const { session, locked } = buildSwappedSessionFor(program, settings, log, noEquipment?.ticks ?? NO_TICKS, combine?.combines ?? NO_COMBINES, date);
+  const { session, locked } = buildSwappedSessionFor(program, settings, log, noEquipment?.ticks ?? NO_TICKS, combine?.combines ?? NO_COMBINES, date, combine?.realToday ?? todayLocalDate());
 
   switch (session.kind) {
     case "training":
@@ -287,7 +290,16 @@ function renderTrainingDay(
     header.append(renderSafetyNotesLink(program.safety));
   }
 
-  const parts: HTMLElement[] = [header, renderPhaseStrip(program, session.phase, session.isDeload)];
+  const parts: HTMLElement[] = [header];
+
+  // "Short on time? Add Day N to today" and "Add missed Day N to today", right under the header so they are
+  // seen without scrolling. Only on the real today, while nothing is logged and the pair is allowed.
+  if (combine !== undefined) {
+    const offers = combineOffersFor(program, startDate, date, log, combine.combines, combine.realToday);
+    if (offers.length > 0) parts.push(renderCombineOffers(offers, combine.actions));
+  }
+
+  parts.push(renderPhaseStrip(program, session.phase, session.isDeload));
 
   if (session.isDeload) {
     const note = element("div", "deload-note", "Deload week: sets halved");
@@ -300,19 +312,15 @@ function renderTrainingDay(
     parts.push(renderBlockCard(program, block, index + 1, slot, session.phase, date, log, locked, noEquipment));
   });
 
-  // "Short on time? Add Day N to today" and "Add missed Day N to today", while nothing is logged and the pair is allowed.
-  if (combine !== undefined) {
-    const offers = combineOffersFor(program, startDate, date, log, combine.combines);
-    if (offers.length > 0) parts.push(renderCombineOffers(offers, combine.actions));
-  }
   return parts;
 }
 
 /**
  * Everything for a combined day (two days merged, PR 25), in display order:
- * the header naming both days, the phase strip, the deload note, one card per
- * merged block and the "Undo combine" button (only while nothing is logged on
- * the date). The blocks are numbered 1..n in the merged order; each ROW still
+ * the header naming both days, the "Undo combine" button (right under the
+ * header, only on the real today while nothing is logged on the date), the
+ * phase strip, the deload note and one card per merged block. The blocks are
+ * numbered 1..n in the merged order; each ROW still
  * logs under its own day and block position (`RowSlot`).
  *
  *   CombinedSession.blocks ─▶ "single" block   ─▶ one card, its rows labelled D1 / D2
@@ -338,7 +346,14 @@ function renderCombinedDay(
     header.append(renderSafetyNotesLink(program.safety));
   }
 
-  const parts: HTMLElement[] = [header, renderPhaseStrip(program, session.phase, session.isDeload)];
+  const parts: HTMLElement[] = [header];
+
+  // Undo sits under the header like the offers do, so it is not buried under a long session. Only on the
+  // real today, and only while nothing is logged: afterwards the logged sets belong to the combined session.
+  const nothingLogged = (log.sessions[date]?.sets.length ?? 0) === 0;
+  if (combine !== undefined && nothingLogged && date === combine.realToday) parts.push(renderUndoCombine(combine.actions));
+
+  parts.push(renderPhaseStrip(program, session.phase, session.isDeload));
 
   if (session.isDeload) {
     const note = element("div", "deload-note", "Deload week: sets halved");
@@ -350,9 +365,6 @@ function renderCombinedDay(
     parts.push(renderCombinedBlockCard(program, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment));
   });
 
-  // Undo only while nothing is logged on the date: afterwards the logged sets belong to the combined session.
-  const nothingLogged = (log.sessions[date]?.sets.length ?? 0) === 0;
-  if (combine !== undefined && nothingLogged) parts.push(renderUndoCombine(combine.actions));
   return parts;
 }
 

@@ -49,6 +49,23 @@ export function buildSwappedSession(
   };
 }
 
+/**
+ * The host date's ticks as a combined session reads them: every plain key
+ * ("3:pull_up", saved on the single-day screen) also stands for the host
+ * day's qualified key ("1.3:pull_up"); keys that are already day-qualified
+ * are kept as they are. Nothing is rewritten in storage, so "Undo combine"
+ * shows the plain tick again. A ticked qualified key and a ticked plain key
+ * for the same row are one tick.
+ */
+function withHostDayTicksQualified(ticksOfHostDate: ReadonlySet<string>, hostDay: number): ReadonlySet<string> {
+  const readable = new Set(ticksOfHostDate);
+  for (const itemKey of ticksOfHostDate) {
+    const isPlainKey = /^\d+:/.test(itemKey);
+    if (isPlainKey) readable.add(`${hostDay}.${itemKey}`);
+  }
+  return readable;
+}
+
 /** A combined date's session with its "No equipment" choices applied, plus which choices logged sets have locked. */
 export interface SwappedCombinedSession {
   /** The merged session to show and count. */
@@ -71,7 +88,9 @@ export interface SwappedCombinedSession {
  *
  * Both days' sets live on the HOST date (each carrying its own `day`), so
  * the log is always read for `hostDate`; the tick keys are day-qualified
- * ("2.3:single_leg_rdl") because both days have a block 3. Throws what
+ * ("2.3:single_leg_rdl") because both days have a block 3. A plain key ticked
+ * on the host date before combining ("3:pull_up", from the single-day screen)
+ * counts as the HOST day's tick, so "Add Day 2" does not drop it. Throws what
  * `buildSession` or `combineSessions` throws; callers go through
  * `buildSwappedSessionFor`, which only combines a still-valid combine.
  */
@@ -84,7 +103,7 @@ export function buildSwappedCombinedSession(
   combine: Combine,
 ): SwappedCombinedSession {
   const locked = new Set<string>();
-  const ticksOfHostDate = ticksForDate(ticks, hostDate);
+  const ticksOfHostDate = withHostDayTicksQualified(ticksForDate(ticks, hostDate), combine.hostDay);
 
   /** One day's plain session for `dateOfDay`, with its swaps applied and its locked keys collected. */
   function swappedDay(dateOfDay: string): SessionView {
@@ -110,7 +129,8 @@ export interface SessionForDate {
 
 /**
  * Builds whatever session `date` shows: the combined session when a still
- * valid combine is stored for the date (`activeCombineOn`), else the normal
+ * valid combine is stored for the date (`activeCombineOn`, which also skips
+ * a lapsed one, hence the log and the device's `realToday`), else the normal
  * swapped session. Used by Today, the log screen and app.ts's wake-lock
  * check, so all three agree on which rows exist and which day each belongs to.
  * A stale combine (e.g. the start date moved) is ignored, never an error.
@@ -122,8 +142,9 @@ export function buildSwappedSessionFor(
   ticks: NoEquipmentTicks,
   combines: CombinesByDate,
   date: string,
+  realToday: string,
 ): SessionForDate {
-  const combine = activeCombineOn(program, settings.startDate, date, combines);
+  const combine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
   if (combine !== undefined) return buildSwappedCombinedSession(program, settings, log, ticks, date, combine);
 
   return buildSwappedSession(program, settings, log, ticks, date);

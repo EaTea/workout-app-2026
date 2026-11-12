@@ -32,6 +32,7 @@ import { renderTodayScreen } from "./today";
 import { loadTicks, setTick } from "../noEquipment/storage";
 import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { Combine, CombinesByDate } from "../combine/model";
+import { activeCombineOn } from "../program/combineOffers";
 import { addCombine, loadCombines, removeCombine } from "../combine/storage";
 import type { NoEquipmentTicks } from "../noEquipment/model";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
@@ -292,7 +293,7 @@ export function startApp(
     let isWanted = false;
     if (sessionDate !== undefined && sessionDate === resolveToday(window.location.search)) {
       try {
-        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate).session, log, sessionDate, new Date());
+        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate()).session, log, sessionDate, new Date());
       } catch {
         isWanted = false;
       }
@@ -308,8 +309,20 @@ export function startApp(
    * Returns null on success or the failure message for Today to show.
    */
   function handleToggleNoEquipment(itemKey: string, ticked: boolean): string | null {
-    const result = setTick(localStorage, storageKeys.noEquipment, shownDate, itemKey, ticked, todayLocalDate());
+    let result = setTick(localStorage, storageKeys.noEquipment, shownDate, itemKey, ticked, todayLocalDate());
     if (!result.ok) return result.error;
+
+    // A combined session reads a plain key ticked before combining ("3:pull_up") as the host day's tick
+    // ("1.3:pull_up"). Unticking the qualified key must also clear that plain key, or it would tick again.
+    const hostDayOfKey = /^(\d+)\.(\d+:.+)$/.exec(itemKey);
+    if (!ticked && hostDayOfKey !== null) {
+      const hostCombine = activeCombineOn(program, settings.startDate, shownDate, combines, log, todayLocalDate());
+      if (hostCombine !== undefined && hostCombine.hostDay === Number(hostDayOfKey[1])) {
+        const plainResult = setTick(localStorage, storageKeys.noEquipment, shownDate, hostDayOfKey[2]!, false, todayLocalDate());
+        if (!plainResult.ok) return plainResult.error;
+        result = plainResult;
+      }
+    }
 
     noEquipmentTicks = result.ticks;
     render();
@@ -755,7 +768,7 @@ export function startApp(
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
       } else if (route === "plan" && planTarget !== undefined) {
-        const planScreen = renderDayPlanScreen(program, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines);
+        const planScreen = renderDayPlanScreen(program, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
         if (planScreen !== undefined) main.append(planScreen);
       } else if (route === "overview") {
         const status = programStatus(settings.startDate, program.lengthWeeks, shownDate);
@@ -785,9 +798,9 @@ export function startApp(
           onToggle: handleToggleNoEquipment,
         }, {
           combines,
+          // Combining is "on the day": offers and Undo show only when the shown date is this real today.
+          realToday: todayLocalDate(),
           actions: {
-            // Like ticks: past dates and today, not a future preview.
-            canChange: shownDate <= todayLocalDate(),
             onAdd: handleAddCombine,
             onUndo: handleUndoCombine,
           },

@@ -17,7 +17,7 @@ async function seedAt(page: Page, isoDate: string): Promise<void> {
 async function storedSessionOn(page: Page, date: string) {
   return page.evaluate((wantedDate) => {
     const log = JSON.parse(window.localStorage.getItem("explosive-endurance.log") ?? "{}");
-    return log.sessions.find((session: { date: string }) => session.date === wantedDate);
+    return log.sessions?.find((session: { date: string }) => session.date === wantedDate);
   }, date);
 }
 
@@ -35,12 +35,16 @@ test("9 Nov: add Day 2, see the merged blocks with day labels, log a Day 2 set, 
   await seedAt(page, "2026-11-09");
   await page.goto("/");
 
-  // Day 1 offers Day 2 only (no pair ends on Day 1), as a big button at the bottom.
+  // Day 1 offers Day 2 only (no pair ends on Day 1), as a big button right under the header.
   const addDayTwo = page.getByRole("button", { name: "Short on time? Add Day 2 to today" });
   await expect(addDayTwo).toBeVisible();
   await expect(page.getByRole("button", { name: /Add missed/ })).toHaveCount(0);
   const box = await addDayTwo.boundingBox();
   expect(box?.height).toBeGreaterThanOrEqual(48);
+  // Short on time means no scrolling: the button is on the first screen, above the first block.
+  expect(box!.y + box!.height).toBeLessThan(page.viewportSize()!.height);
+  const firstBlockBox = await page.locator(".block-card").first().boundingBox();
+  expect(box!.y).toBeLessThan(firstBlockBox!.y);
 
   await addDayTwo.click();
 
@@ -84,8 +88,10 @@ test("9 Nov: add Day 2, see the merged blocks with day labels, log a Day 2 set, 
   await expect(page.getByRole("heading", { name: "Split-squat jumps" })).toBeVisible();
 
   // Log one set of the Day 2 block 2 exercise (Day 1's block 2 is the slams).
+  // An alternate block spends each rest on the other exercise, so logging a set does not start the rest timer.
+  await expect(page.getByRole("button", { name: /^✓ Log set$/ })).toBeVisible();
   await page.getByRole("button", { name: /^✓ Log set/ }).click();
-  await restTimer(page).getByRole("button", { name: "✕ Close" }).click();
+  await expect(restTimer(page)).toHaveCount(0);
   await expect(page.locator(".log-set-row", { hasText: "Set 1" })).toContainText("reps");
 
   // Back on Today: that row shows progress, Day 1's block 2 row does not, and Undo is gone.
@@ -187,4 +193,103 @@ test("the No equipment tick works per row on a combined day, and the swap is wha
   await page.getByRole("link", { name: "Back to Today" }).click();
   await expect(row(page, "Backpack single-leg RDL").locator(".item-progress")).toContainText("1/");
   await expect(page.getByRole("checkbox", { name: "No equipment, Single-leg RDL" })).toBeDisabled();
+});
+
+test("10 Nov: both buttons show, and tapping Add missed Day 1 combines the days on 10 Nov", async ({ page }) => {
+  await seedAt(page, "2026-11-10");
+  await page.goto("/");
+
+  await expect(page.getByRole("button", { name: "Short on time? Add Day 3 to today" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add missed Day 1 to today" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Add missed Day 1 to today" }).click();
+
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 1 + Day 2")).toBeVisible();
+  await expect(row(page, "Med ball slams").locator(".item-day-label")).toHaveText("D1");
+  await expect(row(page, "Split-squat jumps").locator(".item-day-label")).toHaveText("D2");
+  await expect(page.getByRole("button", { name: /Add .*Day/ })).toHaveCount(0);
+
+  // 9 Nov (Day 1's date) is now the donor.
+  await page.goto("/?date=2026-11-09");
+  await expect(page.getByRole("heading", { name: "Day 1 done with Day 2 on 10 Nov" })).toBeVisible();
+});
+
+test("a combine whose host day passed with nothing logged lapses: both days are back on their dates", async ({ page }) => {
+  await seedAt(page, "2026-11-09");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Short on time? Add Day 2 to today" }).click();
+  await expect(page.getByText("~73 min")).toBeVisible();
+
+  // The next day comes and nothing was logged on 9 Nov.
+  await page.clock.setSystemTime(new Date("2026-11-10T12:00:00"));
+  await page.reload();
+
+  // 10 Nov is Day 2 again (not "done with Day 1"), and Day 1 can be caught up.
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lower: knee" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add missed Day 1 to today" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Short on time? Add Day 3 to today" })).toBeVisible();
+
+  // 9 Nov's past view is the normal single day, and the day plans show no note.
+  await page.goto("/?date=2026-11-09");
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1", { exact: true })).toBeVisible();
+  await page.goto("/#/plan/1/2");
+  await expect(page.locator(".combine-note")).toHaveCount(0);
+});
+
+test("a combine with sets logged on its host day stays after that day passes", async ({ page }) => {
+  await seedAt(page, "2026-11-09");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Short on time? Add Day 2 to today" }).click();
+  await row(page, "Split-squat jumps").locator(".item-open").click();
+  await page.getByRole("button", { name: /^✓ Log set/ }).click();
+
+  await page.clock.setSystemTime(new Date("2026-11-10T12:00:00"));
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Day 2 done with Day 1 on 9 Nov" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Add .*Day/ })).toHaveCount(0);
+});
+
+test("a preview of another date shows no offer buttons and no Undo", async ({ page }) => {
+  await seedAt(page, "2026-11-09");
+  await page.goto("/?date=2026-11-10");
+  await expect(page.getByText("10 Nov · Week 2 of 8 · Day 2")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Add .*Day/ })).toHaveCount(0);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Short on time? Add Day 2 to today" }).click();
+  await expect(page.getByRole("button", { name: "Undo combine" })).toBeVisible();
+
+  // The real clock goes back a day: 9 Nov is now a future preview, still combined, but nothing can be undone.
+  await page.clock.setSystemTime(new Date("2026-11-08T12:00:00"));
+  await page.goto("/?date=2026-11-09");
+  await expect(page.getByText("9 Nov · Week 2 of 8 · Day 1 + Day 2")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Undo combine" })).toHaveCount(0);
+});
+
+test("a direct link to a donor date's exercise shows Nothing to log here and saves nothing", async ({ page }) => {
+  await seedAt(page, "2026-11-09");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Short on time? Add Day 2 to today" }).click();
+
+  await page.goto("/?date=2026-11-10#/log/2026-11-10/2/split_squat_jump");
+  await expect(page.getByRole("heading", { name: "Nothing to log here" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^✓ Log set/ })).toHaveCount(0);
+  expect(await storedSessionOn(page, "2026-11-10")).toBeUndefined();
+});
+
+test("a No equipment tick made before combining survives Add Day 2, and Undo still shows it", async ({ page }) => {
+  await seedAt(page, "2026-11-09");
+  await page.goto("/");
+
+  await page.getByRole("checkbox", { name: "No equipment, Pull-ups" }).check();
+  await expect(row(page, "Pull-ups")).toContainText("Instead of Pull-ups");
+
+  await page.getByRole("button", { name: "Short on time? Add Day 2 to today" }).click();
+  await expect(page.getByRole("checkbox", { name: "No equipment, Pull-ups" })).toBeChecked();
+  await expect(row(page, "Pull-ups")).toContainText("Instead of Pull-ups");
+
+  await page.getByRole("button", { name: "Undo combine" }).click();
+  await expect(page.getByRole("checkbox", { name: "No equipment, Pull-ups" })).toBeChecked();
 });

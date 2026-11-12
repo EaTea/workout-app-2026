@@ -1952,8 +1952,12 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
      D−1's date is in the past, nothing was logged on it, and it wasn't
      combined already. When both apply, both buttons show.
    - Never on the rest day, before the start date or after week 8.
-3. **Undo.** "Undo combine" shows until the first set of the combined
-   session is logged, and puts both days back as they were.
+   - Only on the real today (the device's date), never on a `?date=`
+     preview: combining is "on the day". The buttons sit just under the
+     session header card, so there is no scrolling to find them.
+3. **Undo.** "Undo combine" shows (just under the header, on the real
+   today only) until the first set of the combined session is logged, and
+   puts both days back as they were.
 4. **Merged session order.** Built by a pure function from the two days'
    sessions as Today already builds them for week W (deload halving,
    power-endurance changes, max-rep targets and no-equipment swaps
@@ -1962,8 +1966,9 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
    1. Warm-ups: both days' warm-up blocks in full (Ed: never cut).
    2. Explosive: both blocks. When both are set-based they are shown as
       one "alternate" block: a set of one, then a set of the other, so
-      each one's rest is spent on the other. An EMOM (kettlebell swings)
-      can't alternate, so it runs as its own block after the other.
+      each one's rest is spent on the other, so logging a set there does
+      not auto-start the rest timer (the Rest button stays for manual
+      use). An EMOM (kettlebell swings) can't alternate, so it runs as its own block after the other.
    3. Main strength, then mini-doses: each day's block as written.
    4. Core, then finishers: each day's blocks, except that items marked
       `"optional": true` (side plank, hollow hold) are left out and the
@@ -1976,7 +1981,12 @@ PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
    not timings).
 6. **The donor day.** The day that was folded in shows "Day N done with
    Day M on <date>" on its own date and no session. The day plans by week
-   (PR 12) show both days as planned, with a "Combined" note.
+   (PR 12) show both days as planned, with a "Combined" note. A combine
+   *lapses* when its host date is before the real today and nothing is
+   logged on it: it is then treated as if it never existed (the donor date
+   shows its normal session, offers ignore it, no "Combined" note, and the
+   host date's past view is the single day). A host date of today or
+   later, or with sets logged, stays active.
 7. **Logging.** Sets from a combined session are saved on today's date.
    Each set records the day and block position it has in **its own day**
    (not in the merged view), so "last time" hints, History and the CSV

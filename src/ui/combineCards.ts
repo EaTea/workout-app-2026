@@ -10,8 +10,9 @@ import "./combine.css";
  * The small pieces of Today that belong to "combine two days" (PR 25), kept
  * out of today.ts so that file stays about rows and blocks:
  *
- *   normal training day ─▶ renderCombineOffers   [ Short on time? Add Day 2 to today ]
- *   combined (host) date ─▶ renderUndoCombine     [ Undo combine ]   (only while nothing is logged)
+ *   normal training day ─▶ renderCombineOffers   [ Short on time? Add Day 2 to today ]  (just under the header)
+ *   combined (host) date ─▶ renderUndoCombine     [ Undo combine ]   (under the header; only while nothing is logged)
+ *   Both appear on the real today only, never on a `?date=` preview.
  *   donor date          ─▶ renderDonorCard        "Day 2 done with Day 1 on 9 Nov"
  *   day plans by week   ─▶ renderCombinedNote     "Combined with Day 2 on 10 Nov"
  *
@@ -21,9 +22,6 @@ import "./combine.css";
 
 /** What Today needs to offer, show and undo combines; supplied by app.ts, which owns the stored combines. */
 export interface CombineActions {
-  /** False on a future `?date=` preview: nothing may be changed there, so the buttons are disabled. */
-  canChange: boolean;
-
   /** "Add Day N" tapped: store this combine for the shown date. Returns null on success or a message to show under the button. */
   onAdd: (combine: Combine) => string | null;
 
@@ -52,7 +50,6 @@ export function renderCombineOffers(offers: CombineOffer[], actions: CombineActi
   for (const offer of offers) {
     const button = element("button", "combine-button", offerButtonLabel(offer));
     button.type = "button";
-    button.disabled = !actions.canChange;
 
     const errorLine = element("p", "field-error");
     errorLine.setAttribute("role", "alert");
@@ -67,13 +64,12 @@ export function renderCombineOffers(offers: CombineOffer[], actions: CombineActi
   return container;
 }
 
-/** The "Undo combine" button at the bottom of a combined session; the caller shows it only while nothing is logged on the date. */
+/** The "Undo combine" button under the header of a combined session; the caller shows it only while nothing is logged on the date. */
 export function renderUndoCombine(actions: CombineActions): HTMLElement {
   const container = element("div", "combine-offers");
 
   const button = element("button", "combine-button", "Undo combine");
   button.type = "button";
-  button.disabled = !actions.canChange;
 
   const errorLine = element("p", "field-error");
   errorLine.setAttribute("role", "alert");
