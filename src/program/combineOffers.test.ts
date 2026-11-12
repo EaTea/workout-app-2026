@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { CombinesByDate } from "../combine/model";
 import type { WorkoutLog } from "../log/model";
-import { combineOffersFor, donorOnDate } from "./combineOffers";
+import { activeCombineOn, activeDonorOn, combineOffersFor, donorOnDate } from "./combineOffers";
 import { parseProgram } from "./parse";
 
 /**
@@ -134,5 +134,43 @@ describe("donorOnDate", () => {
     expect(donorOnDate(combines, "2026-11-09")).toBeUndefined();
     expect(donorOnDate(combines, "2026-11-20")).toBeUndefined();
     expect(donorOnDate(NO_COMBINES, "2026-11-10")).toBeUndefined();
+  });
+});
+
+describe("activeCombineOn and activeDonorOn (a stored combine is only used while it still fits the program)", () => {
+  const combines: CombinesByDate = new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]);
+
+  it("gives the combine on its host date and the donor on the added date", () => {
+    expect(activeCombineOn(program, START, "2026-11-09", combines)).toEqual({ hostDay: 1, addedDay: 2, addedDate: "2026-11-10" });
+    expect(activeDonorOn(program, START, "2026-11-10", combines)).toEqual({ day: 2, hostDay: 1, hostDate: "2026-11-09" });
+  });
+
+  it("gives nothing on other dates, and the host date is not a donor date", () => {
+    expect(activeCombineOn(program, START, "2026-11-10", combines)).toBeUndefined();
+    expect(activeDonorOn(program, START, "2026-11-09", combines)).toBeUndefined();
+  });
+
+  it("handles a missed day caught up: host Day 4 on 12 Nov, Day 3 from 11 Nov", () => {
+    const missed: CombinesByDate = new Map([["2026-11-12", { hostDay: 4, addedDay: 3, addedDate: "2026-11-11" }]]);
+
+    expect(activeCombineOn(program, START, "2026-11-12", missed)).toBeDefined();
+    expect(activeDonorOn(program, START, "2026-11-11", missed)).toEqual({ day: 3, hostDay: 4, hostDate: "2026-11-12" });
+  });
+
+  it("ignores a combine when the start date moved so the host date is a different day", () => {
+    expect(activeCombineOn(program, "2026-11-03", "2026-11-09", combines)).toBeUndefined();
+    expect(activeDonorOn(program, "2026-11-03", "2026-11-10", combines)).toBeUndefined();
+  });
+
+  it("ignores a combine without a start date, or for a pair the program does not allow", () => {
+    expect(activeCombineOn(program, null, "2026-11-09", combines)).toBeUndefined();
+    expect(activeCombineOn(steadyStrength, START, "2026-11-09", combines)).toBeUndefined();
+    expect(activeDonorOn(steadyStrength, START, "2026-11-10", combines)).toBeUndefined();
+  });
+
+  it("ignores a combine whose added date is not where the added day falls", () => {
+    const wrongDate: CombinesByDate = new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-17" }]]);
+    expect(activeCombineOn(program, START, "2026-11-09", wrongDate)).toBeUndefined();
+    expect(activeDonorOn(program, START, "2026-11-17", wrongDate)).toBeUndefined();
   });
 });

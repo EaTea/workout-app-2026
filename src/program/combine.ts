@@ -160,6 +160,24 @@ export function combineSessions(program: Program, first: SessionView, second: Se
   };
 }
 
+/**
+ * Every block of a training session or a combined session as a flat list of
+ * (source day, source block position, block), in the order Today shows them.
+ * A normal session's blocks come from its one day, numbered from 1; a
+ * combined session's come from its parts (an alternate block gives one entry
+ * per day). This is the one view that "what has been logged / what is left"
+ * (`sessionProgress.ts`) and the log screen's lookup of an item use, so they
+ * treat both kinds of session the same and always key sets by the row's own
+ * day and block position.
+ */
+export function blockSlotsOf(session: TrainingSessionView | CombinedSession): CombinedBlockPart[] {
+  if (session.kind === "combined") {
+    return session.blocks.flatMap((combinedBlock) => combinedBlock.parts);
+  }
+
+  return session.blocks.map((block, blockIndex) => ({ source: { day: session.dayNumber, blockPosition: blockIndex + 1 }, block }));
+}
+
 // ---------------------------------------------------------------------------
 // Steps of combineSessions
 // ---------------------------------------------------------------------------

@@ -20,12 +20,22 @@ const SEPARATOR = " · ";
  * Week and day come from what was stored when the session was first logged and
  * are left out when absent. The day title is the program's focus for that day
  * number, left out when the program has no such day (it was edited since).
+ *
+ * A combined session (two days on one date) is recognised from its sets: the
+ * session's own day plus every day the sets carry. Two or more days read
+ * "9 Nov · Week 2 · Day 1 + Day 2" (no focus titles, which would not fit a
+ * phone line). The session's day counts too, so a combined session in which
+ * only the added day's set has been logged still reads "Day 1 + Day 2".
  */
 export function formatSessionHeader(session: LoggedSession, program: Program): string {
   const parts = [formatShortDate(session.date)];
 
   if (session.programWeek !== undefined) parts.push(`Week ${session.programWeek}`);
-  if (session.day !== undefined) {
+
+  const days = daysOfSession(session);
+  if (days.length > 1) {
+    parts.push(days.map((day) => `Day ${day}`).join(" + "));
+  } else if (session.day !== undefined) {
     parts.push(`Day ${session.day}`);
 
     const dayTitle = program.days[session.day]?.focus;
@@ -33,6 +43,17 @@ export function formatSessionHeader(session: LoggedSession, program: Program): s
   }
 
   return parts.join(SEPARATOR);
+}
+
+/** The distinct program days a session covers, ascending: its own day plus every day its sets carry. Empty when nothing says. */
+function daysOfSession(session: LoggedSession): DayNumber[] {
+  const days = new Set<DayNumber>();
+  if (session.day !== undefined) days.add(session.day);
+  for (const set of session.sets) {
+    const day = setDay(session, set);
+    if (day !== undefined) days.add(day);
+  }
+  return [...days].sort((first, second) => first - second);
 }
 
 /** The exercise's display name from the program's library; an id no longer in program.json is shown as is. */

@@ -1,3 +1,4 @@
+import { blockSlotsOf, type CombinedSession } from "../program/combine";
 import type { BlockView, ItemView, SessionView } from "../program/schedule";
 import { countSetsForItem } from "./itemSets";
 import type { WorkoutLog } from "./model";
@@ -26,6 +27,10 @@ function setsNeededToComplete(item: ItemView, block: BlockView): number {
  * program starts, a finished program and a fully logged session are never in
  * progress.
  *
+ * A combined session (two days on one date) is counted the same way, row by
+ * row, looking each row's sets up by its own day and block position, so Day
+ * 1's block 2 and Day 2's block 2 are never mixed up.
+ *
  * Used by app.ts to decide whether the screen should be kept awake on Today
  * and the log screen. app.ts additionally requires `date` to be the real
  * current date (a session left open past midnight is over), and re-asks every
@@ -34,18 +39,15 @@ function setsNeededToComplete(item: ItemView, block: BlockView): number {
  *
  *   session (SessionView for `date`) + log + now ──▶ isSessionInProgress ──▶ ScreenWakeLock.setWanted
  */
-export function isSessionInProgress(session: SessionView, log: WorkoutLog, date: string, now: Date): boolean {
-  if (session.kind !== "training") return false;
+export function isSessionInProgress(session: SessionView | CombinedSession, log: WorkoutLog, date: string, now: Date): boolean {
+  if (session.kind !== "training" && session.kind !== "combined") return false;
 
   let totalLoggedSets = 0;
   let hasItemWithSetsLeft = false;
 
-  session.blocks.forEach((block, blockIndex) => {
-    // Blocks are numbered from 1 in the log, as Today numbers them.
-    const blockPosition = blockIndex + 1;
-
+  for (const { source, block } of blockSlotsOf(session)) {
     for (const item of block.items) {
-      const loggedCount = setsForItem(log, date, blockPosition, item.exercise.id, session.dayNumber).length;
+      const loggedCount = setsForItem(log, date, source.blockPosition, item.exercise.id, source.day).length;
       totalLoggedSets += loggedCount;
 
       // Warm-ups are never required to end the session.
@@ -57,7 +59,7 @@ export function isSessionInProgress(session: SessionView, log: WorkoutLog, date:
       const isSkippedOptional = item.optional && loggedCount === 0;
       if (!isSkippedOptional && loggedCount < setsNeededToComplete(item, block)) hasItemWithSetsLeft = true;
     }
-  });
+  }
 
   if (totalLoggedSets === 0 || !hasItemWithSetsLeft) return false;
 

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { TrainingSettings } from "../settings/model";
-import { ALTERNATING_EXPLOSIVE_MINUTES_SAVED, DROPPED_EXTRAS_MINUTES_SAVED, combineSessions, type CombinedBlock, type CombinedSession } from "./combine";
+import { ALTERNATING_EXPLOSIVE_MINUTES_SAVED, DROPPED_EXTRAS_MINUTES_SAVED, blockSlotsOf, combineSessions, type CombinedBlock, type CombinedSession } from "./combine";
 import { parseProgram } from "./parse";
 import { buildSession, type SessionView } from "./schedule";
 import { applyNoEquipmentChoices } from "./noEquipment";
@@ -231,5 +231,24 @@ describe("combineSessions, more cases", () => {
 
     expect(combined.blocks.some((block) => block.type === "core")).toBe(false);
     expect(combined.droppedForTime.optionalItems).toBe(true);
+  });
+});
+
+describe("blockSlotsOf", () => {
+  it("lists a normal session's blocks with its own day, numbered from 1", () => {
+    const session = sessionOn("2026-11-09");
+    if (session.kind !== "training") throw new Error("expected a training day");
+
+    expect(blockSlotsOf(session).map((slot) => `D${slot.source.day}#${slot.source.blockPosition}:${slot.block.type}`)).toEqual([
+      "D1#1:warmup", "D1#2:explosive", "D1#3:mainStrength", "D1#4:miniDose", "D1#5:core", "D1#6:finisher",
+    ]);
+  });
+
+  it("lists a combined session's rows in screen order, an alternate block giving one row per day", () => {
+    const slots = blockSlotsOf(combineDates("2026-11-09", "2026-11-10"));
+
+    expect(slots.map((slot) => `D${slot.source.day}#${slot.source.blockPosition}`)).toEqual([
+      "D1#1", "D2#1", "D1#2", "D2#2", "D1#3", "D2#3", "D1#4", "D2#4", "D1#5", "D1#6",
+    ]);
   });
 });

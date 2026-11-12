@@ -33,8 +33,12 @@ export function createRestMemory(): RestMemory {
 /**
  * Builds the stable key for one rest button: the day, the block's position on
  * the screen and which rest in the block it is (an exercise id, or
- * "between-pairs" for a superset block's shared rest).
+ * "between-pairs" for a superset block's shared rest). Rows of a combined
+ * session (two days on one date, each with its own block 2) pass the `day`
+ * their block belongs to so the two never share a remembered rest; a normal
+ * session passes none and its keys are unchanged.
  */
-export function restMemoryKey(date: string, blockPosition: number, restId: string): string {
-  return `${date}|block ${blockPosition}|${restId}`;
+export function restMemoryKey(date: string, blockPosition: number, restId: string, day?: number): string {
+  const dayPart = day === undefined ? "" : `|day ${day}`;
+  return `${date}${dayPart}|block ${blockPosition}|${restId}`;
 }

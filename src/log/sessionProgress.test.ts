@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseProgram } from "../program/parse";
+import { blockSlotsOf, combineSessions, type CombinedSession } from "../program/combine";
 import { buildSession, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { countSetsForItem } from "./itemSets";
@@ -17,7 +18,7 @@ const trainingDate = "2026-11-09";
 const shortlyAfterLogging = new Date("2026-11-09T18:10:00Z");
 
 /** `isSessionInProgress` at `shortlyAfterLogging` unless a time is given. */
-function isSessionInProgress(session: SessionView, log: WorkoutLog, date: string, now: Date = shortlyAfterLogging): boolean {
+function isSessionInProgress(session: SessionView | CombinedSession, log: WorkoutLog, date: string, now: Date = shortlyAfterLogging): boolean {
   return isInProgressAt(session, log, date, now);
 }
 
@@ -143,5 +144,54 @@ describe("isSessionInProgress", () => {
 
     expect(isSessionInProgress(session, logWith(trainingDate, [...everythingButBag, ...bagRounds(3)]), trainingDate)).toBe(true);
     expect(isSessionInProgress(session, logWith(trainingDate, [...everythingButBag, ...bagRounds(4)]), trainingDate)).toBe(false);
+  });
+});
+
+describe("isSessionInProgress for a combined session", () => {
+  // 9 Nov (W2 D1) with Day 2 added.
+  const hostDate = "2026-11-09";
+  const combine = { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" };
+
+  /** The combined session for 9 Nov. */
+  function combinedSession(): CombinedSession {
+    return combineSessions(program, buildSession(program, settings, hostDate), buildSession(program, settings, combine.addedDate));
+  }
+
+  /** Every set of every row of the combined session, each carrying its own day. */
+  function allCombinedSets(session: CombinedSession): LoggedSet[] {
+    const sets: LoggedSet[] = [];
+    for (const { source, block } of blockSlotsOf(session)) {
+      for (const item of block.items) {
+        for (let setNumber = 1; setNumber <= countSetsForItem(item, block); setNumber++) {
+          sets.push({ exerciseId: item.exercise.id, day: source.day, blockPosition: source.blockPosition, setNumber, loggedAt: new Date("2026-11-09T18:00:00Z") });
+        }
+      }
+    }
+    return sets;
+  }
+
+  it("is false before anything is logged, true with some sets, false once everything is logged", () => {
+    const session = combinedSession();
+    const sets = allCombinedSets(session);
+
+    expect(isInProgressAt(session, logWith(hostDate, []), hostDate, shortlyAfterLogging)).toBe(false);
+    expect(isInProgressAt(session, logWith(hostDate, sets.slice(0, 1)), hostDate, shortlyAfterLogging)).toBe(true);
+    expect(isInProgressAt(session, logWith(hostDate, sets), hostDate, shortlyAfterLogging)).toBe(false);
+  });
+
+  it("counts each row by its own day: Day 2's block 2 sets do not complete Day 1's block 2", () => {
+    const session = combinedSession();
+    const everythingButDayOneSlams = allCombinedSets(session).filter((set) => !(set.day === 1 && set.exerciseId === "med_ball_slam"));
+
+    // Day 1's slams are still to do, so the session is open even though a block-2 set of Day 2 is logged.
+    expect(isInProgressAt(session, logWith(hostDate, everythingButDayOneSlams), hostDate, shortlyAfterLogging)).toBe(true);
+  });
+
+  it("a set without its day (a stray old set) still counts for the row it matches", () => {
+    const session = combinedSession();
+    const sets = allCombinedSets(session).map(({ day: _day, ...rest }) => rest);
+
+    // Every row's sets are found by block position and exercise alone, so the session reads as fully logged.
+    expect(isInProgressAt(session, logWith(hostDate, sets), hostDate, shortlyAfterLogging)).toBe(false);
   });
 });

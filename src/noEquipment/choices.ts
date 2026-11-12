@@ -40,8 +40,19 @@ export interface NoEquipmentChoices {
  * Returns empty sets for non-training sessions. Pure; a single call feeds both
  * `applyNoEquipmentChoices` (from `swapped`) and the tick's disabled state
  * (from `locked`) on Today and the log screen.
+ *
+ * Logged sets are looked up with the session's own day, so on a combined date
+ * (two days' sets on one date, each carrying its `day`) Day 1's block 3 never
+ * sees Day 2's block 3 sets. With `qualifyKeysWithDay` the keys also carry the
+ * day ("2.3:single_leg_rdl"): used for each half of a combined session.
  */
-export function noEquipmentChoices(session: SessionView, log: WorkoutLog, date: string, ticks: ReadonlySet<string>): NoEquipmentChoices {
+export function noEquipmentChoices(
+  session: SessionView,
+  log: WorkoutLog,
+  date: string,
+  ticks: ReadonlySet<string>,
+  qualifyKeysWithDay = false,
+): NoEquipmentChoices {
   const choices: NoEquipmentChoices = { swapped: new Set(), locked: new Set() };
   if (session.kind !== "training") return choices;
 
@@ -51,9 +62,9 @@ export function noEquipmentChoices(session: SessionView, log: WorkoutLog, date: 
     for (const item of block.items) {
       if (item.noEquipment === undefined) continue;
 
-      const key = noEquipmentItemKey(blockPosition, item.exercise.id);
-      const hasSwapSets = setsForItem(log, date, blockPosition, item.noEquipment.exercise.id).length > 0;
-      const hasOriginalSets = setsForItem(log, date, blockPosition, item.exercise.id).length > 0;
+      const key = noEquipmentItemKey(blockPosition, item.exercise.id, qualifyKeysWithDay ? session.dayNumber : undefined);
+      const hasSwapSets = setsForItem(log, date, blockPosition, item.noEquipment.exercise.id, session.dayNumber).length > 0;
+      const hasOriginalSets = setsForItem(log, date, blockPosition, item.exercise.id, session.dayNumber).length > 0;
 
       if (hasSwapSets) {
         choices.swapped.add(key);

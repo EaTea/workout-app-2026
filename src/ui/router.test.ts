@@ -88,3 +88,27 @@ describe("plan route", () => {
     expect(routeFromHash("#/plans/1/4")).toBe("today");
   });
 });
+
+describe("log route with a day (combined sessions)", () => {
+  it("parses the old form without a day, as before", () => {
+    expect(parseLogRoute("#/log/2026-11-09/2/med_ball_slam")).toEqual({ date: "2026-11-09", blockPosition: 2, exerciseId: "med_ball_slam" });
+  });
+
+  it("parses the trailing /day/<n>", () => {
+    expect(parseLogRoute("#/log/2026-11-09/2/split_squat_jump/day/2")).toEqual({ date: "2026-11-09", blockPosition: 2, exerciseId: "split_squat_jump", day: 2 });
+    expect(routeFromHash("#/log/2026-11-09/2/split_squat_jump/day/2")).toBe("log");
+  });
+
+  it("rejects a malformed or zero day", () => {
+    expect(parseLogRoute("#/log/2026-11-09/2/split_squat_jump/day/0")).toBeUndefined();
+    expect(parseLogRoute("#/log/2026-11-09/2/split_squat_jump/day/x")).toBeUndefined();
+    expect(parseLogRoute("#/log/2026-11-09/2/split_squat_jump/day")).toBeUndefined();
+    expect(routeFromHash("#/log/2026-11-09/2/split_squat_jump/day/x")).toBe("today");
+  });
+
+  it("builds the plain hash without a day and round-trips with one", () => {
+    expect(logRouteHash("2026-11-09", 2, "med_ball_slam")).toBe("#/log/2026-11-09/2/med_ball_slam");
+    expect(logRouteHash("2026-11-09", 2, "split_squat_jump", 2)).toBe("#/log/2026-11-09/2/split_squat_jump/day/2");
+    expect(parseLogRoute(logRouteHash("2026-11-09", 4, "single_leg_rdl", 2))).toEqual({ date: "2026-11-09", blockPosition: 4, exerciseId: "single_leg_rdl", day: 2 });
+  });
+});

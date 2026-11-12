@@ -99,7 +99,7 @@ function firstLastTimeAmong(log: WorkoutLog, program: Program, query: LastTimeQu
         set.exerciseId === query.exerciseId &&
         blockTypeOfLoggedSet(program, session, set) === query.blockType,
     );
-    if (matchingSets.length > 0) return { date, sets: setsOfLargestBlock(matchingSets) };
+    if (matchingSets.length > 0) return { date, sets: setsOfLargestBlock(session, matchingSets) };
   }
 
   return undefined;
@@ -122,21 +122,31 @@ function blockTypeOfLoggedSet(program: Program, session: LoggedSession, set: Log
 
 /**
  * From sets of one exercise spread over several blocks, keeps the block with
- * the most sets (ties: lowest block position) and orders it by set number.
+ * the most sets (ties: lowest day, then lowest block position) and orders it
+ * by set number. A block is a (day, block position) pair: a combined session
+ * has a block 2 in each of its two days, and "set 2" only means something
+ * within one of them. The day is each set's effective day (`setDay`), so
+ * older sets without their own day group under the session's day.
  * Only used by `firstLastTimeAmong`; `sets` must not be empty.
  */
-function setsOfLargestBlock(sets: LoggedSet[]): LoggedSet[] {
-  const setsByBlock = new Map<number, LoggedSet[]>();
+function setsOfLargestBlock(session: LoggedSession, sets: LoggedSet[]): LoggedSet[] {
+  /** Sets grouped under a "<day>|<blockPosition>" key, remembering the numbers to sort by. */
+  const setsByBlock = new Map<string, { day: number; blockPosition: number; sets: LoggedSet[] }>();
   for (const set of sets) {
-    setsByBlock.set(set.blockPosition, [...(setsByBlock.get(set.blockPosition) ?? []), set]);
+    const day = setDay(session, set) ?? 0;
+    const blockKey = `${day}|${set.blockPosition}`;
+
+    const block = setsByBlock.get(blockKey) ?? { day, blockPosition: set.blockPosition, sets: [] };
+    block.sets.push(set);
+    setsByBlock.set(blockKey, block);
   }
 
   // Walk the blocks first to last; a later block replaces the choice only if strictly larger.
-  const blocksFirstToLast = [...setsByBlock.entries()].sort(([firstPosition], [secondPosition]) => firstPosition - secondPosition);
+  const blocksFirstToLast = [...setsByBlock.values()].sort((first, second) => first.day - second.day || first.blockPosition - second.blockPosition);
 
   let chosenSets: LoggedSet[] = [];
-  for (const [, setsOfBlock] of blocksFirstToLast) {
-    if (setsOfBlock.length > chosenSets.length) chosenSets = setsOfBlock;
+  for (const block of blocksFirstToLast) {
+    if (block.sets.length > chosenSets.length) chosenSets = block.sets;
   }
 
   return chosenSets.sort((first, second) => first.setNumber - second.setNumber);

@@ -20,8 +20,12 @@ export interface NoEquipmentTicksWireV1 {
   ticks: Record<string, string[]>;
 }
 
-/** A tick key is "<blockPosition>:<exerciseId>", e.g. "3:single_leg_rdl". */
-const ITEM_KEY_PATTERN = /^\d+:[a-z0-9_]+$/;
+/**
+ * A tick key is "<blockPosition>:<exerciseId>", e.g. "3:single_leg_rdl", or,
+ * for a row of a combined session, "<day>.<blockPosition>:<exerciseId>", e.g.
+ * "2.3:single_leg_rdl" (see `noEquipmentItemKey`).
+ */
+const ITEM_KEY_PATTERN = /^(\d+\.)?\d+:[a-z0-9_]+$/;
 
 /** Converts the internal ticks to the stored shape, with dates and keys sorted so the JSON is stable. Dates with no ticks are left out. */
 export function ticksToWire(ticks: NoEquipmentTicks): NoEquipmentTicksWireV1 {
@@ -40,7 +44,7 @@ export function ticksToWire(ticks: NoEquipmentTicks): NoEquipmentTicksWireV1 {
 /**
  * Converts untrusted parsed JSON to internal ticks. Never throws: a wrong
  * version or shape gives empty ticks, and any date that is not a real
- * YYYY-MM-DD, any item key not matching "<number>:<id>", and any
+ * YYYY-MM-DD, any item key not matching "<number>:<id>" or "<day>.<number>:<id>", and any
  * non-string entry is dropped (a date left with no keys is dropped too).
  */
 export function ticksFromWire(wire: unknown): NoEquipmentTicks {

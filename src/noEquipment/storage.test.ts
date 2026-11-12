@@ -58,6 +58,15 @@ describe("wire mapping", () => {
   });
 });
 
+describe("day-qualified keys (rows of a combined session)", () => {
+  it("are kept by ticksFromWire and survive the round trip, while malformed ones are dropped", () => {
+    const ticks = ticksFromWire({ version: 1, ticks: { "2026-11-09": ["1.3:pull_up", "2.4:single_leg_rdl", "3:dip", ".3:x", "1.:x", "1.2.3:x", "a.3:x"] } });
+
+    expect([...ticksForDate(ticks, "2026-11-09")].sort()).toEqual(["1.3:pull_up", "2.4:single_leg_rdl", "3:dip"]);
+    expect(ticksFromWire(JSON.parse(JSON.stringify(ticksToWire(ticks))))).toEqual(ticks);
+  });
+});
+
 describe("loadTicks", () => {
   it("is empty when nothing is stored", () => {
     expect(loadTicks(new FakeStorage(), KEY).size).toBe(0);

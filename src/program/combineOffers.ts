@@ -113,6 +113,49 @@ export function donorOnDate(combines: CombinesByDate, date: string): DonorInfo |
   return undefined;
 }
 
+/**
+ * The combine on `date` if it still makes sense for the program as it is now,
+ * else undefined. A stored combine can go stale (the start date moved, or
+ * program.json's pairs changed); Today then treats the date as a normal day
+ * instead of failing. It is valid when `date` is a training day of the
+ * program whose day is the combine's `hostDay`, the two days are an allowed
+ * pair, and `addedDate` is where the added day falls in the same week.
+ * Used by Today, the log screen and the wake lock to decide whether to build
+ * a combined session.
+ */
+export function activeCombineOn(program: Program, startDate: string | null, date: string, combines: CombinesByDate): Combine | undefined {
+  const combine = combines.get(date);
+  if (combine === undefined) return undefined;
+
+  const status = programStatus(startDate, program.lengthWeeks, date);
+  if (status.kind !== "active" || status.dayNumber !== combine.hostDay) return undefined;
+
+  const earlierDay = Math.min(combine.hostDay, combine.addedDay);
+  const laterDay = Math.max(combine.hostDay, combine.addedDay);
+  if (!isAllowedPair(program, earlierDay, laterDay)) return undefined;
+  if (program.days[combine.hostDay] === undefined || program.days[combine.addedDay] === undefined) return undefined;
+  if (combine.addedDate !== addDaysToDate(date, combine.addedDay - combine.hostDay)) return undefined;
+
+  return combine;
+}
+
+/**
+ * `donorOnDate`, but only when the donor date and its host combine are still
+ * consistent with the program as it is now (see `activeCombineOn`): the date
+ * must be the added day's date and the host's combine must be active. Today
+ * shows the "done with" card only for this.
+ */
+export function activeDonorOn(program: Program, startDate: string | null, date: string, combines: CombinesByDate): DonorInfo | undefined {
+  const donor = donorOnDate(combines, date);
+  if (donor === undefined) return undefined;
+
+  const status = programStatus(startDate, program.lengthWeeks, date);
+  if (status.kind !== "active" || status.dayNumber !== donor.day) return undefined;
+  if (activeCombineOn(program, startDate, donor.hostDate, combines) === undefined) return undefined;
+
+  return donor;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
