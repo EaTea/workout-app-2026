@@ -2055,7 +2055,7 @@ days, so each set needs to carry its own day.
    (`noEquipment/choices.ts`), Today's row progress and session
    progress (one day per session today), the History group order, and
    "last time"'s `setsOfLargestBlock`, which groups by block only.
-6. [ ] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
+6. [x] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
    set, see 10 Nov's "done with Day 1" card, and see the set in History;
    undo before logging puts both days back.
 7. [ ] Fixes from the challenger review.
