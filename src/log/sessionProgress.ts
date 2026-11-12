@@ -45,7 +45,7 @@ export function isSessionInProgress(session: SessionView, log: WorkoutLog, date:
     const blockPosition = blockIndex + 1;
 
     for (const item of block.items) {
-      const loggedCount = setsForItem(log, date, blockPosition, item.exercise.id).length;
+      const loggedCount = setsForItem(log, date, blockPosition, item.exercise.id, session.dayNumber).length;
       totalLoggedSets += loggedCount;
 
       // Warm-ups are never required to end the session.

@@ -2,6 +2,7 @@ import type { DayNumber, Program } from "../program/model";
 import { isExerciseLoggedForItem } from "../program/noEquipment";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { sessionDates } from "./operations";
+import { setDay } from "./setDay";
 
 /**
  * "Last time" lookup (rule 8): what the athlete did the previous time an
@@ -15,7 +16,13 @@ import { sessionDates } from "./operations";
  * as heavy main work on one day and as an easy mini-dose on another (the calf
  * raise, the pull-up), and those must never stand in for each other. The log
  * stores a block position, not a block type, so the type of an old set is
- * looked up in the program: `program.days[session.day].blocks[position - 1]`.
+ * looked up in the program: `program.days[setDay(session, set)].blocks[position - 1]`,
+ * where `setDay` is the set's own day or, for sets saved without one, the
+ * session's day.
+ *
+ *   session 2026-11-09          set day   block type of (day, position)
+ *     ├─ pull_up #1             1         program.days[1].blocks[1]
+ *     └─ split_squat #1         2         program.days[2].blocks[1]   (a second day on the same date)
  *
  * "No equipment" swaps: a swapped item's sets are logged under the swap's id
  * (e.g. `backpack_single_leg_rdl`) in the item's normal block position. The
@@ -50,12 +57,13 @@ export interface LastTimeQuery {
  * before `beforeDate` (so a `?date=` preview of an older day never sees "the
  * future") with at least one logged set of the exercise in a block of the
  * query's type. The choice is:
- *  1. the most recent candidate whose stored `day` equals the query's day
- *     number (last week's same slot), else
+ *  1. the most recent candidate with at least one set whose effective day
+ *     (`setDay`) equals the query's day number (last week's same slot); only
+ *     those sets are considered, else
  *  2. the most recent candidate on any day, else
  *  3. undefined.
  *
- * A set whose block type cannot be resolved (the session has no stored day,
+ * A set whose block type cannot be resolved (it has no day of its own and the session has no stored day,
  * or the program no longer has that day, block or exercise) counts as "no
  * match", never as a guess.
  *
@@ -67,21 +75,30 @@ export interface LastTimeQuery {
 export function findLastTime(log: WorkoutLog, program: Program, query: LastTimeQuery, beforeDate: string): LastTime | undefined {
   // Program dates are "YYYY-MM-DD", so plain string comparison is chronological.
   const earlierDatesNewestFirst = sessionDates(log).filter((date) => date < beforeDate);
-  const sameDayDatesNewestFirst = earlierDatesNewestFirst.filter((date) => log.sessions[date]?.day === query.dayNumber);
 
-  return firstLastTimeAmong(log, program, query, sameDayDatesNewestFirst) ?? firstLastTimeAmong(log, program, query, earlierDatesNewestFirst);
+  return (
+    firstLastTimeAmong(log, program, query, earlierDatesNewestFirst, query.dayNumber) ??
+    firstLastTimeAmong(log, program, query, earlierDatesNewestFirst)
+  );
 }
 
 /**
  * The first date (they are newest first) whose session has matching sets,
  * as a `LastTime`. Only used by `findLastTime`, once per preference tier.
+ * With `onlyDay`, only sets whose effective day is that day are considered
+ * (the "same slot" tier); without it, sets of any day count.
  */
-function firstLastTimeAmong(log: WorkoutLog, program: Program, query: LastTimeQuery, datesNewestFirst: string[]): LastTime | undefined {
+function firstLastTimeAmong(log: WorkoutLog, program: Program, query: LastTimeQuery, datesNewestFirst: string[], onlyDay?: DayNumber): LastTime | undefined {
   for (const date of datesNewestFirst) {
     const session = log.sessions[date];
     if (session === undefined) continue;
 
-    const matchingSets = session.sets.filter((set) => set.exerciseId === query.exerciseId && blockTypeOfLoggedSet(program, session, set) === query.blockType);
+    const matchingSets = session.sets.filter(
+      (set) =>
+        (onlyDay === undefined || setDay(session, set) === onlyDay) &&
+        set.exerciseId === query.exerciseId &&
+        blockTypeOfLoggedSet(program, session, set) === query.blockType,
+    );
     if (matchingSets.length > 0) return { date, sets: setsOfLargestBlock(matchingSets) };
   }
 
@@ -90,14 +107,15 @@ function firstLastTimeAmong(log: WorkoutLog, program: Program, query: LastTimeQu
 
 /**
  * The type of the block a logged set was done in, resolved from the program
- * for the session's stored day number. Undefined when that cannot be done
- * (no stored day, no such day or block in the program now, or the exercise is
+ * for the set's effective day (`setDay`). Undefined when that cannot be done
+ * (no day on the set or session, no such day or block in the program now, or the exercise is
  * not in that block any more; a swap's id counts as being in its item's block), which callers treat as "no match".
  */
 function blockTypeOfLoggedSet(program: Program, session: LoggedSession, set: LoggedSet): string | undefined {
-  if (session.day === undefined) return undefined;
+  const day = setDay(session, set);
+  if (day === undefined) return undefined;
 
-  const block = program.days[session.day]?.blocks[set.blockPosition - 1];
+  const block = program.days[day]?.blocks[set.blockPosition - 1];
   const isExerciseInBlock = block?.items.some((item) => isExerciseLoggedForItem(item, set.exerciseId)) ?? false;
   return isExerciseInBlock ? block?.type : undefined;
 }

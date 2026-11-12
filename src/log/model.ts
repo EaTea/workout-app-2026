@@ -12,12 +12,14 @@
  *             ├─ programWeek?  1             (for History headings)
  *             ├─ day?          1             (DayNumber, 1-7)
  *             └─ sets: LoggedSet[]
- *                  └─ { exerciseId: "pull_up", blockPosition: 2, setNumber: 3,
+ *                  └─ { exerciseId: "pull_up", day?: 1, blockPosition: 2, setNumber: 3,
  *                       reps?: 6, loadKg?: 6, note?: "...", loggedAt: Date }
  *
- * A set is identified by (exerciseId, blockPosition, setNumber) within a
- * session. blockPosition is 1-based, as Today numbers blocks, because the same
- * exercise can appear in more than one block of a day.
+ * A set is identified by (day, exerciseId, blockPosition, setNumber) within a
+ * session, where day is the set's own `day` or else the session's (`setDay`
+ * in `setDay.ts`). blockPosition is 1-based, as Today numbers blocks, because
+ * the same exercise can appear in more than one block of a day, and counts
+ * within that day's blocks, so two days on one date can both have a block 2.
  */
 
 import type { DayNumber } from "../program/model";
@@ -27,7 +29,14 @@ export interface LoggedSet {
   /** Exercise library id, e.g. `pull_up`. */
   exerciseId: string;
 
-  /** 1-based position of the block within the day, as Today numbers blocks. */
+  /**
+   * Program day (1-7) the set's block belongs to. Absent on sets saved before
+   * sets carried their own day; those belong to the session's `day` (use
+   * `setDay` to resolve it, never read this field alone).
+   */
+  day?: DayNumber;
+
+  /** 1-based position of the block within that day's blocks, as Today numbers blocks. */
   blockPosition: number;
 
   /** 1-based set number within the item. */

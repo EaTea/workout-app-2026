@@ -114,6 +114,28 @@ describe("chartableExercises: Steady Strength", () => {
   });
 });
 
+describe("progress for sessions whose sets carry their own day", () => {
+  /** One date holding day 1 (pull-ups as main strength, block 3) and day 5 (pull-ups as a mini-dose, block 4). */
+  const twoDayLog = makeLog(
+    makeSession("2026-11-09", 2, 1, [
+      { ...makeSet("pull_up", 3, 1, 8), day: 1 },
+      { ...makeSet("pull_up", 4, 1, 3), day: 5 },
+    ]),
+  );
+
+  it("picks the block type of each set from the set's own day", () => {
+    expect(chartableExercises(twoDayLog, program).map((exercise) => exercise.key)).toEqual(["pull_up|mainStrength", "pull_up|miniDose"]);
+    expect(progressSeries(twoDayLog, program, "pull_up", "mainStrength").map((point) => point.bestReps)).toEqual([8]);
+    expect(progressSeries(twoDayLog, program, "pull_up", "miniDose").map((point) => point.bestReps)).toEqual([3]);
+  });
+
+  it("reads an old-format log (no per-set day) from the session's day, exactly as before", () => {
+    const oldLog = makeLog(makeSession("2026-11-02", 1, 1, [makeSet("pull_up", 3, 1, 5), makeSet("dip", 4, 1, 7)]));
+
+    expect(chartableExercises(oldLog, program).map((exercise) => exercise.key)).toEqual(["dip|miniDose", "pull_up|mainStrength"]);
+  });
+});
+
 describe("No equipment swaps", () => {
   // Day 4 block 3 is the single-leg RDL (main strength) with the backpack RDL as its swap.
   const log = makeLog(

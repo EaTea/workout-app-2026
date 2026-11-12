@@ -395,7 +395,7 @@ function renderItemRow(
   if (item.showsSameEveryWeekNote) {
     text.append(element("span", "timer-adjustment", SAME_EVERY_WEEK_TEXT));
   }
-  const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id).length, countSetsForItem(item, block));
+  const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id, dayNumber).length, countSetsForItem(item, block));
   if (progress !== undefined) {
     text.append(element("span", "item-progress", progress));
   }

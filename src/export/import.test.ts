@@ -48,6 +48,27 @@ describe("parseImport", () => {
     expect(result.problems).toEqual([]);
   });
 
+  it("round trips a set's own day through the export file, and leaves old sets without one", () => {
+    const logWithDays = {
+      sessions: {
+        "2026-11-09": {
+          date: "2026-11-09",
+          day: 1,
+          sets: [
+            { exerciseId: "pull_up", day: 1, blockPosition: 3, setNumber: 1, loggedAt: new Date("2026-11-09T10:00:00.000Z") },
+            { exerciseId: "pull_up", day: 5, blockPosition: 4, setNumber: 1, loggedAt: new Date("2026-11-09T10:05:00.000Z") },
+            { exerciseId: "dip", blockPosition: 4, setNumber: 1, loggedAt: new Date("2026-11-09T10:10:00.000Z") },
+          ],
+        },
+      },
+    };
+
+    const result = parseImport(serializeExport(exportToWire({ ...bundle, log: logWithDays })));
+
+    expect(result.ok && result.data.log).toEqual(logWithDays);
+    expect(result.ok && result.problems).toEqual([]);
+  });
+
   it("summarises sessions, sets, checks, date range and start date", () => {
     const result = parseImport(fileText());
 

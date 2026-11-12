@@ -71,7 +71,7 @@ export function renderHistoryScreen(
 
   /** Stable id of an exercise row within the screen, for the expanded state. */
   function groupKey(date: string, group: ExerciseGroup): string {
-    return `${date}|${group.blockPosition}|${group.exerciseId}`;
+    return `${date}|${group.day ?? ""}|${group.blockPosition}|${group.exerciseId}`;
   }
 
   /** True when `set` of the session on `date` is the one being edited. */
@@ -113,7 +113,7 @@ export function renderHistoryScreen(
 
   /** Name for the focus target of one set's row. */
   function setFocusName(date: string, set: LoggedSet): string {
-    return `set|${date}|${set.blockPosition}|${set.exerciseId}|${set.setNumber}`;
+    return `set|${date}|${set.day ?? ""}|${set.blockPosition}|${set.exerciseId}|${set.setNumber}`;
   }
 
   /**
@@ -168,8 +168,8 @@ export function renderHistoryScreen(
   function renderExerciseRow(session: LoggedSession, group: ExerciseGroup): HTMLElement {
     const wrapper = element("div", "history-exercise");
     const isExpanded = expandedGroups.has(groupKey(session.date, group));
-    const name = performedExerciseName(program, session, group.blockPosition, group.exerciseId);
-    const noun = loggedSetNoun(program, session, group.blockPosition, group.exerciseId);
+    const name = performedExerciseName(program, session, group.blockPosition, group.exerciseId, group.day);
+    const noun = loggedSetNoun(program, session, group.blockPosition, group.exerciseId, group.day);
     const summary = formatSetsSummary(group.sets, noun);
 
     const row = element("button", "history-exercise-row");
@@ -197,7 +197,7 @@ export function renderHistoryScreen(
     wrapper.append(row);
 
     if (isExpanded) {
-      const label = loggedSetLabel(program, session, group.blockPosition, group.exerciseId);
+      const label = loggedSetLabel(program, session, group.blockPosition, group.exerciseId, group.day);
       for (const set of group.sets) {
         wrapper.append(isEditing(session.date, set) ? renderEditPanel(session, set, label) : renderSetRow(session.date, set, label));
       }
@@ -252,10 +252,10 @@ export function renderHistoryScreen(
 
 /** The identity of a logged set, as `editSet` / `deleteSet` take it. */
 function keyOf(set: LoggedSet): SetKey {
-  return { exerciseId: set.exerciseId, blockPosition: set.blockPosition, setNumber: set.setNumber };
+  return { exerciseId: set.exerciseId, day: set.day, blockPosition: set.blockPosition, setNumber: set.setNumber };
 }
 
 /** True when `key` names `set`. */
 function isKeyOfSet(key: SetKey, set: LoggedSet): boolean {
-  return key.exerciseId === set.exerciseId && key.blockPosition === set.blockPosition && key.setNumber === set.setNumber;
+  return key.exerciseId === set.exerciseId && key.day === set.day && key.blockPosition === set.blockPosition && key.setNumber === set.setNumber;
 }

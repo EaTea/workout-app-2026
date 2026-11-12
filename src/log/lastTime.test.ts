@@ -150,6 +150,56 @@ describe("lastTimeSetFor", () => {
   });
 });
 
+describe("findLastTime (sets that carry their own day)", () => {
+  /** One date holding two days: pull-ups as day 1 main strength (block 3) and as day 5 mini-dose (block 4). */
+  const twoDaySession = makeSession("2026-11-02", 1, [
+    { ...makeSet("pull_up", 3, 1, 8), day: 1 },
+    { ...makeSet("pull_up", 4, 1, 3), day: 5 },
+  ]);
+
+  it("finds each day's own sets in a session holding two days", () => {
+    const log = makeLog(twoDaySession);
+
+    const mainStrength = findLastTime(log, program, query("pull_up", 1, "mainStrength"), "2026-11-09");
+    const miniDose = findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09");
+
+    expect(mainStrength?.sets.map((set) => set.reps)).toEqual([8]);
+    expect(miniDose?.sets.map((set) => set.reps)).toEqual([3]);
+  });
+
+  it("counts a session for a day only if one of its sets is on that day, preferring it over a newer session of another day", () => {
+    // Heavy bag is block 6 (finisher) on both Day 1 and Day 5, so the block type cannot tell the days apart: only the day can.
+    const olderDayOne = makeSession("2026-11-02", 1, [makeSet("heavy_bag", 6, 1, 4)]);
+
+    // A newer plain Day 5 session must not win the "same day" tier for a Day 1 query.
+    const newerDayFive = makeLog(olderDayOne, makeSession("2026-11-04", 5, [makeSet("heavy_bag", 6, 1, 7)]));
+    expect(findLastTime(newerDayFive, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // ...but it is the answer for a Day 5 query, and Day 5 would otherwise fall back to it anyway.
+    expect(findLastTime(newerDayFive, program, query("heavy_bag", 5, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(7);
+
+    // A newer combined session (stored day 1) whose heavy-bag set is on Day 5 is not a Day 1 session for this exercise.
+    const newerCombined = makeLog(olderDayOne, makeSession("2026-11-04", 1, [{ ...makeSet("heavy_bag", 6, 1, 7), day: 5 }]));
+    expect(findLastTime(newerCombined, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+
+    // And a set on Day 1 inside a session stored as Day 5 does count for Day 1.
+    const dayOneSetInDayFiveSession = makeLog(
+      makeSession("2026-11-02", 5, [makeSet("heavy_bag", 6, 1, 4)]),
+      makeSession("2026-11-04", 5, [{ ...makeSet("heavy_bag", 6, 1, 7), day: 1 }]),
+    );
+    expect(findLastTime(dayOneSetInDayFiveSession, program, query("heavy_bag", 1, "finisher"), "2026-11-09")?.sets[0]?.reps).toBe(7);
+  });
+
+  it("reads an old-format log (no per-set day) exactly as before: the session's day decides", () => {
+    const log = makeLog(makeSession("2026-11-02", 5, [makeSet("pull_up", 4, 1, 4)]));
+
+    expect(findLastTime(log, program, query("pull_up", 5, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // Same block type on another day's query still falls back to "any day".
+    expect(findLastTime(log, program, query("pull_up", 1, "miniDose"), "2026-11-09")?.sets[0]?.reps).toBe(4);
+    // And a session with no stored day resolves nothing.
+    expect(findLastTime(makeLog(makeSession("2026-11-02", undefined, [makeSet("pull_up", 4, 1, 4)])), program, query("pull_up", 5, "miniDose"), "2026-11-09")).toBeUndefined();
+  });
+});
+
 describe("findLastTime with No equipment swaps", () => {
   // Day 4: block 3 is the single-leg RDL main strength (swap: backpack_single_leg_rdl); day 2 block 4 is its mini-dose.
   const swapSets = [makeSet("backpack_single_leg_rdl", 3, 1, 12), makeSet("backpack_single_leg_rdl", 3, 2, 12)];

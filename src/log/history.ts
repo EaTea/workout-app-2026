@@ -1,4 +1,6 @@
+import type { DayNumber } from "../program/model";
 import type { LoggedSession, LoggedSet } from "./model";
+import { setDay } from "./setDay";
 
 /**
  * Pure grouping for the History screen: turns a session's flat list of sets
@@ -16,6 +18,9 @@ import type { LoggedSession, LoggedSet } from "./model";
 
 /** All logged sets of one exercise within one block of a session. */
 export interface ExerciseGroup {
+  /** Program day (1-7) the block belongs to (`setDay`); undefined for an old set in a session with no stored day. */
+  day: DayNumber | undefined;
+
   /** 1-based block position, as Today numbers blocks. */
   blockPosition: number;
 
@@ -27,21 +32,24 @@ export interface ExerciseGroup {
 }
 
 /**
- * Groups `session.sets` by (block position, exercise). Groups are ordered by
+ * Groups `session.sets` by (day, block position, exercise), the day being each
+ * set's effective day (`setDay`). Groups are ordered by
  * block position; two exercises in the same block (a superset) keep the order
  * in which their first set was logged. The same exercise in two different
  * blocks gives two groups, because "set 2" only means something within one block.
+ * The same block position on two different days also gives two groups.
  */
 export function groupSetsByExercise(session: LoggedSession): ExerciseGroup[] {
   const groupsInFirstLoggedOrder: ExerciseGroup[] = [];
 
   for (const set of session.sets) {
+    const day = setDay(session, set);
     const existingGroup = groupsInFirstLoggedOrder.find(
-      (group) => group.blockPosition === set.blockPosition && group.exerciseId === set.exerciseId,
+      (group) => group.day === day && group.blockPosition === set.blockPosition && group.exerciseId === set.exerciseId,
     );
 
     if (existingGroup === undefined) {
-      groupsInFirstLoggedOrder.push({ blockPosition: set.blockPosition, exerciseId: set.exerciseId, sets: [set] });
+      groupsInFirstLoggedOrder.push({ day, blockPosition: set.blockPosition, exerciseId: set.exerciseId, sets: [set] });
     } else {
       existingGroup.sets.push(set);
     }

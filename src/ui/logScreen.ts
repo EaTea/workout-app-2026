@@ -126,7 +126,10 @@ export function renderLogScreen(
   const week = session.week;
   const isFutureDate = date > realToday;
 
-  const sessionContext = { programWeek: week, day: session.dayNumber };
+  // The program day this item's block belongs to. Used to find sets and name keys; new sets do not store it
+  // (single-day logs keep the session's day; only combined sessions record a per-set `day`, see `LoggedSet.day`).
+  const dayNumber = session.dayNumber;
+  const sessionContext = { programWeek: week, day: dayNumber };
   const totalSets = countSetsForItem(trackedItem, trackedBlock);
   const tracksReps = itemTracksReps(trackedItem);
   const word = setWord(trackedItem);
@@ -149,7 +152,7 @@ export function renderLogScreen(
 
   /** Sets of this item logged so far, in set order. */
   function loggedSets(): LoggedSet[] {
-    return setsForItem(log, date, blockPosition, trackedItem.exercise.id);
+    return setsForItem(log, date, blockPosition, trackedItem.exercise.id, dayNumber);
   }
 
   /** The 1-based numbers of the sets already logged. */
@@ -285,7 +288,7 @@ export function renderLogScreen(
     commit((freshLog) => {
       let updatedLog = freshLog;
       for (const setToLog of setsToLog) {
-        const alreadyLogged = setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id).some((set) => set.setNumber === setToLog.setNumber);
+        const alreadyLogged = setsForItem(updatedLog, date, blockPosition, trackedItem.exercise.id, dayNumber).some((set) => set.setNumber === setToLog.setNumber);
         if (!alreadyLogged) updatedLog = logSet(updatedLog, date, setToLog, sessionContext);
       }
       return updatedLog;
@@ -304,7 +307,7 @@ export function renderLogScreen(
     }
 
     const changed = buildLoggedSet(currentSetNumber, draft);
-    const key = { exerciseId: changed.exerciseId, blockPosition, setNumber: changed.setNumber };
+    const key = { exerciseId: changed.exerciseId, day: dayNumber, blockPosition, setNumber: changed.setNumber };
     // A key with value undefined clears that field in the stored set.
     commit((freshLog) => editSet(freshLog, date, key, { reps: changed.reps, loadKg: changed.loadKg, note: changed.note }));
     focusSet(firstUnloggedSetNumber());
@@ -314,7 +317,7 @@ export function renderLogScreen(
   /** "Delete set" tapped while editing a logged set. */
   function handleDelete(): void {
     if (currentSetNumber === undefined) return;
-    const key = { exerciseId: trackedItem.exercise.id, blockPosition, setNumber: currentSetNumber };
+    const key = { exerciseId: trackedItem.exercise.id, day: dayNumber, blockPosition, setNumber: currentSetNumber };
     commit((freshLog) => deleteSet(freshLog, date, key));
     focusSet(firstUnloggedSetNumber());
     drawAndFocus();
