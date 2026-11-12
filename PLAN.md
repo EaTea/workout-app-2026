@@ -1577,10 +1577,14 @@ with a test. Pike push-ups are logged as `pike_push_up`, separately from
 that one exercise's history.
 
 **Steps.**
-1. [ ] `buildSession` taking the swapped items: a ticked item uses its
-   swap view (`applyNoEquipmentSwap`, the retest-week hold and
-   `ItemView.noEquipment` landed in PR 18). Unit tests for the ticked
-   worked examples below.
+1. [x] A ticked item uses its swap view: `buildSession` is unchanged; the
+   pure `applyNoEquipmentChoices(session, swappedKeys)` in
+   `src/program/noEquipment.ts` replaces items whose key
+   (`noEquipmentItemKey(blockPosition, originalExerciseId)`, e.g.
+   "3:single_leg_rdl") is ticked with their `ItemView.noEquipment` view and
+   sets `ItemView.swappedFrom`. Helpers `hasNoEquipmentSwap` and
+   `originalExerciseIdOf` build keys for Today and the log screen. Unit tests
+   for the ticked worked examples.
 2. [ ] The ticks storage key, its wire type, mapping and pruning. Unit
    tests.
 3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
