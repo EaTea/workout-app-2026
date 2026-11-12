@@ -69,6 +69,28 @@ export interface Exercise {
   maxTested: boolean;
 }
 
+/**
+ * An item's optional "no equipment" swap: a household-kit replacement the
+ * person can choose per exercise before a session. It carries only what the
+ * swap changes (its exercise and dose text). Sets, rest, format, minutes,
+ * rounds, workSec, perSide, optional, weeklyIncrease and sameEveryWeek always
+ * come from the original item, and the original's load, note and tempo never
+ * carry over. The parser guarantees the swap is not max-tested, is not the
+ * item's own exercise, and has its own `reps` when the original is max-based.
+ * The schedule builds its view for the week (`applyNoEquipmentSwap`,
+ * `ItemView.noEquipment`), which the exercise sheet shows; PR 19 adds the
+ * tick on Today that switches a row over to it.
+ */
+export interface NoEquipmentSwap {
+  /** The swap's library entry, resolved from its id. */
+  exercise: Exercise;
+  reps?: Reps;
+  durationSec?: number;
+  load?: string;
+  note?: string;
+  tempo?: string;
+}
+
 /** One exercise inside a block, with its exercise-library entry resolved. */
 export interface BlockItem {
   exerciseId: string;
@@ -105,6 +127,8 @@ export interface BlockItem {
    * during a non-deload phase".
    */
   weeklyIncrease?: string;
+  /** The item's optional household-kit swap; undefined when the file has none. */
+  noEquipment?: NoEquipmentSwap;
 }
 
 /** One block of a session (warm-up, explosive, ...). */

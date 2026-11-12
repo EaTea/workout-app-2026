@@ -5,7 +5,7 @@ import { formatPrescriptionSummary } from "./format";
 
 /**
  * Bottom sheet with the details for one exercise (cues, alternative,
- * progression, evidence). Opened by the ⓘ button on the log screen.
+ * the "No equipment" swap when the item has one, progression, evidence). Opened by the ⓘ button on the log screen.
  *
  *   ⓘ button (log screen) ──click──▶ openExerciseSheet(item, opener)
  *                           ├─ backdrop (tap closes)    ┐ appended to <body>, outside #app,
@@ -46,6 +46,9 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   }
   if (exercise.alternative) {
     content.push(sectionHeading("Alternative"), element("p", "sheet-text", exercise.alternative));
+  }
+  if (item.noEquipment) {
+    content.push(...renderNoEquipmentSection(item.noEquipment));
   }
   if (exercise.progression.length > 0) {
     content.push(sectionHeading("Progression"), bulletList(exercise.progression));
@@ -132,6 +135,24 @@ export function openSheet(content: HTMLElement[], opener: HTMLElement): void {
   document.body.append(backdrop, sheet);
   // Start on Close so Shift+Tab/Tab always begin inside the first/last handling.
   closeButton.focus();
+}
+
+/**
+ * The "No equipment" section: the household-kit swap's name and this week's
+ * dose (the swap's own view, built by the schedule, so deloads and weekly
+ * increases already apply), then the swap's cues. The cues include its safety
+ * points, so they are always shown. Called by `openExerciseSheet` only when
+ * the item has a swap; nothing here changes what Today or the log screen do.
+ */
+function renderNoEquipmentSection(swap: ItemView): HTMLElement[] {
+  const section = [
+    sectionHeading("No equipment"),
+    element("p", "sheet-text", `${swap.exercise.name}: ${formatPrescriptionSummary(swap)}`),
+  ];
+  if (swap.exercise.cues.length > 0) {
+    section.push(bulletList(swap.exercise.cues));
+  }
+  return section;
 }
 
 /** The evidence link (new tab, no opener) or the coaching-practice text. */

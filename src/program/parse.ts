@@ -18,6 +18,7 @@
  *   unknown ──parseProgram──▶ { program: Program, warnings: ProgramWarning[] }
  *               ├─ parseExercise  (per library entry)
  *               ├─ parseDay ─ parseBlock ─ parseItem (resolves exercise ids)
+ *               │                              └─ parseNoEquipmentSwap (the item's optional swap)
  *               └─ progression / warmupRotation / fatigueCheck
  *   every parse* function ──unknown key──▶ collectUnknownFields ──▶ warnings
  *   every parse* function ──real problem─▶ fail() ──▶ throws
@@ -31,6 +32,7 @@ import type {
   Exercise,
   FatigueCheck,
   Format,
+  NoEquipmentSwap,
   ProgressionPhase,
   TimerAdjustments,
   Program,
@@ -48,6 +50,7 @@ import type {
   ExerciseWire,
   FatigueCheckWire,
   ItemWire,
+  NoEquipmentSwapWire,
   NumberOrRangeWire,
   ProgramInfoWire,
   ProgramWire,
@@ -90,8 +93,11 @@ const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues",
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
 const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"]);
 const ITEM_KEYS = allowedKeysOf<ItemWire>()([
-  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease",
+  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment",
 ]);
+const NO_EQUIPMENT_SWAP_KEYS = allowedKeysOf<NoEquipmentSwapWire>()(["exercise", "reps", "durationSec", "load", "note", "tempo"]);
+/** Item fields a swap may not set because it keeps them from the original (everything but its own keys; includes `noEquipment`, so swaps can't nest). Derived so it follows ITEM_KEYS. */
+const KEPT_FROM_ORIGINAL_KEYS = ITEM_KEYS.filter((key) => !NO_EQUIPMENT_SWAP_KEYS.includes(key));
 const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
 const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest", "timerAdjustments"]);
 const TIMER_ADJUSTMENT_KEYS = allowedKeysOf<TimerAdjustmentsWire>()(["intervalWorkSec", "coreRestBetweenPairsSec"]);
@@ -371,6 +377,66 @@ function parseExercise(id: string, raw: unknown, path: string, warnings: Program
   };
 }
 
+/**
+ * Converts an item's optional `noEquipment` swap (called by `parseItem`, which
+ * passes what it already worked out about the original). Keys the swap must
+ * keep from the original are errors, because silently ignoring them would let
+ * a swap look like it changes the dose when it can't. Other unknown keys are
+ * warnings with a "did you mean" hint, like everywhere else.
+ *
+ * A swap also can't change the kind of dose: a timed hold (the original has
+ * `durationSec`) is swapped for another hold, and a reps item for another
+ * reps item. `applyNoEquipmentSwap` takes reps and hold time from the swap
+ * independently, so mixing them would silently keep the original's other
+ * figure (a "2 × 30s" plank swapped for "10" reps would still be timed).
+ */
+function parseNoEquipmentSwap(
+  raw: unknown,
+  original: { exerciseId: string; isMaxBased: boolean; isTimed: boolean },
+  exercises: Record<string, Exercise>,
+  path: string,
+  warnings: ProgramWarning[],
+): NoEquipmentSwap {
+  const record = expectRecord(raw, path);
+
+  for (const key of Object.keys(record)) {
+    if (KEPT_FROM_ORIGINAL_KEYS.includes(key)) {
+      fail(child(path, key), `a swap keeps "${key}" from the original item, so it can't be set here`);
+    }
+  }
+  collectUnknownFields(record, NO_EQUIPMENT_SWAP_KEYS, path, warnings);
+
+  const swapExerciseId = readString(record, "exercise", path);
+  const swapExercise = Object.hasOwn(exercises, swapExerciseId) ? exercises[swapExerciseId] : undefined;
+  if (swapExercise === undefined) fail(child(path, "exercise"), `unknown exercise ${JSON.stringify(swapExerciseId)}`);
+  if (swapExercise.maxTested) {
+    fail(child(path, "exercise"), `${JSON.stringify(swapExerciseId)} is max-tested, and a swap never uses a tested max`);
+  }
+  if (swapExerciseId === original.exerciseId) {
+    fail(child(path, "exercise"), `a swap can't be the item's own exercise ${JSON.stringify(swapExerciseId)}`);
+  }
+
+  if (original.isTimed && record.reps !== undefined) {
+    fail(child(path, "reps"), "the original item is a timed hold, so its swap is a hold too: give \"durationSec\", not \"reps\"");
+  }
+  if (!original.isTimed && record.durationSec !== undefined) {
+    fail(child(path, "durationSec"), "the original item is done in reps, so its swap is too: give \"reps\", not \"durationSec\"");
+  }
+
+  if (original.isMaxBased && record.reps === undefined) {
+    fail(child(path, "reps"), "field is missing (the original item uses a percentage of a tested max, so the swap needs its own reps)");
+  }
+
+  return {
+    exercise: swapExercise,
+    reps: record.reps === undefined ? undefined : parseReps(record.reps, child(path, "reps")),
+    durationSec: readOptionalNumber(record, "durationSec", path),
+    load: readOptionalString(record, "load", path),
+    note: readOptionalString(record, "note", path),
+    tempo: readOptionalString(record, "tempo", path),
+  };
+}
+
 /** Converts one block item, looking its exercise id up in the library. */
 function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): BlockItem {
   const record = expectRecord(raw, path);
@@ -403,6 +469,19 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
   const load = readOptionalString(record, "load", path);
   const sets = record.sets === undefined ? [] : parseSets(record.sets, reps, load, child(path, "sets"), warnings);
 
+  // An item is max-based when its reps (item-level, or in any set) are a percentage of the tested max.
+  const isMaxBased = [reps, ...sets.map((set) => set.reps)].some((setReps) => setReps?.kind === "percentOfMax");
+  const noEquipment =
+    record.noEquipment === undefined
+      ? undefined
+      : parseNoEquipmentSwap(
+          record.noEquipment,
+          { exerciseId, isMaxBased, isTimed: record.durationSec !== undefined },
+          exercises,
+          child(path, "noEquipment"),
+          warnings,
+        );
+
   return {
     exerciseId,
     exercise,
@@ -422,6 +501,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
     note: readOptionalString(record, "note", path),
     tempo: readOptionalString(record, "tempo", path),
     weeklyIncrease: readOptionalString(record, "weeklyIncrease", path),
+    noEquipment,
   };
 }
 

@@ -71,6 +71,24 @@ describe("applyRotationToBlocks via buildSession", () => {
     expect(item && itemDisplayName(item)).toBe("Reverse fly");
   });
 
+  it("drops the original's no-equipment swap from a rotated-in warm-up", () => {
+    const result = buildSession(program, settings, "2026-11-30");
+    if (result.kind !== "training") throw new Error("expected training");
+    const pallof = result.blocks[0]!.items.find((item) => item.exercise.id === "pallof_press");
+
+    // Week 5 rotates Ab raises in for the Pallof press, so plank shoulder taps no longer apply.
+    expect(pallof?.rotatedIn?.displayName).toBe("Ab raises");
+    expect(pallof?.noEquipment).toBeUndefined();
+  });
+
+  it("keeps the no-equipment swap on a warm-up that isn't rotated", () => {
+    const result = buildSession(program, settings, "2026-11-09");
+    if (result.kind !== "training") throw new Error("expected training");
+    const pallof = result.blocks[0]!.items.find((item) => item.exercise.id === "pallof_press");
+
+    expect(pallof?.noEquipment?.exercise.id).toBe("plank_shoulder_tap");
+  });
+
   it("returns the same blocks in an unrotated week", () => {
     expect(applyRotationToBlocks([], 1, program.warmupRotation)).toEqual([]);
   });
