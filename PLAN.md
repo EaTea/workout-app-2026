@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review.**
+Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 is under way. PR 23 (the plan for combining two days on Today) is merged as #29.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1633,6 +1633,413 @@ that one exercise's history.
 - **Merge point:** Ed can tick any swap on Today, train it with the right
   dose and timer, and see it in History.
 
+### PR 20 — Plan: "Show me" animations for Steady Strength *(design)*
+Ed asked (12 Nov) for an animation of every exercise in Steady Strength,
+opened from the exercise, so that someone aged 75 or over with poor
+eyesight can see quickly how to do the movement. The program is for a
+person with a history of slipped discs in the lower back, so the
+animations must only ever show the safe range the program asks for.
+
+This section is the plan; PR 21 and PR 22 implement it. Explosive
+Endurance is out of scope: its rows don't change.
+
+**What the person sees.**
+
+```
+ Today (Steady Strength, Day 1)                 "Show me" view (full screen)
+ ┌────────────────────────────────────┐         ┌────────────────────────────────────┐
+ │ High wall sit          3 × 20s     │         │ ‹ Close            High wall sit   │
+ │ [ Rest 40s ]  [ ▶ Show me ]        │──tap──▶ │ ┌────────────────────────────────┐ │
+ └────────────────────────────────────┘         │ │  (wall)  big 3D mannequin      │ │
+                                                │ │   │  O    sliding a little way   │ │
+                                                │ │   │ /|    down the wall        │ │
+                                                │ │   │  |_                        │ │
+                                                │ └────────────────────────────────┘ │
+                                                │        HOLD                        │  ◀ big step label
+                                                │ Back on the wall. Slide down a     │  ◀ one-line cue
+                                                │ little and hold.                   │
+                                                │ [ ↻ Turn: side · front · angle ]   │  ◀ turns the camera
+                                                │ [ ❚❚ Pause ]   [ Slower ]          │
+                                                └────────────────────────────────────┘
+```
+
+1. **Where it opens.** Every Steady Strength row on Today and on the day
+   plan gets a large "▶ Show me" button beside it, a sibling of the row
+   button like "Start EMOM", so tapping the row still opens the log screen.
+   The log screen's header also gets "Show me" next to ⓘ. The button only
+   appears for exercises that have an animation, so it never appears on
+   Explosive Endurance.
+2. **The view.** A full-screen overlay like the timer: the Back button or
+   gesture, Escape and "Close" all close it and return focus to the button
+   that opened it (it reuses `closeOnBack`). The screen behind is inert.
+3. **The figure.** One large 3D mannequin, like an artist's wooden
+   figure, on a plain black background (Ed, 12 Nov: 3D rather than stick
+   figures; white on black). It is built from smooth rounded shapes (a
+   head, a chest and pelvis, and tapered limbs with rounded joints and
+   simple hands and feet), with no face, hair or clothing detail to pick
+   out. The body is matt white with soft lighting from the front and above,
+   so its shape reads in 3D without dark shadows; the body parts that move
+   are yellow (#FFD60A) so the eye goes straight to them. The far-side limbs
+   are naturally shaded a little darker, which tells near from far.
+   Furniture (counter, chair, wall, door frame, stair, bed) is plain mid
+   grey blocks; things held (band, ball, bag, tin) are yellow like the
+   moving parts. A faint floor line under the feet and nothing else: no
+   room, textures or cast shadows.
+4. **Start and end of each rep.** A rep is: start position held 1.5s, a
+   slow 2.5s move, end position held 1.5s (or 4s for a hold exercise,
+   labelled "Hold"), a slow 2.5s move back. About 8 to 10 seconds a loop,
+   repeating until closed. A big step label under the figure says what is
+   happening ("Start", "Stand up", "Hold", "Sit down slowly"). "Slower"
+   halves the speed. "Pause" freezes the figure where it is.
+5. **One-line cue.** One sentence per exercise in at least 24px type
+   under the step label (table below). The full cues stay on the ⓘ sheet.
+6. **Views.** Each exercise opens at the camera angle that shows its
+   movement best ("View" in the table): side, front, or a three-quarter
+   angle, which shows depth best in 3D. One "↻ Turn" button moves the
+   camera smoothly round to the next of side, front and three-quarter, and
+   the loop keeps its place. There is no drag-to-rotate, so a shaky touch
+   can't knock the view sideways. Hand and foot exercises (grip squeeze,
+   wrist curl, ankle pumps) are framed close up so the hand or foot fills
+   the panel.
+7. **Reduced motion.** With "Reduce motion" on in the phone's settings, the
+   figure doesn't move by itself. It shows the start and end positions side
+   by side, labelled "Start" and "End" (and "Hold" for hold exercises),
+   with a "Next step" button that steps through the positions on a tap.
+   "Turn" jumps straight to the next angle instead of swinging round.
+8a. **No 3D on the phone.** If the browser can't draw 3D (WebGL is off or
+   missing), the view draws the same poses flat, as a thick outline figure
+   from the same joint positions, so every exercise still has its
+   animation and cue.
+8. **The dose isn't animated.** The view says this week's dose in its
+   header (for example "3 × 20s") from the same text as the row, but the
+   loop shows one rep (or a short hold) only. Showing a real 20s hold or
+   12 reps would be too slow to take in.
+9. **Swaps and alternatives.** Each animation shows the main exercise,
+   never its `alternative` (for example the glute bridge, not the standing
+   buttock squeeze). Where an exercise has a `progression` of supports
+   (counter, then fingertips, then hovering; two hands, one hand, none), it
+   shows the first, most supported stage, because that is the safe one to
+   learn from.
+
+**Safe range only.** Every pose stays inside what the program's own cues
+allow, and the lower back is shown neutral throughout: no rounding to
+reach the floor, no loaded bending, no twisting. Where a cue sets a limit,
+a unit test checks the poses against it, so a later edit can't drift past
+it:
+
+| Exercise | Limit shown (and tested) |
+| --- | --- |
+| High wall sit | Knees bent no more than a quarter: knee angle at least 135° |
+| Standing back extension | A small arch only: trunk back no more than 10° from upright |
+| Glute bridge hold | Hips lift to a straight shoulder–hip–knee line and no higher (no arch) |
+| Sit-to-stand, stair step-up | The trunk tips forward from the hips with a straight back, no more than 30° |
+| Standing bird dog | Leg slides back with the toes on or just off the floor; hips level, back flat |
+| Suitcase hold | The bag starts on the counter, never lower than the hand at the side; no lean |
+| Head turns | About 45° each way, no tipping the head back |
+| Counter plank, counter push-up, wall side plank | Body in a straight line from head to heels in every pose |
+| Calf, doorway chest stretch | A gentle lean only; no bouncing (the move into it is as slow as any other) |
+
+**The exercises.** All 34 in `public/steady-strength.json`. "View" is the
+camera angle it opens at ("Turn" reaches the others); "Moves" is what is
+in yellow.
+
+| # | Exercise | View | Start → end | Moves | One-line cue |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Head turns | Front, close up | Facing forward → head turned to one side; then the other side | Head | Sit or stand tall and turn your head slowly to one side, then the other. |
+| 2 | Neck retraction | Side, close up | Head forward, hand on the chin → head slid straight back, chin level | Head, hand | With a hand on your chin, slide your head straight back. |
+| 3 | Standing back extension | Side | Standing, hands on the lower back → leaning back a little | Trunk | Hands on your lower back, lean back just a little. |
+| 4 | Ankle pumps, seated | Side, close up | Foot flat → toes pulled up → toes pointed | Foot | Sitting, pull your toes up, then point them. |
+| 5 | Single-leg stand | Three-quarter | Both feet down, hand on the counter → one foot lifted a little | Lifted leg | Hold the counter and lift one foot a little off the floor. |
+| 6 | Heel-to-toe stand | Side | Feet side by side → one foot stepped in front, heel touching toe, held | Front foot | Hold the counter, put one foot right in front of the other and stand still. |
+| 7 | Heel-to-toe walk | Side | Steps along the counter, each heel to the other toe | Legs | One hand on the counter, walk with each heel touching the other toe. |
+| 8 | Sideways walking | Front | Side steps along the counter, feet never crossing | Legs | One hand on the counter, step sideways and don't cross your feet. |
+| 9 | High wall sit | Side | Standing, back on the wall → slid a little way down, held | Legs | Back on the wall, slide down a little and hold. |
+| 10 | Glute bridge hold | Side | Lying, knees bent → hips lifted to a straight line, held | Hips | Lying with knees bent, lift your hips into a straight line and hold. |
+| 11 | Pallof press hold | Three-quarter | Hands at the chest, band from the door at the side → arms straight out, held | Arms, band | Side-on to the door, push your hands straight out and hold. Don't turn. |
+| 12 | Wall push hold | Side | Hands on the wall → leaning in on bent elbows, held | Arms | Hands on the wall, lean in on bent elbows and hold. |
+| 13 | Grip squeeze | Front, close up | Open hand round the ball → fingers squeezed, held | Fingers | Squeeze the soft ball at half effort, hold, then let go. |
+| 14 | Counter plank | Side | Standing at the counter → hands on it, feet back, body straight, held | Whole body | Hands on the counter, step back, keep your body straight and hold. |
+| 15 | Split-stance hold | Side | Standing at the counter → one foot ahead, both knees a little bent, held | Legs | Hold the counter, one foot ahead, bend both knees a little and hold. |
+| 16 | Suitcase hold | Front | Hand on the bag on the counter → bag lifted to the side, standing tall, held | Arm, bag | Lift the bag off the counter, stand tall without leaning and hold. |
+| 17 | Sit-to-stand | Side | Seated, hands on the chair arms → standing; then sitting down slowly | Whole body | Lean forward a little, push through your feet and stand, then sit down slowly. |
+| 18 | Heel and toe raises | Side | Standing, hand on the counter → up on the toes → back on the heels | Feet | Hold the counter, rise onto your toes, then rock back onto your heels. |
+| 19 | Side hip raise | Front | Standing, hand on the counter → straight leg out to the side | Leg | Hold the counter and lift one straight leg out to the side. Don't lean. |
+| 20 | Band row | Side | Arms forward holding the band → elbows pulled back, held 2s | Arms, band | Pull the band back with your elbows close and squeeze for 2 seconds. |
+| 21 | Band outward rotation | Front | Elbow at the side, hand at the belly → forearm swung out to the side | Forearm, band | Elbow at your side, swing your hand out to the side and back. |
+| 22 | Counter push-up | Side | Hands on the counter, arms straight → chest lowered towards it → pushed back | Arms, body | Hands on the counter, lower your chest towards it, then push back. |
+| 23 | Wrist curl and reverse | Side, close up | Forearm on the table, palm up: hand curled up and down; then palm down: back of the hand lifted | Hand, tin | Forearm on the table, curl the tin up and down, then turn your hand over and lift. |
+| 24 | Band pull-apart | Front | Arms out in front holding the band → arms pulled apart to the sides | Arms, band | Arms out in front, pull the band apart, then let it back slowly. |
+| 25 | Stair step-up | Side | At the bottom stair, hand on the rail → stepped up with the whole foot → stepped down | Legs | Hold the rail, step up with your whole foot, then step back down. |
+| 26 | Back knee bend | Side | Standing at the counter → heel brought up behind towards the bottom | Lower leg | Hold the counter and bend one knee to bring the heel up behind you. |
+| 27 | Standing bird dog | Side | Both hands on the counter → one leg slid straight back, held | Leg | Hands on the counter, slide one leg straight back and hold. Keep your back flat. |
+| 28 | Pallof press | Three-quarter | Hands at the chest → pressed straight out → back to the chest | Arms, band | Side-on to the door, push your hands straight out and back. Don't turn. |
+| 29 | Wall side plank | Front | Side-on to the wall → forearm on it, feet a step away, body straight, held | Whole body | Side-on to the wall, forearm on it, feet a step away, body straight and hold. |
+| 30 | Tall sitting hold | Side | Sitting back on the chair → shuffled forward, sitting tall, held | Trunk | Sit forward away from the chair back, sit tall, breathe and hold. |
+| 31 | Slow walk | Side | A slow walking step, looping | Legs | Walk slowly for a few minutes. |
+| 32 | Calf stretch | Side | Hands on the wall → one foot back, heel down, leaning in gently, held | Back leg | Hands on the wall, one foot back with the heel down, lean in gently and hold. |
+| 33 | Doorway chest stretch | Side | Forearm on the door frame → stepped forward gently, held | Body, arm | Forearm on the door frame, step forward gently until you feel a stretch, and hold. |
+| 34 | Walk at a comfortable pace | Side | A walking step at a normal pace, looping | Legs | Walk at a pace where you can still talk. |
+
+The one-sided exercises (5, 6, 15, 19, 26, 27 and the single side of 32
+and 33) show one side, and the step label says "Then the other side" at
+the end of the loop. Head turns and sideways walking show both directions.
+
+**Code shape.**
+
+```
+ src/demo/model.ts          Pose (3D joint rotations + where the figure stands), Prop, Demo
+ src/demo/skeleton.ts       jointPositions(pose) ─▶ 3D points for every joint (forward
+                            kinematics); limb lengths fixed, so a pose can't stretch a limb.
+                            Pure TypeScript, no three.js, so the safety tests run in Vitest
+ src/demo/timeline.ts       stepAt(demo, elapsedMs, speed) ─▶ { from, to, progress, label }
+                            (pure, unit tested; eased like the crab drill artifact)
+ src/demo/steadyStrength.ts the 34 demos, keyed by exercise id
+ src/demo/registry.ts       demoFor(programId, exerciseId) ─▶ Demo | undefined
+ src/demo/render3d.ts       three.js scene: mannequin meshes posed from jointPositions(),
+                            props, lights, camera angles (loaded only when "Show me" opens)
+ src/demo/renderFlat.ts     the flat fallback, drawn from the same jointPositions()
+ src/ui/demoView.ts         the overlay: picks a renderer, controls, reduced motion, Back to close
+ src/ui/today.ts, dayPlan.ts, logScreen.ts   the "▶ Show me" buttons (only when demoFor finds one)
+
+   Demo (poses) ──timeline──▶ blended Pose ──skeleton──▶ joint points ──┬─▶ render3d (WebGL)
+                                                                        └─▶ renderFlat (no WebGL)
+```
+
+- **Poses are joint rotations, not points.** The crab drill artifact used
+  points, which let a forearm grow or shrink between poses. Rotations at
+  each joint (bend, out to the side, twist), worked out from the pelvis
+  outwards, keep every limb its own length, make the safety limits above
+  direct to test (a knee bend is a number in the pose) and blend smoothly.
+  One pose drives every camera angle, so the side and front views can
+  never disagree.
+- **The mannequin is built in code, not downloaded.** Each body part is a
+  rounded shape (three.js capsules and spheres) placed between two joint
+  points, so no model file, rig or licence is involved, and the figure
+  can't move in a way the skeleton doesn't allow.
+- **three.js** (MIT licence) is the one new dependency. It is loaded as a
+  separate chunk the first time "Show me" opens, so Today doesn't get any
+  slower, and the service worker's precache list picks the chunk up like
+  any other build file, so it works offline. Expected size: about 150 KB
+  gzipped; the PR reports the real figure.
+- **The demos are code, not program data.** They describe drawing, not the
+  program, so they don't go in `steady-strength.json` and need no wire
+  type: nothing crosses a boundary (CLAUDE.md section 6 doesn't apply).
+  `demoFor` is keyed by program id too, so an id that happens to match in
+  another program doesn't pick up a Steady Strength drawing. A unit test
+  fails if any Steady Strength exercise has no demo, so a new exercise in
+  the file can't ship without one.
+- **Animation.** One `requestAnimationFrame` loop while the view is open,
+  stopped on close and while the tab is hidden, and the 3D renderer is
+  disposed on close so its memory is given back. No CSS animation, so the
+  reduced-motion path is just "don't start the loop".
+- **Accessibility.** The canvas is `role="img"` with a label naming the
+  movement and the start and end ("High wall sit: standing with your back
+  on the wall, then slid a little way down and held"). The step label is
+  not a live region, so a screen reader isn't interrupted every 2
+  seconds. Buttons are at least 56px tall.
+
+**Alternatives considered.** A realistic 3D human from a model library,
+rigged and animated (more lifelike, but it needs a model with a licence
+that allows shipping it, is 1 to 3 MB to cache, and skinned animation is
+much harder to keep inside the tested safe range; fine detail such as
+fingers and a face is also harder to read with poor eyesight than a clean
+mannequin). Stick figures, as first planned (simplest and smallest, but
+Ed asked for 3D, and a solid body shows which way a limb points much
+better). Video clips or GIFs of a real person (clearer
+for some people, but they need filming or licensing, are large to cache
+offline, and can't highlight the moving limb or be slowed reliably).
+Drawing each frame by hand as SVG files (no shared engine, so 34 drawings
+would each need their own care, and the safety limits couldn't be tested).
+Putting the animation on the ⓘ sheet only (one more tap to find it, and
+the sheet's small type is the opposite of what this audience needs).
+
+**Checking the drawings.** Each PR adds a script that renders every demo's
+start and end frames into one contact sheet PNG, so Ed can check all the
+positions at a glance on the PR. It is attached to the PR and saved in the
+project files under `screenshots/demos/`.
+
+### PR 21 — "Show me" view and the Day 1 to Day 2 exercises *(behavior change)*
+**Steps.**
+1. [ ] `src/demo/model.ts`, `skeleton.ts` and `timeline.ts`, with unit
+   tests: forward kinematics, limb lengths unchanged across poses, the
+   timeline figures in the worked examples, half speed, and pausing.
+2. [ ] three.js added; `src/demo/render3d.ts` (the mannequin, props,
+   lights, the three camera angles) and `renderFlat.ts`. A check that the
+   lazily loaded chunk is in the service worker's precache list. Commit
+   message records the dependency choice and its size.
+3. [ ] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
+   stills and "Next step", the flat fallback, Back to close and disposal.
+   One demo (high wall sit) to drive it.
+4. [ ] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
+   17–19, 27, 31–34), with the safety tests above that apply to them.
+5. [ ] The "▶ Show me" buttons on Today, the day plan and the log screen.
+   README: a line on "Show me".
+6. [ ] E2E (`e2e/showMe.spec.ts`): on Steady Strength Day 1 the high wall
+   sit row opens the view with its cue and a drawn 3D canvas, Pause freezes
+   it, Back closes it and focus returns to the button; with reduced motion
+   the Start and End stills show and "Next step" moves between them; Turn
+   on the single-leg stand moves to the front angle; with WebGL switched
+   off the flat figure shows instead; Explosive Endurance Day 1 has no
+   "Show me". Screenshots of the 3D view for Ed.
+7. [ ] The contact sheet for these 18.
+8. [ ] Fixes from the challenger review.
+- **Merge point:** Days 1, 2, 4 and 6 have an animation for every
+  exercise. Days 3 and 5 show "Show me" only where they share an exercise
+  with Day 1.
+
+### PR 22 — The Day 3 and Day 5 exercises *(behavior change)*
+**Steps.**
+1. [ ] The demos for the remaining 16 exercises (7, 12–16, 20–26, 28–30),
+   with their safety tests.
+2. [ ] The test that every Steady Strength exercise has a demo is switched
+   on (in PR 21 it lists the 16 still to come, so it can't pass by
+   accident).
+3. [ ] E2E: the Day 3 band outward rotation and the Day 5 suitcase hold
+   open with their cues.
+4. [ ] The contact sheet for all 34.
+5. [ ] Fixes from the challenger review.
+- **Merge point:** every exercise in Steady Strength has an animation.
+
+### PR 23 — Plan: combine two days on Today *(design)*
+Ed asked (12 Nov) for a way to fit a week's work into fewer sessions when
+time is short and availability is patchy. From a draft with three options,
+Ed chose **combine on the day**: Today offers to merge one more day into
+today's session, either the next day (pulled forward) or a day just missed
+(caught up). Ed also asked that **warm-ups are not cut** on a combined day.
+Steady Strength is out of scope: it shows no combine button.
+
+PR 24 and PR 25 implement it. The draft Ed chose from is the Claude Doc
+"Combining two days when short on time" in the project thread.
+
+**What the person sees.**
+
+```
+ Today · Week 2 · Day 1                  Today · Week 2 · Day 1 + Day 2
+ Upper: pull · ~50 min                   Upper: pull + Lower: knee · ~72 min
+ ┌──────────────────────────────┐        ┌──────────────────────────────────┐
+ │ 1 Warm-up  YTWI · Pallof     │        │ 1 Warm-up   D1 YTWI · Pallof     │
+ │ 2 Explosive  Med ball slams  │ tap    │ 2 Warm-up   D2 Cossack · Hip ab  │
+ │ ...                          │──────▶ │ 3 Explosive D1 Slams  ⇄ alternate│
+ │ [ Short on time?             │        │             D2 Split-squat jumps │
+ │   Add Day 2 to today ]       │        │ 4 Main      D1 Pull-up EMOM      │
+ └──────────────────────────────┘        │ 5 Main      D2 Zercher BSS       │
+                                         │ ...                              │
+                                         │ [ Undo combine ]                 │
+                                         └──────────────────────────────────┘
+
+ Tomorrow (Day 2's date) then shows:  "Day 2 done with Day 1 on 9 Nov"
+                                      and no session, like a rest day.
+```
+
+**Rules.**
+
+1. **Allowed pairs** live in `program.json`, so Ed can edit them:
+   `"combining": { "pairs": [[1, 2], [2, 3], [3, 4], [5, 6]] }`. Each pair
+   is one upper day and the lower day next to it in the same week. Left
+   out on purpose: Day 4 + 5 (swings, single-leg RDL and back extensions
+   in one session load the lower back three times), any two upper days or
+   two lower days (an exercise would appear twice, or two leg plyometric
+   blocks), and Day 6 + the next Day 1 (crosses into a new week, so phase
+   and deload would differ). Validation: each pair is two different
+   training days (1–6, not the rest day) that are next to each other; a
+   bad pair is a program warning and is ignored, like other bad fields.
+   A program without `combining` (Steady Strength) never offers combining.
+2. **When Today offers it.** On a training day D in week W, before any
+   set is logged today:
+   - "Add Day D+1 to today" when [D, D+1] is an allowed pair and Day D+1
+     hasn't been combined already.
+   - "Add missed Day D−1 to today" when [D−1, D] is an allowed pair, Day
+     D−1's date is in the past, nothing was logged on it, and it wasn't
+     combined already. When both apply, both buttons show.
+   - Never on the rest day, before the start date or after week 8.
+3. **Undo.** "Undo combine" shows until the first set of the combined
+   session is logged, and puts both days back as they were.
+4. **Merged session order.** Built by a pure function from the two days'
+   sessions as Today already builds them for week W (deload halving,
+   power-endurance changes, max-rep targets and no-equipment swaps
+   already applied). Block types follow `sessionOrder`, and within each
+   type the earlier day's block comes first:
+   1. Warm-ups: both days' warm-up blocks in full (Ed: never cut).
+   2. Explosive: both blocks. When both are set-based they are shown as
+      one "alternate" block: a set of one, then a set of the other, so
+      each one's rest is spent on the other. An EMOM (kettlebell swings)
+      can't alternate, so it runs as its own block after the other.
+   3. Main strength, then mini-doses: each day's block as written.
+   4. Core, then finishers: each day's blocks, except that items marked
+      `"optional": true` (side plank, hollow hold) are left out and the
+      heavy bag's rounds are capped at the bottom of their range (4).
+   Rows carry a "D1"/"D2" label so it's clear where each came from.
+5. **Length.** The header shows the two days' `targetMinutes` added up,
+   minus 3 minutes when the explosive blocks alternate and minus 4 when
+   optional core items and a bag round are dropped. That gives Day 1 + 2
+   ~72, Day 2 + 3 ~66, Day 3 + 4 ~70 and Day 5 + 6 ~84 minutes (estimates,
+   not timings).
+6. **The donor day.** The day that was folded in shows "Day N done with
+   Day M on <date>" on its own date and no session. The day plans by week
+   (PR 12) show both days as planned, with a "Combined" note.
+7. **Logging.** Sets from a combined session are saved on today's date.
+   Each set records the day and block position it has in **its own day**
+   (not in the merged view), so "last time" hints, History and the CSV
+   and JSON exports keep working: a Day 2 split squat logged on Day 1's
+   date still finds the last Day 2 split squat. History headings read
+   "Week 2 · Day 1 + Day 2".
+8. **What doesn't change.** Week, phase, deload and weekly increases come
+   from the date, and both days of a pair are in the same week. The
+   week 8 retest prompt and the weekly fatigue check are unaffected.
+
+**Storage.** A new key per program, `combines`, holds one record per host
+date: `{ "2026-11-09": { "hostDay": 1, "addedDay": 2, "addedDate":
+"2026-11-10" } }`. It has its own wire type and `parse`/`serialize`
+functions, like the other stores, and is included in the JSON export and
+import (an older export without it imports as no combines).
+
+**Worked examples** (start 2 Nov, as in section 6):
+
+| Date | Situation | Expected |
+| --- | --- | --- |
+| 9 Nov (W2 D1) | Nothing logged yet | "Add Day 2 to today" shows; no "missed" button (no pair ends on Day 1) |
+| 9 Nov (W2 D1) | Day 2 added | Blocks: D1 warm-up, D2 warm-up, slams ⇄ split-squat jumps, D1 pull-up EMOM, D2 Zercher BSS, D1 dip mini, D2 SL RDL mini, D1 core (no side plank), D1 bag 4 rounds; ~72 min |
+| 10 Nov (W2 D2) | After the combine above | "Day 2 done with Day 1 on 9 Nov", no session, no buttons |
+| 12 Nov (W2 D4) | Day 3 (11 Nov) had nothing logged | "Add missed Day 3 to today"; no "Add Day 5" ([4, 5] isn't a pair) |
+| 12 Nov (W2 D4) | Day 3 added | Explosive: plyo push-ups, then the kettlebell swing EMOM as its own block; Day 3 crab core kept; ~70 min |
+| 23 Nov (W4 D1, deload) | Day 2 added | Both days' sets halved first, then merged |
+| 14 Nov (W2 D6) | Day 5 (13 Nov) had nothing logged | "Add missed Day 5 to today"; Day 5 core and bag, then the Day 6 wall sits; ~84 min |
+
+### PR 24 — Logged sets remember their own day *(internal refactor)*
+No behavior change. Today each logged set's slot is found from the
+session's day plus the set's block position. A combined session holds two
+days, so each set needs to carry its own day.
+
+**Steps.**
+1. [ ] `LoggedSet` gets `day` (the day the set's block belongs to). The
+   log wire format gains an optional per-set `day`; old saves and old
+   exports without it read the session's `day`, so nothing is migrated.
+2. [ ] `findLastTime`, History and the CSV export read the set's `day`
+   instead of the session's. Unit tests for an old-format log and for a
+   session whose sets carry two different days.
+3. [ ] Fixes from the challenger review.
+- **Merge point:** all existing tests and E2E pass unchanged; the log can
+  hold two days on one date.
+
+### PR 25 — Combine two days on Today *(behavior change)*
+**Steps.**
+1. [ ] `combining.pairs` in `program.json`, its wire type, parse and
+   validation (rule 1), with tests for each rejected pair.
+2. [ ] The combines store (wire type, parse/serialize, per program) and
+   its place in the JSON export and import.
+3. [ ] The pure merge function (rules 4 and 5), tested against the worked
+   examples above.
+4. [ ] Today: the "Add Day N" and "Add missed Day N" buttons (rule 2),
+   Undo (rule 3), the merged session with day labels, the donor day's
+   card (rule 6), and the "Combined" note on the day plans.
+5. [ ] Logging from a combined session (rule 7) and the "Day 1 + Day 2"
+   History heading.
+6. [ ] E2E (`e2e/combine.spec.ts`): on 9 Nov add Day 2, log a split-squat
+   set, see 10 Nov's "done with Day 1" card, and see the set in History;
+   undo before logging puts both days back.
+7. [ ] Fixes from the challenger review.
+- **Merge point:** Ed can combine any allowed pair on Today and log it.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
@@ -1697,6 +2104,21 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | 28 Nov | W4 D6 | Deload | Stair calf raise 2 × 20–30 per leg |
 | Logging | W1 D4 → W2 D4 | Base | Backpack RDL ticked and one set logged on 5 Nov: the set is stored as `backpack_single_leg_rdl` and the tick is locked. On 12 Nov the ticked row's "Last time (5 Nov)" shows it; the unticked RDL's "Last time" ignores it |
 
+**"Show me" animations** (PR 20), Steady Strength, start date 2 Nov 2026:
+
+| Where | What shows |
+| --- | --- |
+| 2 Nov, W1 D1, Today | Every row has "▶ Show me" (15 rows); tapping the high wall sit row's name still opens its log screen |
+| High wall sit view | Header "High wall sit · 3 × 20s"; cue "Back on the wall, slide down a little and hold."; side view only; loop: Start 1.5s, move 2.5s, Hold 4s, move back 2.5s = 10.5s |
+| Sit-to-stand view | Loop: Start (seated) 1.5s, "Stand up" 2.5s, End (standing) 1.5s, "Sit down slowly" 2.5s = 8s; at "Slower", 16s |
+| Single-leg stand view | Opens at the three-quarter angle; "Turn" swings round to side, then front, keeping the loop's place |
+| No WebGL, high wall sit | The flat outline figure with the same loop, cue and controls |
+| Reduced motion, high wall sit | Two stills, "Start" and "Hold", nothing moves; "Next step" swaps which one is large |
+| Pause at 3s, high wall sit | The figure stays at the frame shown at 3s (in the move down); Play carries on from there |
+| 2 Nov, Explosive Endurance W1 D1 | No "Show me" on any row |
+| 4 Nov, W1 D3, before PR 22 | "Show me" on the warm-up and cool-down rows only; after PR 22 on every row |
+| Glute bridge hold view | The bridge on the bed, not the standing buttock squeeze |
+
 A second start date shows the cycle doesn't depend on the weekday: start
 4 Nov → 4 Nov is W1 D1 (Upper: pull), 10 Nov is W1 D7 (rest), 11 Nov is
 W2 D1, and 3 Nov is "not started".
@@ -1727,6 +2149,15 @@ For PR 14 (Steady Strength), each with the answer I'm assuming:
    name such as "Workouts" would be a small follow-up if Ed wants it.
 
 Resolved:
+
+- **3D, not stick figures (PR 20):** Ed, 12 Nov.
+- **Colours (PR 20):** white on black, moving parts in yellow (Ed, 12 Nov).
+- **One rep, not the dose (PR 20):** the loop shows one rep or a short
+  hold, and the header says the real dose (Ed, 12 Nov).
+- **The rest of PR 20 (Ed, 12 Nov, after a preview of the high wall sit
+  and sit-to-stand):** a mannequin built in code, not a realistic human
+  model; "Show me" on the rows and the log screen, not on the ⓘ sheet;
+  exercises with a progression show the most supported stage.
 
 - **Which discs (PR 14):** the lower back (Ed, 11 Nov). The plan already
   keeps the lumbar spine neutral and avoids loaded bending and twisting.
