@@ -2156,9 +2156,12 @@ Every other day and week matches `main` exactly.
    so a block left out of a week doesn't renumber the ones after it. The
    check that every other session from 2 Nov to 27 Dec matches `main`
    moves to step 3, where the shipped file changes.
-3. [ ] `public/program.json`: the `rotational_wall_throw` exercise and the
-   two Day 3 items, replacing the stop-gap note. Data tests over the
-   shipped file. README "Editing program.json" documents `weeks`.
+3. [x] `public/program.json`: the `rotational_wall_throw` exercise and the
+   two Day 3 items (the stop-gap note was only ever in the project-file
+   copy). Data tests over the shipped file, including every session from
+   2 Nov to 27 Dec matching the program without `weeks` except Day 3's
+   explosive block in even weeks. README "Editing program.json" documents
+   `weeks`.
 4. [ ] Tests for rule 4 ("Last time", Progress, History) and the day plans
    by week. E2E: with the start date set so today is Week 2 Day 3, Today
    shows the throws and not the plyo push-ups; Week 1 shows the reverse.

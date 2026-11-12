@@ -245,6 +245,19 @@ rounds of 90s with 60s rest, Day 6 is ~42 min). Anything but true or false is
 an error, and so is combining it with `weeklyIncrease` or putting it in a block
 with its own `rounds` or `minutes` (both would still change from week to week).
 
+An item can run in only some weeks with `"weeks"`, a list of program weeks:
+`{ "exercise": "plyo_push_up", "weeks": [1, 3, 5, 7], ... }` shows that item in
+weeks 1, 3, 5 and 7 and leaves it out of the others. An item without `weeks`
+runs every week. Two items in one block can take turns: the shipped Day 3
+explosive block has plyo push-ups in the odd weeks and rotational wall throws
+in the even ones. The weeks must be a non-empty list of whole numbers from 1 to
+the program's `lengthWeeks`, with no repeats; anything else is an error naming
+the path. If some week has none of a block's items, the program still loads
+with a warning and that week's block is left out (the other blocks keep their
+place in the day). Deload halving and the power-endurance changes apply to
+whichever item runs that week. `weeks` can't be set inside a `noEquipment`
+swap, because the swap keeps the original's weeks.
+
 An item can carry a household-kit swap, `"noEquipment"`, for days when the
 kit isn't to hand. It is an object next to the item it replaces, with an
 `exercise` (required: a key of `exercises`) and, optionally, `reps`,
