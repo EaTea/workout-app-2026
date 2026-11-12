@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is in review; PR 21 and PR 22 wait for Ed's approval of it.**
+Status: **PR 1 to PR 17 merged (#3 to #26). PR 18 (no-equipment swaps in the program file) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) was agreed by Ed on 12 Nov after a preview of two exercises, and is waiting to merge; PR 21 is under way.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1946,16 +1946,6 @@ W2 D1, and 3 Nov is "not started".
 
 ## 7. Open questions
 
-For PR 20 ("Show me" animations), each with the answer I'm assuming:
-
-1. **A mannequin, not a realistic person.** The 3D figure is a smooth
-   artist's-mannequin shape built in code, not a lifelike human model
-   (see "Alternatives considered").
-2. **Where it opens.** A "Show me" button on each row of Today and the day
-   plan, and on the log screen. Not on the ⓘ sheet.
-3. **Supported stage.** Exercises with a progression of supports show the
-   most supported stage (holding the counter, two hands on the chair).
-
 For PR 17 (no-equipment swaps), each with the answer I'm assuming:
 
 1. **The doses in the swap tables.** Especially the starting figures for
@@ -1985,6 +1975,10 @@ Resolved:
 - **Colours (PR 20):** white on black, moving parts in yellow (Ed, 12 Nov).
 - **One rep, not the dose (PR 20):** the loop shows one rep or a short
   hold, and the header says the real dose (Ed, 12 Nov).
+- **The rest of PR 20 (Ed, 12 Nov, after a preview of the high wall sit
+  and sit-to-stand):** a mannequin built in code, not a realistic human
+  model; "Show me" on the rows and the log screen, not on the ⓘ sheet;
+  exercises with a progression show the most supported stage.
 
 - **Which discs (PR 14):** the lower back (Ed, 11 Nov). The plan already
   keeps the lumbar spine neutral and avoids loaded bending and twisting.
