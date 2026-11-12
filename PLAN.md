@@ -1972,7 +1972,7 @@ session's day plus the set's block position. A combined session holds two
 days, so each set needs to carry its own day.
 
 **Steps.**
-1. [ ] `LoggedSet` gets `day` (the day the set's block belongs to). The
+1. [x] `LoggedSet` gets `day` (the day the set's block belongs to). The
    log wire format gains an optional per-set `day`; old saves and old
    exports without it read the session's `day`, so nothing is migrated.
 2. [ ] `findLastTime`, History and the CSV export read the set's `day`

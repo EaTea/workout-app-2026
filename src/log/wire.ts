@@ -9,7 +9,7 @@ import type { DayNumber } from "../program/model";
  *
  *   { "version": 1,
  *     "sessions": [ { "date": "2026-11-02", "programWeek": 1, "day": 1,
- *                     "sets": [ { "exerciseId": "pull_up", "blockPosition": 2,
+ *                     "sets": [ { "exerciseId": "pull_up", "day": 1, "blockPosition": 2,
  *                                 "setNumber": 1, "reps": 6, "loadKg": 6,
  *                                 "note": "...", "loggedAt": "2026-11-02T18:04:00.000Z" } ] } ] }
  */
@@ -17,6 +17,8 @@ import type { DayNumber } from "../program/model";
 /** Wire form of one set. `loggedAt` is an ISO 8601 string. */
 export interface LoggedSetWireV1 {
   exerciseId: string;
+  /** Program day (1-7) of the set's block; absent in older saves, where the session's `day` applies. */
+  day?: DayNumber;
   blockPosition: number;
   setNumber: number;
   reps?: number;
@@ -67,6 +69,7 @@ function setToWire(set: LoggedSet): LoggedSetWireV1 {
     setNumber: set.setNumber,
     loggedAt: set.loggedAt.toISOString(),
   };
+  if (set.day !== undefined) wire.day = set.day;
   if (set.reps !== undefined) wire.reps = set.reps;
   if (set.loadKg !== undefined) wire.loadKg = set.loadKg;
   if (set.note !== undefined) wire.note = set.note;
@@ -177,7 +180,8 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
       return;
     }
 
-    const identity = `${set.exerciseId}|${set.blockPosition}|${set.setNumber}`;
+    // A set's own day is part of its identity: Day 1 block 2 and Day 2 block 2 are different slots.
+    const identity = `${set.day ?? ""}|${set.exerciseId}|${set.blockPosition}|${set.setNumber}`;
     if (seenSetIdentities.has(identity)) {
       recordProblem(problems, new LogWireError(`${setPath}: duplicate set ${set.exerciseId} block ${set.blockPosition} set ${set.setNumber}`), 1);
       return;
@@ -230,6 +234,9 @@ function setFromWire(raw: unknown, path: string): LoggedSet {
     setNumber: requirePositiveInteger(record.setNumber, `${path}.setNumber`),
     loggedAt,
   };
+  // A bad per-set day rejects the set (like any other bad field): dropping just the day would
+  // silently move the set onto the session's day.
+  if (record.day !== undefined) set.day = requireDayNumber(record.day, `${path}.day`);
   if (record.reps !== undefined) set.reps = requireNonNegativeNumber(record.reps, `${path}.reps`, true);
   if (record.loadKg !== undefined) set.loadKg = requireNonNegativeNumber(record.loadKg, `${path}.loadKg`, false);
   if (record.note !== undefined) set.note = requireString(record.note, `${path}.note`);

@@ -359,3 +359,46 @@ describe("listCorruptLogBackups", () => {
     expect(listCorruptLogBackups({ length: 1, key: () => { throw new Error("blocked"); }, getItem: () => null }, KEYS)).toEqual([]);
   });
 });
+
+describe("per-set day in the wire format", () => {
+  it("round-trips a set's own day and writes it only when present", () => {
+    const log: WorkoutLog = {
+      sessions: {
+        "2026-11-09": {
+          date: "2026-11-09",
+          day: 1,
+          sets: [
+            { exerciseId: "pull_up", day: 1, blockPosition: 3, setNumber: 1, loggedAt: new Date("2026-11-09T10:00:00.000Z") },
+            { exerciseId: "pull_up", day: 5, blockPosition: 3, setNumber: 1, loggedAt: new Date("2026-11-09T10:05:00.000Z") },
+            { exerciseId: "dip", blockPosition: 4, setNumber: 1, loggedAt: new Date("2026-11-09T10:10:00.000Z") },
+          ],
+        },
+      },
+    };
+
+    const wire = logToWire(log);
+    expect(wire.sessions[0]?.sets.map((set) => set.day)).toEqual([1, 5, undefined]);
+    expect(wire.sessions[0]?.sets[2]).not.toHaveProperty("day");
+
+    expect(logFromWire(JSON.parse(JSON.stringify(wire)))).toEqual({ log, problems: { setAsideSetCount: 0, messages: [] } });
+  });
+
+  it("reads an old save without per-set days exactly as before", () => {
+    const { log, problems } = logFromWire(validWire());
+
+    expect(problems.messages).toEqual([]);
+    expect(log.sessions["2026-11-02"]?.sets[0]).not.toHaveProperty("day");
+  });
+
+  it("sets aside a set with an invalid day, and treats same-slot sets of different days as distinct", () => {
+    const wire = validWire();
+    const base = wire.sessions[0]!.sets[0]!;
+    const wireWithDays = { ...wire, sessions: [{ ...wire.sessions[0]!, sets: [{ ...base, day: 1 }, { ...base, day: 2 }, { ...base, day: 9 }] }] };
+
+    const { log, problems } = logFromWire(wireWithDays);
+
+    expect(log.sessions["2026-11-02"]?.sets.map((set) => set.day)).toEqual([1, 2]);
+    expect(problems.setAsideSetCount).toBe(1);
+    expect(problems.messages[0]).toContain("sets[2].day: expected a day number from 1 to 7");
+  });
+});
