@@ -764,11 +764,11 @@ export function startApp(
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
-        main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines));
+        main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
       } else if (route === "plan" && planTarget !== undefined) {
-        const planScreen = renderDayPlanScreen(program, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
+        const planScreen = renderDayPlanScreen(program, storageKeys.programId, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
         if (planScreen !== undefined) main.append(planScreen);
       } else if (route === "overview") {
         const status = programStatus(settings.startDate, program.lengthWeeks, shownDate);
@@ -778,7 +778,7 @@ export function startApp(
           startTodayFailureMessage: startTodayFailureMessage,
         }));
       } else {
-        main.append(renderTodayScreen(program, settings, shownDate, log, {
+        main.append(renderTodayScreen(program, storageKeys.programId, settings, shownDate, log, {
           dismissedDate: retestDismissedDate,
           actions: { canSave: canSaveOnShownDate(), onSaveMax: handleSaveRetestMax, onDismiss: handleDismissRetest, drafts: retestDrafts, jumpDraft: retestJumpDraft, onSaveBroadJump: handleSaveBroadJump, onSkipJump: handleSkipRetestJump },
           history: fatigueHistory,

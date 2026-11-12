@@ -1,3 +1,4 @@
+import { renderShowMeButton } from "./showMeButton";
 import type { Program, Range, WarmupRotation } from "../program/model";
 import { type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
@@ -133,10 +134,12 @@ const NO_COMBINES: CombinesByDate = new Map();
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). Starting the program is
  * no longer done here: with no start date app.ts shows the Overview instead
- * (see overview.ts), so Today never has a first-run card.
+ * (see overview.ts), so Today never has a first-run card. `programId` is the
+ * active program's catalogue id, used to decide which rows get a "Show me" button.
  */
 export function renderTodayScreen(
   program: Program,
+  programId: string,
   settings: TrainingSettings,
   date: string,
   log: WorkoutLog = { sessions: {} },
@@ -195,9 +198,9 @@ export function renderTodayScreen(
         }
       }
       if (session.kind === "combined") {
-        screen.append(...renderCombinedDay(program, session, date, log, locked, noEquipment, combine));
+        screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, combine));
       } else {
-        screen.append(...renderTrainingDay(program, session, date, log, locked, noEquipment, combine, settings.startDate));
+        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, combine, settings.startDate));
       }
       break;
     default:
@@ -270,6 +273,7 @@ function settingsButton(label: string): HTMLAnchorElement {
 /** Everything for a training day, in display order. */
 function renderTrainingDay(
   program: Program,
+  programId: string,
   session: TrainingSessionView,
   date: string,
   log: WorkoutLog,
@@ -310,7 +314,7 @@ function renderTrainingDay(
   // Blocks are numbered by their place in the program day, which a block left out this week doesn't shift.
   session.blocks.forEach((block) => {
     const slot: RowSlot = { day: session.dayNumber, blockPosition: block.position, isCombined: false };
-    parts.push(renderBlockCard(program, block, block.position, slot, session.phase, date, log, locked, noEquipment));
+    parts.push(renderBlockCard(program, programId, block, block.position, slot, session.phase, date, log, locked, noEquipment));
   });
 
   return parts;
@@ -329,6 +333,7 @@ function renderTrainingDay(
  */
 function renderCombinedDay(
   program: Program,
+  programId: string,
   session: CombinedSession,
   date: string,
   log: WorkoutLog,
@@ -363,7 +368,7 @@ function renderCombinedDay(
   }
 
   session.blocks.forEach((combinedBlock, index) => {
-    parts.push(renderCombinedBlockCard(program, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment));
+    parts.push(renderCombinedBlockCard(program, programId, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment));
   });
 
   return parts;
@@ -426,6 +431,7 @@ function keyDayOf(slot: RowSlot): number | undefined {
  */
 function renderBlockCard(
   program: Program,
+  programId: string,
   block: BlockView,
   displayNumber: number,
   slot: RowSlot,
@@ -437,7 +443,7 @@ function renderBlockCard(
 ): HTMLElement {
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(displayNumber, block)));
-  appendBlockBody(card, program, block, slot, phase, date, log, locked, noEquipment);
+  appendBlockBody(card, program, programId, block, slot, phase, date, log, locked, noEquipment);
   return card;
 }
 
@@ -449,6 +455,7 @@ function renderBlockCard(
  */
 function renderCombinedBlockCard(
   program: Program,
+  programId: string,
   combinedBlock: CombinedBlock,
   displayNumber: number,
   phase: string,
@@ -461,7 +468,7 @@ function renderCombinedBlockCard(
 
   if (combinedBlock.arrangement === "single") {
     const [part] = combinedBlock.parts;
-    return renderBlockCard(program, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment);
+    return renderBlockCard(program, programId, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment);
   }
 
   const card = element("section", "card block-card");
@@ -470,7 +477,7 @@ function renderCombinedBlockCard(
     element("p", "combine-alternate-note", alternateNote(combinedBlock)),
   );
   for (const part of combinedBlock.parts) {
-    appendBlockBody(card, program, part.block, slotOf(part), phase, date, log, locked, noEquipment);
+    appendBlockBody(card, program, programId, part.block, slotOf(part), phase, date, log, locked, noEquipment);
   }
   return card;
 }
@@ -488,6 +495,7 @@ function alternateNote(combinedBlock: CombinedBlock): string {
 function appendBlockBody(
   card: HTMLElement,
   program: Program,
+  programId: string,
   block: BlockView,
   slot: RowSlot,
   phase: string,
@@ -515,7 +523,7 @@ function appendBlockBody(
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(program, item, block, slot, phase, date, log, locked, noEquipment));
+    card.append(renderItemRow(program, programId, item, block, slot, phase, date, log, locked, noEquipment));
   }
 }
 
@@ -536,6 +544,7 @@ function describeSwaps(program: Program, rotation: WarmupRotation): string[] {
  */
 function renderItemRow(
   program: Program,
+  programId: string,
   item: ItemView,
   block: BlockView,
   slot: RowSlot,
@@ -622,6 +631,12 @@ function renderItemRow(
     updateLink.href = "#/settings";
     updateLink.setAttribute("aria-label", `Update max for ${item.exercise.name}`);
     row.append(updateLink);
+  }
+
+  // Exercises with a "Show me" animation get a sibling button (never for programs without demos).
+  const showMeButton = renderShowMeButton(programId, item, "item-start item-show-me");
+  if (showMeButton !== undefined) {
+    row.append(showMeButton);
   }
 
   // EMOM items get their own Start button, a sibling so the row button keeps opening the log screen.

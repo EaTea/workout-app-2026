@@ -133,6 +133,14 @@ Today's header that opens the same list in the bottom sheet (Back, Close,
 Escape or a tap outside closes it). A program without safety notes (Explosive
 Endurance) shows none of these.
 
+"Show me": in Steady Strength, a large "▶ Show me" button sits beside each
+exercise that has an animation, on Today, on the day plan, and in the log
+screen's header next to ⓘ. It opens a full-screen 3D mannequin showing one
+slow rep (or a short hold) with a step label, a one-line cue, Pause, Slower
+and Turn; with "Reduce motion" on it shows still positions and a "Next step"
+button, and without WebGL it draws a flat figure. Back, Escape or Close
+closes it. Explosive Endurance rows have no button.
+
 So the order of `programs.json` no longer decides what opens. To switch later,
 use "Switch program" at the top of the Overview, or the "Program: `<name>` ·
 Switch program" row in Settings. Switching never deletes anything: each program
@@ -178,6 +186,22 @@ npm run test:e2e   # end-to-end tests (Playwright, iPhone 13 profile)
 The E2E run builds the app and serves it with `vite preview` automatically.
 It needs a Playwright Chromium browser installed (`npx playwright install chromium`).
 CI runs the same suite; see "Deployment" below.
+
+## Checking the drawings
+
+The "Show me" figures can be looked at all at once as a contact sheet: one
+labelled picture for every hold of every Steady Strength demo (plus one extra
+at the other main camera angle), drawn with the real 3D renderer.
+
+```sh
+node docs/demos/render.cjs sheet.png                 # every demo
+node docs/demos/render.cjs sheet.png sit_to_stand head_turns   # only these
+```
+
+It starts Vite on a free port, draws the page `docs/demos/contactSheet.html`
+in headless Chromium (software WebGL, so no GPU is needed), writes one PNG and
+stops Vite again. It needs a Playwright Chromium browser installed
+(`npx playwright install chromium`).
 
 ## Editing program.json
 

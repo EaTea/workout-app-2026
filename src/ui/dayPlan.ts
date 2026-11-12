@@ -1,3 +1,4 @@
+import { renderShowMeButton } from "./showMeButton";
 import type { Program, Range } from "../program/model";
 import type { CombinesByDate } from "../combine/model";
 import type { WorkoutLog } from "../log/model";
@@ -39,7 +40,8 @@ const REST_DAY_MESSAGE = "Recover; no training is planned.";
  * undefined when they are outside the program (app.ts then shows the
  * Overview). `today` is the shown date, used as the stand-in start when no
  * start date is saved; `search` is `location.search`, kept by the week links
- * so a `?date=` preview survives. When `combines` holds a combine that involves
+ * so a `?date=` preview survives. `programId` is the active program's catalogue
+ * id, used to look up "Show me" animations for the rows. When `combines` holds a combine that involves
  * this day of this week (as the day that was added or the day it was added to),
  * a short "Combined with Day M on <date>" note sits under the header on both
  * days; the plan itself stays as planned. A lapsed combine (its host date
@@ -48,6 +50,7 @@ const REST_DAY_MESSAGE = "Recover; no training is planned.";
  */
 export function renderDayPlanScreen(
   program: Program,
+  programId: string,
   settings: TrainingSettings,
   week: number,
   dayNumber: number,
@@ -88,7 +91,7 @@ export function renderDayPlanScreen(
   if (combinedNote !== undefined) screen.append(combinedNote);
 
   screen.append(renderWeekPicker(program, dayNumber, week, search), renderPhaseChanges(program, session));
-  session.blocks.forEach((block, index) => screen.append(renderPlanBlock(block, index, session, changes)));
+  session.blocks.forEach((block, index) => screen.append(renderPlanBlock(programId, block, index, session, changes)));
   return screen;
 }
 
@@ -207,8 +210,8 @@ function renderPhaseChanges(program: Program, session: Extract<SessionView, { ki
   return card;
 }
 
-/** One block card: numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
-function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
+/** One block card (`programId` is passed on to the rows for "Show me"): numbered title, the between-pairs rest, an optional block "Changed" line (after the current figures), then the item rows. */
+function renderPlanBlock(programId: string, block: BlockView, blockIndex: number, session: Extract<SessionView, { kind: "training" }>, changes: DayPlanChanges | undefined): HTMLElement {
   const position = block.position;
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
@@ -232,7 +235,7 @@ function renderPlanBlock(block: BlockView, blockIndex: number, session: Extract<
     // The block line already reports changed minutes/rounds; the item line must not repeat them.
     const blockReportsFigures = blockChange !== undefined && (blockChange.previous.minutes !== block.minutes || !sameRange(blockChange.previous.rounds, block.rounds));
     const changedText = changes !== undefined && itemChange !== undefined ? formatItemChange(itemChange.previous, item, itemChange.previousWeek, blockReportsFigures) : undefined;
-    card.append(renderPlanItemRow(item, session.phase, changedText));
+    card.append(renderPlanItemRow(programId, item, session.phase, changedText));
   });
 
   return card;
@@ -245,10 +248,11 @@ function sameRange(first: Range | undefined, second: Range | undefined): boolean
 
 /**
  * One read-only item row, laid out like Today's (name, details, dose) but
- * with no button, link or timer. `changedText` is the "Changed: ..." line for
+ * with no button, link or timer apart from the sibling "Show me" button for
+ * exercises that have an animation (`programId` says which program's). `changedText` is the "Changed: ..." line for
  * an item that differs from the previous week, or undefined.
  */
-function renderPlanItemRow(item: ItemView, phase: string, changedText: string | undefined): HTMLElement {
+function renderPlanItemRow(programId: string, item: ItemView, phase: string, changedText: string | undefined): HTMLElement {
   const row = element("div", "item-row");
   const content = element("div", "item-open plan-item");
 
@@ -281,5 +285,11 @@ function renderPlanItemRow(item: ItemView, phase: string, changedText: string | 
 
   content.append(text, doseBox);
   row.append(content);
+
+  // The same sibling "Show me" button as Today's rows; the plan row itself stays read-only.
+  const showMeButton = renderShowMeButton(programId, item, "item-start item-show-me");
+  if (showMeButton !== undefined) {
+    row.append(showMeButton);
+  }
   return row;
 }

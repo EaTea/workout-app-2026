@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 is under way. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31; PR 27 (its implementation) is in review.**
+Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 (the view and the Day 1 and Day 2 animations) is in review as #34. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31; PR 27 (its implementation) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -1633,7 +1633,7 @@ that one exercise's history.
 - **Merge point:** Ed can tick any swap on Today, train it with the right
   dose and timer, and see it in History.
 
-### PR 20 — Plan: "Show me" animations for Steady Strength *(design)*
+### PR 20 — Plan: "Show me" animations for Steady Strength *(design)* — merged as PR #28
 Ed asked (12 Nov) for an animation of every exercise in Steady Strength,
 opened from the exercise, so that someone aged 75 or over with poor
 eyesight can see quickly how to do the movement. The program is for a
@@ -1777,7 +1777,7 @@ in yellow.
 | 30 | Tall sitting hold | Side | Sitting back on the chair → shuffled forward, sitting tall, held | Trunk | Sit forward away from the chair back, sit tall, breathe and hold. |
 | 31 | Slow walk | Side | A slow walking step, looping | Legs | Walk slowly for a few minutes. |
 | 32 | Calf stretch | Side | Hands on the wall → one foot back, heel down, leaning in gently, held | Back leg | Hands on the wall, one foot back with the heel down, lean in gently and hold. |
-| 33 | Doorway chest stretch | Side | Forearm on the door frame → stepped forward gently, held | Body, arm | Forearm on the door frame, step forward gently until you feel a stretch, and hold. |
+| 33 | Doorway chest stretch | Three-quarter | Forearm on the door frame → stepped forward gently, held | Body, arm | Forearm on the door frame, step forward gently until you feel a stretch, and hold. |
 | 34 | Walk at a comfortable pace | Side | A walking step at a normal pace, looping | Legs | Walk at a pace where you can still talk. |
 
 The one-sided exercises (5, 6, 15, 19, 26, 27 and the single side of 32
@@ -1791,15 +1791,17 @@ the end of the loop. Head turns and sideways walking show both directions.
  src/demo/skeleton.ts       jointPositions(pose) ─▶ 3D points for every joint (forward
                             kinematics); limb lengths fixed, so a pose can't stretch a limb.
                             Pure TypeScript, no three.js, so the safety tests run in Vitest
- src/demo/timeline.ts       stepAt(demo, elapsedMs, speed) ─▶ { from, to, progress, label }
+ src/demo/timeline.ts       frameAt(demo, elapsedMs) ─▶ { pose, label, stepIndex }; the view
+                            scales elapsed time for Slower and stops it for Pause
                             (pure, unit tested; eased like the crab drill artifact)
  src/demo/steadyStrength.ts the 34 demos, keyed by exercise id
- src/demo/registry.ts       demoFor(programId, exerciseId) ─▶ Demo | undefined
+ src/demo/registry.ts       hasDemo(programId, exerciseId) (cheap id list, in the main bundle);
+                            loadDemo(...) ─▶ Promise<Demo | undefined> (builds demos in a lazy chunk)
  src/demo/render3d.ts       three.js scene: mannequin meshes posed from jointPositions(),
                             props, lights, camera angles (loaded only when "Show me" opens)
  src/demo/renderFlat.ts     the flat fallback, drawn from the same jointPositions()
  src/ui/demoView.ts         the overlay: picks a renderer, controls, reduced motion, Back to close
- src/ui/today.ts, dayPlan.ts, logScreen.ts   the "▶ Show me" buttons (only when demoFor finds one)
+ src/ui/today.ts, dayPlan.ts, logScreen.ts   the "▶ Show me" buttons (only when hasDemo is true)
 
    Demo (poses) ──timeline──▶ blended Pose ──skeleton──▶ joint points ──┬─▶ render3d (WebGL)
                                                                         └─▶ renderFlat (no WebGL)
@@ -1824,7 +1826,7 @@ the end of the loop. Head turns and sideways walking show both directions.
 - **The demos are code, not program data.** They describe drawing, not the
   program, so they don't go in `steady-strength.json` and need no wire
   type: nothing crosses a boundary (CLAUDE.md section 6 doesn't apply).
-  `demoFor` is keyed by program id too, so an id that happens to match in
+  `hasDemo` and `loadDemo` are keyed by program id too, so an id that happens to match in
   another program doesn't pick up a Steady Strength drawing. A unit test
   fails if any Steady Strength exercise has no demo, so a new exercise in
   the file can't ship without one.
@@ -1860,32 +1862,71 @@ project files under `screenshots/demos/`.
 
 ### PR 21 — "Show me" view and the Day 1 to Day 2 exercises *(behavior change)*
 **Steps.**
-1. [ ] `src/demo/model.ts`, `skeleton.ts` and `timeline.ts`, with unit
+1. [x] `src/demo/model.ts`, `skeleton.ts` and `timeline.ts`, with unit
    tests: forward kinematics, limb lengths unchanged across poses, the
    timeline figures in the worked examples, half speed, and pausing.
-2. [ ] three.js added; `src/demo/render3d.ts` (the mannequin, props,
+2. [x] three.js added; `src/demo/render3d.ts` (the mannequin, props,
    lights, the three camera angles) and `renderFlat.ts`. A check that the
    lazily loaded chunk is in the service worker's precache list. Commit
    message records the dependency choice and its size.
-3. [ ] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
+   Built: the three.js chunk is about 540 KB raw, 134 KB gzipped, and
+   only loads when "Show me" first opens. Vite warns about chunks over
+   500 KB; the warning is expected for this chunk and is left on so any
+   other large chunk still shows up.
+3. [x] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
    stills and "Next step", the flat fallback, Back to close and disposal.
    One demo (high wall sit) to drive it.
-4. [ ] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
+4. [x] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
    17–19, 27, 31–34), with the safety tests above that apply to them.
-5. [ ] The "▶ Show me" buttons on Today, the day plan and the log screen.
+5. [x] The "▶ Show me" buttons on Today, the day plan and the log screen.
    README: a line on "Show me".
-6. [ ] E2E (`e2e/showMe.spec.ts`): on Steady Strength Day 1 the high wall
+6. [x] E2E (`e2e/showMe.spec.ts`): on Steady Strength Day 1 the high wall
    sit row opens the view with its cue and a drawn 3D canvas, Pause freezes
    it, Back closes it and focus returns to the button; with reduced motion
    the Start and End stills show and "Next step" moves between them; Turn
    on the single-leg stand moves to the front angle; with WebGL switched
    off the flat figure shows instead; Explosive Endurance Day 1 has no
    "Show me". Screenshots of the 3D view for Ed.
-7. [ ] The contact sheet for these 18.
-8. [ ] Fixes from the challenger review.
+7. [x] The contact sheet for these 18 (`node docs/demos/render.cjs`, see README).
+8. [x] **Fixes from the challenger review.** Every suite passed and the
+   mechanics (kinematics, clock, Back and focus, disposal, offline cache)
+   checked out, but several drawings taught the wrong thing:
+   - [x] Start-up: all demos were built at import, which made Today about
+     1.4 s slower to open on a slow phone. Only the list of ids is in the
+     main bundle now; demos are built in a lazy chunk when "Show me" opens.
+   - [x] Stale "later step" comments in the demo modules.
+   - [x] Sit-to-stand stood up with the weight behind the feet (a fall
+     back into the chair). Feet tucked back, the lean held through
+     seat-off, and a test that the body's centre of mass is over the feet
+     once the hands leave the chair.
+   - [x] Doorway chest stretch: the near post hid the arm, the forearm sat
+     on the side of the post, and the hold showed no stretch.
+   - [x] Calf stretch moved the wrong foot (forward, not back).
+   - [x] Heel-to-toe stand slid one foot through the other.
+   - [x] Sideways walking went one way and jumped at the loop restart; it
+     now steps out and back, so it shows both directions.
+   - [x] Pallof press faced the door instead of standing side-on to it.
+   - [x] Ankle pumps held the leg off the floor (a leg raise the program
+     doesn't ask for); the heel now rests on the floor.
+   - [x] The bridge's "no higher than a straight line" test could never
+     fail; it now checks which side of the shoulder–knee line the hips
+     are. Hands on supports are checked against the furniture, every
+     frame. Spine extension is capped at 0° except the back extension.
+   - [x] Turn reached angles where a wall, counter or bed hid the figure.
+     Each demo now lists the angles that show it, and Turn cycles only
+     those (a demo with one useful angle has no Turn button).
+   - [x] Small screens: Show me moves under the title on the log screen,
+     the controls fit a 568 px tall screen, and landscape gets a bigger
+     stage. The view stops redrawing while paused.
+   - [x] A bolder face marker so head turns show, closer framing for the
+     bridge, and walks at a real slow and comfortable step rate.
+   - Changed from the plan: reduced motion shows one large still at a
+     time with "Next step" and a "Start → Hold" caption, not two stills
+     side by side. Two stills would each be half the size, which is the
+     wrong trade for someone with poor eyesight.
 - **Merge point:** Days 1, 2, 4 and 6 have an animation for every
   exercise. Days 3 and 5 show "Show me" only where they share an exercise
-  with Day 1.
+  with Day 1 or Day 2.
 
 ### PR 22 — The Day 3 and Day 5 exercises *(behavior change)*
 **Steps.**
@@ -2294,7 +2335,7 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 | Reduced motion, high wall sit | Two stills, "Start" and "Hold", nothing moves; "Next step" swaps which one is large |
 | Pause at 3s, high wall sit | The figure stays at the frame shown at 3s (in the move down); Play carries on from there |
 | 2 Nov, Explosive Endurance W1 D1 | No "Show me" on any row |
-| 4 Nov, W1 D3, before PR 22 | "Show me" on the warm-up and cool-down rows only; after PR 22 on every row |
+| 4 Nov, W1 D3, before PR 22 | "Show me" on the warm-up, heel-to-toe stand and cool-down rows only (the exercises Day 3 shares with Days 1 and 2); after PR 22 on every row |
 | Glute bridge hold view | The bridge on the bed, not the standing buttock squeeze |
 
 A second start date shows the cycle doesn't depend on the weekday: start

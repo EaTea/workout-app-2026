@@ -1,3 +1,4 @@
+import { renderShowMeButton } from "./showMeButton";
 import "./rotation.css";
 import { itemDisplayName } from "../program/rotation";
 import type { BlockView, ItemView } from "../program/schedule";
@@ -104,12 +105,16 @@ interface SetDraft {
  * (never a `?date=` preview); a `date` after it cannot be logged to. Unknown
  * block/exercise, or a day with no training, gives a "Nothing to log here" card.
  *
+ * `programId` is the active program's catalogue id; with it the header offers
+ * "Show me" for exercises that have an animation.
+ *
  * `day` is the program day from the route (absent in an old-form link: the
  * date's own day), and `combines` the stored combines, so the screen builds the
  * same session Today showed (`buildSwappedSessionFor`).
  */
 export function renderLogScreen(
   program: Program,
+  programId: string,
   settings: TrainingSettings,
   date: string,
   blockPosition: number,
@@ -422,7 +427,7 @@ export function renderLogScreen(
     target?.focus();
   }
 
-  /** Title row: back link, kicker + exercise name, and the ⓘ button that opens the details sheet. */
+  /** Title row: back link, kicker + exercise name, "Show me" (when the exercise has an animation) and the ⓘ button that opens the details sheet. */
   function renderHeader(): HTMLElement {
     const header = element("header", "log-header");
 
@@ -449,6 +454,9 @@ export function renderLogScreen(
 
     // A rotated-in exercise has no library entry, so there are no details to show.
     header.append(back, heading);
+    // "Show me" wraps onto its own line under the title (CSS order); it only exists for exercises with an animation.
+    const showMeButton = renderShowMeButton(programId, trackedItem, "log-show-me");
+    if (showMeButton !== undefined) header.append(showMeButton);
     if (trackedItem.rotatedIn === undefined) header.append(infoButton);
     return header;
   }
