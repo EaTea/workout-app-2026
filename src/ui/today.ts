@@ -1,5 +1,5 @@
 import type { Program, Range, WarmupRotation } from "../program/model";
-import { buildSession, type BlockView, type ItemView, type SessionView } from "../program/schedule";
+import { type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS, shortExerciseName } from "../timer/plans";
@@ -18,6 +18,9 @@ import type { FatigueHistory } from "../fatigue/model";
 import { countSetsForItem, formatProgress } from "../log/itemSets";
 import type { WorkoutLog } from "../log/model";
 import { setsForItem } from "../log/operations";
+import { hasNoEquipmentSwap, noEquipmentItemKey, originalExerciseIdOf } from "../program/noEquipment";
+import type { NoEquipmentTicks } from "../noEquipment/model";
+import { buildSwappedSession } from "../noEquipment/session";
 import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
 import { restMemoryKey } from "./restMemory";
@@ -90,6 +93,21 @@ export interface CheckInOptions {
   onSnooze: () => void;
 }
 
+/** What Today needs to show the "No equipment" ticks; supplied by app.ts, which owns the stored ticks. */
+export interface NoEquipmentOptions {
+  /** All stored ticks (Today reads the shown date's). */
+  ticks: NoEquipmentTicks;
+
+  /** False on a future `?date=` preview, like logging: the tick is disabled. */
+  canTick: boolean;
+
+  /** Saves a tick for the shown date; returns null on success or a message to show on the row. */
+  onToggle: (itemKey: string, ticked: boolean) => string | null;
+}
+
+/** Placeholder ticks for callers (tests) that pass none. */
+const NO_TICKS: NoEquipmentTicks = new Map();
+
 /**
  * Builds the Today screen for `date` ("YYYY-MM-DD"). Starting the program is
  * no longer done here: with no start date app.ts shows the Overview instead
@@ -103,9 +121,11 @@ export function renderTodayScreen(
   retest?: RetestOptions,
   checkIn?: CheckInOptions,
   rotation?: RotationOptions,
+  noEquipment?: NoEquipmentOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
-  const session = buildSession(program, settings, date);
+  // The swapped session: ticked (or already logged) swaps show as their own exercise.
+  const { session, locked } = buildSwappedSession(program, settings, log, noEquipment?.ticks ?? NO_TICKS, date);
 
   switch (session.kind) {
     case "training":
@@ -140,7 +160,7 @@ export function renderTodayScreen(
           screen.append(renderRotationCard(describeSwaps(program, program.warmupRotation), program.warmupRotation, rotation.onDismiss, rotation.canDismiss));
         }
       }
-      screen.append(...renderTrainingDay(program, session, date, log));
+      screen.append(...renderTrainingDay(program, session, date, log, locked, noEquipment));
       break;
     default:
       screen.append(renderMessageCard(session, program.lengthWeeks, date, program.safety));
@@ -215,6 +235,8 @@ function renderTrainingDay(
   session: Extract<SessionView, { kind: "training" }>,
   date: string,
   log: WorkoutLog,
+  locked: ReadonlySet<string>,
+  noEquipment: NoEquipmentOptions | undefined,
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
@@ -236,7 +258,7 @@ function renderTrainingDay(
     parts.push(note);
   }
 
-  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, session.phase, date, log)));
+  session.blocks.forEach((block, index) => parts.push(renderBlockCard(program, block, index + 1, session.dayNumber, session.phase, date, log, locked, noEquipment)));
   return parts;
 }
 
@@ -275,7 +297,17 @@ const SAME_EVERY_WEEK_TEXT = "Same every week";
  * One card for a block: numbered title, then one row per item. `phase` names
  * the progression phase for the timer-adjustment lines.
  */
-function renderBlockCard(program: Program, block: BlockView, position: number, dayNumber: number, phase: string, date: string, log: WorkoutLog): HTMLElement {
+function renderBlockCard(
+  program: Program,
+  block: BlockView,
+  position: number,
+  dayNumber: number,
+  phase: string,
+  date: string,
+  log: WorkoutLog,
+  locked: ReadonlySet<string>,
+  noEquipment: NoEquipmentOptions | undefined,
+): HTMLElement {
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(position, block)));
 
@@ -298,7 +330,7 @@ function renderBlockCard(program: Program, block: BlockView, position: number, d
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(program, item, block, dayNumber, phase, date, position, log));
+    card.append(renderItemRow(program, item, block, dayNumber, phase, date, position, log, locked, noEquipment));
   }
   return card;
 }
@@ -318,7 +350,18 @@ function describeSwaps(program: Program, rotation: WarmupRotation): string[] {
  * "Last time (2 Nov): ..." line when the exercise has been logged before (not on warm-ups). When the dose needs a max, the dose is a separate link to
  * Settings instead (a link can't live inside a button).
  */
-function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNumber: number, phase: string, date: string, blockPosition: number, log: WorkoutLog): HTMLElement {
+function renderItemRow(
+  program: Program,
+  item: ItemView,
+  block: BlockView,
+  dayNumber: number,
+  phase: string,
+  date: string,
+  blockPosition: number,
+  log: WorkoutLog,
+  locked: ReadonlySet<string>,
+  noEquipment: NoEquipmentOptions | undefined,
+): HTMLElement {
   const row = element("div", "item-row");
   const dose = formatItemDose(item);
 
@@ -333,6 +376,12 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
   const details = formatItemDetails(item);
   if (details.length > 0) {
     text.append(element("span", "item-details", details.join(" · ")));
+  }
+  const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item));
+  const isLocked = locked.has(itemKey);
+  const noEquipmentLine = noEquipmentLineFor(item, isLocked);
+  if (noEquipmentLine !== undefined) {
+    text.append(element("span", "item-no-equipment-note", noEquipmentLine));
   }
   // The phase's work-time adjustment, so the row's seconds and the timer's defaults are explained.
   if (item.workSecAdjustment !== undefined) {
@@ -392,6 +441,11 @@ function renderItemRow(program: Program, item: ItemView, block: BlockView, dayNu
     row.append(renderStartIntervalButton(item));
   }
 
+
+  // Items with a swap get the "No equipment" tick on its own line at the bottom of the row.
+  if (hasNoEquipmentSwap(item) && noEquipment !== undefined) {
+    row.append(renderNoEquipmentTick(item, itemKey, isLocked, noEquipment));
+  }
 
   openButton.addEventListener("click", () => {
     window.location.hash = logRouteHash(date, blockPosition, item.exercise.id);
@@ -516,4 +570,53 @@ function renderStartRestButton(
     openRestTimer(range, restName, memoryKey, { onClose: () => showSeconds(currentRestSeconds(range, memoryKey)) });
   });
   return button;
+}
+
+/**
+ * The line under a swappable item's details: "Instead of <original>" while
+ * swapped, "Logged as <current name>" once sets are logged (the tick is
+ * locked), nothing for an unticked, unlogged item. Locked and unswapped (sets
+ * logged under the original) reads "Logged as <original>".
+ */
+function noEquipmentLineFor(item: ItemView, isLocked: boolean): string | undefined {
+  if (!hasNoEquipmentSwap(item)) return undefined;
+  if (isLocked) return `Logged as ${item.exercise.name}`;
+  if (item.swappedFrom !== undefined) return `Instead of ${item.swappedFrom.name}`;
+  return undefined;
+}
+
+/**
+ * The "No equipment" checkbox for one swappable row. Checked means swapped.
+ * It is disabled once a set is logged (the lock) and on a future preview date
+ * (where nothing can be logged either). Toggling asks app.ts to save the tick
+ * through `onToggle` (which re-renders Today on success); on failure the box
+ * goes back and the message appears under it, like other save failures. The
+ * label wraps the input so the whole 48px line is the tap target.
+ */
+function renderNoEquipmentTick(item: ItemView, itemKey: string, isLocked: boolean, options: NoEquipmentOptions): HTMLElement {
+  const label = element("label", "item-no-equipment");
+  const checkbox = element("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = item.swappedFrom !== undefined;
+  checkbox.disabled = isLocked || !options.canTick;
+  checkbox.dataset.noEquipmentKey = itemKey;
+  // The accessible name says which exercise it belongs to; the visible text starts the name (WCAG 2.5.3).
+  label.append(checkbox, element("span", undefined, "No equipment"));
+  checkbox.setAttribute("aria-label", `No equipment, ${item.swappedFrom?.name ?? item.exercise.name}`);
+
+  const errorLine = element("p", "field-error item-no-equipment-error");
+  errorLine.setAttribute("role", "alert");
+
+  checkbox.addEventListener("change", () => {
+    const wanted = checkbox.checked;
+    const failure = options.onToggle(itemKey, wanted);
+    if (failure !== null) {
+      checkbox.checked = !wanted;
+      errorLine.textContent = failure;
+    }
+  });
+
+  const group = element("div", "item-no-equipment-group");
+  group.append(label, errorLine);
+  return group;
 }

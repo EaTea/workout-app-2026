@@ -29,6 +29,9 @@ import { buildProgramPicker, programNamesById } from "../program/picker";
 import type { LoadedCatalogueEntry } from "../program/load";
 import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramLink } from "./programPicker";
 import { renderTodayScreen } from "./today";
+import { loadTicks, setTick } from "../noEquipment/storage";
+import { buildSwappedSession } from "../noEquipment/session";
+import type { NoEquipmentTicks } from "../noEquipment/model";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
 import { checkForWeek, recordCheck, weeklyChecksFor } from "../fatigue/operations";
 import type { FatigueCheck } from "../fatigue/model";
@@ -234,6 +237,8 @@ export function startApp(
   let logWarningDismissed = false;
   let fatigueHistory = loadedFatigue.history;
   let fatigueLoadWarningDismissed = false;
+  /** The "No equipment" ticks per date (kept in localStorage too; throwaway, see noEquipment/storage.ts). */
+  let noEquipmentTicks: NoEquipmentTicks = loadTicks(localStorage, storageKeys.noEquipment);
   /** The date "Remind me tomorrow" was tapped on the check-in card (kept in localStorage too), or undefined. */
   let checkInSnoozedDate = loadStoredValue(storageKeys.checkInSnoozed, checkInSnoozedFromWire);
   /** The program week whose drop banner was dismissed (kept in localStorage too), or undefined. */
@@ -283,13 +288,29 @@ export function startApp(
     let isWanted = false;
     if (sessionDate !== undefined && sessionDate === resolveToday(window.location.search)) {
       try {
-        isWanted = isSessionInProgress(buildSession(program, settings, sessionDate), log, sessionDate, new Date());
+        isWanted = isSessionInProgress(buildSwappedSession(program, settings, log, noEquipmentTicks, sessionDate).session, log, sessionDate, new Date());
       } catch {
         isWanted = false;
       }
     }
 
     sessionWakeLock.setWanted(isWanted);
+  }
+
+  /**
+   * Saves a "No equipment" tick for the shown date (the real today only
+   * decides how old ticks are pruned), then re-renders Today so the row, its
+   * log screen and timers show the swap, and puts focus back on the checkbox.
+   * Returns null on success or the failure message for Today to show.
+   */
+  function handleToggleNoEquipment(itemKey: string, ticked: boolean): string | null {
+    const result = setTick(localStorage, storageKeys.noEquipment, shownDate, itemKey, ticked, todayLocalDate());
+    if (!result.ok) return result.error;
+
+    noEquipmentTicks = result.ticks;
+    render();
+    document.querySelector<HTMLInputElement>(`input[data-no-equipment-key="${CSS.escape(itemKey)}"]`)?.focus();
+    return null;
   }
 
   /** Dismiss handler for the warning banner: remembers it for this page load and re-renders. */
@@ -700,7 +721,7 @@ export function startApp(
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
-        main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate()));
+        main.append(renderLogScreen(program, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog));
       } else if (route === "plan" && planTarget !== undefined) {
@@ -727,7 +748,12 @@ export function startApp(
           draftForWeek,
           onSave: handleSaveCheckIn,
           onSnooze: handleSnoozeCheckIn,
-        }, { dismissedBlockWeeks: rotationDismissedBlockWeeks, canDismiss: canSaveOnShownDate(), onDismiss: handleDismissRotation }));
+        }, { dismissedBlockWeeks: rotationDismissedBlockWeeks, canDismiss: canSaveOnShownDate(), onDismiss: handleDismissRotation }, {
+          ticks: noEquipmentTicks,
+          // Ticks follow logging rules: past dates and today, not a future preview.
+          canTick: shownDate <= todayLocalDate(),
+          onToggle: handleToggleNoEquipment,
+        }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" || route === "overview" || route === "plan" ? "today" : route));

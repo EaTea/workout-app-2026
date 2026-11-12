@@ -1598,7 +1598,7 @@ that one exercise's history.
    logged under a swap id to the item it replaces, so a swap has its own
    last time and chart and an unswapped item ignores swap sets. Unit tests
    incl. the "Logging" worked example, and a CSV test (swap id and name).
-3b. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
+3b. [x] The tick on Today, the swapped row, log screen, timers and sheet,
    logging under the swap's id, the lock after the first set ("Logged as
    ..."), session progress counting swapped sets. README. Notes from 3a:
    - Build the unswapped session, call `noEquipmentChoices` with
