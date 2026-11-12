@@ -1836,7 +1836,7 @@ project files under `screenshots/demos/`.
 3. [x] `src/ui/demoView.ts`: the overlay, controls, Turn, reduced-motion
    stills and "Next step", the flat fallback, Back to close and disposal.
    One demo (high wall sit) to drive it.
-4. [ ] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
+4. [x] The demos for every exercise on Days 1 and 2 (18 exercises: 1–6, 8–11,
    17–19, 27, 31–34), with the safety tests above that apply to them.
 5. [ ] The "▶ Show me" buttons on Today, the day plan and the log screen.
    README: a line on "Show me".
@@ -1847,7 +1847,7 @@ project files under `screenshots/demos/`.
    on the single-leg stand moves to the front angle; with WebGL switched
    off the flat figure shows instead; Explosive Endurance Day 1 has no
    "Show me". Screenshots of the 3D view for Ed.
-7. [ ] The contact sheet for these 18.
+7. [x] The contact sheet for these 18 (`node docs/demos/render.cjs`, see README).
 8. [ ] Fixes from the challenger review.
 - **Merge point:** Days 1, 2, 4 and 6 have an animation for every
   exercise. Days 3 and 5 show "Show me" only where they share an exercise
