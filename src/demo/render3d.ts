@@ -27,7 +27,14 @@ import { computeFraming, isMoving, propBoxes, type DemoRenderer } from "./render
 const WHITE_COLOUR = 0xf4f4f4;
 const YELLOW_COLOUR = 0xffd60a;
 const GREY_COLOUR = 0x5d636e;
-const FLOOR_COLOUR = 0x3a3f48;
+/**
+ * Floor: dark and only a little wider than a step, so it reads as "the
+ * ground is here" without becoming a bright slab that competes with the
+ * figure (the plan asks for a faint floor and nothing else).
+ */
+const FLOOR_COLOUR = 0x202329;
+const FLOOR_WIDTH_METRES = 2.2;
+const FLOOR_DEPTH_METRES = 0.8;
 
 /** Vertical field of view of the camera, in degrees. */
 const FIELD_OF_VIEW_DEGREES = 32;
@@ -132,7 +139,7 @@ function buildRenderer(container: HTMLElement, demo: Demo, webglRenderer: WebGLR
   const camera = new PerspectiveCamera(FIELD_OF_VIEW_DEGREES, 1, 0.05, distance * 4 + 10);
 
   // ---- floor and furniture ----
-  const floor = new Mesh(new PlaneGeometry(3, 1.4), floorMaterial);
+  const floor = new Mesh(new PlaneGeometry(FLOOR_WIDTH_METRES, FLOOR_DEPTH_METRES), floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
 
