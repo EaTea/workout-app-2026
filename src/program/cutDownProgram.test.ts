@@ -77,8 +77,13 @@ describe("a program without fatigueCheck, warmupRotation or coreProgressions", (
     });
     expect(program.days[1]!.blocks[1]!.items[0]!.noEquipment).toBeUndefined();
 
-    // Nothing ticks a swap yet, so the built session is identical.
-    expect(buildSession(swapped.program, settings, "2026-11-02")).toEqual(buildSession(program, settings, "2026-11-02"));
+    // The swap only adds a swap view next to the item; the item itself is identical.
+    const swappedSession = buildSession(swapped.program, settings, "2026-11-02");
+    const plainSession = buildSession(program, settings, "2026-11-02");
+    if (swappedSession.kind !== "training" || plainSession.kind !== "training") throw new Error("expected training");
+    const swappedItem = swappedSession.blocks[1]!.items[0]!;
+    expect(swappedItem.noEquipment?.exercise.id).toBe("wall_squat");
+    expect({ ...swappedItem, noEquipment: undefined }).toEqual({ ...plainSession.blocks[1]!.items[0]!, noEquipment: undefined });
   });
 
   it("builds sessions on several dates, with the warm-up unrotated in every week", () => {

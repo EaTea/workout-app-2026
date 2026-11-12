@@ -148,6 +148,15 @@ export interface ItemView {
    * <originalName>". `exercise` stays the original so logging keeps its id.
    */
   rotatedIn?: { displayName: string; originalName: string };
+  /**
+   * The item's "No equipment" swap as it would be done this week: the same
+   * week, deload halving and timer changes applied to the swap's exercise and
+   * dose (see `applyNoEquipmentSwap`). Present only on items whose program
+   * entry has a swap. The exercise sheet shows it as "No equipment: <swap>,
+   * <this week's dose>"; Today ignores it until PR 19 adds the tick that
+   * switches a row over to it.
+   */
+  noEquipment?: ItemView;
 }
 
 /** One block of the session, in program order. */
@@ -354,6 +363,22 @@ function shiftRange(range: Range, seconds: number, ceiling: number): Range {
  * no block-level rounds or minutes, so it really is the same every week.
  */
 function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
+  const view = buildItemView(item, settings, blockHalve, week);
+
+  if (item.noEquipment === undefined) {
+    return view;
+  }
+
+  // The swap goes through exactly the same week arithmetic (halving, weekly
+  // increase, timer changes) as the original, via its effective item.
+  return { ...view, noEquipment: buildItemView(applyNoEquipmentSwap(item), settings, blockHalve, week) };
+}
+
+/**
+ * Builds the view of one item exactly as written (no swap handling): the part
+ * of `buildItem` that is run once for the original and once for its swap.
+ */
+function buildItemView(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
   const halve = blockHalve && !item.sameEveryWeek;
   const choice = chooseIncrease(item, settings, week);
 
@@ -389,6 +414,51 @@ function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: bool
 }
 
 /**
+ * Builds the "effective item" for a "No equipment" swap: the original item's
+ * structure (sets count, rest, format, minutes, rounds, work time, per side,
+ * optional, weekly increase, same-every-week) with the swap's exercise and
+ * dose. `buildItem` runs it through the normal week arithmetic to get the
+ * swap's view (`ItemView.noEquipment`); PR 19 uses it for ticked items.
+ *
+ *   original item ──┬─ kept:     sets count, restSec, format, minutes, rounds,
+ *                   │            workSec, perSide, optional, weeklyIncrease,
+ *                   │            sameEveryWeek
+ *                   ├─ swap's:   exercise (and exerciseId), load, note, tempo
+ *                   │            (never the original's: those describe its kit)
+ *                   └─ swap's if given, else the original's: reps, durationSec
+ *                      (for items with sets, each set takes the swap's reps and
+ *                       loses its own load such as "heavy")
+ *
+ * `exerciseId` becomes the swap's id: the swap is a different exercise, its
+ * sets are logged under that id, and the max logic keyed on it finds no max
+ * (the parser guarantees a swap is never max-tested and has its own reps when
+ * the original is max-based). The effective item has no `noEquipment`, so a
+ * swap is never swapped again. Pure; the original item is not changed.
+ */
+export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
+  const swap = item.noEquipment;
+  if (swap === undefined) {
+    return item;
+  }
+
+  return {
+    ...item,
+    exerciseId: swap.exercise.id,
+    exercise: swap.exercise,
+    // Sets keep their position and count; reps come from the swap when it
+    // gives them, and per-set loads are dropped.
+    sets: item.sets.map((set) => ({ reps: swap.reps ?? set.reps })),
+    // An item with sets carries its reps in the sets, not at item level.
+    reps: item.sets.length > 0 ? item.reps : (swap.reps ?? item.reps),
+    durationSec: swap.durationSec ?? item.durationSec,
+    load: swap.load,
+    note: swap.note,
+    tempo: swap.tempo,
+    noEquipment: undefined,
+  };
+}
+
+/**
  * Decides how an item's weekly increase is applied this week.
  *
  * Only items with a `weeklyIncrease` (the EMOMs) grow week to week. The field
@@ -400,11 +470,18 @@ function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: bool
  *   retest week, EMOM:
  *     max saved this week  -> offset 0, from the retested max
  *     no max saved yet     -> hold last week's offset, awaiting a retest
+ *     reps not max-based (a swap's EMOM) -> always hold last week's offset
  *   other weeks            -> week.offset (held in a plain deload)
  */
 function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekContext): IncreaseChoice {
   if (item.weeklyIncrease === undefined) {
     return { increase: 0, heldForDeload: false, usesRetestedMax: false, awaitingRetest: false };
+  }
+
+  if (week.isRetest && item.reps?.kind !== "percentOfMax") {
+    // A swap's EMOM (inverted rows, chair dips) never uses a tested max, so a
+    // saved max can't "retest" it: it always holds last week's figure.
+    return { increase: week.retestHeldOffset, heldForDeload: true, usesRetestedMax: false, awaitingRetest: false };
   }
 
   if (week.isRetest) {

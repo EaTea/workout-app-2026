@@ -1541,7 +1541,11 @@ can be reviewed on a phone before anything changes how a session runs.
 2. [x] The 16 swap exercises and every swap in `public/program.json`
    exactly as tabled above. Data tests over the shipped file. README:
    "Editing program.json" documents `noEquipment` and its rules.
-3. [ ] The exercise sheet's "No equipment" section (swap name and this
+3a. [x] The schedule builds each swap's view for the week
+   (`applyNoEquipmentSwap`, the retest-week hold, `ItemView.noEquipment`),
+   moved here from PR 19 because the sheet shows this week's dose. Unit
+   tests for the worked examples.
+3b. [ ] The exercise sheet's "No equipment" section (swap name and this
    week's dose). E2E: the Day 4 RDL sheet names "Backpack single-leg RDL,
    3 × 12–15 per leg".
 4. [ ] Copy the new `public/program.json` to the project files (the copy
@@ -1553,8 +1557,10 @@ can be reviewed on a phone before anything changes how a session runs.
 
 ### PR 19 — Tick "No equipment" and train the swap *(behavior change)*
 **Steps.**
-1. [ ] `applyNoEquipmentSwap` and `buildSession` taking the swapped items,
-   with the retest-week hold. Unit tests for the worked examples below.
+1. [ ] `buildSession` taking the swapped items: a ticked item uses its
+   swap view (`applyNoEquipmentSwap`, the retest-week hold and
+   `ItemView.noEquipment` landed in PR 18). Unit tests for the ticked
+   worked examples below.
 2. [ ] The ticks storage key, its wire type, mapping and pruning. Unit
    tests.
 3. [ ] The tick on Today, the swapped row, log screen, timers and sheet,
