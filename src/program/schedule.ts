@@ -157,6 +157,13 @@ export interface ItemView {
    * switches a row over to it.
    */
   noEquipment?: ItemView;
+  /**
+   * Set when this view is a ticked "No equipment" swap (see
+   * `applyNoEquipmentChoices` in noEquipment.ts): the original item's
+   * exercise, so Today can say "Instead of <original name>" and show the tick
+   * ticked. Absent on every normal view.
+   */
+  swappedFrom?: Exercise;
 }
 
 /** One block of the session, in program order. */

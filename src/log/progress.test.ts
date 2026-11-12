@@ -135,3 +135,33 @@ describe("progress for sessions whose sets carry their own day", () => {
     expect(chartableExercises(oldLog, program).map((exercise) => exercise.key)).toEqual(["dip|miniDose", "pull_up|mainStrength"]);
   });
 });
+
+describe("No equipment swaps", () => {
+  // Day 4 block 3 is the single-leg RDL (main strength) with the backpack RDL as its swap.
+  const log = makeLog(
+    makeSession("2026-11-05", 1, 4, [makeSet("backpack_single_leg_rdl", 3, 1, 12), makeSet("backpack_single_leg_rdl", 3, 2, 14, 5)]),
+    makeSession("2026-11-12", 2, 4, [makeSet("single_leg_rdl", 3, 1, 10, 8)]),
+  );
+
+  it("lists the swap as its own exercise in the original's block type, next to the original", () => {
+    const listed = chartableExercises(log, program).map((exercise) => ({ key: exercise.key, label: exercise.label }));
+
+    expect(listed).toEqual([
+      { key: "backpack_single_leg_rdl|mainStrength", label: "Backpack single-leg RDL — Main strength" },
+      { key: "single_leg_rdl|mainStrength", label: "Single-leg RDL — Main strength" },
+    ]);
+  });
+
+  it("charts the swap's sets as their own series and leaves the original's unchanged", () => {
+    expect(progressSeries(log, program, "backpack_single_leg_rdl", "mainStrength")).toEqual([
+      { date: "2026-11-05", week: 1, day: 4, bestReps: 14, heaviestKg: 5 },
+    ]);
+    expect(progressSeries(log, program, "single_leg_rdl", "mainStrength").map((point) => point.date)).toEqual(["2026-11-12"]);
+  });
+
+  it("does not chart the swap's id where its item is not (a swap logged in the wrong block)", () => {
+    const stray = makeLog(makeSession("2026-11-05", 1, 4, [makeSet("backpack_single_leg_rdl", 1, 1, 12)]));
+
+    expect(chartableExercises(stray, program)).toEqual([]);
+  });
+});

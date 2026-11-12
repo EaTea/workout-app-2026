@@ -1,4 +1,5 @@
 import type { DayNumber, Program } from "../program/model";
+import { isExerciseLoggedForItem } from "../program/noEquipment";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { sessionDates } from "./operations";
 import { setDay } from "./setDay";
@@ -20,6 +21,10 @@ import { setDay } from "./setDay";
  * program by the set's effective day (`setDay`) and its block position, exactly
  * as `lastTime.ts` does. Anything that cannot be resolved is left out rather
  * than guessed.
+ *
+ * A "No equipment" swap's sets are charted as their own exercise (the swap's
+ * name) in the block types of the item they replace; the original's series is
+ * unchanged.
  */
 
 /**
@@ -90,7 +95,7 @@ function blockTypeOfLoggedSet(program: Program, session: LoggedSession, set: Log
   if (day === undefined) return undefined;
 
   const block = program.days[day]?.blocks[set.blockPosition - 1];
-  const isExerciseInBlock = block?.items.some((item) => item.exerciseId === set.exerciseId) ?? false;
+  const isExerciseInBlock = block?.items.some((item) => isExerciseLoggedForItem(item, set.exerciseId)) ?? false;
   return isExerciseInBlock ? block?.type : undefined;
 }
 
