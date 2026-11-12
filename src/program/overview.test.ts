@@ -206,3 +206,19 @@ describe("buildProgramOverview: safety notes", () => {
     expect(buildProgramOverview(steadyStrength, active).safetyNotes).toHaveLength(5);
   });
 });
+
+describe("buildProgramOverview: key exercises of alternating items", () => {
+  it("lists every item of a block whose items carry weeks (Day 3 explosive)", () => {
+    const dayThree = buildProgramOverview(program, noStartDate).days.find((day) => day.dayNumber === 3);
+    if (dayThree?.kind !== "training") throw new Error("expected Day 3 to be a training day");
+
+    expect(dayThree.keyExercises[0]).toBe("Plyo push-ups / Rotational med ball wall throws");
+  });
+
+  it("keeps just the first item for blocks whose items run every week", () => {
+    const dayOne = buildProgramOverview(program, noStartDate).days.find((day) => day.dayNumber === 1);
+    if (dayOne?.kind !== "training") throw new Error("expected Day 1 to be a training day");
+
+    expect(dayOne.keyExercises.every((name) => !name.includes(" / "))).toBe(true);
+  });
+});

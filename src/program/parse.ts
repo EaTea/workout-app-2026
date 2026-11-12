@@ -93,7 +93,7 @@ const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues",
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
 const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"]);
 const ITEM_KEYS = allowedKeysOf<ItemWire>()([
-  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment",
+  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment", "weeks",
 ]);
 const NO_EQUIPMENT_SWAP_KEYS = allowedKeysOf<NoEquipmentSwapWire>()(["exercise", "reps", "durationSec", "load", "note", "tempo"]);
 /** Item fields a swap may not set because it keeps them from the original (everything but its own keys; includes `noEquipment`, so swaps can't nest). Derived so it follows ITEM_KEYS. */
@@ -437,8 +437,61 @@ function parseNoEquipmentSwap(
   };
 }
 
+/**
+ * Reads an item's optional `weeks` list (the weeks the item runs in) into the
+ * model's `runsInWeeks`. Absent gives "everyWeek". A present value must be a
+ * non-empty list of whole numbers from 1 to `lengthWeeks` with no repeats:
+ * anything else would silently drop or double an exercise, so it is a parse
+ * error. Called by `parseItem`.
+ */
+function readRunsInWeeks(record: UnknownRecord, path: string, lengthWeeks: number): ReadonlySet<number> | "everyWeek" {
+  if (record.weeks === undefined) return "everyWeek";
+
+  const weeksPath = child(path, "weeks");
+  const weeks = expectArray(record.weeks, weeksPath);
+  if (weeks.length === 0) fail(weeksPath, "expected at least one week, or leave \"weeks\" out to run every week");
+
+  const seenWeeks = new Set<number>();
+  weeks.forEach((week, index) => {
+    const weekPath = `${weeksPath}[${index}]`;
+    if (typeof week !== "number" || !Number.isInteger(week)) {
+      fail(weekPath, `expected a whole number but found ${describe(week)}`);
+    }
+    if (week < 1 || week > lengthWeeks) {
+      fail(weekPath, `week ${week} is outside the program (weeks 1 to ${lengthWeeks})`);
+    }
+    if (seenWeeks.has(week)) fail(weekPath, `week ${week} is listed more than once`);
+    seenWeeks.add(week);
+  });
+
+  return seenWeeks;
+}
+
+/**
+ * Records a warning for each program week in which none of the block's items
+ * run (only possible when some items have `weeks`). The schedule leaves the
+ * block out of those weeks' sessions, which is almost never what was meant,
+ * so the banner tells Ed which day, block and weeks. Called by `parseDay`.
+ */
+function warnAboutWeeksWithNoItems(block: Block, dayNumber: DayNumber, blockPath: string, lengthWeeks: number, warnings: ProgramWarning[]): void {
+  if (block.items.every((item) => item.runsInWeeks === "everyWeek")) return;
+
+  const emptyWeeks: number[] = [];
+  for (let week = 1; week <= lengthWeeks; week++) {
+    const someItemRuns = block.items.some((item) => item.runsInWeeks === "everyWeek" || item.runsInWeeks.has(week));
+    if (!someItemRuns) emptyWeeks.push(week);
+  }
+  if (emptyWeeks.length === 0) return;
+
+  const weekWord = emptyWeeks.length === 1 ? "week" : "weeks";
+  warnings.push({
+    path: blockPath,
+    message: `Day ${dayNumber} "${block.type}" block has no items in ${weekWord} ${emptyWeeks.join(", ")}, so it is left out of ${emptyWeeks.length === 1 ? "that week" : "those weeks"}`,
+  });
+}
+
 /** Converts one block item, looking its exercise id up in the library. */
-function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): BlockItem {
+function parseItem(raw: unknown, exercises: Record<string, Exercise>, lengthWeeks: number, path: string, warnings: ProgramWarning[]): BlockItem {
   const record = expectRecord(raw, path);
   collectUnknownFields(record, ITEM_KEYS, path, warnings);
 
@@ -464,6 +517,12 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
   const sameEveryWeek = readFlag(record, "sameEveryWeek", path);
   if (sameEveryWeek && record.weeklyIncrease !== undefined) {
     fail(path, `"sameEveryWeek" can't be combined with "weeklyIncrease", which changes the reps each week`);
+  }
+
+  // The weekly-increase offsets and the week-8 hold count every week, so
+  // skipped weeks would make the shown reps wrong.
+  if (record.weeks !== undefined && record.weeklyIncrease !== undefined) {
+    fail(path, `"weeks" can't be combined with "weeklyIncrease", whose increase counts every week of the program`);
   }
 
   const load = readOptionalString(record, "load", path);
@@ -502,7 +561,33 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
     tempo: readOptionalString(record, "tempo", path),
     weeklyIncrease: readOptionalString(record, "weeklyIncrease", path),
     noEquipment,
+    runsInWeeks: readRunsInWeeks(record, path, lengthWeeks),
   };
+}
+
+/**
+ * Fails when a block lists the same exercise id twice and both items run in
+ * some common week (overlapping `weeks`, or either without `weeks`): History,
+ * Last time and Progress resolve a logged set to the first matching item, so
+ * the second would be unreachable. The same exercise in disjoint weeks is
+ * fine. Called by `parseBlock`.
+ */
+function failOnExerciseRepeatedInSameWeek(items: BlockItem[], itemsPath: string): void {
+  items.forEach((item, index) => {
+    for (let earlierIndex = 0; earlierIndex < index; earlierIndex++) {
+      const earlier = items[earlierIndex]!;
+      if (earlier.exerciseId !== item.exerciseId) continue;
+
+      const runInCommonWeek =
+        earlier.runsInWeeks === "everyWeek" || item.runsInWeeks === "everyWeek" || [...item.runsInWeeks].some((week) => (earlier.runsInWeeks as ReadonlySet<number>).has(week));
+      if (runInCommonWeek) {
+        fail(
+          `${itemsPath}[${index}]`,
+          `exercise ${JSON.stringify(item.exerciseId)} is already in this block (items[${earlierIndex}]) and both run in the same week; give them separate "weeks" or use it once`,
+        );
+      }
+    }
+  });
 }
 
 /**
@@ -510,7 +595,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, path: stri
  * a block with its own `rounds` or `minutes`: a deload halves those for the
  * whole block, so the item couldn't stay the same every week.
  */
-function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): Block {
+function parseBlock(raw: unknown, exercises: Record<string, Exercise>, lengthWeeks: number, path: string, warnings: ProgramWarning[]): Block {
   const record = expectRecord(raw, path);
   collectUnknownFields(record, BLOCK_KEYS, path, warnings);
 
@@ -519,7 +604,7 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: str
 
   const rounds = readOptionalRange(record, "rounds", path);
   const minutes = readOptionalNumber(record, "minutes", path);
-  const parsedItems = items.map((item, index) => parseItem(item, exercises, `${itemsPath}[${index}]`, warnings));
+  const parsedItems = items.map((item, index) => parseItem(item, exercises, lengthWeeks, `${itemsPath}[${index}]`, warnings));
 
   const blockIsHalvedAsAWhole = rounds !== undefined || minutes !== undefined;
   const sameEveryWeekIndex = parsedItems.findIndex((parsedItem) => parsedItem.sameEveryWeek);
@@ -529,6 +614,8 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, path: str
       `"sameEveryWeek" can't be used in a block with its own "rounds" or "minutes", which a deload halves; put the item in a block without them`,
     );
   }
+
+  failOnExerciseRepeatedInSameWeek(parsedItems, itemsPath);
 
   return {
     type: readString(record, "type", path),
@@ -559,19 +646,30 @@ function readDayNumber(record: UnknownRecord, key: string, path: string): DayNum
   return value;
 }
 
-/** Converts one training day and its blocks. */
-function parseDay(raw: unknown, exercises: Record<string, Exercise>, path: string, warnings: ProgramWarning[]): Day {
+/**
+ * Converts one training day and its blocks, and records a warning for each
+ * block with weeks in which none of its items run (see `warnAboutWeeksWithNoItems`).
+ */
+function parseDay(raw: unknown, exercises: Record<string, Exercise>, lengthWeeks: number, path: string, warnings: ProgramWarning[]): Day {
   const record = expectRecord(raw, path);
   collectUnknownFields(record, DAY_KEYS, path, warnings);
 
   const blocksPath = child(path, "blocks");
   const blocks = expectArray(record.blocks ?? fail(blocksPath, "field is missing"), blocksPath);
 
+  const day = readDayNumber(record, "day", path);
+  const parsedBlocks = blocks.map((block, index) => {
+    const blockPath = `${blocksPath}[${index}]`;
+    const parsedBlock = parseBlock(block, exercises, lengthWeeks, blockPath, warnings);
+    warnAboutWeeksWithNoItems(parsedBlock, day, blockPath, lengthWeeks, warnings);
+    return parsedBlock;
+  });
+
   return {
-    day: readDayNumber(record, "day", path),
+    day,
     focus: readString(record, "focus", path),
     targetMinutes: readNumber(record, "targetMinutes", path),
-    blocks: blocks.map((block, index) => parseBlock(block, exercises, `${blocksPath}[${index}]`, warnings)),
+    blocks: parsedBlocks,
   };
 }
 
@@ -714,9 +812,12 @@ export function parseProgram(json: unknown): ParseResult {
     exercises[id] = parseExercise(id, rawExercise, `exercises.${id}`, warnings);
   }
 
+  // Read before the days because an item's `weeks` are checked against it.
+  const lengthWeeks = readPositiveInteger(info, "lengthWeeks", "program");
+
   const days: Partial<Record<DayNumber, Day>> = {};
   expectArray(requireSection(root, "days"), "days").forEach((rawDay, index) => {
-    const day = parseDay(rawDay, exercises, `days[${index}]`, warnings);
+    const day = parseDay(rawDay, exercises, lengthWeeks, `days[${index}]`, warnings);
     if (days[day.day] !== undefined) fail(`days[${index}].day`, `day ${day.day} appears more than once`);
     days[day.day] = day;
   });
@@ -738,7 +839,6 @@ export function parseProgram(json: unknown): ParseResult {
   const rawWarmupRotation = optionalSection(root, "warmupRotation");
   const rawFatigueCheck = optionalSection(root, "fatigueCheck");
 
-  const lengthWeeks = readPositiveInteger(info, "lengthWeeks", "program");
   const progression = expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
     parseProgressionPhase(phase, `progression[${index}]`, warnings),
   );

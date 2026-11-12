@@ -43,7 +43,7 @@ export interface TrainingDayOverview {
   dayNumber: DayNumber;
   focus: string;
   targetMinutes: number;
-  /** Names of the first exercise of each key block type (explosive, main strength, isometric, strength), in that order, when present. */
+  /** Per key block type (explosive, main strength, isometric, strength), in that order, when present: the first exercise's name, or all item names joined with " / " when the block's items alternate by `weeks`. */
   keyExercises: string[];
 }
 
@@ -85,7 +85,9 @@ export interface ProgramOverview {
 
 /**
  * Builds the row for one day number: a training row if program.days has it
- * (and it is not the rest day), otherwise a rest row. Called by
+ * (and it is not the rest day), otherwise a rest row. A key block whose items
+ * carry `weeks` lists all its item names joined with " / " (e.g. Day 3's
+ * "Plyo push-ups / Rotational med ball wall throws"); otherwise just the first. Called by
  * `buildProgramOverview` for each of day 1 to 7.
  */
 function buildDayOverview(program: Program, dayNumber: DayNumber): DayOverview {
@@ -95,13 +97,16 @@ function buildDayOverview(program: Program, dayNumber: DayNumber): DayOverview {
     return { kind: "rest", dayNumber };
   }
 
-  // The first item of each key block type, in the order of KEY_EXERCISE_BLOCK_TYPES.
+  // One entry per key block type, in the order of KEY_EXERCISE_BLOCK_TYPES.
   const keyExercises: string[] = [];
   for (const blockType of KEY_EXERCISE_BLOCK_TYPES) {
-    const firstItem = day.blocks.find((block) => block.type === blockType)?.items[0];
-    if (firstItem !== undefined) {
-      keyExercises.push(firstItem.exercise.name);
-    }
+    const block = day.blocks.find((candidate) => candidate.type === blockType);
+    const firstItem = block?.items[0];
+    if (block === undefined || firstItem === undefined) continue;
+
+    // Items that take turns across weeks are all listed, or the overview would hide some of them.
+    const itemsTakeTurns = block.items.some((item) => item.runsInWeeks !== "everyWeek");
+    keyExercises.push(itemsTakeTurns ? block.items.map((item) => item.exercise.name).join(" / ") : firstItem.exercise.name);
   }
 
   return { kind: "training", dayNumber, focus: day.focus, targetMinutes: day.targetMinutes, keyExercises };

@@ -45,8 +45,9 @@ export function noEquipmentChoices(session: SessionView, log: WorkoutLog, date: 
   const choices: NoEquipmentChoices = { swapped: new Set(), locked: new Set() };
   if (session.kind !== "training") return choices;
 
-  session.blocks.forEach((block, blockIndex) => {
-    const blockPosition = blockIndex + 1;
+  session.blocks.forEach((block) => {
+    // The block's place in the program day (a block left out this week doesn't shift it), as logs and ticks are keyed.
+    const blockPosition = block.position;
 
     for (const item of block.items) {
       if (item.noEquipment === undefined) continue;

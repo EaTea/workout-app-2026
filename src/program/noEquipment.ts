@@ -52,8 +52,9 @@ export function originalExerciseIdOf(item: ItemView): string {
 export function applyNoEquipmentChoices(session: SessionView, swappedKeys: ReadonlySet<string>): SessionView {
   if (session.kind !== "training" || swappedKeys.size === 0) return session;
 
-  const blocks = session.blocks.map((block, blockIndex) => {
-    const blockPosition = blockIndex + 1;
+  const blocks = session.blocks.map((block) => {
+    // The block's place in the program day (a block left out this week doesn't shift it), as ticks are keyed.
+    const blockPosition = block.position;
     const items = block.items.map((item) => {
       const swapView = item.noEquipment;
       if (swapView === undefined) return item;

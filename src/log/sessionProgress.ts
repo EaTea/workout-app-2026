@@ -40,9 +40,10 @@ export function isSessionInProgress(session: SessionView, log: WorkoutLog, date:
   let totalLoggedSets = 0;
   let hasItemWithSetsLeft = false;
 
-  session.blocks.forEach((block, blockIndex) => {
-    // Blocks are numbered from 1 in the log, as Today numbers them.
-    const blockPosition = blockIndex + 1;
+  session.blocks.forEach((block) => {
+    // Blocks are numbered from 1 in the log, as Today numbers them: by the
+    // block's place in the program day, which a block left out this week doesn't shift.
+    const blockPosition = block.position;
 
     for (const item of block.items) {
       const loggedCount = setsForItem(log, date, blockPosition, item.exercise.id, session.dayNumber).length;

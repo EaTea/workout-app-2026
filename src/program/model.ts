@@ -129,6 +129,15 @@ export interface BlockItem {
   weeklyIncrease?: string;
   /** The item's optional household-kit swap; undefined when the file has none. */
   noEquipment?: NoEquipmentSwap;
+  /**
+   * The program weeks this item runs in ("everyWeek" when program.json has no
+   * `weeks` on it, which is every item today). The schedule drops the item
+   * from a session whose week is not in the set, before any deload halving.
+   * Lookups of logged sets (Last time, Progress, History) deliberately use
+   * the whole program and ignore this, so a set logged in week 2 still finds
+   * its item in week 4.
+   */
+  runsInWeeks: ReadonlySet<number> | "everyWeek";
 }
 
 /** One block of a session (warm-up, explosive, ...). */
