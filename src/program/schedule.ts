@@ -185,8 +185,15 @@ export interface BlockView {
   restSecBetweenPairs?: Range;
   /** The seconds added to `restSecBetweenPairs` by the phase (e.g. -15); absent when none were. */
   restAdjustment?: number;
-  /** Carried from `Block.optional`: the block can be skipped for a session. Not acted on yet. */
+  /** Carried from `Block.optional`: the block can be skipped for a session. */
   optional?: OptionalBlock;
+  /**
+   * True when the athlete chose to skip this optional block for the session
+   * (set by `applySkippedBlocks`, never by `buildSession`). The block stays in
+   * `blocks` with its `position`, so Today can draw "Boxing skipped today ·
+   * Add it back"; session progress, completion and the block count ignore it.
+   */
+  skipped?: boolean;
   items: ItemView[];
 }
 

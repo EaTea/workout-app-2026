@@ -31,6 +31,8 @@ import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramL
 import { renderTodayScreen } from "./today";
 import { loadTicks, setTick } from "../noEquipment/storage";
 import { buildSwappedSessionFor } from "../noEquipment/session";
+import type { SkippedBlocksByDate } from "../optionalBlocks/model";
+import { loadOptionalBlockChoices } from "../optionalBlocks/storage";
 import type { Combine, CombinesByDate } from "../combine/model";
 import { activeCombineOn } from "../program/combineOffers";
 import { addCombine, loadCombines, removeCombine } from "../combine/storage";
@@ -244,6 +246,8 @@ export function startApp(
   let noEquipmentTicks: NoEquipmentTicks = loadTicks(localStorage, storageKeys.noEquipment);
   /** The days combined into another day's session, by host date (kept in localStorage too; see combine/storage.ts). */
   let combines: CombinesByDate = loadCombines(localStorage, storageKeys.combines);
+  /** The optional blocks (boxing) skipped per date (kept in localStorage too; see optionalBlocks/storage.ts). */
+  let skippedOptionalBlocks: SkippedBlocksByDate = loadOptionalBlockChoices(localStorage, storageKeys.optionalBlockChoices);
   /** The date "Remind me tomorrow" was tapped on the check-in card (kept in localStorage too), or undefined. */
   let checkInSnoozedDate = loadStoredValue(storageKeys.checkInSnoozed, checkInSnoozedFromWire);
   /** The program week whose drop banner was dismissed (kept in localStorage too), or undefined. */
@@ -293,7 +297,7 @@ export function startApp(
     let isWanted = false;
     if (sessionDate !== undefined && sessionDate === resolveToday(window.location.search)) {
       try {
-        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate()).session, log, sessionDate, new Date());
+        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate(), skippedOptionalBlocks).session, log, sessionDate, new Date());
       } catch {
         isWanted = false;
       }
@@ -425,6 +429,7 @@ export function startApp(
     fatigueHistory = loadedFatigue.history;
     // An import replaces the stored combines too (an import without any clears them).
     combines = loadCombines(localStorage, storageKeys.combines);
+    skippedOptionalBlocks = loadOptionalBlockChoices(localStorage, storageKeys.optionalBlockChoices);
     logWarningDismissed = false;
     fatigueLoadWarningDismissed = false;
     checkInDraft = undefined;

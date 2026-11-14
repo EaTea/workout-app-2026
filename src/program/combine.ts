@@ -132,7 +132,8 @@ export function combineSessions(program: Program, first: SessionView, second: Se
     }
 
     for (const part of partsOfType) {
-      const trimmedBlock = isTrimmedType(blockType) ? dropExtras(part.block, dropped) : part.block;
+      // A skipped optional block (boxing) is left as it is: nothing of it will be done, so nothing is "dropped".
+      const trimmedBlock = isTrimmedType(blockType) && !part.block.skipped ? dropExtras(part.block, dropped) : part.block;
       if (trimmedBlock.items.length === 0) continue; // every item was optional: nothing left to show
 
       blocks.push({ type: blockType, arrangement: "single", parts: [{ source: part.source, block: trimmedBlock }] });

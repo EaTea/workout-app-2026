@@ -2375,7 +2375,7 @@ PR 29 and PR 30 implement it.
      data tests over the shipped file.
   2. [x] The `optionalBlockChoices` store: model, wire, parse/serialize,
      storage, export and import (rule 5). Unit tests.
-  3. Applying a skip to the session view, header minutes and block count,
+  3. [x] Applying a skip to the session view, header minutes and block count,
      and session progress (rule 3). Unit tests for the worked examples.
   4. The "Boxing today?" card and the skipped line on Today, single and
      combined days, and "Boxing skipped" in History. E2E: skip on Week 2
