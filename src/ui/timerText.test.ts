@@ -16,16 +16,16 @@ describe("timer overlay text", () => {
   });
 
   it("the Skip button reads Ready during the gear-up and goes back to Skip", () => {
-    for (const status of ["running", "paused"] as const) {
-      expect(skipButtonText("gearUp", status)).toBe("Ready ›");
-      expect(skipButtonAccessibleName("gearUp", status)).toBe("Ready, start round 1");
-    }
+    expect(skipButtonText("gearUp", "running")).toBe("Ready ›");
+    expect(skipButtonAccessibleName("gearUp", "running")).toBe("Ready, start round 1");
     expect(skipButtonText("rest", "running")).toBe("Skip ›");
     expect(skipButtonAccessibleName("rest", "running")).toBeUndefined();
   });
 
-  it("before Start the gear-up Skip button is still the plain Skip", () => {
-    expect(skipButtonText("gearUp", "ready")).toBe("Skip ›");
-    expect(skipButtonAccessibleName("gearUp", "ready")).toBeUndefined();
+  it("before Start and while paused the gear-up Skip button is still the plain Skip", () => {
+    for (const status of ["ready", "paused"] as const) {
+      expect(skipButtonText("gearUp", status)).toBe("Skip ›");
+      expect(skipButtonAccessibleName("gearUp", status)).toBeUndefined();
+    }
   });
 });

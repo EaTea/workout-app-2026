@@ -27,20 +27,22 @@ export function roundCounterText(phase: SegmentPhase, round: number, totalRounds
 }
 
 /**
- * True while the Skip button acts as "Ready": the timer is running or paused
- * in the gear-up. Before Start the gear-up is the current segment too, but
- * the button is disabled then and stays the normal Skip.
+ * True while the Skip button acts as "Ready": the timer is running in the
+ * gear-up. Before Start the gear-up is the current segment too, but the button
+ * is disabled then; while paused, skipping keeps the timer paused (engine
+ * `skipSegment`), so "Ready" would not start round 1 and the button stays the
+ * normal Skip.
  */
 function isReadyButton(phase: SegmentPhase, status: TimerStatus): boolean {
-  return phase === "gearUp" && (status === "running" || status === "paused");
+  return phase === "gearUp" && status === "running";
 }
 
-/** The Skip button's visible text: "Ready ›" during a started gear-up (it starts round 1), otherwise "Skip ›". */
+/** The Skip button's visible text: "Ready ›" during a running gear-up (it starts round 1), otherwise "Skip ›". */
 export function skipButtonText(phase: SegmentPhase, status: TimerStatus): string {
   return isReadyButton(phase, status) ? "Ready ›" : "Skip ›";
 }
 
-/** The Skip button's accessible name when it differs from its text: only for the started gear-up; otherwise undefined (the text is the name). */
+/** The Skip button's accessible name when it differs from its text: only for the running gear-up; otherwise undefined (the text is the name). */
 export function skipButtonAccessibleName(phase: SegmentPhase, status: TimerStatus): string | undefined {
   return isReadyButton(phase, status) ? "Ready, start round 1" : undefined;
 }
