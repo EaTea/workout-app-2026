@@ -2411,18 +2411,19 @@ The two PRs don't depend on each other and can land in either order.
 | 9 Nov (W2 D1) | No equipment ticked on the bag | Shadow boxing; question still shows; its timer has no gear-up |
 | 10 Nov (W2 D2) | Any | No card (no optional block) |
 
-**Open questions for Ed** (with the answer I'm assuming):
+**Decided by Ed (14 Nov):**
 
-1. **Default.** Box is pre-selected, so not answering means boxing as
-   written. The alternative is that Today asks and nothing is chosen
-   until Ed taps.
-2. **End of the gear-up break.** It counts down and starts round 1 by
-   itself (no tap with gloves on), and "Ready ›" starts early. The
-   alternative is an open-ended break that waits for a Ready tap.
-3. **Length.** 2:00 by default, editable in the file and on the stepper.
-4. **Changing your mind.** Allowed until the first bag round is logged.
-5. **Not remembered.** Each session asks fresh, like the no-equipment
-   ticks. Remembering last session's answer would be a small follow-up.
+- **Default:** Box is pre-selected, so not answering means boxing as
+  written.
+- **Gear-up break:** kept. It counts down (2:00 by default) and starts
+  round 1 by itself, so Start is tapped bare-handed and nothing is tapped
+  with gloves on; "Ready ›" starts early.
+- **Not remembered:** each session asks fresh, like the no-equipment
+  ticks.
+
+**Open question for Ed** (with the answer I'm assuming):
+
+1. **Changing your mind.** Allowed until the first bag round is logged.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
