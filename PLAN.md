@@ -2377,11 +2377,11 @@ PR 29 and PR 30 implement it.
      storage, export and import (rule 5). Unit tests.
   3. [x] Applying a skip to the session view, header minutes and block count,
      and session progress (rule 3). Unit tests for the worked examples.
-  4. The "Boxing today?" card and the skipped line on Today, single and
+  4. [x] The "Boxing today?" card and the skipped line on Today, single and
      combined days, and "Boxing skipped" in History. E2E: skip on Week 2
      Day 1, header reads ~43 min · 5 blocks, add it back, log a round and
      the card goes away.
-  5. README "Editing program.json" documents the block field.
+  5. [x] README "Editing program.json" documents the block field.
   - **Merge point:** boxing can be skipped before a session and the
     session completes without it.
 - **PR 30 — Gear-up break before the heavy bag** *(behavior change)*

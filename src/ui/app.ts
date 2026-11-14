@@ -31,8 +31,8 @@ import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramL
 import { renderTodayScreen } from "./today";
 import { loadTicks, setTick } from "../noEquipment/storage";
 import { buildSwappedSessionFor } from "../noEquipment/session";
-import type { SkippedBlocksByDate } from "../optionalBlocks/model";
-import { loadOptionalBlockChoices } from "../optionalBlocks/storage";
+import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
+import { loadOptionalBlockChoices, setBlockSkipped } from "../optionalBlocks/storage";
 import type { Combine, CombinesByDate } from "../combine/model";
 import { activeCombineOn } from "../program/combineOffers";
 import { addCombine, loadCombines, removeCombine } from "../combine/storage";
@@ -354,6 +354,21 @@ export function startApp(
     if (!result.ok) return result.error;
 
     combines = result.combines;
+    render();
+    return null;
+  }
+
+  /**
+   * "Skip boxing" / "Box" / "Add it back" tapped on the shown date: stores the
+   * choice for that block (`setBlockSkipped`) and re-renders Today, which then
+   * shows or hides the block and its minutes. Returns null on success or the
+   * failure message for Today to show.
+   */
+  function handleSetBlockSkipped(blockKey: OptionalBlockKey, skipped: boolean): string | null {
+    const result = setBlockSkipped(localStorage, storageKeys.optionalBlockChoices, shownDate, blockKey, skipped);
+    if (!result.ok) return result.error;
+
+    skippedOptionalBlocks = result.skipsByDate;
     render();
     return null;
   }
@@ -769,9 +784,9 @@ export function startApp(
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
-        main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines));
+        main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines, skippedOptionalBlocks));
       } else if (route === "history") {
-        main.append(renderHistoryScreen(program, log, changeLog));
+        main.append(renderHistoryScreen(program, log, changeLog, skippedOptionalBlocks));
       } else if (route === "plan" && planTarget !== undefined) {
         const planScreen = renderDayPlanScreen(program, storageKeys.programId, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
         if (planScreen !== undefined) main.append(planScreen);
@@ -809,6 +824,9 @@ export function startApp(
             onAdd: handleAddCombine,
             onUndo: handleUndoCombine,
           },
+        }, {
+          skippedByDate: skippedOptionalBlocks,
+          onSetSkipped: handleSetBlockSkipped,
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.

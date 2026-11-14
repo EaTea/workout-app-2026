@@ -22,10 +22,14 @@ import { setsForItem } from "../log/operations";
 import { hasNoEquipmentSwap, noEquipmentItemKey, originalExerciseIdOf } from "../program/noEquipment";
 import type { NoEquipmentTicks } from "../noEquipment/model";
 import { buildSwappedSessionFor } from "../noEquipment/session";
+import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { CombinesByDate } from "../combine/model";
 import { type CombinedBlock, type CombinedSession, type TrainingSessionView } from "../program/combine";
 import { activeDonorOn, combineOffersFor } from "../program/combineOffers";
 import { programStatus, todayLocalDate } from "../program/calendar";
+import { blockCountOf } from "../optionalBlocks/session";
+import { optionalBlockKey } from "../optionalBlocks/model";
+import { isBlockStarted, renderOptionalBlockQuestions, renderSkippedBlockCard, undecidedOptionalBlocks, type OptionalBlocksOptions } from "./optionalBlockCards";
 import { renderCombineOffers, renderDonorCard, renderUndoCombine, type CombineActions } from "./combineCards";
 import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
@@ -125,6 +129,9 @@ export interface CombineOptions {
   actions: CombineActions;
 }
 
+/** Placeholder skips for callers (tests) that pass none. */
+const NO_SKIPS: SkippedBlocksByDate = new Map();
+
 /** Placeholder ticks for callers (tests) that pass none. */
 const NO_TICKS: NoEquipmentTicks = new Map();
 
@@ -148,6 +155,7 @@ export function renderTodayScreen(
   rotation?: RotationOptions,
   noEquipment?: NoEquipmentOptions,
   combine?: CombineOptions,
+  optionalBlocks?: OptionalBlocksOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
 
@@ -161,7 +169,7 @@ export function renderTodayScreen(
 
   // The swapped session: ticked (or already logged) swaps show as their own exercise.
   // A combined date gives the merged session of both days.
-  const { session, locked } = buildSwappedSessionFor(program, settings, log, noEquipment?.ticks ?? NO_TICKS, combine?.combines ?? NO_COMBINES, date, combine?.realToday ?? todayLocalDate());
+  const { session, locked } = buildSwappedSessionFor(program, settings, log, noEquipment?.ticks ?? NO_TICKS, combine?.combines ?? NO_COMBINES, date, combine?.realToday ?? todayLocalDate(), optionalBlocks?.skippedByDate ?? NO_SKIPS);
 
   switch (session.kind) {
     case "training":
@@ -198,9 +206,9 @@ export function renderTodayScreen(
         }
       }
       if (session.kind === "combined") {
-        screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, combine));
+        screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, combine, optionalBlocks));
       } else {
-        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, combine, settings.startDate));
+        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, combine, settings.startDate, optionalBlocks));
       }
       break;
     default:
@@ -281,12 +289,13 @@ function renderTrainingDay(
   noEquipment: NoEquipmentOptions | undefined,
   combine: CombineOptions | undefined,
   startDate: string | null,
+  optionalBlocks: OptionalBlocksOptions | undefined,
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
     element("div", "kicker", formatSessionKicker(date, session.week, program.lengthWeeks, session.dayNumber)),
     element("h1", "today-title", session.focus),
-    element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
+    element("div", "today-subtitle", `~${session.targetMinutes} min · ${blockCountOf(session)} blocks`),
     renderProgramOverviewLink(),
   );
   // A program with safety notes keeps them one tap away; the sheet is shared with the exercise details.
@@ -303,6 +312,12 @@ function renderTrainingDay(
     if (offers.length > 0) parts.push(renderCombineOffers(offers, combine.actions));
   }
 
+  // "Boxing today?" (PR 28 rule 2): right under the header too, on every date Today shows, until a round is logged.
+  const undecided = undecidedOptionalBlocks(session, log, date);
+  if (optionalBlocks !== undefined && undecided.length > 0) {
+    parts.push(renderOptionalBlockQuestions(undecided, false, optionalBlocks.onSetSkipped));
+  }
+
   parts.push(renderPhaseStrip(program, session.phase, session.isDeload));
 
   if (session.isDeload) {
@@ -314,7 +329,7 @@ function renderTrainingDay(
   // Blocks are numbered by their place in the program day, which a block left out this week doesn't shift.
   session.blocks.forEach((block) => {
     const slot: RowSlot = { day: session.dayNumber, blockPosition: block.position, isCombined: false };
-    parts.push(renderBlockCard(program, programId, block, block.position, slot, session.phase, date, log, locked, noEquipment));
+    parts.push(renderBlockCard(program, programId, block, block.position, slot, session.phase, date, log, locked, noEquipment, optionalBlocks));
   });
 
   return parts;
@@ -340,12 +355,13 @@ function renderCombinedDay(
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
   combine: CombineOptions | undefined,
+  optionalBlocks: OptionalBlocksOptions | undefined,
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
     element("div", "kicker", formatCombinedSessionKicker(date, session.week, program.lengthWeeks, session.days)),
     element("h1", "today-title", session.focus),
-    element("div", "today-subtitle", `~${session.targetMinutes} min · ${session.blocks.length} blocks`),
+    element("div", "today-subtitle", `~${session.targetMinutes} min · ${blockCountOf(session)} blocks`),
     renderProgramOverviewLink(),
   );
   if (program.safety.length > 0) {
@@ -359,6 +375,11 @@ function renderCombinedDay(
   const nothingLogged = (log.sessions[date]?.sets.length ?? 0) === 0;
   if (combine !== undefined && nothingLogged && date === combine.realToday) parts.push(renderUndoCombine(combine.actions));
 
+  const undecided = undecidedOptionalBlocks(session, log, date);
+  if (optionalBlocks !== undefined && undecided.length > 0) {
+    parts.push(renderOptionalBlockQuestions(undecided, true, optionalBlocks.onSetSkipped));
+  }
+
   parts.push(renderPhaseStrip(program, session.phase, session.isDeload));
 
   if (session.isDeload) {
@@ -368,7 +389,7 @@ function renderCombinedDay(
   }
 
   session.blocks.forEach((combinedBlock, index) => {
-    parts.push(renderCombinedBlockCard(program, programId, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment));
+    parts.push(renderCombinedBlockCard(program, programId, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment, optionalBlocks));
   });
 
   return parts;
@@ -440,7 +461,16 @@ function renderBlockCard(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  optionalBlocks: OptionalBlocksOptions | undefined,
 ): HTMLElement {
+  // A skipped optional block is one line (it keeps its number); "Add it back" only until a round is logged.
+  if (block.skipped && block.optional !== undefined) {
+    const blockKey = optionalBlockKey(slot.day, slot.blockPosition);
+    const started = isBlockStarted(log, date, slot.day, slot.blockPosition, block.items.map((item) => item.exercise.id));
+    const addBack = optionalBlocks !== undefined && !started ? () => optionalBlocks.onSetSkipped(blockKey, false) : undefined;
+    return renderSkippedBlockCard(formatBlockTitle(displayNumber, block), block.optional.label, addBack);
+  }
+
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(displayNumber, block)));
   appendBlockBody(card, program, programId, block, slot, phase, date, log, locked, noEquipment);
@@ -463,12 +493,13 @@ function renderCombinedBlockCard(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  optionalBlocks: OptionalBlocksOptions | undefined,
 ): HTMLElement {
   const slotOf = (part: CombinedBlock["parts"][number]): RowSlot => ({ day: part.source.day, blockPosition: part.source.blockPosition, isCombined: true });
 
   if (combinedBlock.arrangement === "single") {
     const [part] = combinedBlock.parts;
-    return renderBlockCard(program, programId, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment);
+    return renderBlockCard(program, programId, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment, optionalBlocks);
   }
 
   const card = element("section", "card block-card");
