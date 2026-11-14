@@ -80,7 +80,7 @@ function heavyBagItem(date: string): ItemView {
 
 describe("interval plans", () => {
   it("W1 D1 defaults: 5 rounds, 30s work (top of 20-30), 30s rest", () => {
-    expect(defaultIntervalSettings(heavyBagItem("2026-11-02"))).toEqual({ rounds: 5, workSec: 30, restSec: 30, gearUpSec: 0 });
+    expect(defaultIntervalSettings(heavyBagItem("2026-11-02"))).toEqual({ rounds: 5, workSec: 30, restSec: 30, gearUpSec: 120 });
   });
 
   it("W1 D1 plan: 9 segments alternating work and rest, ending on work, 270s in total", () => {
@@ -125,6 +125,18 @@ describe("interval plans", () => {
     expect(() => buildIntervalPlan(item, { rounds: 0, workSec: 30, restSec: 30, gearUpSec: 0 })).toThrow();
     expect(() => buildIntervalPlan(item, { rounds: 3, workSec: 4, restSec: 30, gearUpSec: 0 })).toThrow();
     expect(() => buildIntervalPlan(item, { rounds: 3, workSec: 30, restSec: 4, gearUpSec: 0 })).toThrow();
+  });
+
+  it("the shipped heavy bag defaults to a 120s gear-up that opens the plan", () => {
+    const item = heavyBagItem("2026-11-02");
+    const settings = defaultIntervalSettings(item);
+    const plan = buildIntervalPlan(item, settings);
+
+    expect(settings.gearUpSec).toBe(120);
+    expect(plan.segments[0]).toEqual({ phase: "gearUp", durationSec: 120, round: 1, totalRounds: 5, label: "Wrap hands, gloves on" });
+    expect(plan.segments[1]?.phase).toBe("work");
+    expect(plan.segments).toHaveLength(10);
+    expect(plan.title).toBe("Heavy bag · 5 rounds");
   });
 
   it("a gear-up of 0 adds no segment, and a negative one is rejected", () => {

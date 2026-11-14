@@ -2389,7 +2389,7 @@ PR 29 and PR 30 implement it.
      wire types, parser, model and the shipped file (rule 4). Unit tests
      with a fake clock: the break runs, beeps 3-2-1, round 1 starts by
      itself; Skip starts it early; 0 gives no break.
-  2. The timer view: GEAR UP colour and text, "Ready ›" on Skip, the
+  2. [x] The timer view: GEAR UP colour and text, "Ready ›" on Skip, the
      fourth stepper, round dots counting from round 1. E2E: start the bag
      timer, see GEAR UP 2:00, tap Ready, see WORK round 1 of 5.
   3. README documents `gearUpSec`.

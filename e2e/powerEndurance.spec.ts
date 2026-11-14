@@ -31,6 +31,8 @@ test("week 5 day 1: Today shows the adjusted numbers and the heavy bag timer sta
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
   await expect(overlay.locator(".timer-title")).toHaveText("Heavy bag \u00b7 5 rounds");
+  // The heavy bag opens with its gear-up; with none, round 1 shows the adjusted 35s work.
+  for (let click = 0; click < 8; click += 1) await overlay.getByRole("button", { name: "Decrease gear up" }).click();
   await expect(overlay.locator(".timer-digits")).toHaveText("0:35");
   // The setup row shows the unchanged 30s rest alongside the adjusted work time.
   await expect(overlay.locator(".timer-setup-summary")).toContainText("Rest 30s");
@@ -59,5 +61,6 @@ test("week 4 (deload) shows no adjustment and the base 30s heavy bag timer", asy
 
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
+  for (let click = 0; click < 8; click += 1) await overlay.getByRole("button", { name: "Decrease gear up" }).click();
   await expect(overlay.locator(".timer-digits")).toHaveText("0:30");
 });

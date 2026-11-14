@@ -633,8 +633,8 @@ describe("gearUpSec", () => {
   }
 
   it("reads a valid gearUpSec onto the item, and 0 is allowed", () => {
-    const twoMinutes = heavyBagAfter((item) => { item.gearUpSec = 120; });
-    expect(twoMinutes.program().days[1]!.blocks.find((block) => block.type === "finisher")!.items[0]!.gearUpSec).toBe(120);
+    const shipped = parseProgram(readRealProgramJson()).program.days[1]!.blocks.find((block) => block.type === "finisher")!.items[0]!;
+    expect(shipped.gearUpSec).toBe(120);
 
     const zero = heavyBagAfter((item) => { item.gearUpSec = 0; });
     expect(zero.program().days[1]!.blocks.find((block) => block.type === "finisher")!.items[0]!.gearUpSec).toBe(0);
