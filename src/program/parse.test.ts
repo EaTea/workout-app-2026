@@ -622,3 +622,32 @@ describe("item weeks combined with other fields", () => {
     expect(() => parseProgram(json)).not.toThrow();
   });
 });
+
+describe("gearUpSec", () => {
+  /** The first item of day 1's finisher block (the heavy bag), after `mutate` edits the raw JSON. */
+  function heavyBagAfter(mutate: (item: any) => void) {
+    const json = readRealProgramJson();
+    const finisher = json.days[0].blocks.find((block: any) => block.type === "finisher");
+    mutate(finisher.items[0]);
+    return { json, program: () => parseProgram(json).program };
+  }
+
+  it("reads a valid gearUpSec onto the item, and 0 is allowed", () => {
+    const twoMinutes = heavyBagAfter((item) => { item.gearUpSec = 120; });
+    expect(twoMinutes.program().days[1]!.blocks.find((block) => block.type === "finisher")!.items[0]!.gearUpSec).toBe(120);
+
+    const zero = heavyBagAfter((item) => { item.gearUpSec = 0; });
+    expect(zero.program().days[1]!.blocks.find((block) => block.type === "finisher")!.items[0]!.gearUpSec).toBe(0);
+  });
+
+  it("is absent when the file does not give it", () => {
+    const absent = heavyBagAfter((item) => { delete item.gearUpSec; });
+
+    expect(absent.program().days[1]!.blocks.find((block) => block.type === "finisher")!.items[0]!.gearUpSec).toBeUndefined();
+  });
+
+  it("rejects a negative or non-number gearUpSec", () => {
+    expect(() => heavyBagAfter((item) => { item.gearUpSec = -5; }).program()).toThrow(/gearUpSec: expected 0 or more seconds but found -5/);
+    expect(() => heavyBagAfter((item) => { item.gearUpSec = "120"; }).program()).toThrow(/gearUpSec: expected a number but found "120"/);
+  });
+});

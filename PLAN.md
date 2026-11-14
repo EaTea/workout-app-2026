@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 27 are merged (#3 to #35). PR 28 (the plan for making boxing optional and adding a gear-up break before the heavy bag) is in review.**
+Status: **PR 1 to PR 28 are merged (#3 to #36). PR 29 (optional boxing on Today) and PR 30 (the gear-up break before the heavy bag) are being built in parallel.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -2385,7 +2385,7 @@ PR 29 and PR 30 implement it.
   - **Merge point:** boxing can be skipped before a session and the
     session completes without it.
 - **PR 30 — Gear-up break before the heavy bag** *(behavior change)*
-  1. The `gearUp` phase in the engine, plans and cues; `gearUpSec` in the
+  1. [x] The `gearUp` phase in the engine, plans and cues; `gearUpSec` in the
      wire types, parser, model and the shipped file (rule 4). Unit tests
      with a fake clock: the break runs, beeps 3-2-1, round 1 starts by
      itself; Skip starts it early; 0 gives no break.

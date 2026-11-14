@@ -734,6 +734,7 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
             rounds: values.rounds ?? defaults.rounds,
             workSec: values.workSec ?? defaults.workSec,
             restSec: values.restSec ?? defaults.restSec,
+            gearUpSec: defaults.gearUpSec, // the gear-up stepper arrives in the next step
           }),
       },
     });

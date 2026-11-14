@@ -95,7 +95,7 @@ const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues",
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
 const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"]);
 const ITEM_KEYS = allowedKeysOf<ItemWire>()([
-  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment", "weeks",
+  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "gearUpSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment", "weeks",
 ]);
 const NO_EQUIPMENT_SWAP_KEYS = allowedKeysOf<NoEquipmentSwapWire>()(["exercise", "reps", "durationSec", "load", "note", "tempo"]);
 /** Item fields a swap may not set because it keeps them from the original (everything but its own keys; includes `noEquipment`, so swaps can't nest). Derived so it follows ITEM_KEYS. */
@@ -235,6 +235,19 @@ function readNumber(record: UnknownRecord, key: string, path: string): number {
 /** Reads an optional number field. */
 function readOptionalNumber(record: UnknownRecord, key: string, path: string): number | undefined {
   return record[key] === undefined ? undefined : readNumber(record, key, path);
+}
+
+/**
+ * Reads an item's optional `gearUpSec` (the break before an interval timer's
+ * round 1): absent stays absent, otherwise it must be a number of 0 or more.
+ * Called by `parseItem`; the timer plans (timer/plans.ts) treat 0 as no break.
+ */
+function readOptionalGearUpSec(record: UnknownRecord, path: string): number | undefined {
+  const gearUpSec = readOptionalNumber(record, "gearUpSec", path);
+  if (gearUpSec !== undefined && gearUpSec < 0) {
+    fail(child(path, "gearUpSec"), `expected 0 or more seconds but found ${gearUpSec}`);
+  }
+  return gearUpSec;
 }
 
 /** Reads an optional boolean field, defaulting to false. */
@@ -555,6 +568,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, lengthWeek
     minutes: readOptionalNumber(record, "minutes", path),
     rounds: readOptionalRange(record, "rounds", path),
     workSec: readOptionalRange(record, "workSec", path),
+    gearUpSec: readOptionalGearUpSec(record, path),
     durationSec: readOptionalNumber(record, "durationSec", path),
     perSide: readFlag(record, "perSide", path),
     optional: readFlag(record, "optional", path),

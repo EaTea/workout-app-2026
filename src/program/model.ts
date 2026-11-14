@@ -106,6 +106,8 @@ export interface BlockItem {
   /** Interval rounds. */
   rounds?: Range;
   workSec?: Range;
+  /** Seconds of gear-up break before an interval timer's round 1; absent or 0 means none. A no-equipment swap never inherits it. */
+  gearUpSec?: number;
   /** Timed holds, e.g. side plank. */
   durationSec?: number;
   perSide: boolean;

@@ -21,8 +21,15 @@
  * state; later steps listen to the returned events to beep and vibrate.
  */
 
-/** What the user should be doing during a segment. */
-export type SegmentPhase = "work" | "rest" | "minute";
+/**
+ * What the user should be doing during a segment. "gearUp" is the optional
+ * break before round 1 of an interval plan (wrap hands, gloves on): it is an
+ * ordinary segment, so it counts down, beeps 3-2-1 and then round 1 starts by
+ * itself, or sooner when Skip is pressed.
+ *
+ *   gearUp (optional, first) ─▶ work ─▶ rest ─▶ work ─▶ ... ─▶ work
+ */
+export type SegmentPhase = "work" | "rest" | "minute" | "gearUp";
 
 /** One stretch of a timer: e.g. "30s work, round 2 of 5". */
 export interface TimerSegment {

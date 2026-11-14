@@ -58,11 +58,16 @@ function describeEmomTarget(item: ItemView): string {
 // Heavy bag intervals
 // ---------------------------------------------------------------------------
 
+/** What the gear-up break tells Ed to do. */
+const GEAR_UP_LABEL = "Wrap hands, gloves on";
+
 /** The numbers an interval timer runs on; the setup row on the timer lets Ed change them before Start. */
 export interface IntervalSettings {
   rounds: number;
   workSec: number;
   restSec: number;
+  /** Seconds of gear-up break before round 1; 0 means none. */
+  gearUpSec: number;
 }
 
 /** Sensible limits for the setup steppers; `buildIntervalPlan` enforces the minimums. */
@@ -73,37 +78,46 @@ export const INTERVAL_LIMITS = {
   maxWorkSec: MAX_INTERVAL_WORK_SECONDS,
   maxRestSec: MAX_INTERVAL_REST_SECONDS,
   secondsStep: 5,
+  minGearUpSec: 0,
+  maxGearUpSec: 300,
+  gearUpStep: 15,
 } as const;
 
 /**
  * The starting numbers for an interval item (PLAN section 4, rule 4): the top
  * of the rounds range (a deload already collapsed it to one value), the top of
- * the work range and the bottom of the rest range. Called when Today opens the
+ * the work range and the bottom of the rest range, and the item's gear-up break (0 when it has none). Called when Today opens the
  * heavy bag timer. Throws if the item lacks rounds, work or rest times.
  */
 export function defaultIntervalSettings(item: ItemView): IntervalSettings {
   if (item.format !== "interval" || !item.rounds || !item.workSec || !item.restSec) {
     throw new Error(`${item.exercise.name} is not an interval item`);
   }
-  return { rounds: item.rounds.max, workSec: item.workSec.max, restSec: item.restSec.min };
+  return { rounds: item.rounds.max, workSec: item.workSec.max, restSec: item.restSec.min, gearUpSec: item.gearUpSec ?? 0 };
 }
 
 /**
  * Builds the plan for an interval item with the given (possibly adjusted)
- * settings: work, rest, work, ... ending on a work segment (no trailing rest).
+ * settings: [gear-up,] work, rest, work, ... ending on a work segment (no trailing rest).
  * Titled e.g. "Heavy bag · 5 rounds". Called first with the defaults and again
  * each time Ed changes a stepper on the timer's setup row. Throws on rounds
- * below 1 or work/rest below 5 seconds.
+ * below 1, work/rest below 5 seconds, or a negative gear-up. A gear-up of 0 adds no segment.
  */
 export function buildIntervalPlan(item: ItemView, settings: IntervalSettings): TimerPlan {
-  const { rounds, workSec, restSec } = settings;
+  const { rounds, workSec, restSec, gearUpSec } = settings;
   if (!Number.isInteger(rounds) || rounds < INTERVAL_LIMITS.minRounds) throw new Error("Rounds must be at least 1");
   if (workSec < INTERVAL_LIMITS.minSeconds || restSec < INTERVAL_LIMITS.minSeconds) {
     throw new Error(`Work and rest must be at least ${INTERVAL_LIMITS.minSeconds} seconds`);
   }
 
+  if (!Number.isFinite(gearUpSec) || gearUpSec < 0) throw new Error("Gear-up must be 0 or more seconds");
+
   const workLabel = item.note ?? "Go hard";
   const segments: TimerSegment[] = [];
+  // The optional gear-up break comes first; the timer moves on from it to round 1 by itself.
+  if (gearUpSec > 0) {
+    segments.push({ phase: "gearUp", durationSec: gearUpSec, label: GEAR_UP_LABEL, round: 1, totalRounds: rounds });
+  }
   for (let round = 1; round <= rounds; round += 1) {
     segments.push({ phase: "work", durationSec: workSec, round, totalRounds: rounds, label: workLabel });
     if (round < rounds) {

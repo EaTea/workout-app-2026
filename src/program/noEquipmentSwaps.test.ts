@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { BlockItem, Reps } from "./model";
 import { parseProgram } from "./parse";
+import { applyNoEquipmentSwap } from "./schedule";
 
 /**
  * Data tests over the shipped public/program.json for the no-equipment swaps
@@ -217,5 +218,13 @@ describe("shipped steady-strength.json", () => {
     );
 
     expect(swaps).toEqual([]);
+  });
+});
+
+describe("gear-up break and the heavy bag swap", () => {
+  it("the shadow boxing swap does not inherit the gear-up", () => {
+    for (const { item } of allItems().filter(({ item }) => item.exerciseId === "heavy_bag")) {
+      expect(applyNoEquipmentSwap(item).gearUpSec).toBeUndefined();
+    }
   });
 });
