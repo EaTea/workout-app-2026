@@ -254,5 +254,8 @@ export const MAX_INTERVAL_WORK_SECONDS = 180;
 /** Largest interval rest the heavy bag stepper offers. */
 export const MAX_INTERVAL_REST_SECONDS = 180;
 
+/** Largest gear-up break (before round 1 of an interval timer) the stepper offers; the parser rejects a larger `gearUpSec`. */
+export const MAX_GEAR_UP_SECONDS = 300;
+
 /** Largest rest the rest-timer stepper offers; the cap for adjusted rest between pairs. */
 export const MAX_REST_SECONDS = 300;

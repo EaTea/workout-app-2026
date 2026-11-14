@@ -650,4 +650,23 @@ describe("gearUpSec", () => {
     expect(() => heavyBagAfter((item) => { item.gearUpSec = -5; }).program()).toThrow(/gearUpSec: expected 0 or more seconds but found -5/);
     expect(() => heavyBagAfter((item) => { item.gearUpSec = "120"; }).program()).toThrow(/gearUpSec: expected a number but found "120"/);
   });
+
+  it("rejects a fractional gearUpSec", () => {
+    expect(() => heavyBagAfter((item) => { item.gearUpSec = 90.5; }).program()).toThrow(/gearUpSec: expected a whole number of seconds but found 90.5/);
+  });
+
+  it("accepts 300 (the stepper's maximum) and rejects more", () => {
+    expect(heavyBagAfter((item) => { item.gearUpSec = 300; }).program().days[1]!.blocks.find((block) => block.type === "finisher")!.items[0]!.gearUpSec).toBe(300);
+    expect(() => heavyBagAfter((item) => { item.gearUpSec = 301; }).program()).toThrow(/gearUpSec: expected at most 300 seconds but found 301/);
+  });
+
+  it("rejects gearUpSec on an item that is not an interval", () => {
+    expect(() => heavyBagAfter((item) => { item.format = "emom"; item.minutes = 5; }).program()).toThrow(/gearUpSec: only an interval item/);
+  });
+
+  it("gives a swap that sets gearUpSec its own error", () => {
+    expect(() => heavyBagAfter((item) => { item.noEquipment.gearUpSec = 60; }).program()).toThrow(
+      /noEquipment\.gearUpSec: a no-equipment swap has no gear-up break, so it can't be set here/,
+    );
+  });
 });

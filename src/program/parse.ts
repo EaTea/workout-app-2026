@@ -43,7 +43,7 @@ import type {
   SetPrescription,
   WarmupRotation,
 } from "./model";
-import { DAYS_PER_WEEK } from "./model";
+import { DAYS_PER_WEEK, MAX_GEAR_UP_SECONDS } from "./model";
 import type {
   BlockWire,
   CombiningWire,
@@ -239,14 +239,20 @@ function readOptionalNumber(record: UnknownRecord, key: string, path: string): n
 
 /**
  * Reads an item's optional `gearUpSec` (the break before an interval timer's
- * round 1): absent stays absent, otherwise it must be a number of 0 or more.
- * Called by `parseItem`; the timer plans (timer/plans.ts) treat 0 as no break.
+ * round 1): absent stays absent, otherwise it must be a whole number of
+ * seconds from 0 to MAX_GEAR_UP_SECONDS (the stepper's limit), and the item
+ * must be an interval. Called by `parseItem`; the timer plans (timer/plans.ts)
+ * treat 0 as no break.
  */
 function readOptionalGearUpSec(record: UnknownRecord, path: string): number | undefined {
   const gearUpSec = readOptionalNumber(record, "gearUpSec", path);
-  if (gearUpSec !== undefined && gearUpSec < 0) {
-    fail(child(path, "gearUpSec"), `expected 0 or more seconds but found ${gearUpSec}`);
-  }
+  if (gearUpSec === undefined) return undefined;
+
+  const gearUpPath = child(path, "gearUpSec");
+  if (record.format !== "interval") fail(gearUpPath, `only an interval item ("format": "interval") can have a gear-up break`);
+  if (!Number.isInteger(gearUpSec)) fail(gearUpPath, `expected a whole number of seconds but found ${gearUpSec}`);
+  if (gearUpSec < 0) fail(gearUpPath, `expected 0 or more seconds but found ${gearUpSec}`);
+  if (gearUpSec > MAX_GEAR_UP_SECONDS) fail(gearUpPath, `expected at most ${MAX_GEAR_UP_SECONDS} seconds but found ${gearUpSec}`);
   return gearUpSec;
 }
 
@@ -416,6 +422,10 @@ function parseNoEquipmentSwap(
   const record = expectRecord(raw, path);
 
   for (const key of Object.keys(record)) {
+    if (key === "gearUpSec") {
+      // The schedule drops the original's gear-up for a swap (applyNoEquipmentSwap), so it is never "kept".
+      fail(child(path, key), "a no-equipment swap has no gear-up break, so it can't be set here");
+    }
     if (KEPT_FROM_ORIGINAL_KEYS.includes(key)) {
       fail(child(path, key), `a swap keeps "${key}" from the original item, so it can't be set here`);
     }

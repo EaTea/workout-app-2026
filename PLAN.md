@@ -2293,7 +2293,7 @@ PR 29 and PR 30 implement it.
  ┌───────────────────────────────┐    │        GEAR UP           │
  │ Boxing today?                 │    │         1:42             │
  │ [ Box ✓ ]   [ Skip boxing ]   │    │ Wrap hands, gloves on    │
- └───────────────────────────────┘    │ Round 1 starts after 3-2-1│
+ └───────────────────────────────┘    │ then round 1 by itself   │
  1 Warm-up ...                        │ [ ❚❚ Pause ] [ Ready › ] │
  ...                                  └──────────────────────────┘
  6 Finisher  Heavy bag 5 × 30s          then WORK, round 1 of 5 ...
@@ -2347,10 +2347,12 @@ PR 29 and PR 30 implement it.
      5 minutes in 15s steps; 0 means no break. The value chosen is
      remembered for the page load, like the rest stepper.
    - The no-equipment swap (shadow boxing) has no gear-up: swaps don't
-     inherit `gearUpSec` (no wraps or gloves), unless the swap sets it.
+     inherit `gearUpSec` (no wraps or gloves), and a swap can't set it.
+     `gearUpSec` is only allowed on interval items, as a whole number
+     of seconds from 0 to 300 (the stepper's range).
    - The engine gets a fourth segment phase, `gearUp`, with its own colour
      (neutral, not green work or blue rest) and its own start cue. It is
-     not a round, so the round dots and "Round 1 of 5" count from the
+     not a round, so "Round 1 of 5" counts from the
      first work segment.
 5. **Logging.** The choice is stored per date and per block, so History
    can say "Boxing skipped" instead of showing the bag as unlogged. A
@@ -2390,7 +2392,7 @@ PR 29 and PR 30 implement it.
      with a fake clock: the break runs, beeps 3-2-1, round 1 starts by
      itself; Skip starts it early; 0 gives no break.
   2. [x] The timer view: GEAR UP colour and text, "Ready ›" on Skip, the
-     fourth stepper, round dots counting from round 1. E2E: start the bag
+     fourth stepper, the round line counting from round 1. E2E: start the bag
      timer, see GEAR UP 2:00, tap Ready, see WORK round 1 of 5.
   3. [x] README documents `gearUpSec`.
   - **Merge point:** the bag timer opens with a gear-up countdown that

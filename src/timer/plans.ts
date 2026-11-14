@@ -1,5 +1,5 @@
 import type { Range } from "../program/model";
-import { MAX_INTERVAL_REST_SECONDS, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "../program/model";
+import { MAX_GEAR_UP_SECONDS, MAX_INTERVAL_REST_SECONDS, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "../program/model";
 import type { ItemView } from "../program/schedule";
 import { itemDisplayName } from "../program/rotation";
 import { formatRepTarget } from "../ui/format";
@@ -79,7 +79,7 @@ export const INTERVAL_LIMITS = {
   maxRestSec: MAX_INTERVAL_REST_SECONDS,
   secondsStep: 5,
   minGearUpSec: 0,
-  maxGearUpSec: 300,
+  maxGearUpSec: MAX_GEAR_UP_SECONDS,
   gearUpStep: 15,
 } as const;
 
