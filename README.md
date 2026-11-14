@@ -291,6 +291,14 @@ week of the program. Deload halving and the power-endurance changes apply to
 whichever item runs that week. `weeks` can't be set inside a `noEquipment`
 swap, because the swap keeps the original's weeks.
 
+An interval item (the heavy bag) can carry `"gearUpSec"`, a number of seconds
+(0 or more) of break before round 1: its timer opens with a "GEAR UP" countdown
+(wrap hands, gloves on), beeps 3-2-1, then round 1 starts by itself, or sooner
+when Ed taps "Ready". Leave it out, or give 0, for no break. Ed can change it
+on the timer's setup row (0 to 5 minutes in 15 second steps). A negative or
+non-number value is an error. A "No equipment" swap never inherits it, so
+shadow boxing starts straight on round 1.
+
 An item can carry a household-kit swap, `"noEquipment"`, for days when the
 kit isn't to hand. It is an object next to the item it replaces, with an
 `exercise` (required: a key of `exercises`) and, optionally, `reps`,

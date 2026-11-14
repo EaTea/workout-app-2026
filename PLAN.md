@@ -2392,7 +2392,7 @@ PR 29 and PR 30 implement it.
   2. [x] The timer view: GEAR UP colour and text, "Ready ›" on Skip, the
      fourth stepper, round dots counting from round 1. E2E: start the bag
      timer, see GEAR UP 2:00, tap Ready, see WORK round 1 of 5.
-  3. README documents `gearUpSec`.
+  3. [x] README documents `gearUpSec`.
   - **Merge point:** the bag timer opens with a gear-up countdown that
     runs into round 1 without a tap.
 
