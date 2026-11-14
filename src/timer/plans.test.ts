@@ -102,6 +102,7 @@ describe("interval plans", () => {
     const item = heavyBagItem("2026-11-23");
 
     expect(defaultIntervalSettings(item).rounds).toBe(2);
+    expect(defaultIntervalSettings(item).gearUpSec).toBe(120);
     expect(buildIntervalPlan(item, { ...defaultIntervalSettings(item), gearUpSec: 0 }).segments).toHaveLength(3);
   });
 
