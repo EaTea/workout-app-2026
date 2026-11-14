@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 18 merged (#3 to #27). PR 19 (tick "No equipment" and train the swap) is in review. PR 20 (the plan for "Show me" animations in Steady Strength) is merged as #28, and PR 21 (the view and the Day 1 and Day 2 animations) is in review as #34. PR 23 (the plan for combining two days on Today) is merged as #29. PR 26 (the plan for Day 3 rotational wall throws on even weeks) is merged as #31; PR 27 (its implementation) is in review.**
+Status: **PR 1 to PR 27 are merged (#3 to #35). PR 28 (the plan for making boxing optional and adding a gear-up break before the heavy bag) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -2258,6 +2258,172 @@ Every other day and week matches `main` exactly.
    you've had a week to learn plyo push-ups. Even is my pick.
 2. **No-equipment.** No tick for the throws; the sheet's alternative says
    to do plyo push-ups instead (rule 5).
+
+### PR 28 — Plan: optional boxing and a gear-up break *(design)*
+Ed asked (14 Nov) for boxing (the heavy bag finisher on Days 1 and 5) to
+be **optional, decided when getting ready to begin the session**. He also
+asked whether the next set waits for him, because before boxing he needs
+**a couple of minutes to wrap his hands and put gloves on**.
+
+PR 29 and PR 30 implement it.
+
+**How the app behaves today (the answer to Ed's second question).**
+
+- *Between sets, yes, it waits for Ed.* "Log set" starts the rest timer
+  (rule 8). When the rest ends it beeps and shows DONE ("Next set when it
+  ends"); nothing is logged or started for him. The next set only counts
+  when he taps "Log set" again (`ui/logScreen.ts`, `ui/restTimer.ts`).
+- *Between blocks, yes.* Nothing moves on by itself. Each EMOM and
+  interval timer opens only from its row's "Start timer" button and sits
+  in its `ready` state until Start is tapped (`timer/engine.ts`,
+  `ui/today.ts` `renderStartIntervalButton`). So Ed can already take as
+  long as he likes to wrap his hands before tapping Start.
+- *Inside the heavy bag timer, no.* Once started, rounds run work, rest,
+  work... without a tap (that's the point of an interval timer). Pause
+  and Skip are there.
+- *The catch:* the gear-up pause has to happen **before** tapping Start,
+  and then Start has to be tapped **with gloves on**. Nothing reminds him
+  to gear up or times the break. That's what rule 4 below fixes.
+
+**What the person sees.**
+
+```
+ Today · Week 2 · Day 1               Heavy bag timer (after Start)
+ Upper: pull · ~50 min                ┌──────────────────────────┐
+ ┌───────────────────────────────┐    │        GEAR UP           │
+ │ Boxing today?                 │    │         1:42             │
+ │ [ Box ✓ ]   [ Skip boxing ]   │    │ Wrap hands, gloves on    │
+ └───────────────────────────────┘    │ Round 1 starts after 3-2-1│
+ 1 Warm-up ...                        │ [ ❚❚ Pause ] [ Ready › ] │
+ ...                                  └──────────────────────────┘
+ 6 Finisher  Heavy bag 5 × 30s          then WORK, round 1 of 5 ...
+
+ Skip boxing tapped:  header "~43 min · 5 blocks", the finisher card
+ becomes one line "Boxing skipped today · Add it back".
+```
+
+**Rules.**
+
+1. **The file marks the block.** A new optional block field,
+   `"optional": { "label": "Boxing" }`, on the Day 1 and Day 5 finisher
+   blocks. It is a block field, so it doesn't clash with the item field
+   `"optional": true` (side plank, hollow hold), which means "shown, but
+   doesn't hold up completion". `label` is what the question and the
+   skipped line say. Steady Strength marks nothing, so nothing changes
+   there. Parse rules like other fields: a wrong type is an error card,
+   a missing `label` is an error.
+2. **When the question shows.** On a training day whose session has an
+   optional block, a "Boxing today?" card sits just under the header (in
+   the same place as the combine buttons, so it's seen before starting).
+   Two buttons: **Box** (selected by default: the program as written) and
+   **Skip boxing**. Ed can change his mind until a round of that block is
+   logged; after that the card is gone. It shows on `?date=` previews too
+   (backfilling a session that had no boxing), unlike combining.
+3. **When boxing is skipped.**
+   - Today replaces the finisher card with one line, "Boxing skipped
+     today · Add it back". Block numbers don't change (blocks keep their
+     `position`, PR 27).
+   - The header's block count drops by one and its minutes drop by the
+     block's estimated length: the timer's default plan plus the gear-up
+     break, rounded to the nearest minute (Day 1, week 2: 5 × 30s work +
+     4 × 30s rest + 2:00 = 6:30, so ~50 becomes ~43, 6 blocks becomes 5).
+   - Session progress, the "in progress" wake lock and "every set logged"
+     ignore the block, so the session completes without it.
+   - With "No equipment" ticked the block is shadow boxing; the question
+     and the skip apply the same way (it is the same block).
+   - On a combined day (PR 25) each day's optional block gets its own
+     card line ("D1 boxing", "D5 boxing"); in the shipped pairs only one
+     day of each pair has boxing, so there is one.
+   - The log screen for a skipped block's item still opens from History
+     or a direct link, but Today doesn't offer it.
+4. **Gear-up break before the first round.** A new optional item field,
+   `"gearUpSec"`, on the heavy bag items (120 in the shipped file). When an
+   interval item has it, the timer plan starts with a **GEAR UP**
+   segment of that length, labelled "Wrap hands, gloves on", before round
+   1. It counts down with the usual 3-2-1 beeps and then round 1 starts by
+   itself, so no tap is needed with gloves on. Skip (shown as "Ready ›"
+   during this segment) starts round 1 early; Pause holds the break.
+   - The timer's setup row gets a fourth stepper, "Gear up 2:00", 0 to
+     5 minutes in 15s steps; 0 means no break. The value chosen is
+     remembered for the page load, like the rest stepper.
+   - The no-equipment swap (shadow boxing) has no gear-up: swaps don't
+     inherit `gearUpSec` (no wraps or gloves), unless the swap sets it.
+   - The engine gets a fourth segment phase, `gearUp`, with its own colour
+     (neutral, not green work or blue rest) and its own start cue. It is
+     not a round, so the round dots and "Round 1 of 5" count from the
+     first work segment.
+5. **Logging.** The choice is stored per date and per block, so History
+   can say "Boxing skipped" instead of showing the bag as unlogged. A
+   new key per program, `optionalBlockChoices`:
+   `{ "2026-11-16": { "skipped": ["1:6"] } }` (day and block position, so
+   a combined day's two blocks don't collide). Only skips are stored;
+   "Box" is the absence of a record. It has its own wire type with
+   `parse`/`serialize`, is in the JSON export as an optional section of
+   export v2 (an older export imports as no skips; an import replaces it,
+   like `combines`), and the CSV export gains no rows (it lists logged
+   sets only). "Last time" for the bag looks past skipped sessions
+   naturally, since they have no sets.
+6. **What doesn't change.** Deload halving, the power-endurance "+5s
+   work", rounds and work/rest defaults, the week 8 retest and the weekly
+   check.
+
+**Steps.**
+
+- **PR 29 — Optional boxing on Today** *(behavior change)*
+  1. Block `optional` in the wire types, parser and model (rule 1), and
+     the field on Days 1 and 5 in `public/program.json`. Unit tests and
+     data tests over the shipped file.
+  2. The `optionalBlockChoices` store: model, wire, parse/serialize,
+     storage, export and import (rule 5). Unit tests.
+  3. Applying a skip to the session view, header minutes and block count,
+     and session progress (rule 3). Unit tests for the worked examples.
+  4. The "Boxing today?" card and the skipped line on Today, single and
+     combined days, and "Boxing skipped" in History. E2E: skip on Week 2
+     Day 1, header reads ~43 min · 5 blocks, add it back, log a round and
+     the card goes away.
+  5. README "Editing program.json" documents the block field.
+  - **Merge point:** boxing can be skipped before a session and the
+    session completes without it.
+- **PR 30 — Gear-up break before the heavy bag** *(behavior change)*
+  1. The `gearUp` phase in the engine, plans and cues; `gearUpSec` in the
+     wire types, parser, model and the shipped file (rule 4). Unit tests
+     with a fake clock: the break runs, beeps 3-2-1, round 1 starts by
+     itself; Skip starts it early; 0 gives no break.
+  2. The timer view: GEAR UP colour and text, "Ready ›" on Skip, the
+     fourth stepper, round dots counting from round 1. E2E: start the bag
+     timer, see GEAR UP 2:00, tap Ready, see WORK round 1 of 5.
+  3. README documents `gearUpSec`.
+  - **Merge point:** the bag timer opens with a gear-up countdown that
+    runs into round 1 without a tap.
+
+The two PRs don't depend on each other and can land in either order.
+
+**Worked examples** (start 2 Nov, as in section 6):
+
+| Date | Situation | Expected |
+| --- | --- | --- |
+| 9 Nov (W2 D1) | Nothing logged, nothing chosen | "Boxing today?" with Box selected; ~50 min · 6 blocks |
+| 9 Nov (W2 D1) | Skip boxing | Finisher shows "Boxing skipped today · Add it back"; ~43 min · 5 blocks; logging every other set completes the session |
+| 9 Nov (W2 D1) | One bag round logged | No card; the choice can no longer change |
+| 13 Nov (W2 D5) | Bag timer opened | Setup row: Work 30s · Rest 30s · 5 rounds · Gear up 2:00; Start shows GEAR UP 2:00, then round 1 of 5 |
+| 30 Nov (W5 D1) | Skip boxing | Block estimate 5 × 35s + 4 × 30s + 2:00 = 6:55, so ~43 min |
+| 23 Nov (W4 D1, deload) | Bag timer opened | Rounds already 2 (deload: low end 4, halved), gear-up still 2:00 |
+| 9 Nov (W2 D1) | No equipment ticked on the bag | Shadow boxing; question still shows; its timer has no gear-up |
+| 10 Nov (W2 D2) | Any | No card (no optional block) |
+
+**Decided by Ed (14 Nov):**
+
+- **Default:** Box is pre-selected, so not answering means boxing as
+  written.
+- **Gear-up break:** kept. It counts down (2:00 by default) and starts
+  round 1 by itself, so Start is tapped bare-handed and nothing is tapped
+  with gloves on; "Ready ›" starts early.
+- **Not remembered:** each session asks fresh, like the no-equipment
+  ticks.
+
+**Open question for Ed** (with the answer I'm assuming):
+
+1. **Changing your mind.** Allowed until the first bag round is logged.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
