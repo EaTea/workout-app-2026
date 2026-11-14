@@ -274,6 +274,19 @@ rounds of 90s with 60s rest, Day 6 is ~42 min). Anything but true or false is
 an error, and so is combining it with `weeklyIncrease` or putting it in a block
 with its own `rounds` or `minutes` (both would still change from week to week).
 
+A whole block can be made optional with a block-level `"optional": { "label":
+"Boxing" }` (the shipped Day 1 and Day 5 heavy bag finishers have it). Today
+then asks "Boxing today?" under the header, with **Box** (the default, the
+program as written) and **Skip boxing**; the choice can be changed until a set
+of that block is logged. A skipped block shows as one line, "Boxing skipped
+today · Add it back", keeps its block number, and leaves out of the header's
+block count, minutes (the length of the block's default timer plan, rounded to
+the nearest minute) and the session's completion; History notes "Boxing
+skipped". `label` must be non-empty text, and `optional` must be an object,
+otherwise the file is an error. This is not the item-level `"optional": true`
+(side plank, hollow hold), which only means "shown, but doesn't hold up
+completion".
+
 An item can run in only some weeks with `"weeks"`, a list of program weeks:
 `{ "exercise": "plyo_push_up", "weeks": [1, 3, 5, 7], ... }` shows that item in
 weeks 1, 3, 5 and 7 and leaves it out of the others. An item without `weeks`
