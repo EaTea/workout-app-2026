@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 27 are merged (#3 to #35). PR 28 (the plan for making boxing optional and adding a gear-up break before the heavy bag) is in review.**
+Status: **PR 1 to PR 28 are merged (#3 to #36). PR 29 (optional boxing on Today) and PR 30 (the gear-up break before the heavy bag) are being built in parallel.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -2370,7 +2370,7 @@ PR 29 and PR 30 implement it.
 **Steps.**
 
 - **PR 29 — Optional boxing on Today** *(behavior change)*
-  1. Block `optional` in the wire types, parser and model (rule 1), and
+  1. [x] Block `optional` in the wire types, parser and model (rule 1), and
      the field on Days 1 and 5 in `public/program.json`. Unit tests and
      data tests over the shipped file.
   2. The `optionalBlockChoices` store: model, wire, parse/serialize,

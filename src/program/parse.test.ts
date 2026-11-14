@@ -622,3 +622,45 @@ describe("item weeks combined with other fields", () => {
     expect(() => parseProgram(json)).not.toThrow();
   });
 });
+
+describe("block-level optional marker (the boxing finisher)", () => {
+  /** Finds the heavy bag finisher block in a day of the raw JSON, for breaking it in tests. */
+  function rawFinisherOf(json: any, dayNumber: number): any {
+    return json.days.find((day: any) => day.day === dayNumber).blocks.find((block: any) => block.type === "finisher");
+  }
+
+  it("marks the finisher blocks of Days 1 and 5 as optional Boxing, and no other block", () => {
+    expect(dayOf(1).blocks[5]!.optional).toEqual({ label: "Boxing" });
+    expect(dayOf(5).blocks[5]!.optional).toEqual({ label: "Boxing" });
+
+    const optionalBlocks = Object.values(program.days).flatMap((day) => (day?.blocks ?? []).filter((block) => block.optional !== undefined));
+    expect(optionalBlocks).toHaveLength(2);
+    for (const block of optionalBlocks) {
+      expect(block.type).toBe("finisher");
+      expect(block.items[0]!.exerciseId).toBe("heavy_bag");
+    }
+  });
+
+  it("leaves item-level optional flags alone", () => {
+    expect(dayOf(1).blocks[4]!.optional).toBeUndefined();
+    expect(dayOf(1).blocks[4]!.items[2]!.optional).toBe(true);
+  });
+
+  it("rejects a non-object marker", () => {
+    expect(errorMessageAfter((json) => (rawFinisherOf(json, 1).optional = true))).toMatch(/optional: expected an object but found true/);
+  });
+
+  it("rejects a missing, non-text or blank label", () => {
+    expect(errorMessageAfter((json) => (rawFinisherOf(json, 1).optional = {}))).toMatch(/optional\.label: expected text/);
+    expect(errorMessageAfter((json) => (rawFinisherOf(json, 1).optional = { label: 3 }))).toMatch(/optional\.label: expected text/);
+    expect(errorMessageAfter((json) => (rawFinisherOf(json, 1).optional = { label: "  " }))).toMatch(/optional\.label: must not be empty/);
+  });
+
+  it("warns about an unknown field inside the marker", () => {
+    const json = readRealProgramJson();
+    rawFinisherOf(json, 1).optional = { label: "Boxing", lable: "x" };
+    const warnings = parseProgram(json).warnings;
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.path).toMatch(/optional\.lable$/);
+  });
+});

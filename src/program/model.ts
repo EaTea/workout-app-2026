@@ -148,7 +148,18 @@ export interface Block {
   rounds?: Range;
   minutes?: number;
   restSecBetweenPairs?: Range;
+  /**
+   * Present when the athlete may skip the whole block for a session (the heavy
+   * bag finisher). `label` is the short name used in "<label> today?". Distinct
+   * from `BlockItem.optional`, which only means "doesn't hold up completion".
+   */
+  optional?: OptionalBlock;
   items: BlockItem[];
+}
+
+/** The block-level optional marker in its internal form. */
+export interface OptionalBlock {
+  label: string;
 }
 
 /** One training day. Blocks are in the order written in the file. */

@@ -255,7 +255,7 @@
           { "exercise": "hanging_leg_raise", "sets": 3, "reps": "6-10", "note": "Wrist straps are fine", "noEquipment": { "exercise": "lying_leg_raise", "reps": "10-15", "tempo": "2-3s lowering" } },
           { "exercise": "side_plank", "sets": 2, "durationSec": 30, "perSide": true, "optional": true }
         ]},
-        { "type": "finisher", "items": [
+        { "type": "finisher", "optional": { "label": "Boxing" }, "items": [
           { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "note": "Hard combinations", "noEquipment": { "exercise": "shadow_boxing" } }
         ]}
       ]
@@ -349,7 +349,7 @@
           { "exercise": "back_extension", "sets": 3, "reps": 20, "load": "bodyweight", "note": "Slow; stays bodyweight because Day 4 loads the lower back", "noEquipment": { "exercise": "prone_back_extension", "reps": 25, "note": "The Day 5 lower-back rule still applies: cut to 2 sets if the lower back feels tight", "tempo": "2s hold at the top, slow" } },
           { "exercise": "hollow_hold", "sets": 2, "durationSec": 30, "optional": true }
         ]},
-        { "type": "finisher", "items": [
+        { "type": "finisher", "optional": { "label": "Boxing" }, "items": [
           { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "note": "Mostly hooks and uppercuts", "noEquipment": { "exercise": "shadow_boxing" } }
         ]}
       ]
