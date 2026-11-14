@@ -751,13 +751,17 @@ function renderStartIntervalButton(item: ItemView, gearUpMemoryKey: string): HTM
               }]
             : []),
         ],
-        rebuildPlan: (values) =>
-          buildIntervalPlan(item, {
+        rebuildPlan: (values) => {
+          // Keep the stepper's gear-up so onStart can remember what was actually started.
+          chosenGearUpSec = values.gearUpSec ?? defaults.gearUpSec;
+
+          return buildIntervalPlan(item, {
             rounds: values.rounds ?? defaults.rounds,
             workSec: values.workSec ?? defaults.workSec,
             restSec: values.restSec ?? defaults.restSec,
-            gearUpSec: chosenGearUpSec = values.gearUpSec ?? defaults.gearUpSec,
-          }),
+            gearUpSec: chosenGearUpSec,
+          });
+        },
       },
     });
   });
