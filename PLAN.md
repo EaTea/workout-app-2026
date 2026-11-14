@@ -2373,7 +2373,7 @@ PR 29 and PR 30 implement it.
   1. [x] Block `optional` in the wire types, parser and model (rule 1), and
      the field on Days 1 and 5 in `public/program.json`. Unit tests and
      data tests over the shipped file.
-  2. The `optionalBlockChoices` store: model, wire, parse/serialize,
+  2. [x] The `optionalBlockChoices` store: model, wire, parse/serialize,
      storage, export and import (rule 5). Unit tests.
   3. Applying a skip to the session view, header minutes and block count,
      and session progress (rule 3). Unit tests for the worked examples.

@@ -1,5 +1,7 @@
 import { combinesToWire, type CombinesWireV1 } from "../combine/wire";
 import type { CombinesByDate } from "../combine/model";
+import type { SkippedBlocksByDate } from "../optionalBlocks/model";
+import { optionalBlockChoicesToWire, type OptionalBlockChoicesWireV1 } from "../optionalBlocks/wire";
 import { fatigueHistoryToWire, type FatigueHistoryWireV1 } from "../fatigue/wire";
 import type { FatigueHistory } from "../fatigue/model";
 import { logToWire, type LogWireV1 } from "../log/wire";
@@ -23,6 +25,7 @@ import { maxHistoryToWire, type MaxHistoryWireV1 } from "../settings/maxHistoryS
  *       log ─────logToWire──────▶ log
  *       fatigue ─fatigueHistoryToWire─▶ fatigueChecks
  *       combines ─combinesToWire─▶ combines
+ *       optionalBlockChoices ─optionalBlockChoicesToWire─▶ optionalBlockChoices
  *       corrupt log backups ─▶ corruptLogBackups (only when any)
  *       import backups ─────▶ importBackups (only when any)
  */
@@ -52,6 +55,9 @@ export interface ExportBundle {
 
   /** The combined days (host date to the day added); empty when none. */
   combines: CombinesByDate;
+
+  /** The skipped optional blocks (boxing) per date; empty when none. */
+  optionalBlockChoices: SkippedBlocksByDate;
 
   /** Backups of unreadable log text kept by the log storage; empty when none. */
   corruptLogBackups: CorruptLogBackup[];
@@ -86,6 +92,13 @@ export interface ExportWireV1 {
    * restores no combines).
    */
   combines?: CombinesWireV1;
+
+  /**
+   * Which optional blocks (boxing) were skipped on which dates. Written since
+   * PR 29; optional so files from before it still fit (an import then
+   * restores no skips).
+   */
+  optionalBlockChoices?: OptionalBlockChoicesWireV1;
 
   /** Present only when the log storage holds backups of unreadable log text. */
   corruptLogBackups?: CorruptLogBackupWire[];
@@ -144,6 +157,7 @@ export function exportToWire(bundle: ExportBundle): ExportWireV2 {
     log: logToWire(bundle.log),
     fatigueChecks: fatigueHistoryToWire(bundle.fatigueHistory),
     combines: combinesToWire(bundle.combines),
+    optionalBlockChoices: optionalBlockChoicesToWire(bundle.optionalBlockChoices),
   };
 
   if (bundle.corruptLogBackups.length > 0) {

@@ -28,6 +28,7 @@ const bundle: ExportBundle = {
   },
   fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
   combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
+  optionalBlockChoices: new Map([["2026-11-09", new Set(["1:6"])]]),
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -45,7 +46,7 @@ describe("parseImport", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines });
+    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices });
     expect(result.problems).toEqual([]);
   });
 
@@ -191,7 +192,7 @@ describe("parseImport", () => {
       file.importBackups = [{ key: "explosive-endurance.import-backup-x", text: "{}" }];
     }));
 
-    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines });
+    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices });
   });
 
   it("imports an older export without a combines section as no combines", () => {
@@ -201,6 +202,29 @@ describe("parseImport", () => {
 
     expect(result.ok && result.data.combines).toEqual(new Map());
     expect(result.ok && result.problems).toEqual([]);
+  });
+
+  it("imports an older export without an optionalBlockChoices section as no skips", () => {
+    const result = parseImport(fileText((file) => {
+      delete file.optionalBlockChoices;
+    }));
+
+    expect(result.ok && result.data.optionalBlockChoices).toEqual(new Map());
+    expect(result.ok && result.problems).toEqual([]);
+  });
+
+  it("drops bad optionalBlockChoices entries, or a section it cannot read, without refusing the file", () => {
+    const withBadEntries = parseImport(fileText((file) => {
+      file.optionalBlockChoices = { version: 1, choices: { "2026-11-09": { skipped: ["1:6", "9:1", 5] }, "tomorrow": { skipped: ["1:6"] } } };
+    }));
+    expect(withBadEntries.ok && withBadEntries.data.optionalBlockChoices).toEqual(new Map([["2026-11-09", new Set(["1:6"])]]));
+
+    for (const unreadable of [5, "x", [], { version: 2, choices: {} }]) {
+      const result = parseImport(fileText((file) => {
+        file.optionalBlockChoices = unreadable;
+      }));
+      expect(result.ok && result.data.optionalBlockChoices).toEqual(new Map());
+    }
   });
 
   it("drops bad combines entries, or a combines section it cannot read, without refusing the file", () => {

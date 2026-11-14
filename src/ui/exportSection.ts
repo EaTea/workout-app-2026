@@ -3,6 +3,7 @@ import { logToCsv } from "../export/csv";
 import { exportFileName, saveExportFile } from "../export/download";
 import { exportToWire, serializeExport } from "../export/wire";
 import type { CombinesByDate } from "../combine/model";
+import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { FatigueHistory } from "../fatigue/model";
 import type { WorkoutLog } from "../log/model";
 import type { ImportBackup } from "../export/importBackup";
@@ -26,6 +27,7 @@ export interface ExportSource {
   log: WorkoutLog;
   fatigueHistory: FatigueHistory;
   combines: CombinesByDate;
+  optionalBlockChoices: SkippedBlocksByDate;
   corruptLogBackups: CorruptLogBackup[];
   importBackups: ImportBackup[];
 }
@@ -68,6 +70,7 @@ export function renderExportSection(program: Program, getSource: () => ExportSou
       log: source.log,
       fatigueHistory: source.fatigueHistory,
       combines: source.combines,
+      optionalBlockChoices: source.optionalBlockChoices,
       corruptLogBackups: source.corruptLogBackups,
       importBackups: source.importBackups,
     });
