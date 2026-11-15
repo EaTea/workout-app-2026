@@ -71,6 +71,8 @@ export interface ItemWire {
   minutes?: number;
   rounds?: NumberOrRangeWire;
   workSec?: NumberOrRangeWire;
+  /** Seconds of gear-up break (wrap hands, gloves on) before an interval timer's round 1; absent or 0 means none. */
+  gearUpSec?: number;
   durationSec?: number;
   perSide?: boolean;
   optional?: boolean;

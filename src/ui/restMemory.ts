@@ -1,5 +1,7 @@
 /**
- * In-memory "remember the rest I adjusted" store for the Today screen.
+ * In-memory "remember the number I adjusted" store for the Today screen. It
+ * holds rest lengths and also the heavy bag's gear-up length (keyed with
+ * "<exercise id>-gear-up"); the values are seconds either way.
  *
  * When Ed changes a rest timer with its stepper and then starts it, the same
  * length is most likely wanted for the next set too. Today's rest buttons record
@@ -18,7 +20,7 @@ export interface RestMemory {
   set(key: string, seconds: number): void;
 }
 
-/** Creates an empty memory. Today keeps one for the lifetime of the page; tests make their own. */
+/** Creates an empty memory of adjusted seconds (rests, gear-up lengths). Today keeps one per kind for the lifetime of the page; tests make their own. */
 export function createRestMemory(): RestMemory {
   const remembered = new Map<string, number>();
 
@@ -31,7 +33,8 @@ export function createRestMemory(): RestMemory {
 }
 
 /**
- * Builds the stable key for one rest button: the day, the block's position on
+ * Builds the stable key for one remembered number (a rest button, or the
+ * heavy bag's gear-up stepper with a restId such as "heavy_bag-gear-up"): the day, the block's position on
  * the screen and which rest in the block it is (an exercise id, or
  * "between-pairs" for a superset block's shared rest). Rows of a combined
  * session (two days on one date, each with its own block 2) pass the `day`

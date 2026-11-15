@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /**
  * Opens Today on Day 1 (week 1) with a fake clock, a recording stand-in for
@@ -54,6 +54,13 @@ async function openToday(page: Page): Promise<void> {
   }, { version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} });
 
   await page.goto("/");
+}
+
+/** Sets the heavy bag timer's gear-up stepper to "No gear-up" (120s in 15s steps), so a test can start straight on round 1. */
+async function removeGearUp(overlay: Locator): Promise<void> {
+  const decreaseGearUp = overlay.getByRole("button", { name: "Decrease gear up" });
+  for (let click = 0; click < 8; click += 1) await decreaseGearUp.click();
+  await expect(overlay.locator(".timer-stepper-value", { hasText: "No gear-up" })).toBeVisible();
 }
 
 /** One tone the page created: pitch, absolute audio time it is due, and that time relative to when it was scheduled. */
@@ -171,10 +178,13 @@ test("the heavy bag timer: adjust rounds, run work and rest, finish after 3 roun
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
   await expect(overlay).toBeVisible();
   await expect(overlay.locator(".timer-title")).toHaveText("Heavy bag · 5 rounds");
+  // The shipped heavy bag opens with a 2:00 gear-up break (see gearUp.spec.ts); this test runs the rounds without it.
+  await expect(overlay.locator(".timer-phase")).toHaveText("GEAR UP");
+  await expect(overlay.getByText("5 rounds", { exact: true })).toBeVisible();
+  await removeGearUp(overlay);
   await expect(overlay.locator(".timer-phase")).toHaveText("WORK");
   await expect(overlay.locator(".timer-digits")).toHaveText("0:30");
   await expect(overlay.getByText("Round 1 of 5")).toBeVisible();
-  await expect(overlay.getByText("5 rounds", { exact: true })).toBeVisible();
 
   // Stepper buttons are thumb-sized.
   const decrease = overlay.getByRole("button", { name: "Decrease rounds" });
@@ -191,7 +201,7 @@ test("the heavy bag timer: adjust rounds, run work and rest, finish after 3 roun
   await overlay.getByRole("button", { name: "Start" }).click();
   // Once started the setup is locked: no steppers, just the summary.
   await expect(overlay.getByRole("button", { name: "Decrease rounds" })).toBeHidden();
-  await expect(overlay.getByText("Work 30s · Rest 30s · 3 rounds")).toBeVisible();
+  await expect(overlay.getByText("Work 30s · Rest 30s · 3 rounds · No gear-up")).toBeVisible();
   expect(await vibrations(page)).toEqual([[150]]);
 
   await page.clock.runFor(31_000);
@@ -328,6 +338,7 @@ test("a long jump of the clock adds no tones: the audio-clock tones stay the onl
   await openToday(page);
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
+  await removeGearUp(overlay);
   await overlay.getByRole("button", { name: "Start" }).click();
   const beepsBefore = await recordedBeeps(page);
 
@@ -405,6 +416,8 @@ test("focus moves to a working control when the focused one becomes disabled", a
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
 
+  await removeGearUp(overlay);
+
   // Rounds 5 -> 1: the decrease button disables itself, focus goes to its opposite.
   const decrease = overlay.getByRole("button", { name: "Decrease rounds" });
   for (let click = 0; click < 4; click += 1) await decrease.click();
@@ -461,6 +474,7 @@ test("after the page was hidden for several segments, becoming visible shows the
   await openToday(page);
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
+  await removeGearUp(overlay);
   await overlay.getByRole("button", { name: "Start" }).click();
 
   // Hide the page and let the clock jump 70s (work 30, rest 30, work 10 into round 2) with no timers firing.

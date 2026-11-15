@@ -52,9 +52,10 @@ import type { TimerEvent, TimerState } from "./engine";
 /**
  * The cues timers use. segmentStart is the EMOM minute beep; workStart and
  * restStart tell intervals apart by ear (high and long-buzz for work, lower
- * and double-tap for rest) so Ed needn't look at the screen.
+ * and double-tap for rest) so Ed needn't look at the screen. gearUpStart is
+ * the softer, lower beep that opens the gear-up break before round 1.
  */
-export type CueName = "segmentStart" | "workStart" | "restStart" | "countdownTick" | "finish";
+export type CueName = "segmentStart" | "workStart" | "restStart" | "gearUpStart" | "countdownTick" | "finish";
 
 /** One beep: pitch, when it starts relative to the cue, and how long it lasts. */
 export interface Tone {
@@ -74,6 +75,7 @@ const TONES: Record<CueName, Tone[]> = {
   segmentStart: [{ frequencyHz: 880, startOffsetSec: 0, durationSec: 0.15 }],
   workStart: [{ frequencyHz: 1175, startOffsetSec: 0, durationSec: 0.2 }],
   restStart: [{ frequencyHz: 523, startOffsetSec: 0, durationSec: 0.2 }],
+  gearUpStart: [{ frequencyHz: 440, startOffsetSec: 0, durationSec: 0.3 }],
   countdownTick: [{ frequencyHz: 660, startOffsetSec: 0, durationSec: 0.06 }],
   finish: [
     { frequencyHz: 1000, startOffsetSec: 0, durationSec: 0.25 },
@@ -86,6 +88,7 @@ const VIBRATION: Partial<Record<CueName, number[]>> = {
   segmentStart: [150],
   workStart: [150],
   restStart: [80, 60, 80],
+  gearUpStart: [200],
   finish: [300, 100, 300],
 };
 
@@ -94,6 +97,7 @@ export function cueForEvent(event: TimerEvent): CueName {
   if (event.kind === "finished") return "finish";
   if (event.segment.phase === "work") return "workStart";
   if (event.segment.phase === "rest") return "restStart";
+  if (event.segment.phase === "gearUp") return "gearUpStart";
   return "segmentStart";
 }
 
