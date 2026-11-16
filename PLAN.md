@@ -2434,9 +2434,9 @@ off the ground, 5 rounds of 1 minute with 30 seconds rest between rounds. He
 confirmed the placement (a finisher after the core work), the 30-second rest,
 no deload change, and that Day 3's target can grow.
 
-1. [ ] Add an `on_the_spot_crawl` exercise and a Day 3 finisher block to
+1. [x] Add an `on_the_spot_crawl` exercise and a Day 3 finisher block to
        `public/program.json`, and extend Day 3's `targetMinutes` from 40 to 47.
-2. [ ] Mirror the change in the program document's Day 3 row and notes.
+2. [x] Mirror the change in the program document (kept in the project files, not this repo)'s Day 3 row and notes.
 
 ## 6. Worked examples (used as unit-test fixtures)
 

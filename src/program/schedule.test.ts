@@ -581,17 +581,30 @@ describe("Day 6 wall sits (PLAN.md PR 10)", () => {
   });
 });
 
+describe("Day 3 on-the-spot crawl finisher (Ed's request, after the crab core)", () => {
+  // The crawl is the last block of Day 3, after the crab core, so explosive
+  // work still comes first and the session order in program.json holds.
+  it("ends Day 3 with the on-the-spot crawl as a finisher block", () => {
+    const session = trainingOn("2026-11-04");
+    expect(session.dayNumber).toBe(3);
+
+    const lastBlock = session.blocks.at(-1);
+    expect(lastBlock?.type).toBe("finisher");
+    expect(item(session.blocks, "on_the_spot_crawl").exercise.id).toBe("on_the_spot_crawl");
+  });
+});
+
 describe("Day 3 crab core block (PLAN.md PR 13)", () => {
   /**
    * Asserts the Day 3 core block of the session on `date`: both crab
    * exercises have the expected number of sets of 10 and 6 reps, the rest
-   * between pairs is `rest`, and Day 3 targets 40 minutes. Shared by the
+   * between pairs is `rest`, and Day 3 targets 47 minutes. Shared by the
    * four worked-example weeks below.
    */
   function expectDay3Core(date: string, expectedSets: number, rest: { min: number; max: number }) {
     const session = trainingOn(date);
     expect(session.dayNumber).toBe(3);
-    expect(session.targetMinutes).toBe(40);
+    expect(session.targetMinutes).toBe(47);
 
     const core = block(session.blocks, "core");
     expect(core.restSecBetweenPairs).toEqual(rest);
@@ -608,7 +621,7 @@ describe("Day 3 crab core block (PLAN.md PR 13)", () => {
     expect(types[types.indexOf("core") - 1]).toBe("miniDose");
   }
 
-  it("4 Nov (W1 D3): 3 x 10 and 3 x 6, rest 45-60s, about 40 min", () => {
+  it("4 Nov (W1 D3): 3 x 10 and 3 x 6, rest 45-60s, about 47 min", () => {
     expectDay3Core("2026-11-04", 3, { min: 45, max: 60 });
   });
 
