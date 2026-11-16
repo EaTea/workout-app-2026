@@ -32,6 +32,7 @@ import { renderTodayScreen } from "./today";
 import { loadTicks, setTick } from "../noEquipment/storage";
 import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
+import type { OptionalBlockControl } from "./optionalBlockCards";
 import { loadOptionalBlockChoices, setBlockSkipped } from "../optionalBlocks/storage";
 import type { Combine, CombinesByDate } from "../combine/model";
 import { activeCombineOn } from "../program/combineOffers";
@@ -364,12 +365,17 @@ export function startApp(
    * shows or hides the block and its minutes. Returns null on success or the
    * failure message for Today to show.
    */
-  function handleSetBlockSkipped(blockKey: OptionalBlockKey, skipped: boolean): string | null {
+  function handleSetBlockSkipped(blockKey: OptionalBlockKey, skipped: boolean, focusAfter: OptionalBlockControl): string | null {
+    // Like other writes to a future date, a skip is refused (Today doesn't offer the buttons there either).
+    if (shownDate > todayLocalDate()) return "Boxing can't be chosen for a future date.";
+
     const result = setBlockSkipped(localStorage, storageKeys.optionalBlockChoices, shownDate, blockKey, skipped);
     if (!result.ok) return result.error;
 
     skippedOptionalBlocks = result.skipsByDate;
     render();
+    // The tapped button is gone after the re-render: focus its counterpart, as the No equipment tick does.
+    document.querySelector<HTMLElement>(`[data-optional-block-key="${CSS.escape(blockKey)}"][data-optional-block-control="${focusAfter}"]`)?.focus();
     return null;
   }
 
@@ -826,6 +832,7 @@ export function startApp(
           },
         }, {
           skippedByDate: skippedOptionalBlocks,
+          canChoose: shownDate <= todayLocalDate(),
           onSetSkipped: handleSetBlockSkipped,
         }));
       }

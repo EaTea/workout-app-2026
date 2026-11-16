@@ -2315,10 +2315,14 @@ PR 29 and PR 30 implement it.
 2. **When the question shows.** On a training day whose session has an
    optional block, a "Boxing today?" card sits just under the header (in
    the same place as the combine buttons, so it's seen before starting).
-   Two buttons: **Box** (selected by default: the program as written) and
-   **Skip boxing**. Ed can change his mind until a round of that block is
-   logged; after that the card is gone. It shows on `?date=` previews too
-   (backfilling a session that had no boxing), unlike combining.
+   Two buttons: **Yes** (selected by default: the program as written) and
+   **Skip** (fixed words, so any `label` reads well; their accessible
+   names include the label). Once skipped, the card goes and the block's
+   "Add it back" line is the way back. Ed can change his mind until a
+   round of that block is logged; after that the card is gone, and a
+   logged round always wins over a stored skip. It shows on today and on
+   past `?date=` previews (backfilling a session that had no boxing), but
+   not on future dates, which take no writes elsewhere either.
 3. **When boxing is skipped.**
    - Today replaces the finisher card with one line, "Boxing skipped
      today · Add it back". Block numbers don't change (blocks keep their

@@ -29,7 +29,7 @@ import { activeDonorOn, combineOffersFor } from "../program/combineOffers";
 import { programStatus, todayLocalDate } from "../program/calendar";
 import { blockCountOf } from "../optionalBlocks/session";
 import { optionalBlockKey } from "../optionalBlocks/model";
-import { isBlockStarted, renderOptionalBlockQuestions, renderSkippedBlockCard, undecidedOptionalBlocks, type OptionalBlocksOptions } from "./optionalBlockCards";
+import { renderOptionalBlockQuestions, renderSkippedBlockCard, undecidedOptionalBlocks, type OptionalBlocksOptions } from "./optionalBlockCards";
 import { renderCombineOffers, renderDonorCard, renderUndoCombine, type CombineActions } from "./combineCards";
 import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
@@ -314,7 +314,7 @@ function renderTrainingDay(
 
   // "Boxing today?" (PR 28 rule 2): right under the header too, on every date Today shows, until a round is logged.
   const undecided = undecidedOptionalBlocks(session, log, date);
-  if (optionalBlocks !== undefined && undecided.length > 0) {
+  if (optionalBlocks?.canChoose && undecided.length > 0) {
     parts.push(renderOptionalBlockQuestions(undecided, false, optionalBlocks.onSetSkipped));
   }
 
@@ -376,7 +376,7 @@ function renderCombinedDay(
   if (combine !== undefined && nothingLogged && date === combine.realToday) parts.push(renderUndoCombine(combine.actions));
 
   const undecided = undecidedOptionalBlocks(session, log, date);
-  if (optionalBlocks !== undefined && undecided.length > 0) {
+  if (optionalBlocks?.canChoose && undecided.length > 0) {
     parts.push(renderOptionalBlockQuestions(undecided, true, optionalBlocks.onSetSkipped));
   }
 
@@ -463,12 +463,11 @@ function renderBlockCard(
   noEquipment: NoEquipmentOptions | undefined,
   optionalBlocks: OptionalBlocksOptions | undefined,
 ): HTMLElement {
-  // A skipped optional block is one line (it keeps its number); "Add it back" only until a round is logged.
+  // A skipped optional block is one line (it keeps its number) with "Add it back"; a logged round un-skips it (see `applySkippedBlocks`).
   if (block.skipped && block.optional !== undefined) {
     const blockKey = optionalBlockKey(slot.day, slot.blockPosition);
-    const started = isBlockStarted(log, date, slot.day, slot.blockPosition, block.items.map((item) => item.exercise.id));
-    const addBack = optionalBlocks !== undefined && !started ? () => optionalBlocks.onSetSkipped(blockKey, false) : undefined;
-    return renderSkippedBlockCard(formatBlockTitle(displayNumber, block), block.optional.label, addBack);
+    const addBack = optionalBlocks?.canChoose ? () => optionalBlocks.onSetSkipped(blockKey, false, "skip") : undefined;
+    return renderSkippedBlockCard(formatBlockTitle(displayNumber, block), block.optional.label, blockKey, addBack);
   }
 
   const card = element("section", "card block-card");

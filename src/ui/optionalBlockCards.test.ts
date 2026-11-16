@@ -5,7 +5,7 @@ import { applySkippedBlocks } from "../optionalBlocks/session";
 import { parseProgram } from "../program/parse";
 import { buildSession } from "../program/schedule";
 import type { TrainingSessionView } from "../program/combine";
-import { keepButtonText, questionText, skipButtonText, skippedLineText, undecidedOptionalBlocks } from "./optionalBlockCards";
+import { questionText, skipButtonName, skippedLineText, undecidedOptionalBlocks, yesButtonName } from "./optionalBlockCards";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
@@ -19,22 +19,21 @@ function sessionWithSkips(keys: string[]): TrainingSessionView {
 }
 
 describe("optional block card texts", () => {
-  it("builds every text from the block's label", () => {
+  it("builds every text from the block's label as written", () => {
     expect(questionText("Boxing")).toBe("Boxing today?");
-    expect(keepButtonText("Boxing")).toBe("Box");
-    expect(skipButtonText("Boxing")).toBe("Skip boxing");
+    expect(yesButtonName("Boxing")).toBe("Yes, Boxing today");
+    expect(skipButtonName("Boxing")).toBe("Skip Boxing today");
     expect(skippedLineText("Boxing")).toBe("Boxing skipped today");
-  });
-
-  it("uses a label that doesn't end in -ing as it is for the keep button", () => {
-    expect(keepButtonText("Core")).toBe("Core");
   });
 });
 
 describe("undecidedOptionalBlocks", () => {
-  it("lists the boxing block of Day 1 with its key and current choice", () => {
-    expect(undecidedOptionalBlocks(sessionWithSkips([]), { sessions: {} }, DATE)).toEqual([{ blockKey: "1:6", label: "Boxing", day: 1, skipped: false }]);
-    expect(undecidedOptionalBlocks(sessionWithSkips(["1:6"]), { sessions: {} }, DATE)[0]?.skipped).toBe(true);
+  it("lists the boxing block of Day 1 with its key", () => {
+    expect(undecidedOptionalBlocks(sessionWithSkips([]), { sessions: {} }, DATE)).toEqual([{ blockKey: "1:6", label: "Boxing", day: 1 }]);
+  });
+
+  it("lists nothing once the block is skipped (Add it back is the way back)", () => {
+    expect(undecidedOptionalBlocks(sessionWithSkips(["1:6"]), { sessions: {} }, DATE)).toEqual([]);
   });
 
   it("lists nothing on a day without an optional block", () => {
