@@ -1930,15 +1930,36 @@ project files under `screenshots/demos/`.
 
 ### PR 22 — The Day 3 and Day 5 exercises *(behavior change)*
 **Steps.**
-1. [ ] The demos for the remaining 16 exercises (7, 12–16, 20–26, 28–30),
-   with their safety tests.
-2. [ ] The test that every Steady Strength exercise has a demo is switched
-   on (in PR 21 it lists the 16 still to come, so it can't pass by
-   accident).
-3. [ ] E2E: the Day 3 band outward rotation and the Day 5 suitcase hold
-   open with their cues.
-4. [ ] The contact sheet for all 34.
-5. [ ] Fixes from the challenger review.
+1. [x] The demos for the remaining 16 exercises (7, 12–16, 20–26, 28–30),
+   with their safety tests. Small model and renderer additions made for
+   them: `grip` (0–1, blended) on the arm angles with curled fingers in the
+   3D and flat figures, and a ball or tin seated in the palm; a `rail` prop
+   (stair step-up); a `wall` that can stand beside the figure (wall side
+   plank); a `band` that can be tied to a joint instead of a fixed point
+   (band pull-apart, between the hands). Palm up / palm down in the wrist
+   curl are told by the step labels (the model has no forearm twist).
+2. [x] The test that every Steady Strength exercise has a demo is switched
+   on (it now expects none missing).
+3. [x] E2E: the Day 3 band outward rotation and the Day 5 suitcase hold
+   open with their cues (and the flat figure draws the suitcase hold's
+   fingers and bag).
+4. [x] The contact sheet for all 34 (`docs/demos/render.cjs`).
+5. [x] Fixes from the challenger review (medium effort, to save tokens).
+   Its PR 21 comparison found the 18 earlier demos unchanged. It found:
+   - [x] Stair step-up and heel-to-toe walk let the weight leave the only
+     foot on the ground; the test counted the foot in the air. The test
+     now counts only grounded feet, and both demos shift the weight first
+     (smallest margins now 1.9 cm and 1.7 cm).
+   - [x] The wrist curl's "palm down" phase was drawn palm up; arms gain an
+     optional forearm twist so the palm really turns over, with a test.
+   - [x] Split stance and back knee bend now shift the weight onto the
+     standing leg while the other foot is up.
+   - [x] Counter plank and wall side plank step one foot at a time; the
+     side plank's forearm stays put on the wall; the suitcase counter is
+     closer, so the pick-up is a shorter reach.
+   - For Ed: the wall side plank tips the whole body about 18° towards the
+     wall in one straight line, so it is exempt from the 5° pelvis-roll
+     check (the spine itself stays straight).
 - **Merge point:** every exercise in Steady Strength has an animation.
 
 ### PR 23 — Plan: combine two days on Today *(design)*

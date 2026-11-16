@@ -138,6 +138,22 @@ test("the log screen header has Show me, and it opens the view", async ({ page }
   await expect(demoView(page).getByText("Back on the wall, slide down a little and hold.")).toBeVisible();
 });
 
+test("Day 3's band outward rotation and Day 5's suitcase hold open with their cues", async ({ page }) => {
+  await openSteadyStrength(page, "#/plan/3/1");
+  await page.getByRole("button", { name: "Show me how, Band outward rotation" }).click();
+  await expect(demoView(page).getByRole("heading")).toContainText("Band outward rotation");
+  await expect(demoView(page).getByText("Elbow at your side, swing your hand out to the side and back.")).toBeVisible();
+  await expect(demoView(page)).toHaveAttribute("data-renderer", /^(3d|flat)$/, { timeout: 20_000 });
+
+  await page.keyboard.press("Escape");
+  await expect(demoView(page)).toHaveCount(0);
+  await page.goto("/#/plan/5/1");
+  await page.getByRole("button", { name: "Show me how, Suitcase hold" }).click();
+  await expect(demoView(page).getByRole("heading")).toContainText("Suitcase hold");
+  await expect(demoView(page).getByText("Lift the bag off the counter, stand tall without leaning and hold.")).toBeVisible();
+  await expect(demoView(page)).toHaveAttribute("data-renderer", /^(3d|flat)$/, { timeout: 20_000 });
+});
+
 test("Explosive Endurance has no Show me buttons", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-11-02T09:00:00") });
   // The default storage state already chose Explosive Endurance; only the start date is needed.
@@ -164,5 +180,24 @@ test.describe("without WebGL", () => {
 
     await expect(demoView(page)).toHaveAttribute("data-renderer", "flat");
     await expect(demoView(page).getByText("Back on the wall, slide down a little and hold.")).toBeVisible();
+  });
+
+  test("the flat figure draws the suitcase hold's curled fingers and bag without errors", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.addInitScript(() => {
+      const originalGetContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, contextId: string, ...rest: unknown[]) {
+        if (contextId === "webgl" || contextId === "webgl2" || contextId === "experimental-webgl") return null;
+        return (originalGetContext as (...args: unknown[]) => unknown).call(this, contextId, ...rest);
+      } as typeof HTMLCanvasElement.prototype.getContext;
+    });
+    await openSteadyStrength(page, "#/plan/5/1");
+    await page.getByRole("button", { name: "Show me how, Suitcase hold" }).click();
+
+    await expect(demoView(page)).toHaveAttribute("data-renderer", "flat");
+    await expect(demoView(page).getByText("Lift the bag off the counter, stand tall without leaning and hold.")).toBeVisible();
+    await expect(demoView(page).locator("svg line[visibility='visible']").first()).toBeVisible();
+    expect(errors).toEqual([]);
   });
 });

@@ -11,7 +11,7 @@
  * passes in (half speed = advance the clock at half rate; pause = stop
  * advancing it). Nothing here knows about either.
  */
-import type { Demo, Pose, Step } from "./model";
+import type { ArmAngles, Demo, Pose, Step } from "./model";
 
 /** Ease-in-out quad: slow start, faster middle, slow end. Maps 0..1 to 0..1. */
 export function ease(t: number): number {
@@ -43,12 +43,22 @@ export function blendPoses(from: Pose, to: Pose, t: number): Pose {
     return result as T;
   };
 
+  /** Blends two arms; the optional grip and forearm twist count as 0 when missing, so older poses blend with gripping or twisted ones. */
+  const blendArm = (a: ArmAngles, b: ArmAngles): ArmAngles => {
+    const { grip: fromGrip = 0, forearmTwist: fromTwist = 0, ...fromAngles } = a;
+    const { grip: toGrip = 0, forearmTwist: toTwist = 0, ...toAngles } = b;
+    const blended: ArmAngles = { ...blendNumbers(fromAngles, toAngles), grip: mix(fromGrip, toGrip, t) };
+    // Only poses that twist the forearm get the field, so plain poses stay exactly as they were.
+    if (a.forearmTwist !== undefined || b.forearmTwist !== undefined) blended.forearmTwist = mix(fromTwist, toTwist, t);
+    return blended;
+  };
+
   return {
     pelvis: blendNumbers(from.pelvis, to.pelvis),
     spine: blendNumbers(from.spine, to.spine),
     neck: blendNumbers(from.neck, to.neck),
-    armLeft: blendNumbers(from.armLeft, to.armLeft),
-    armRight: blendNumbers(from.armRight, to.armRight),
+    armLeft: blendArm(from.armLeft, to.armLeft),
+    armRight: blendArm(from.armRight, to.armRight),
     legLeft: blendNumbers(from.legLeft, to.legLeft),
     legRight: blendNumbers(from.legRight, to.legRight),
     anchor: { joint: from.anchor.joint, at: blendNumbers(from.anchor.at, to.anchor.at) },

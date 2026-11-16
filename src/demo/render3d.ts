@@ -21,8 +21,8 @@ import {
   SphereGeometry, Vector3, WebGLRenderer,
 } from "three";
 import type { BodyPart, Demo, JointName, Pose, Vec3 } from "./model";
-import { BODY, jointPositions } from "./skeleton";
-import { computeFraming, isMoving, propBoxes, type DemoRenderer } from "./renderer";
+import { BODY, jointPositions, palmDirections } from "./skeleton";
+import { FINGER_SEGMENT_METRES, MIN_VISIBLE_GRIP, computeFraming, fingerPoints, heldThingCentre, isMoving, propBoxes, type DemoRenderer } from "./renderer";
 
 const WHITE_COLOUR = 0xf4f4f4;
 /** The dark band across the face that shows which way the head is turned. */
@@ -188,8 +188,9 @@ function buildRenderer(container: HTMLElement, demo: Demo, webglRenderer: WebGLR
   return {
     draw(pose: Pose, cameraAzimuthDegrees: number): void {
       const joints = jointPositions(pose);
-      mannequin(joints);
-      heldThings(joints);
+      const palms = palmDirections(pose);
+      mannequin(joints, pose, palms);
+      heldThings(joints, palms);
       placeCamera(cameraAzimuthDegrees);
       webglRenderer.render(scene, camera);
     },
@@ -216,6 +217,10 @@ function makeCapsule(scene: Scene, radius: number, length: number, material: Mat
   scene.add(mesh);
 
   return {
+    /** Shows or hides the capsule. */
+    setVisible(visible: boolean): void {
+      mesh.visible = visible;
+    },
     /** Lays the capsule's axis from `from` to `to` (scene coordinates); ignores a zero-length request. */
     place(from: Vector3, to: Vector3): void {
       const direction = to.clone().sub(from);
@@ -249,7 +254,7 @@ function makeBlob(scene: Scene, semiAxes: [number, number, number], material: Ma
  *      forearm, hand    pelvis (ellipsoid)
  *                       thigh ── knee ── shin ── foot
  */
-function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material): (joints: Record<JointName, Vec3>) => void {
+function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material): (joints: Record<JointName, Vec3>, pose: Pose, palms: { Left: Vec3; Right: Vec3 }) => void {
   const sides = ["Left", "Right"] as const;
 
   const arms = sides.map((side) => ({
@@ -258,6 +263,8 @@ function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material)
     elbow: makeBlob(scene, [0.05, 0.05, 0.05], materialFor(`forearm${side}`)),
     forearm: makeCapsule(scene, 0.042, BODY.forearm, materialFor(`forearm${side}`)),
     hand: makeCapsule(scene, 0.035, BODY.hand, materialFor(`hand${side}`)),
+    // Two capsules for the curled fingers (all four fingers together); only shown when the hand grips.
+    fingers: [makeCapsule(scene, 0.03, FINGER_SEGMENT_METRES[0], materialFor(`hand${side}`)), makeCapsule(scene, 0.028, FINGER_SEGMENT_METRES[1], materialFor(`hand${side}`))],
   }));
 
   const footRadius = 0.04;
@@ -282,7 +289,7 @@ function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material)
   const nose = makeBlob(scene, [0.04, 0.04, 0.04], headMaterial);
   const visor = makeBlob(scene, [0.03, 0.024, 0.078], new MeshStandardMaterial({ color: VISOR_COLOUR, roughness: 0.6, metalness: 0 }));
 
-  return (joints) => {
+  return (joints, pose, palms) => {
     const point = (name: JointName): Vector3 => toScene(joints[name]);
 
     sides.forEach((side, index) => {
@@ -292,6 +299,15 @@ function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material)
       arm.elbow.position.copy(point(`elbow${side}`));
       arm.forearm.place(point(`elbow${side}`), point(`wrist${side}`));
       arm.hand.place(point(`wrist${side}`), point(`hand${side}`));
+
+      // Curled fingers: hidden for an open hand, otherwise two segments curling towards the palm.
+      const grip = pose[`arm${side}`].grip ?? 0;
+      arm.fingers.forEach((finger) => finger.setVisible(grip > MIN_VISIBLE_GRIP));
+      if (grip > MIN_VISIBLE_GRIP) {
+        const [knuckles, middle, tips] = fingerPoints(joints[`wrist${side}`], joints[`hand${side}`], palms[side], grip);
+        arm.fingers[0]!.place(toScene(knuckles), toScene(middle));
+        arm.fingers[1]!.place(toScene(middle), toScene(tips));
+      }
 
       const leg = legs[index]!;
       leg.hip.position.copy(point(`hip${side}`));
@@ -346,8 +362,8 @@ function buildMannequin(scene: Scene, materialFor: (part: BodyPart) => Material)
  * that moves them with the figure's joints each draw. Furniture is static
  * and built separately (it comes from `propBoxes`).
  */
-function buildHeldThings(scene: Scene, demo: Demo, yellow: Material): (joints: Record<JointName, Vec3>) => void {
-  const updaters: Array<(joints: Record<JointName, Vec3>) => void> = [];
+function buildHeldThings(scene: Scene, demo: Demo, yellow: Material): (joints: Record<JointName, Vec3>, palms: { Left: Vec3; Right: Vec3 }) => void {
+  const updaters: Array<(joints: Record<JointName, Vec3>, palms: { Left: Vec3; Right: Vec3 }) => void> = [];
 
   for (const prop of demo.props) {
     switch (prop.kind) {
@@ -363,7 +379,7 @@ function buildHeldThings(scene: Scene, demo: Demo, yellow: Material): (joints: R
           if (!tube.visible) return;
           end.divideScalar(prop.toJoints.length);
 
-          const start = toScene(prop.anchor);
+          const start = toScene(typeof prop.anchor === "string" ? joints[prop.anchor] : prop.anchor);
           const span = end.clone().sub(start);
           tube.scale.y = Math.max(span.length(), 1e-4);
           tube.position.copy(start).add(end).multiplyScalar(0.5);
@@ -376,13 +392,14 @@ function buildHeldThings(scene: Scene, demo: Demo, yellow: Material): (joints: R
       case "bag":
       case "tin": {
         const geometry =
-          prop.kind === "ball" ? new SphereGeometry(0.07, 24, 16) : prop.kind === "tin" ? new CylinderGeometry(0.04, 0.04, 0.11, 20) : new BoxGeometry(0.1, 0.22, 0.18);
+          prop.kind === "ball" ? new SphereGeometry(0.065, 24, 16) : prop.kind === "tin" ? new CylinderGeometry(0.04, 0.04, 0.11, 20) : new BoxGeometry(0.1, 0.22, 0.18);
+        // A tin is gripped across the hand like a dumbbell (its axis along the body's left-right line).
+        if (prop.kind === "tin") geometry.rotateX(Math.PI / 2);
         const held = new Mesh(geometry, yellow);
         scene.add(held);
-        // A bag hangs from the hand; ball and tin are gripped, so they sit on the hand point.
-        const drop = prop.kind === "bag" ? 0.12 : 0;
-        updaters.push((joints) => {
-          held.position.copy(toScene(joints[prop.joint])).add(new Vector3(0, -drop, 0));
+        // A bag hangs from the hand by its handle; a ball or tin sits in the palm (see heldThingCentre).
+        updaters.push((joints, palms) => {
+          held.position.copy(toScene(heldThingCentre(prop, joints, palms)));
         });
         break;
       }
@@ -392,5 +409,5 @@ function buildHeldThings(scene: Scene, demo: Demo, yellow: Material): (joints: R
     }
   }
 
-  return (joints) => updaters.forEach((update) => update(joints));
+  return (joints, palms) => updaters.forEach((update) => update(joints, palms));
 }
