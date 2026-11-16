@@ -1356,7 +1356,7 @@ practice, and its `evidence` says so.
 Explosive (same sets, reps and rest):
 | Day | Original | Swap | Dose (week 1) | Cues |
 | --- | --- | --- | --- | --- |
-| 1 | Med ball slams 6 × 6, 30–45s rest | Backpack slams | 6 × 6, 30–45s rest | Books only in the bag, no bottles or electronics; slam onto carpet or grass; reach tall, then slam with the whole trunk |
+| 1 | Med ball slams 6 × 6, 30–45s rest | Explosive inverted rows under a table | 6 × 6, 30–45s rest | Test the table first: it mustn't tip or slide. Lie under the middle, grip the edge, pull the chest to the edge fast, then lower under control. Walk the feet in to make it easier |
 | 4 | Kettlebell swings, 8-min EMOM × 12–15 | Backpack swings | 8-min EMOM × 12–15 | Hold the top handle with both hands; zip it shut and tuck the straps; a full water jug by its handle works too; snap the hips, arms stay loose |
 | 5 | Dumbbell push press 5 × 5, 45s rest | Backpack push press | 5 × 5, 45s rest | Hug the backpack at the top of the chest, or a water jug in each hand at the shoulders; dip and drive |
 | 2, 3, 6 | Split-squat jumps, plyo push-ups, lateral skater bounds | No swap | — | No kit needed, so no tick shows |
@@ -1487,7 +1487,7 @@ are the refinements, for him to confirm on the PR:
   with no `reps` of its own, and a swap that is its own original. Like every boundary, it gets its own wire type and
   mapping function (CLAUDE.md section 6).
 - **Library:** the 16 swap exercises are ordinary `exercises` entries
-  (`backpack_slam`, `backpack_swing`, `backpack_push_press`,
+  (`explosive_inverted_row`, `backpack_swing`, `backpack_push_press`,
   `inverted_row`, `chair_dip`, `pike_push_up`,
   `backpack_bulgarian_split_squat`, `backpack_single_leg_rdl`,
   `stair_calf_raise`, `prone_back_extension`, `lying_leg_raise`,
@@ -2477,10 +2477,10 @@ Start date 2 Nov 2026, max pull-ups 12, max dips 15.
 
 | Date | Week / day | Phase | Example figures |
 | --- | --- | --- | --- |
-| 2 Nov | W1 D1 | Base | Backpack slams 6 × 6, 30–45s rest; inverted rows 9-min EMOM × 6–8 per minute (no max used); chair dips mini-dose 2 × easy, ~50% effort |
+| 2 Nov | W1 D1 | Base | Explosive inverted rows 6 × 6, 30–45s rest (no-kit swap for med ball slams); inverted rows 9-min EMOM × 6–8 per minute (no max used); chair dips mini-dose 2 × easy, ~50% effort |
 | 2 Nov | W1 D1 | Base | Nothing ticked: the session is exactly as today, pull-up EMOM 9 min × 4 |
 | 16 Nov | W3 D1 | Base | Inverted rows 9 min × 8–10 per minute |
-| 23 Nov | W4 D1 | Deload | Backpack slams 3 × 6; inverted rows 5 min × 8–10 (week 3's, held); chair dips 1 × easy |
+| 23 Nov | W4 D1 | Deload | Explosive inverted rows 3 × 6; inverted rows 5 min × 8–10 (week 3's, held); chair dips 1 × easy |
 | 30 Nov | W5 D1 | Power endurance | Inverted rows 9 min × 6–8 (block 2 restarts); shadow boxing 4–5 rounds × 25–35s / 30s rest |
 | 21 Dec | W8 D1 | Deload + retest | Inverted rows 5 min × 8–10 (week 7's, held), both before and after a retested pull-up max of 15 is saved on 21 Dec |
 | 4 Nov | W1 D3 | Base | Chair dips 9-min EMOM × 8–10; water jug halo 8 each direction; plank shoulder taps 12–15 per side |
@@ -2537,6 +2537,11 @@ For PR 14 (Steady Strength), each with the answer I'm assuming:
 
 Resolved:
 
+- **Day 1 no-kit explosive swap (follow-up to PR 17):** explosive inverted
+  rows under a table, 6 × 6, 30–45s rest, replacing "Backpack slams" (Ed,
+  16 Nov). Ed chose it over explosive push-ups, because Day 1 is a pull day,
+  and accepted two row blocks in one no-kit session. The backpack slam entry is
+  removed. Plyo push-ups stay on Day 3.
 - **3D, not stick figures (PR 20):** Ed, 12 Nov.
 - **Colours (PR 20):** white on black, moving parts in yellow (Ed, 12 Nov).
 - **One rep, not the dose (PR 20):** the loop shows one rep or a short
