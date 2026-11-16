@@ -167,7 +167,7 @@ export const ALL_JOINTS: readonly JointName[] = [
 // ---------------------------------------------------------------------------
 
 /** The joints of one arm, in world space. */
-type ArmJoints = { elbow: Vec3; wrist: Vec3; hand: Vec3 };
+type ArmJoints = { elbow: Vec3; wrist: Vec3; hand: Vec3; palm: Vec3 };
 
 /**
  * Works out one arm's elbow, wrist and hand from its shoulder.
@@ -193,7 +193,10 @@ function armJoints(shoulder: Vec3, trunkFrame: Mat3, arm: ArmAngles, side: 1 | -
   const wrist = add(elbow, rotate(forearmFrame, { x: 0, y: -BODY.forearm, z: 0 }));
   const hand = add(wrist, rotate(handFrame, { x: 0, y: -BODY.hand, z: 0 }));
 
-  return { elbow, wrist, hand };
+  // The palm faces local +x of the hand frame (see the frames above): used to curl fingers and to seat held things in the palm.
+  const palm = rotate(handFrame, { x: 1, y: 0, z: 0 });
+
+  return { elbow, wrist, hand, palm };
 }
 
 /** The joints of one leg, in world space. */
@@ -226,6 +229,22 @@ function legJoints(hip: Vec3, pelvisFrame: Mat3, leg: LegAngles, side: 1 | -1): 
  * the legs, (4) translate everything so the anchor joint sits at the anchor point.
  */
 export function jointPositions(pose: Pose): Record<JointName, Vec3> {
+  return computeBody(pose).joints;
+}
+
+/**
+ * The direction each palm faces in the world (a unit vector), for the grip:
+ * the renderers curl the fingers towards it and seat a held ball, tin or bag
+ * on that side of the hand. Same frames as jointPositions, so it can never
+ * disagree with where the hand is drawn.
+ */
+export function palmDirections(pose: Pose): { Left: Vec3; Right: Vec3 } {
+  const { palms } = computeBody(pose);
+  return { Left: palms.Left, Right: palms.Right };
+}
+
+/** Everything forward kinematics produces: joint points and palm directions (shared by jointPositions and palmDirections). */
+function computeBody(pose: Pose): { joints: Record<JointName, Vec3>; palms: { Left: Vec3; Right: Vec3 } } {
   // Roll first, then pitch, then yaw outermost. Negative signs convert our
   // "positive = forward / left" conventions to the standard right-handed axes.
   const pelvisFrame = chain(
@@ -274,7 +293,7 @@ export function jointPositions(pose: Pose): Record<JointName, Vec3> {
   for (const joint of ALL_JOINTS) {
     anchored[joint] = add(unanchored[joint], shift);
   }
-  return anchored;
+  return { joints: anchored, palms: { Left: armLeft.palm, Right: armRight.palm } };
 }
 
 // ---------------------------------------------------------------------------
@@ -289,7 +308,7 @@ export function jointPositions(pose: Pose): Record<JointName, Vec3> {
  * puts both heels on the floor and the pelvis at z = 0.
  */
 export function neutralStandingPose(anchorAt: Vec3 = { x: 0, y: 0, z: -BODY.pelvisHalfWidth }): Pose {
-  const hangingArm: ArmAngles = { flex: 0, abduct: 0, rotate: 0, elbow: 0, wrist: 0 };
+  const hangingArm: ArmAngles = { flex: 0, abduct: 0, rotate: 0, elbow: 0, wrist: 0, grip: 0 };
   const straightLeg: LegAngles = { flex: 0, abduct: 0, knee: 0, ankle: 0 };
 
   return {

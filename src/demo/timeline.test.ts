@@ -49,6 +49,15 @@ describe("blendPoses", () => {
     expect(middle.anchor.joint).toBe("heelRight");
   });
 
+  it("blends the grip like any angle, reading a missing grip as 0", () => {
+    const gripping: Pose = { ...sitting, armLeft: { ...sitting.armLeft, grip: 0.8 } };
+    const withoutGrip: Pose = { ...standing, armLeft: { flex: 0, abduct: 0, rotate: 0, elbow: 0, wrist: 0 } };
+
+    expect(blendPoses(withoutGrip, gripping, 0.5).armLeft.grip).toBeCloseTo(0.4);
+    expect(blendPoses(gripping, withoutGrip, 1).armLeft.grip).toBe(0);
+    expect(blendPoses(standing, sitting, 0.5).armLeft.grip).toBe(0);
+  });
+
   it("throws a clear error when the anchors name different joints", () => {
     const other: Pose = { ...sitting, anchor: { joint: "pelvis", at: { x: 0, y: 1, z: 0 } } };
     expect(() => blendPoses(standing, other, 0.5)).toThrow(/different joints/);

@@ -11,7 +11,7 @@
  * passes in (half speed = advance the clock at half rate; pause = stop
  * advancing it). Nothing here knows about either.
  */
-import type { Demo, Pose, Step } from "./model";
+import type { ArmAngles, Demo, Pose, Step } from "./model";
 
 /** Ease-in-out quad: slow start, faster middle, slow end. Maps 0..1 to 0..1. */
 export function ease(t: number): number {
@@ -43,12 +43,19 @@ export function blendPoses(from: Pose, to: Pose, t: number): Pose {
     return result as T;
   };
 
+  /** Blends two arms; the optional grip counts as 0 when missing, so older poses blend with gripping ones. */
+  const blendArm = (a: ArmAngles, b: ArmAngles): ArmAngles => {
+    const { grip: fromGrip = 0, ...fromAngles } = a;
+    const { grip: toGrip = 0, ...toAngles } = b;
+    return { ...blendNumbers(fromAngles, toAngles), grip: mix(fromGrip, toGrip, t) };
+  };
+
   return {
     pelvis: blendNumbers(from.pelvis, to.pelvis),
     spine: blendNumbers(from.spine, to.spine),
     neck: blendNumbers(from.neck, to.neck),
-    armLeft: blendNumbers(from.armLeft, to.armLeft),
-    armRight: blendNumbers(from.armRight, to.armRight),
+    armLeft: blendArm(from.armLeft, to.armLeft),
+    armRight: blendArm(from.armRight, to.armRight),
     legLeft: blendNumbers(from.legLeft, to.legLeft),
     legRight: blendNumbers(from.legRight, to.legRight),
     anchor: { joint: from.anchor.joint, at: blendNumbers(from.anchor.at, to.anchor.at) },

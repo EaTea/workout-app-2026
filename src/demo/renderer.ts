@@ -33,6 +33,11 @@ import { blendPoses } from "./timeline";
 import { jointPositions } from "./skeleton";
 import type { BodyPart, CameraView, Demo, JointName, Pose, Prop, Vec3 } from "./model";
 
+/** Which hand joint a held thing is in, as "Left" or "Right" (undefined if it is not tied to a hand). */
+function handSide(joint: JointName): "Left" | "Right" | undefined {
+  return joint === "handLeft" ? "Left" : joint === "handRight" ? "Right" : undefined;
+}
+
 /**
  * A running "Show me" picture. The view creates one per demo, calls `draw`
  * every animation frame (and when the camera is turned), `resize` when its
@@ -88,8 +93,24 @@ const CHAIR_HALF_WIDTH = 0.25;
  */
 export function propBoxes(prop: Prop): PropBox[] {
   switch (prop.kind) {
-    case "wall":
-      return [box(prop.x - 0.06, 0, -0.8, prop.x, 2.2, 0.8)];
+    case "wall": {
+      if (prop.side === undefined) {
+        return [box(prop.x - 0.06, 0, -0.8, prop.x, 2.2, 0.8)];
+      }
+      // A wall beside the figure: its near face is `x` metres from the centre line, and it is 0.06 thick.
+      const [minZ, maxZ] = prop.side === "left" ? [prop.x, prop.x + 0.06] : [-prop.x - 0.06, -prop.x];
+      return [box(-0.8, 0, minZ, 0.8, 2.2, maxZ)];
+    }
+
+    case "rail": {
+      // A 6 cm wide bar whose top is at `height`, on a thin post at each end (the posts stand on the floor).
+      const half = 0.03;
+      return [
+        box(prop.fromX, prop.height - 0.04, prop.z - half, prop.toX, prop.height, prop.z + half),
+        box(prop.fromX, 0, prop.z - 0.02, prop.fromX + 0.04, prop.height - 0.04, prop.z + 0.02),
+        box(prop.toX - 0.04, 0, prop.z - 0.02, prop.toX, prop.height - 0.04, prop.z + 0.02),
+      ];
+    }
 
     case "counter": {
       if (prop.side === undefined) {
@@ -151,6 +172,68 @@ export function propBoxes(prop: Prop): PropBox[] {
     case "tin":
       return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Hands: curled fingers and held things (shared by both renderers)
+// ---------------------------------------------------------------------------
+
+/** Below this grip the fingers are not drawn at all (an open, relaxed hand is just the palm). */
+export const MIN_VISIBLE_GRIP = 0.02;
+
+/** Length in metres of the two finger segments drawn when the hand grips. */
+export const FINGER_SEGMENT_METRES = [0.055, 0.05] as const;
+
+/** Turns a joint-to-joint offset into a unit vector (the zero vector stays zero). */
+function unit(vector: Vec3): Vec3 {
+  const length = Math.hypot(vector.x, vector.y, vector.z);
+  return length < 1e-9 ? { x: 0, y: 0, z: 0 } : { x: vector.x / length, y: vector.y / length, z: vector.z / length };
+}
+
+/** `point` moved `metres` along `direction`. */
+function moved(point: Vec3, direction: Vec3, metres: number): Vec3 {
+  return { x: point.x + direction.x * metres, y: point.y + direction.y * metres, z: point.z + direction.z * metres };
+}
+
+/**
+ * The three points of the curled fingers: from the end of the hand, a first
+ * segment that bends towards the palm by 70 degrees at full grip, and a
+ * second that has turned 140 degrees from the hand's own direction, so a
+ * full grip is a tight curl round whatever is in the palm. `palm` is the
+ * direction the palm faces (skeleton.ts palmDirections). Both renderers
+ * draw exactly these points.
+ */
+export function fingerPoints(wrist: Vec3, hand: Vec3, palm: Vec3, grip: number): [Vec3, Vec3, Vec3] {
+  const along = unit({ x: hand.x - wrist.x, y: hand.y - wrist.y, z: hand.z - wrist.z });
+  const direction = (degrees: number): Vec3 => {
+    const radians = (degrees * Math.PI) / 180;
+    return { x: Math.cos(radians) * along.x + Math.sin(radians) * palm.x, y: Math.cos(radians) * along.y + Math.sin(radians) * palm.y, z: Math.cos(radians) * along.z + Math.sin(radians) * palm.z };
+  };
+
+  const first = moved(hand, direction(70 * grip), FINGER_SEGMENT_METRES[0]);
+  const second = moved(first, direction(140 * grip), FINGER_SEGMENT_METRES[1]);
+  return [hand, first, second];
+}
+
+/**
+ * Where the centre of a held ball, tin or bag is drawn. A ball or tin sits in
+ * the palm (on the palm side of the hand, towards its middle) so the curled
+ * fingers close round it; a bag hangs 12 cm below the hand by its handle.
+ * Held things not tied to a hand sit on their joint.
+ */
+export function heldThingCentre(prop: Extract<Prop, { kind: "ball" | "tin" | "bag" }>, joints: Record<JointName, Vec3>, palms: { Left: Vec3; Right: Vec3 }): Vec3 {
+  const hand = joints[prop.joint];
+  if (prop.kind === "bag") {
+    return { x: hand.x, y: hand.y - 0.12, z: hand.z };
+  }
+
+  const side = handSide(prop.joint);
+  if (side === undefined) return hand;
+
+  const wrist = joints[`wrist${side}`];
+  const along = unit({ x: hand.x - wrist.x, y: hand.y - wrist.y, z: hand.z - wrist.z });
+  const middleOfPalm = moved(wrist, along, prop.kind === "ball" ? 0.06 : 0.045);
+  return moved(middleOfPalm, palms[side], prop.kind === "ball" ? 0.06 : 0.05);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,10 +299,12 @@ function closeUpJoints(demo: Demo): JointName[] {
 /** Corner points of all furniture, and for a wall just a column of points at its x (a wall is far wider than the figure). */
 function furniturePointsForFraming(prop: Prop): Vec3[] {
   if (prop.kind === "wall") {
-    return [{ x: prop.x, y: 0, z: 0 }, { x: prop.x, y: 1.7, z: 0 }];
+    const z = prop.side === undefined ? 0 : prop.side === "left" ? prop.x : -prop.x;
+    return prop.side === undefined ? [{ x: prop.x, y: 0, z }, { x: prop.x, y: 1.7, z }] : [{ x: 0, y: 0, z }, { x: 0, y: 1.7, z }];
   }
   if (prop.kind === "band") {
-    return [prop.anchor];
+    // A band tied to a joint (held between two hands) has no fixed point to fit.
+    return typeof prop.anchor === "string" ? [] : [prop.anchor];
   }
   const points: Vec3[] = [];
   for (const { min, max } of propBoxes(prop)) {

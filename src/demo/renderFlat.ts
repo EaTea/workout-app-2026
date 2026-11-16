@@ -10,8 +10,8 @@
  * with its container, and can be updated by changing a few attributes.
  */
 import type { BodyPart, Demo, JointName, Pose, Prop, Vec3 } from "./model";
-import { jointPositions } from "./skeleton";
-import { computeFraming, isMoving, propBoxes, type DemoRenderer } from "./renderer";
+import { jointPositions, palmDirections } from "./skeleton";
+import { MIN_VISIBLE_GRIP, computeFraming, fingerPoints, heldThingCentre, isMoving, propBoxes, type DemoRenderer } from "./renderer";
 
 /** A point on the screen in metres: `right` to the viewer's right, `up` up the screen. */
 export type ScreenPoint = { right: number; up: number };
@@ -93,7 +93,7 @@ export function createRendererFlat(container: HTMLElement, demo: Demo): DemoRend
   type HeldThing = { prop: Prop; element: SVGElement };
   const heldThings = demo.props.flatMap((prop): HeldThing[] => {
     if (prop.kind === "band") return [{ prop, element: create("line", { stroke: "#FFD60A", "stroke-width": "4", "stroke-linecap": "round" }) }];
-    if (prop.kind === "ball") return [{ prop, element: create("circle", { fill: "#FFD60A", r: String(0.07 * scale) }) }];
+    if (prop.kind === "ball") return [{ prop, element: create("circle", { fill: "#FFD60A", r: String(0.065 * scale) }) }];
     if (prop.kind === "bag") return [{ prop, element: create("rect", { fill: "#FFD60A", width: String(0.18 * scale), height: String(0.22 * scale) }) }];
     if (prop.kind === "tin") return [{ prop, element: create("rect", { fill: "#FFD60A", width: String(0.08 * scale), height: String(0.11 * scale) }) }];
     return [];
@@ -113,6 +113,15 @@ export function createRendererFlat(container: HTMLElement, demo: Demo): DemoRend
     limb("shoulderLeft", "elbowLeft", "armLeft"), limb("elbowLeft", "wristLeft", "forearmLeft"), limb("wristLeft", "handLeft", "handLeft"),
     limb("shoulderRight", "elbowRight", "armRight"), limb("elbowRight", "wristRight", "forearmRight"), limb("wristRight", "handRight", "handRight"),
   ];
+  // Curled fingers: two line segments per hand, shown only while the hand grips.
+  const fingerSegments = (["Left", "Right"] as const).map((side) => ({
+    side,
+    part: `hand${side}` as BodyPart,
+    lines: [0, 1].map(() => create("line", { "stroke-linecap": "round", "stroke-width": String(LIMB_WIDTH - 2) })),
+  }));
+  for (const { part, lines } of fingerSegments) {
+    for (const line of lines) line.setAttribute("stroke", isMoving(demo, part) ? "#FFD60A" : "#f4f4f4");
+  }
   const headCircle = create("circle", { r: String(0.1 * scale) });
   const noseDot = create("circle", { r: String(0.04 * scale) });
 
@@ -127,6 +136,7 @@ export function createRendererFlat(container: HTMLElement, demo: Demo): DemoRend
   return {
     draw(pose: Pose, cameraAzimuthDegrees: number): void {
       const joints = jointPositions(pose);
+      const palms = palmDirections(pose);
       const centreOnScreen = projectPoint(framing.centre, cameraAzimuthDegrees);
       const place = (point: Vec3) => toSvg(point, cameraAzimuthDegrees, centreOnScreen);
 
@@ -166,6 +176,21 @@ export function createRendererFlat(container: HTMLElement, demo: Demo): DemoRend
         svg.append(segment.element); // Re-appending moves it to the top of the stack.
       }
 
+      for (const { side, lines } of fingerSegments) {
+        const grip = pose[`arm${side}`].grip ?? 0;
+        lines.forEach((line) => line.setAttribute("visibility", grip > MIN_VISIBLE_GRIP ? "visible" : "hidden"));
+        if (grip <= MIN_VISIBLE_GRIP) continue;
+        const [knuckles, middle, tips] = fingerPoints(joints[`wrist${side}`], joints[`hand${side}`], palms[side], grip).map(place) as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+        [[knuckles, middle], [middle, tips]].forEach(([from, to], index) => {
+          const line = lines[index]!;
+          line.setAttribute("x1", String(from!.x));
+          line.setAttribute("y1", String(from!.y));
+          line.setAttribute("x2", String(to!.x));
+          line.setAttribute("y2", String(to!.y));
+          svg.append(line);
+        });
+      }
+
       const headPoint = place(joints.head);
       const nosePoint = place(joints.nose);
       headCircle.setAttribute("cx", String(headPoint.x));
@@ -179,23 +204,22 @@ export function createRendererFlat(container: HTMLElement, demo: Demo): DemoRend
         if (prop.kind === "band") {
           const joinedAt = prop.toJoints.reduce((sum, name) => ({ x: sum.x + joints[name].x, y: sum.y + joints[name].y, z: sum.z + joints[name].z }), { x: 0, y: 0, z: 0 });
           const count = Math.max(1, prop.toJoints.length);
-          const start = place(prop.anchor);
+          const start = place(typeof prop.anchor === "string" ? joints[prop.anchor] : prop.anchor);
           const end = place({ x: joinedAt.x / count, y: joinedAt.y / count, z: joinedAt.z / count });
           element.setAttribute("x1", String(start.x));
           element.setAttribute("y1", String(start.y));
           element.setAttribute("x2", String(end.x));
           element.setAttribute("y2", String(end.y));
         } else if (prop.kind === "ball") {
-          const at = place(joints[prop.joint]);
+          const at = place(heldThingCentre(prop, joints, palms));
           element.setAttribute("cx", String(at.x));
           element.setAttribute("cy", String(at.y));
         } else if (prop.kind === "bag" || prop.kind === "tin") {
-          const at = place(joints[prop.joint]);
-          const hangs = prop.kind === "bag" ? 0.12 * scale : 0;
+          const at = place(heldThingCentre(prop, joints, palms));
           const width = Number(element.getAttribute("width"));
           const height = Number(element.getAttribute("height"));
           element.setAttribute("x", String(at.x - width / 2));
-          element.setAttribute("y", String(at.y + hangs - height / 2));
+          element.setAttribute("y", String(at.y - height / 2));
         }
         svg.append(element);
       }

@@ -40,6 +40,8 @@ export type ArmAngles = {
   elbow: number;
   /** Hand bend, positive = palm-side flexion (forearm forward, palm up: +40 lifts the hand). */
   wrist: number;
+  /** Fingers curled round something: 0 = open hand (nothing drawn), 1 = tight fist. Optional, read as 0 when missing; blended like every other angle. Used for holding the ball, tin, bag and band. */
+  grip?: number;
 };
 
 /** Hip, knee and ankle angles for one leg. */
@@ -157,8 +159,8 @@ export type Framing = "body" | "closeUpHead" | "closeUpHand" | "closeUpFoot";
  * held things yellow.
  */
 export type Prop =
-  /** A wall plane behind the figure, perpendicular to x. */
-  | { kind: "wall"; x: number }
+  /** A wall plane behind the figure, perpendicular to x; with `side`, a wall BESIDE the figure instead (parallel to its direction), whose near face is `x` metres from the centre line on that side. */
+  | { kind: "wall"; x: number; side?: "left" | "right" }
   /** A kitchen counter whose front edge is at x; `side` places it to the figure's left or right when it is side-on. */
   | { kind: "counter"; x: number; height: number; side?: "left" | "right" }
   /** A chair with its seat front edge at x and its back towards -x. */
@@ -169,8 +171,10 @@ export type Prop =
   | { kind: "bed"; x: number; height: number; length: number }
   /** A single stair step whose front edge is at x. */
   | { kind: "stair"; x: number; height: number }
-  /** A resistance band from a fixed point to one or more joints. */
-  | { kind: "band"; anchor: Vec3; toJoints: JointName[] }
+  /** A hand rail on the figure's left (z = `z`, its top `height` above the floor), running from `fromX` to `toX` on a post at each end. */
+  | { kind: "rail"; z: number; height: number; fromX: number; toX: number }
+  /** A resistance band from a fixed point, or from another joint (a band held between two hands), to one or more joints. */
+  | { kind: "band"; anchor: Vec3 | JointName; toJoints: JointName[] }
   /** A soft ball held in the hand at `joint`. */
   | { kind: "ball"; joint: JointName }
   /** A shopping bag carried by the hand at `joint`. */
