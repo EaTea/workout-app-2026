@@ -177,7 +177,7 @@ type ArmJoints = { elbow: Vec3; wrist: Vec3; hand: Vec3; palm: Vec3 };
  * Frames (each local frame has the limb along -y when straight, forward = +x):
  *   upperArmFrame = trunk · flex(z) · abduct(x) · twist(y)
  *   forearmFrame  = upperArmFrame · elbow(z)    (the palm faces local +x)
- *   hand          = forearmFrame · wrist(z)
+ *   hand          = forearmFrame · forearmTwist(y) · wrist(z)
  */
 function armJoints(shoulder: Vec3, trunkFrame: Mat3, arm: ArmAngles, side: 1 | -1): ArmJoints {
   const upperArmFrame = chain(
@@ -187,7 +187,8 @@ function armJoints(shoulder: Vec3, trunkFrame: Mat3, arm: ArmAngles, side: 1 | -
     rotationAboutY(-side * arm.rotate),
   );
   const forearmFrame = multiply(upperArmFrame, rotationAboutZ(arm.elbow));
-  const handFrame = multiply(forearmFrame, rotationAboutZ(arm.wrist));
+  // The forearm's own twist (palm up to palm down) comes before the wrist bend, so after a half turn the wrist bends the other way round in the world.
+  const handFrame = chain(forearmFrame, rotationAboutY(-side * (arm.forearmTwist ?? 0)), rotationAboutZ(arm.wrist));
 
   const elbow = add(shoulder, rotate(upperArmFrame, { x: 0, y: -BODY.upperArm, z: 0 }));
   const wrist = add(elbow, rotate(forearmFrame, { x: 0, y: -BODY.forearm, z: 0 }));

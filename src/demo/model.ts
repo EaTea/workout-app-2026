@@ -42,6 +42,8 @@ export type ArmAngles = {
   wrist: number;
   /** Fingers curled round something: 0 = open hand (nothing drawn), 1 = tight fist. Optional, read as 0 when missing; blended like every other angle. Used for holding the ball, tin, bag and band. */
   grip?: number;
+  /** Turn of the forearm about its own long axis, in degrees (pronation): 0 = as the other angles give it (forearm forward, palm up), 180 = the hand turned over, palm down. Optional, read as 0 when missing; blended like every other angle. It moves only the hand's orientation (palm direction and which way the wrist bends), never the elbow or wrist points. */
+  forearmTwist?: number;
 };
 
 /** Hip, knee and ankle angles for one leg. */

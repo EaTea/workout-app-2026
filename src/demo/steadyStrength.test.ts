@@ -155,6 +155,9 @@ function trunkLeanDegrees(joints: Record<JointName, Vec3>): number {
   return (Math.acos(up.y / Math.hypot(up.x, up.y, up.z)) * 180) / Math.PI;
 }
 
+/** The radius of the hand sphere the renderer draws, in metres. */
+const HAND_RADIUS = 0.035;
+
 /** The radius of the foot capsule the 3D renderer draws, in metres (render3d.ts footRadius). */
 const FOOT_RADIUS = 0.04;
 
@@ -1251,8 +1254,11 @@ describe("wrist curl", () => {
         expect(distance(joints[joint], first.joints[joint]), `${joint} at ${time} ms`).toBeLessThan(0.005);
       }
       expect(joints.handRight.y, `hand at ${time} ms`).toBeGreaterThanOrEqual(table.max.y + 0.03);
-      expect(pose.armRight.wrist).toBeGreaterThanOrEqual(0);
-      biggestCurl = Math.max(biggestCurl, pose.armRight.wrist);
+      // Palm up the hand curls with a positive wrist angle, palm down (forearm turned over) with a negative one: either way the hand rises from flat, never below it.
+      const turnedOver = (pose.armRight.forearmTwist ?? 0) > 90;
+      const curlAngle = turnedOver ? -pose.armRight.wrist : pose.armRight.wrist;
+      expect(curlAngle).toBeGreaterThanOrEqual(-0.01);
+      biggestCurl = Math.max(biggestCurl, curlAngle);
     }
     expect(biggestCurl).toBe(WRIST_CURL_UP_DEGREES);
   });
@@ -1271,6 +1277,21 @@ describe("wrist curl", () => {
 
   it("starts with the palm facing up (the hand curls up from the palm side)", () => {
     expect(palmDirections(stillFrames(demo)[0]!.pose).Right.y).toBeGreaterThan(0.7);
+  });
+
+  it("really turns the palm: faces up in the 'Palm up' hold and down in the 'Palm down' hold, with the back of the hand lifted", () => {
+    const holdPose = (label: string): Pose => {
+      const index = demo.steps.findIndex((step) => step.kind === "hold" && step.label.startsWith(label));
+      expect(index, `a hold labelled "${label}"`).toBeGreaterThanOrEqual(0);
+      return stillFrames(demo)[demo.steps.slice(0, index + 1).filter((step) => step.kind === "hold").length - 1]!.pose;
+    };
+    const palmUp = holdPose("Palm up");
+    const palmDown = holdPose("Palm down");
+    expect(palmDirections(palmUp).Right.y).toBeGreaterThan(0.5);
+    expect(palmDirections(palmDown).Right.y).toBeLessThan(-0.5);
+    // Palm down the back of the hand is what lifts: the hand is above the wrist.
+    const joints = jointPositions(palmDown);
+    expect(joints.handRight.y).toBeGreaterThan(joints.wristRight.y + 0.02);
   });
 });
 
@@ -1365,5 +1386,100 @@ describe("tall sitting hold", () => {
     expect(held.pelvis.x).toBeGreaterThan(start.pelvis.x + 0.08);
     // Still seated on the seat: the hips are over it.
     expect(held.pelvis.x).toBeLessThan(chair.x);
+  });
+});
+
+/** Floor and the stair top: the surfaces a foot can be standing on in these demos. */
+const STANDING_SURFACE_HEIGHTS = [0, 0.18];
+
+/**
+ * The smallest margin, over every 25 ms frame of one loop, between the centre
+ * of mass and the support footprint made ONLY of feet that are really down
+ * (heel and toe both within 1 cm of the floor or the stair top; a foot in the
+ * air gives no support). The x margin is to the footprint's front and back, the
+ * z margin to its sides widened by 5 cm (a single foot is a line, a foot is
+ * about 10 cm wide). Negative means the weight left the supporting feet. A
+ * frame with no foot down at all counts as -1.
+ */
+function smallestSupportMargin(demo: Demo): { margin: number; time: number } {
+  let smallest = { margin: Infinity, time: 0 };
+  for (let time = 0; time < loopLengthMs(demo); time += 25) {
+    const joints = jointPositions(frameAt(demo, time).pose);
+    const centre = centreOfMass(joints);
+    const downPoints: Vec3[] = [];
+    for (const side of ["Left", "Right"] as const) {
+      const [heel, toe] = [joints[`heel${side}`], joints[`toe${side}`]];
+      const isDown = STANDING_SURFACE_HEIGHTS.some((height) => Math.abs(heel.y - height) < 0.01 && Math.abs(toe.y - height) < 0.01);
+      if (isDown) downPoints.push(heel, toe);
+    }
+    const xs = downPoints.map((point) => point.x);
+    const zs = downPoints.map((point) => point.z);
+    const margin = downPoints.length === 0 ? -1 : Math.min(
+      centre.x - Math.min(...xs), Math.max(...xs) - centre.x,
+      centre.z - (Math.min(...zs) - 0.05), Math.max(...zs) + 0.05 - centre.z,
+    );
+    if (margin < smallest.margin) smallest = { margin, time };
+  }
+  return smallest;
+}
+
+describe("weight over the feet that are really down", () => {
+  for (const id of ["stair_step_up", "heel_to_toe_walk", "split_stance_hold", "back_knee_bend"]) {
+    it(`${id}: the centre of mass stays within the footprint of the grounded feet in every frame`, () => {
+      const { margin, time } = smallestSupportMargin(steadyStrengthDemos[id]!);
+      expect(margin, `smallest margin at ${time} ms`).toBeGreaterThanOrEqual(0);
+    });
+  }
+});
+
+/** Straight-line distance from a point to the nearest point of a box (0 if inside). */
+function distanceToBox(point: Vec3, box: PropBox): number {
+  const outside = (value: number, low: number, high: number) => Math.max(low - value, 0, value - high);
+  return Math.hypot(outside(point.x, box.min.x, box.max.x), outside(point.y, box.min.y, box.max.y), outside(point.z, box.min.z, box.max.z));
+}
+
+describe("standing demos where a foot leaves the ground and a hand is on a support", () => {
+  // The weight is partly carried by the hand here, so instead of the foot footprint the hand must really be on the counter, rail or wall (within 3 cm, the hand's own radius included).
+  const handSupported = ["single_leg_stand", "heel_to_toe_stand", "side_hip_raise", "standing_bird_dog", "sideways_walking", "calf_stretch", "split_stance_hold", "back_knee_bend", "heel_to_toe_walk", "stair_step_up"];
+  for (const id of handSupported) {
+    it(`${id}: at least one hand is within 3 cm of the support in every frame`, () => {
+      const demo = steadyStrengthDemos[id]!;
+      const supports = demo.props.flatMap((prop) => (prop.kind === "counter" || prop.kind === "rail" || prop.kind === "wall" ? propBoxes(prop) : []));
+      expect(supports.length).toBeGreaterThan(0);
+      for (const { joints, time } of sampledFrames(demo)) {
+        const closest = Math.min(...supports.flatMap((box) => [distanceToBox(joints.handLeft, box), distanceToBox(joints.handRight, box)]));
+        expect(closest - HAND_RADIUS, `${id} at ${time} ms`).toBeLessThanOrEqual(0.03);
+      }
+    });
+  }
+});
+
+describe("walking the feet one at a time", () => {
+  /** The frames in which exactly one of the two heels moves: true if in no frame both heels move together by more than 1 cm. */
+  it("counter plank: the two heels never slide at the same time", () => {
+    const demo = steadyStrengthDemos.counter_plank!;
+    let previous = jointPositions(frameAt(demo, 0).pose);
+    for (let time = 25; time < loopLengthMs(demo); time += 25) {
+      const joints = jointPositions(frameAt(demo, time).pose);
+      const movedLeft = Math.abs(joints.heelLeft.x - previous.heelLeft.x);
+      const movedRight = Math.abs(joints.heelRight.x - previous.heelRight.x);
+      expect(Math.min(movedLeft, movedRight), `both heels moving at ${time} ms`).toBeLessThan(0.002);
+      previous = joints;
+    }
+  });
+
+  it("wall side plank: the two feet never slide at the same time, and the forearm stays at one height on the wall (within 1 cm)", () => {
+    const demo = steadyStrengthDemos.wall_side_plank!;
+    const first = jointPositions(frameAt(demo, 0).pose);
+    let previous = first;
+    for (let time = 25; time < loopLengthMs(demo); time += 25) {
+      const joints = jointPositions(frameAt(demo, time).pose);
+      const movedLeft = Math.abs(joints.heelLeft.z - previous.heelLeft.z);
+      const movedRight = Math.abs(joints.heelRight.z - previous.heelRight.z);
+      expect(Math.min(movedLeft, movedRight), `both feet moving at ${time} ms`).toBeLessThan(0.002);
+      expect(Math.abs(joints.elbowLeft.y - first.elbowLeft.y), `elbow height at ${time} ms`).toBeLessThan(0.01);
+      expect(Math.abs(joints.wristLeft.y - first.wristLeft.y), `wrist height at ${time} ms`).toBeLessThan(0.01);
+      previous = joints;
+    }
   });
 });

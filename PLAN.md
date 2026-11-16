@@ -1944,7 +1944,22 @@ project files under `screenshots/demos/`.
    open with their cues (and the flat figure draws the suitcase hold's
    fingers and bag).
 4. [x] The contact sheet for all 34 (`docs/demos/render.cjs`).
-5. [ ] Fixes from the challenger review.
+5. [x] Fixes from the challenger review (medium effort, to save tokens).
+   Its PR 21 comparison found the 18 earlier demos unchanged. It found:
+   - [x] Stair step-up and heel-to-toe walk let the weight leave the only
+     foot on the ground; the test counted the foot in the air. The test
+     now counts only grounded feet, and both demos shift the weight first
+     (smallest margins now 1.9 cm and 1.7 cm).
+   - [x] The wrist curl's "palm down" phase was drawn palm up; arms gain an
+     optional forearm twist so the palm really turns over, with a test.
+   - [x] Split stance and back knee bend now shift the weight onto the
+     standing leg while the other foot is up.
+   - [x] Counter plank and wall side plank step one foot at a time; the
+     side plank's forearm stays put on the wall; the suitcase counter is
+     closer, so the pick-up is a shorter reach.
+   - For Ed: the wall side plank tips the whole body about 18° towards the
+     wall in one straight line, so it is exempt from the 5° pelvis-roll
+     check (the spine itself stays straight).
 - **Merge point:** every exercise in Steady Strength has an animation.
 
 ### PR 23 — Plan: combine two days on Today *(design)*

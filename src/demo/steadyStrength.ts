@@ -968,6 +968,27 @@ function leftHandOnSideCounter(pose: Pose): Pose {
   return restHand(pose, "Left", at(where(pose, "pelvis").x, WRIST_ON_COUNTER_Y, 0.40), at(0.09, 0, 0), { flex: 5, abduct: 30, elbow: 50 });
 }
 
+/** How far the pelvis moves sideways towards the standing (left) foot, in metres, while the other foot is off the ground: puts the centre of mass over that foot (within 5 cm of its centre line). */
+const STANDING_FOOT_SHIFT = 0.07;
+
+/**
+ * The same pose with the pelvis moved `shiftZ` metres sideways while both feet
+ * stay exactly where they are (the legs lean in or out to match) and the left
+ * hand stays on the side counter. This is the weight shift a person makes onto
+ * the standing leg BEFORE the other foot leaves the floor, so the centre of
+ * mass is over the foot that stays down. Used by split-stance hold and back
+ * knee bend (both have the left leg as the standing leg, at z = +0.09).
+ */
+function withWeightShiftedSideways(pose: Pose, shiftZ: number): Pose {
+  const before = jointPositions(pose);
+  let shifted = copyPose(pose);
+  shifted.anchor = { joint: "pelvis", at: at(before.pelvis.x, before.pelvis.y, before.pelvis.z + shiftZ) };
+  for (const side of ["Left", "Right"] as const) {
+    shifted = placeFoot(shifted, side, { heel: before[`heel${side}`] }, 0, {});
+  }
+  return reanchored(leftHandOnSideCounter(shifted), "heelLeft");
+}
+
 /**
  * Side hip raise: front view, counter beside the figure on its left. The left
  * leg is the standing leg and the left hand rests on the counter; the right
@@ -1440,14 +1461,16 @@ function buildHeelToToeWalk(): Demo {
     const pose = (pelvisX: number, pelvisZ: number, steppingFoot: Foot): Pose =>
       planted === "Left" ? walkingPose(pelvisX, pelvisZ, plantedFoot, steppingFoot) : walkingPose(pelvisX, pelvisZ, steppingFoot, plantedFoot);
 
-    // Lift on the spot (behind the planted foot), swing 6 cm up past the planted foot to just beyond its toe, then lower into the line.
+    // First the weight moves over the planted foot with BOTH feet still down; only then does the other foot lift on the spot (behind the planted foot), swing 6 cm up past the planted foot to just beyond its toe, and lower into the line.
+    const weightOverPlanted = pose(plantedFoot.heelX + 0.07, plantedFoot.z, stepping);
     const liftedOnTheSpot = pose(plantedFoot.heelX + 0.07, plantedFoot.z, { ...stepping, lift: 0.06 });
-    const swung = pose(plantedFoot.heelX + 0.10, plantedFoot.z * 0.6, { heelX: landedHeelX, z: stepping.z * 0.5, lift: 0.06 });
+    const swung = pose(plantedFoot.heelX + 0.10, plantedFoot.z * 0.8, { heelX: landedHeelX, z: stepping.z * 0.5, lift: 0.06 });
     const down = pose(plantedFoot.heelX + 0.12, plantedFoot.z / 2, { heelX: landedHeelX, z: 0, lift: 0 });
     const landed: Foot = { heelX: landedHeelX, z: 0, lift: 0 };
     const anchorJoint: JointName = `heel${planted}`;
     steps.push(
-      move(reanchored(settled, anchorJoint), reanchored(liftedOnTheSpot, anchorJoint), 800, "Step heel to toe"),
+      move(reanchored(settled, anchorJoint), reanchored(weightOverPlanted, anchorJoint), 600, "Shift your weight onto the standing foot"),
+      move(reanchored(weightOverPlanted, anchorJoint), reanchored(liftedOnTheSpot, anchorJoint), 800, "Step heel to toe"),
       move(reanchored(liftedOnTheSpot, anchorJoint), reanchored(swung, anchorJoint), 800, "Step heel to toe"),
       move(reanchored(swung, anchorJoint), reanchored(down, anchorJoint), 800, "Step heel to toe"),
     );
@@ -1605,7 +1628,26 @@ function buildCounterPlank(): Demo {
     const lean = COUNTER_PLANK_LEAN_DEGREES * fraction;
     return leaningAtCounter(lean, startHeelX + (endHeelX - startHeelX) * fraction);
   });
-  const moves = (list: Pose[], label: string): Step[] => list.slice(1).map((to, index) => move(list[index]!, to, MOVE_MS / (waypointCount - 1), label));
+
+  // Each stride back is made one foot at a time: the right foot (the anchor) goes to the next waypoint first, the left heel stays where it was; then the left foot catches up.
+  const feetOneAtATime: Pose[] = [poses[0]!];
+  for (let index = 1; index < poses.length; index += 1) {
+    const previousLeftHeel = where(poses[index - 1]!, "heelLeft");
+    feetOneAtATime.push(placeFoot(poses[index]!, "Left", { heel: previousLeftHeel }, 0, { knee: 12, flex: poses[index]!.legLeft.flex }), poses[index]!);
+  }
+  // Blending joint angles straight between two poses dips a sliding flat foot into the floor by about a centimetre half way, so a pose in the middle puts each heel exactly half way along its own slide, flat.
+  const flatHalfway = (from: Pose, to: Pose): Pose => {
+    let halfway = blendPoses(from, to, 0.5);
+    for (const side of ["Left", "Right"] as const) {
+      const before = where(from, `heel${side}`);
+      const after = where(to, `heel${side}`);
+      halfway = placeFoot(halfway, side, { heel: at((before.x + after.x) / 2, 0, before.z) }, 0, { knee: 8 });
+    }
+    return halfway;
+  };
+  const withHalfways: Pose[] = [feetOneAtATime[0]!];
+  for (let index = 1; index < feetOneAtATime.length; index += 1) withHalfways.push(flatHalfway(feetOneAtATime[index - 1]!, feetOneAtATime[index]!), feetOneAtATime[index]!);
+  const moves = (list: Pose[], label: string): Step[] => list.slice(1).map((to, index) => move(list[index]!, to, MOVE_MS / (withHalfways.length - 1), label));
 
   return {
     exerciseId: "counter_plank",
@@ -1617,9 +1659,9 @@ function buildCounterPlank(): Demo {
     props: [{ kind: "counter", x: FRONT_COUNTER_X, height: COUNTER_HEIGHT }],
     steps: [
       hold(poses[0]!, START_HOLD_MS, "Start"),
-      ...moves(poses, "Step back, body straight"),
+      ...moves(withHalfways, "Step back one foot at a time, body straight"),
       hold(poses[waypointCount - 1]!, HOLD_EXERCISE_MS, "Hold"),
-      ...moves([...poses].reverse(), "Step in again"),
+      ...moves([...withHalfways].reverse(), "Step in again"),
     ],
   };
 }
@@ -1679,8 +1721,10 @@ function buildSplitStanceHold(): Demo {
   };
 
   const together = stancePose(leftHeelX + 0.05, 0.895, leftHeelX, 0);
-  const halfway = stancePose(leftHeelX + 0.115, 0.895, leftHeelX + 0.13, 0.03);
-  const split = stancePose(leftHeelX + 0.18, 0.87, leftHeelX + 0.26, 0);
+  // The weight over the standing (left) foot before the right foot leaves the floor, and kept there until it is down again.
+  const weightOnLeft = withWeightShiftedSideways(together, STANDING_FOOT_SHIFT);
+  const halfway = withWeightShiftedSideways(stancePose(leftHeelX + 0.115, 0.895, leftHeelX + 0.13, 0.03), STANDING_FOOT_SHIFT);
+  const split = withWeightShiftedSideways(stancePose(leftHeelX + 0.18, 0.87, leftHeelX + 0.26, 0), STANDING_FOOT_SHIFT - 0.02);
 
   return {
     exerciseId: "split_stance_hold",
@@ -1692,11 +1736,13 @@ function buildSplitStanceHold(): Demo {
     props: [{ kind: "counter", x: 0.28, height: COUNTER_HEIGHT, side: "left" }],
     steps: [
       hold(together, START_HOLD_MS, "Start"),
-      move(together, halfway, MOVE_MS / 2, "Step one foot ahead"),
+      move(together, weightOnLeft, MOVE_MS / 2, "Shift your weight onto the back foot"),
+      move(weightOnLeft, halfway, MOVE_MS / 2, "Step one foot ahead"),
       move(halfway, split, MOVE_MS / 2, "Step one foot ahead"),
       hold(split, HOLD_EXERCISE_MS, "Hold"),
       move(split, halfway, MOVE_MS / 2, "Feet together, then the other side"),
-      move(halfway, together, MOVE_MS / 2, "Feet together, then the other side"),
+      move(halfway, weightOnLeft, MOVE_MS / 2, "Feet together, then the other side"),
+      move(weightOnLeft, together, MOVE_MS / 2, "Feet together, then the other side"),
     ],
   };
 }
@@ -1731,9 +1777,9 @@ function buildSuitcaseHold(): Demo {
     return pose;
   };
 
-  const onCounter = handAt(at(0, 0.86, 0.56));
-  const lifted = handAt(at(0, 0.93, 0.54));
-  const broughtIn = handAt(at(0, 0.90, 0.34));
+  const onCounter = handAt(at(0, 0.86, 0.47));
+  const lifted = handAt(at(0, 0.93, 0.46));
+  const broughtIn = handAt(at(0, 0.90, 0.22));
   const atSide = grippingStanding();
   atSide.armLeft = { flex: 0, abduct: 7, rotate: 0, elbow: 2, wrist: 0, grip: 0.7 };
 
@@ -1745,7 +1791,7 @@ function buildSuitcaseHold(): Demo {
     framing: "body",
     moving: ["armLeft", "forearmLeft", "handLeft"],
     props: [
-      { kind: "counter", x: 0.45, height: SUITCASE_COUNTER_HEIGHT, side: "left" },
+      { kind: "counter", x: 0.36, height: SUITCASE_COUNTER_HEIGHT, side: "left" },
       { kind: "bag", joint: "handLeft" },
     ],
     steps: [
@@ -1954,11 +2000,10 @@ export const WRIST_CURL_BACK_OF_HAND_DEGREES = 30;
  * Wrist curl and reverse curl: side view, close up on the right hand. Seated
  * side-on to a table on the figure's right, the right forearm rests along the
  * table top and holds a tin across the palm. Palm up: the hand curls up 40
- * degrees and down. Then "turn your hand over": palm down, the back of the
- * hand lifts 30 degrees and down. The model has no forearm twist, so palm up
- * and palm down are told by the step labels (the picture shows the hand lifting
- * the same way both times, which is how a reverse curl looks from the side).
- * The hand only ever curls up from flat on the table, never down into it.
+ * degrees and down. Then "turn your hand over": the forearm twists (forearmTwist
+ * 180) so the palm faces down with the tin under the hand, and the back of the
+ * hand lifts 30 degrees and down, then the hand turns back palm up. The hand
+ * only ever curls up from flat on the table, never down into it.
  */
 function buildWristCurl(): Demo {
   const heelX = 0.30;
@@ -1981,7 +2026,12 @@ function buildWristCurl(): Demo {
     return pose;
   };
   const curledUp = curledBy(WRIST_CURL_UP_DEGREES);
-  const backOfHandUp = curledBy(WRIST_CURL_BACK_OF_HAND_DEGREES);
+
+  // Palm down: the forearm turned over where it lies (elbow and wrist points do not move), then the back of the hand lifts. With the hand turned over the wrist bends the other way round, so a negative wrist angle lifts the back of the hand.
+  const turnedOver = copyPose(onTable);
+  turnedOver.armRight.forearmTwist = 180;
+  const backOfHandUp = copyPose(turnedOver);
+  backOfHandUp.armRight.wrist = -WRIST_CURL_BACK_OF_HAND_DEGREES;
 
   return {
     exerciseId: "wrist_curl",
@@ -2001,9 +2051,11 @@ function buildWristCurl(): Demo {
       hold(curledUp, 1000, "Palm up: curled"),
       move(curledUp, onTable, 2000, "Lower it"),
       hold(onTable, START_HOLD_MS, "Now turn your hand over, palm down"),
-      move(onTable, backOfHandUp, 2000, "Lift the back of your hand"),
+      move(onTable, turnedOver, 1500, "Turn your hand over, palm down"),
+      move(turnedOver, backOfHandUp, 2000, "Lift the back of your hand"),
       hold(backOfHandUp, 1000, "Palm down: lifted"),
-      move(backOfHandUp, onTable, 2000, "Lower it"),
+      move(backOfHandUp, turnedOver, 2000, "Lower it"),
+      move(turnedOver, onTable, 1500, "Turn your hand back over, palm up"),
     ],
   };
 }
@@ -2048,7 +2100,7 @@ function buildTallSittingHold(): Demo {
 export const STAIR_HEIGHT = 0.18;
 /** The stair's front edge and the rail's top, in metres. */
 const STAIR_FRONT_X = 0.30;
-const STAIR_RAIL_HEIGHT = 1.0;
+const STAIR_RAIL_HEIGHT = 0.90;
 /** Where the left hand rests on the rail: the rail is on the figure's left, 0.30 m out from the middle. */
 const STAIR_RAIL_Z = 0.30;
 
@@ -2072,10 +2124,10 @@ function buildStairStepUp(): Demo {
    * The left hand rests on the rail beside the shoulder.
    */
   type StairFoot = { heelX: number; heelY: number; kneeGuess: number };
-  const stairPose = (pelvisX: number, pelvisY: number, lean: number, left: StairFoot, right: StairFoot): Pose => {
+  const stairPose = (pelvisX: number, pelvisY: number, lean: number, left: StairFoot, right: StairFoot, pelvisZ = 0, armGuess = { flex: 30, abduct: 20, elbow: 40 }): Pose => {
     let pose = standing();
     pose.pelvis.pitch = lean;
-    pose.anchor = { joint: "pelvis", at: at(pelvisX, pelvisY, 0) };
+    pose.anchor = { joint: "pelvis", at: at(pelvisX, pelvisY, pelvisZ) };
     const feet: Array<[Side, StairFoot]> = [["Left", left], ["Right", right]];
     for (const [side, foot] of feet) {
       const sign = side === "Left" ? 1 : -1;
@@ -2083,7 +2135,7 @@ function buildStairStepUp(): Demo {
     }
     pose.armRight = { ...RELAXED_ARM, abduct: 8 };
     const shoulder = where(pose, "shoulderLeft");
-    return restHand(pose, "Left", at(shoulder.x + 0.12, STAIR_RAIL_HEIGHT + HAND_THICKNESS_HALF, STAIR_RAIL_Z), at(0.09, 0, 0), { flex: 30, abduct: 20, elbow: 40 });
+    return restHand(pose, "Left", at(shoulder.x + 0.12, STAIR_RAIL_HEIGHT + HAND_THICKNESS_HALF, STAIR_RAIL_Z), at(0.09, 0, 0), armGuess);
   };
 
   const floorLeft: StairFoot = { heelX: -0.06, heelY: 0, kneeGuess: 20 };
@@ -2092,36 +2144,59 @@ function buildStairStepUp(): Demo {
   const rightUp: StairFoot = { heelX: onStepHeelX, heelY: STAIR_HEIGHT, kneeGuess: 70 };
   const liftedFoot: StairFoot = { heelX: 0.07, heelY: STAIR_HEIGHT + 0.12, kneeGuess: 100 };
 
+  // Sideways weight shift (metres) onto the foot that stays down while the other is in the air: the left foot is at z = +0.09, the right at -0.09.
+  const OVER_LEFT = 0.07;
+  const OVER_RIGHT = -0.07;
+  // How far forward the hips travel to sit over the step foot, with the floor foot still flat behind: a deep forward lean with the front knee well bent.
+  const overStepFootX = onStepHeelX + 0.06;
+  // The hips as far forward as the floor foot's straight-ish leg still reaches (hip to ankle is 0.82 m), over the step foot's heel.
+  const reachLimitX = 0.34;
+  // With the hips this low the shoulder is close to the rail's height, so the rail arm starts from a more bent guess to find its natural fit.
+  const LEANING_ARM_GUESS = { flex: 20, abduct: 15, elbow: 95 };
+
   const floor = stairPose(0, 0.90, 0, floorLeft, floorRight);
-  const rightLifted = stairPose(0.03, 0.89, 4, floorLeft, liftedFoot);
+  // Weight over the floor (left) foot BEFORE the right foot leaves the floor.
+  const weightOnLeft = stairPose(0.03, 0.90, 2, floorLeft, floorRight, OVER_LEFT);
+  const rightLifted = stairPose(0.03, 0.89, 4, floorLeft, liftedFoot, OVER_LEFT);
   // Held above the step before it is lowered: so the foot is placed from above, not scraped along the edge.
   const overTheStep: StairFoot = { heelX: onStepHeelX - 0.02, heelY: STAIR_HEIGHT + 0.07, kneeGuess: 80 };
-  const rightOver = stairPose(0.09, 0.87, 8, floorLeft, overTheStep);
-  const rightOn = stairPose(0.17, 0.85, 12, floorLeft, rightUp);
-  const leftLifted = stairPose(0.28, 1.00, 8, liftedFoot, { ...rightUp, kneeGuess: 20 });
-  const leftOver = stairPose(0.33, 1.02, 6, overTheStep, { ...rightUp, kneeGuess: 20 });
-  const bothOn = stairPose(onStepHeelX + 0.05, STAIR_HEIGHT + 0.895, 0, { heelX: onStepHeelX, heelY: STAIR_HEIGHT, kneeGuess: 3 }, { heelX: onStepHeelX, heelY: STAIR_HEIGHT, kneeGuess: 3 });
+  const rightOver = stairPose(0.05, 0.87, 8, floorLeft, overTheStep, OVER_LEFT);
+  // Right foot down, the weight still over the left foot: nothing leaves the floor until the weight has moved.
+  const rightOn = stairPose(0.04, 0.86, 10, floorLeft, rightUp, OVER_LEFT);
+  // The weight carried forward and across over the right foot on the step while the left foot is still flat on the floor; only then does the left foot lift.
+  const weightOnRight = stairPose(reachLimitX, STAIR_HEIGHT + 0.62, 14, { ...floorLeft, kneeGuess: 5 }, rightUp, OVER_RIGHT, LEANING_ARM_GUESS);
+  // A waypoint on the way there, so the floor foot stays flat instead of its heel lifting while the angles blend.
+  const midLean = stairPose(0.20, 0.82, 18, { ...floorLeft, kneeGuess: 10 }, rightUp, 0, LEANING_ARM_GUESS);
+  // The hips rise over the step foot as the floor foot starts to leave the floor (a waypoint, so the rail arm follows the rising shoulder).
+  const rising = stairPose(reachLimitX + 0.02, STAIR_HEIGHT + 0.73, 11, { heelX: 0.0, heelY: 0.08, kneeGuess: 60 }, rightUp, OVER_RIGHT);
+  const leftLifted = stairPose(overStepFootX, STAIR_HEIGHT + 0.86, 8, liftedFoot, { ...rightUp, kneeGuess: 20 }, OVER_RIGHT);
+  const leftOver = stairPose(overStepFootX, STAIR_HEIGHT + 0.88, 6, overTheStep, { ...rightUp, kneeGuess: 20 }, OVER_RIGHT);
+  const bothFlatOnStep: StairFoot = { heelX: onStepHeelX, heelY: STAIR_HEIGHT, kneeGuess: 3 };
+  // Both feet down on the step but the weight still over the right foot, then centred.
+  const bothOnLeaning = stairPose(onStepHeelX + 0.05, STAIR_HEIGHT + 0.895, 0, bothFlatOnStep, bothFlatOnStep, OVER_RIGHT);
+  const bothOn = stairPose(onStepHeelX + 0.05, STAIR_HEIGHT + 0.895, 0, bothFlatOnStep, bothFlatOnStep);
 
   /** One move with the planted heel as the anchor (the foot that stays down through the move). */
   const plantedMove = (from: Pose, to: Pose, planted: "heelLeft" | "heelRight", label: string): Step =>
     move(reanchored(from, planted), reanchored(to, planted), 700, label);
 
-  const up = [
-    plantedMove(floor, rightLifted, "heelLeft", "Step up with your whole foot"),
-    plantedMove(rightLifted, rightOver, "heelLeft", "Step up with your whole foot"),
-    plantedMove(rightOver, rightOn, "heelLeft", "Step up with your whole foot"),
-    plantedMove(rightOn, leftLifted, "heelRight", "Bring the other foot up"),
-    plantedMove(leftLifted, leftOver, "heelRight", "Bring the other foot up"),
-    plantedMove(leftOver, bothOn, "heelRight", "Bring the other foot up"),
+  // Rule on the way up and down: the weight is carried over the foot that stays down BEFORE the other foot leaves its surface, and stays over it until the other foot is down again.
+  const route: Array<{ from: Pose; to: Pose; planted: "heelLeft" | "heelRight"; label: string }> = [
+    { from: floor, to: weightOnLeft, planted: "heelLeft", label: "Shift your weight, then step up" },
+    { from: weightOnLeft, to: rightLifted, planted: "heelLeft", label: "Step up with your whole foot" },
+    { from: rightLifted, to: rightOver, planted: "heelLeft", label: "Step up with your whole foot" },
+    { from: rightOver, to: rightOn, planted: "heelLeft", label: "Step up with your whole foot" },
+    { from: rightOn, to: midLean, planted: "heelRight", label: "Lean over the foot on the step" },
+    { from: midLean, to: weightOnRight, planted: "heelRight", label: "Lean over the foot on the step" },
+    { from: weightOnRight, to: rising, planted: "heelRight", label: "Bring the other foot up" },
+    { from: rising, to: leftLifted, planted: "heelRight", label: "Bring the other foot up" },
+    { from: leftLifted, to: leftOver, planted: "heelRight", label: "Bring the other foot up" },
+    { from: leftOver, to: bothOnLeaning, planted: "heelRight", label: "Bring the other foot up" },
+    { from: bothOnLeaning, to: bothOn, planted: "heelRight", label: "Stand tall" },
   ];
-  const down = [
-    plantedMove(bothOn, leftOver, "heelRight", "Step back down"),
-    plantedMove(leftOver, leftLifted, "heelRight", "Step back down"),
-    plantedMove(leftLifted, rightOn, "heelRight", "Step back down"),
-    plantedMove(rightOn, rightOver, "heelLeft", "Step back down"),
-    plantedMove(rightOver, rightLifted, "heelLeft", "Step back down"),
-    plantedMove(rightLifted, floor, "heelLeft", "Step back down"),
-  ];
+  const up = route.map(({ from, to, planted, label }) => plantedMove(from, to, planted, label));
+  // Stepping down is the same route backwards: the weight again leaves each foot only once it is over the other.
+  const down = [...route].reverse().map(({ from, to, planted }) => plantedMove(to, from, planted, "Step back down"));
 
   return {
     exerciseId: "stair_step_up",
@@ -2164,10 +2239,12 @@ function buildBackKneeBend(): Demo {
   start.armRight = { ...RELAXED_ARM, abduct: 8 };
 
   // The standing foot flat, the other thigh a little behind the vertical and the shin swung up behind it, toes hanging.
-  const bent = copyPose(start);
-  bent.legRight = { flex: -2, abduct: 0, knee: BACK_KNEE_BEND_DEGREES, ankle: 0 };
+  // The weight over the standing (left) foot before the other foot leaves the floor, kept there until it is down again.
+  const weightOnLeft = withWeightShiftedSideways(start, STANDING_FOOT_SHIFT);
+  const bent = copyPose(weightOnLeft);
+  bent.legRight = { flex: -2, abduct: weightOnLeft.legRight.abduct, knee: BACK_KNEE_BEND_DEGREES, ankle: 0 };
   // Halfway the toe is held 5 cm off the floor, so blending the ankle does not scrape it through.
-  const halfway = halfwayWithToeLifted(start, bent, "Right", 0.05, 0.07);
+  const halfway = halfwayWithToeLifted(weightOnLeft, bent, "Right", 0.05, 0.07);
 
   return {
     exerciseId: "back_knee_bend",
@@ -2179,11 +2256,13 @@ function buildBackKneeBend(): Demo {
     props: [{ kind: "counter", x: 0.28, height: COUNTER_HEIGHT, side: "left" }],
     steps: [
       hold(start, START_HOLD_MS, "Start"),
-      move(start, halfway, MOVE_MS / 2, "Bend your knee, heel up behind"),
+      move(start, weightOnLeft, MOVE_MS / 2, "Shift your weight onto the standing foot"),
+      move(weightOnLeft, halfway, MOVE_MS / 2, "Bend your knee, heel up behind"),
       move(halfway, bent, MOVE_MS / 2, "Bend your knee, heel up behind"),
       hold(bent, END_HOLD_MS, "End"),
       move(bent, halfway, MOVE_MS / 2, "Lower your foot, then the other side"),
-      move(halfway, start, MOVE_MS / 2, "Lower your foot, then the other side"),
+      move(halfway, weightOnLeft, MOVE_MS / 2, "Lower your foot, then the other side"),
+      move(weightOnLeft, start, MOVE_MS / 2, "Lower your foot, then the other side"),
     ],
   };
 }
@@ -2212,10 +2291,10 @@ export const WALL_SIDE_PLANK_LEAN_DEGREES = 18;
  */
 function buildWallSidePlank(): Demo {
   const wallFace = 0.52;
-  const elbowOnWall = at(0, 1.18, wallFace - 0.045);
+  const elbowOnWall = at(0, 1.10, wallFace - 0.045);
 
-  /** The body tipped `lean` degrees towards the wall with the left forearm upright on the wall at the fixed place, feet flat on the floor and one ahead of the other along the figure's direction. */
-  const leaningOnWall = (lean: number): Pose => {
+  /** The body tipped `lean` degrees towards the wall with the left forearm upright on the wall at the fixed place, feet flat on the floor and one ahead of the other along the figure's direction. The left foot can instead be left where it was in an earlier pose (`leftHeelWorldZ`, its heel's z in the world), for walking the feet away one at a time. */
+  const leaningOnWall = (lean: number, leftHeelWorldZ?: number): Pose => {
     let pose = standing();
     pose.pelvis.roll = lean;
     // Pelvis height and place: the legs are about straight, so the height follows from the lean (2 cm lower than the plumb line at full lean, because the hip nearer the floor reaches further); the sideways place is fitted below.
@@ -2232,6 +2311,9 @@ function buildWallSidePlank(): Demo {
     const reachSideways = Math.sqrt(Math.max(0, BODY.upperArm * BODY.upperArm - (shoulder.y - elbowOnWall.y) ** 2));
     pose.anchor = { joint: "pelvis", at: at(0, pose.anchor.at.y, pose.anchor.at.z + (elbowOnWall.z - reachSideways - shoulder.z)) };
 
+    // The whole figure has just slid sideways, so a left foot that must stay where it was is placed again at that world place.
+    if (leftHeelWorldZ !== undefined) pose = placeFoot(pose, "Left", { heel: at(-0.12, 0, leftHeelWorldZ) }, 0, { flex: 0, abduct: lean, knee: 3, ankle: 0 });
+
     // Left forearm upright on the wall: elbow at the fixed place, wrist and fingertips straight above it.
     const start = copyPose(pose);
     start.armLeft = { flex: 0, abduct: 85, rotate: 80, elbow: 90, wrist: 0, grip: 0 };
@@ -2246,9 +2328,12 @@ function buildWallSidePlank(): Demo {
     return pose;
   };
 
-  // Waypoints every 4.5 degrees keep the forearm on the wall while the angles blend.
-  const route = [0, 1, 2, 3, 4].map((index) => leaningOnWall((WALL_SIDE_PLANK_LEAN_DEGREES * index) / 4));
-  const alongRoute = (poses: Pose[], label: string): Step[] => poses.slice(1).map((to, index) => move(poses[index]!, to, MOVE_MS / 4, label));
+  // Waypoints every 2.25 degrees keep the forearm on the wall while the angles blend.
+  const lean = (index: number): number => (WALL_SIDE_PLANK_LEAN_DEGREES * index) / 8;
+  // One foot at a time: the right foot walks out first (the left stays), then the left foot follows; the forearm stays at its fixed place on the wall throughout.
+  const route: Pose[] = [leaningOnWall(lean(0))];
+  for (const index of [1, 2, 3, 4, 5, 6, 7, 8]) route.push(leaningOnWall(lean(index), where(route[route.length - 1]!, "heelLeft").z), leaningOnWall(lean(index)));
+  const alongRoute = (poses: Pose[], label: string): Step[] => poses.slice(1).map((to, index) => move(poses[index]!, to, MOVE_MS / 16, label));
   const upright = route[0]!;
   const tipped = route[route.length - 1]!;
 

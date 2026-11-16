@@ -43,11 +43,14 @@ export function blendPoses(from: Pose, to: Pose, t: number): Pose {
     return result as T;
   };
 
-  /** Blends two arms; the optional grip counts as 0 when missing, so older poses blend with gripping ones. */
+  /** Blends two arms; the optional grip and forearm twist count as 0 when missing, so older poses blend with gripping or twisted ones. */
   const blendArm = (a: ArmAngles, b: ArmAngles): ArmAngles => {
-    const { grip: fromGrip = 0, ...fromAngles } = a;
-    const { grip: toGrip = 0, ...toAngles } = b;
-    return { ...blendNumbers(fromAngles, toAngles), grip: mix(fromGrip, toGrip, t) };
+    const { grip: fromGrip = 0, forearmTwist: fromTwist = 0, ...fromAngles } = a;
+    const { grip: toGrip = 0, forearmTwist: toTwist = 0, ...toAngles } = b;
+    const blended: ArmAngles = { ...blendNumbers(fromAngles, toAngles), grip: mix(fromGrip, toGrip, t) };
+    // Only poses that twist the forearm get the field, so plain poses stay exactly as they were.
+    if (a.forearmTwist !== undefined || b.forearmTwist !== undefined) blended.forearmTwist = mix(fromTwist, toTwist, t);
+    return blended;
   };
 
   return {
