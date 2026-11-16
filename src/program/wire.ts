@@ -92,6 +92,15 @@ export interface ItemWire {
   weeks?: number[];
 }
 
+/**
+ * A block-level `optional` marker: the athlete may skip the whole block for a
+ * session. `label` names it in the "<label> today?" question. Not to be
+ * confused with the item-level `optional: true` flag.
+ */
+export interface OptionalBlockWire {
+  label: string;
+}
+
 /** One block of a day (warmup, explosive, mainStrength, miniDose, core, finisher). */
 export interface BlockWire {
   type: string;
@@ -99,6 +108,8 @@ export interface BlockWire {
   rounds?: NumberOrRangeWire;
   minutes?: number;
   restSecBetweenPairs?: NumberOrRangeWire;
+  /** Marks the whole block as skippable (the heavy bag finisher); see `OptionalBlockWire`. */
+  optional?: OptionalBlockWire;
   items: ItemWire[];
 }
 

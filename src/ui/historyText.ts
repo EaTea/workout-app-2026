@@ -56,6 +56,34 @@ function daysOfSession(session: LoggedSession): DayNumber[] {
   return [...days].sort((first, second) => first - second);
 }
 
+/**
+ * One "Boxing skipped" line per skipped optional block of a session (PR 28
+ * rule 5), so History explains why the bag has no sets. `skippedKeys` are the
+ * date's stored block keys ("1:6"). A key is left out when its block no longer
+ * exists or is no longer optional (program.json was edited), when its day is
+ * not one of the session's days (a skip stored before an "Undo combine"), and
+ * when the session has a set logged in that block (logged sets win over a
+ * skip). Called by the session card in `history.ts`.
+ */
+export function skippedBlockLines(program: Program, skippedKeys: ReadonlySet<string> | undefined, session: LoggedSession): string[] {
+  if (skippedKeys === undefined) return [];
+
+  const sessionDays = daysOfSession(session);
+  const lines: string[] = [];
+
+  for (const key of [...skippedKeys].sort()) {
+    const [day, blockPosition] = key.split(":").map(Number);
+    if (!sessionDays.includes(day!)) continue;
+
+    const hasLoggedSetInBlock = session.sets.some((set) => setDay(session, set) === day && set.blockPosition === blockPosition);
+    if (hasLoggedSetInBlock) continue;
+
+    const label = program.days[day!]?.blocks[blockPosition! - 1]?.optional?.label;
+    if (label !== undefined) lines.push(`${label} skipped`);
+  }
+  return lines;
+}
+
 /** The exercise's display name from the program's library; an id no longer in program.json is shown as is. */
 export function exerciseDisplayName(program: Program, exerciseId: string): string {
   return program.exercises[exerciseId]?.name ?? exerciseId;

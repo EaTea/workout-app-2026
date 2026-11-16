@@ -11,7 +11,7 @@ import { applyNoEquipmentChoices } from "./noEquipment";
  * examples, using the shipped public/program.json and a 2 Nov 2026 start.
  *
  * Minutes: the plan's rule (sum, minus 3 when explosive alternates, minus 4
- * when optional items or a bag round are dropped) gives 73, 67, 70 and 85 for
+ * when optional items or a bag round are dropped) gives 73, 74, 77 and 85 for
  * Day 1+2, 2+3, 3+4 and 5+6, the figures the plan states.
  */
 
@@ -112,12 +112,13 @@ describe("combineSessions, Day 2 + Day 3 on 11 Nov", () => {
       "miniDose|single|D2#4:single_leg_rdl",
       "miniDose|single|D3#4:overhead_press",
       "core|single|D3#5:crab_knee_to_elbow&crab_base_switch_sprawl",
+      "finisher|single|D3#6:on_the_spot_crawl",
     ]);
   });
 
   it("saves only the alternating minutes: nothing optional or bag in either day", () => {
     expect(combined.droppedForTime).toEqual({ optionalItems: false, bagRounds: false });
-    expect(combined.targetMinutes).toBe(30 + 40 - 3);
+    expect(combined.targetMinutes).toBe(30 + 47 - 3);
   });
 });
 
@@ -134,7 +135,7 @@ describe("combineSessions, Day 3 + Day 4 on 12 Nov (Day 4 catching up Day 3)", (
 
   it("keeps Day 3's crab core and takes only the two days' minutes", () => {
     expect(outline(combined.blocks).filter((line) => line.startsWith("core"))).toEqual(["core|single|D3#5:crab_knee_to_elbow&crab_base_switch_sprawl"]);
-    expect(combined.targetMinutes).toBe(40 + 30);
+    expect(combined.targetMinutes).toBe(47 + 30);
   });
 });
 

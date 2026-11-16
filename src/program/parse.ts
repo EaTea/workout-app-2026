@@ -26,6 +26,7 @@
  */
 import type {
   Block,
+  OptionalBlock,
   BlockItem,
   Day,
   DayNumber,
@@ -46,6 +47,7 @@ import type {
 import { DAYS_PER_WEEK, MAX_GEAR_UP_SECONDS } from "./model";
 import type {
   BlockWire,
+  OptionalBlockWire,
   CombiningWire,
   DayWire,
   EvidenceWire,
@@ -93,7 +95,8 @@ const ROOT_KEYS = allowedKeysOf<ProgramWire>()(["program", "exercises", "days", 
 const PROGRAM_INFO_KEYS = allowedKeysOf<ProgramInfoWire>()(["name", "goal", "lengthWeeks", "restDay", "sessionOrder", "rules", "safety"]);
 const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues", "alternative", "evidence", "progression", "maxTested"]);
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
-const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "items"]);
+const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "optional", "items"]);
+const OPTIONAL_BLOCK_KEYS = allowedKeysOf<OptionalBlockWire>()(["label"]);
 const ITEM_KEYS = allowedKeysOf<ItemWire>()([
   "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "gearUpSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment", "weeks",
 ]);
@@ -618,6 +621,23 @@ function failOnExerciseRepeatedInSameWeek(items: BlockItem[], itemsPath: string)
 }
 
 /**
+ * Reads a block's optional `optional` object (`{ "label": "Boxing" }`). A
+ * non-object, or a missing/blank label, is an error. Called by `parseBlock`.
+ */
+function readOptionalBlock(record: UnknownRecord, path: string, warnings: ProgramWarning[]): OptionalBlock | undefined {
+  if (record.optional === undefined) return undefined;
+
+  const optionalPath = child(path, "optional");
+  const optionalRecord = expectRecord(record.optional, optionalPath);
+  collectUnknownFields(optionalRecord, OPTIONAL_BLOCK_KEYS, optionalPath, warnings);
+
+  const label = readString(optionalRecord, "label", optionalPath);
+  if (label.trim() === "") fail(child(optionalPath, "label"), "must not be empty");
+
+  return { label };
+}
+
+/**
  * Converts one block and all of its items. Refuses a `sameEveryWeek` item in
  * a block with its own `rounds` or `minutes`: a deload halves those for the
  * whole block, so the item couldn't stay the same every week.
@@ -650,6 +670,7 @@ function parseBlock(raw: unknown, exercises: Record<string, Exercise>, lengthWee
     rounds,
     minutes,
     restSecBetweenPairs: readOptionalRange(record, "restSecBetweenPairs", path),
+    optional: readOptionalBlock(record, path, warnings),
     items: parsedItems,
   };
 }

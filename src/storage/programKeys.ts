@@ -44,6 +44,8 @@ export interface ProgramStorageKeys {
   noEquipment: string;
   /** Which dates had a second day combined into their session (exported and imported with the rest). */
   combines: string;
+  /** Which optional blocks (boxing) were skipped on which dates (exported and imported with the rest). */
+  optionalBlockChoices: string;
   /** Prefix of the backups an import keeps of the data it replaces (followed by an ISO timestamp). */
   importBackupPrefix: string;
 }
@@ -71,6 +73,7 @@ export function storageKeysForProgram(programId: string): ProgramStorageKeys {
     retestJumpSkipped: `${programId}.retest-jump-skipped`,
     noEquipment: `${programId}.no-equipment`,
     combines: `${programId}.combines`,
+    optionalBlockChoices: `${programId}.optional-block-choices`,
     importBackupPrefix: `${programId}.import-backup-`,
   };
 }

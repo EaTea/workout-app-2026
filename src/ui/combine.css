@@ -58,3 +58,37 @@
   font-size: 14px;
   font-weight: 700;
 }
+
+/* Optional blocks (PR 29): the "Boxing today?" question and a skipped block's one-line card. */
+.optional-block-questions {
+  margin: 4px 0 12px;
+}
+
+.optional-block-question + .optional-block-question {
+  margin-top: 12px;
+}
+
+.optional-block-question-text {
+  font-weight: 700;
+}
+
+.optional-block-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.optional-block-buttons .combine-button {
+  flex: 1;
+}
+
+/* The chosen option is filled so the state reads at a glance. */
+.optional-block-button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.skipped-block-line {
+  margin: 0 0 4px;
+  color: var(--muted);
+}

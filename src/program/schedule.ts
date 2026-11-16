@@ -1,4 +1,4 @@
-import type { Block, BlockItem, Exercise, Format, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
+import type { Block, BlockItem, Exercise, Format, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
 import { DAYS_PER_WEEK, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
 import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
@@ -187,6 +187,15 @@ export interface BlockView {
   restSecBetweenPairs?: Range;
   /** The seconds added to `restSecBetweenPairs` by the phase (e.g. -15); absent when none were. */
   restAdjustment?: number;
+  /** Carried from `Block.optional`: the block can be skipped for a session. */
+  optional?: OptionalBlock;
+  /**
+   * True when the athlete chose to skip this optional block for the session
+   * (set by `applySkippedBlocks`, never by `buildSession`). The block stays in
+   * `blocks` with its `position`, so Today can draw "Boxing skipped today ·
+   * Add it back"; session progress, completion and the block count ignore it.
+   */
+  skipped?: boolean;
   items: ItemView[];
 }
 
@@ -378,6 +387,7 @@ function buildBlock(block: Block, position: number, settings: TrainingSettings, 
     minutes: block.minutes === undefined ? undefined : halve ? halveRoundingUp(block.minutes) : block.minutes,
     restSecBetweenPairs: restAdjusted ? shiftRange(block.restSecBetweenPairs as Range, restAdjustment, MAX_REST_SECONDS) : block.restSecBetweenPairs,
     restAdjustment: restAdjusted ? restAdjustment : undefined,
+    optional: block.optional,
     items: block.items.map((item) => buildItem(item, settings, halve, week)),
   };
 }
