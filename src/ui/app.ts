@@ -834,6 +834,12 @@ export function startApp(
           skippedByDate: skippedOptionalBlocks,
           canChoose: shownDate <= todayLocalDate(),
           onSetSkipped: handleSetBlockSkipped,
+        }, {
+          // Timers ("Log set N") read and save the log through the same path as the log screen.
+          currentLog: () => log,
+          changeLog,
+          canLog: shownDate <= todayLocalDate(),
+          refresh: render,
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.

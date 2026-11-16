@@ -66,8 +66,27 @@ export interface TimerSetup {
   rebuildPlan: (values: Record<string, number>) => TimerPlan;
 }
 
+/**
+ * A button on the timer that acts on the current round, used to log a set
+ * from an EMOM (one round is one minute, which is one set). The timer only
+ * asks for the label and state and calls `onTap`; what the set is and how it
+ * is saved belong to the caller (ui/timerSetLogging.ts).
+ */
+export interface TimerRoundAction {
+  /** What the button shows while `round` is the current round, and whether it is unavailable. */
+  describe(round: number): { label: string; disabled: boolean };
+  /**
+   * Logs the round's set. Runs inside the tap, so it may use the user gesture.
+   * Returns a message when the save failed (shown under the timer), or null.
+   */
+  onTap(round: number): string | null;
+}
+
 /** Optional hooks for whoever opens the timer. */
 export interface TimerViewOptions {
+  /** Adds a button for the current round (e.g. "Log set 3"). Absent for timers that log nothing. */
+  roundAction?: TimerRoundAction;
+
   /**
    * Accessible name of the dialog, e.g. "Heavy bag timer". Unlike the visible
    * title it never changes while the steppers rebuild the plan. Defaults to
@@ -166,8 +185,15 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   toggleButton.type = "button";
   const skipButton = element("button", "timer-button", "Skip ›");
   skipButton.type = "button";
+  // Only timers with a round action get the log button; it sits between Start and Skip.
+  const roundButton = options.roundAction === undefined ? undefined : element("button", "timer-button timer-button-log", "");
+  if (roundButton !== undefined) roundButton.type = "button";
+  // Says why a set was not saved; empty when there is nothing to say.
+  const roundMessage = element("div", "timer-round-message");
+  roundMessage.setAttribute("role", "status");
   const controls = element("div", "timer-controls");
-  controls.append(toggleButton, skipButton);
+  controls.append(toggleButton, ...(roundButton === undefined ? [] : [roundButton]), skipButton);
+  // The message sits above the controls, so a failed save is seen where the button was tapped.
 
   const setupBox = element("div", "timer-setup");
   const setupSummary = element("div", "timer-setup-summary");
@@ -196,7 +222,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
 
   const body = element("div", "timer-body");
   body.append(phaseWord, ring, digits, roundCounter, segmentLabel, setupBox);
-  overlay.append(topBar, body, controls);
+  overlay.append(topBar, body, roundMessage, controls);
 
   // --- Behaviour ---
 
@@ -287,6 +313,13 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     if (skipName) skipButton.setAttribute("aria-label", skipName);
     else skipButton.removeAttribute("aria-label");
     skipButton.disabled = state.status === "ready" || state.status === "finished";
+
+    if (roundButton !== undefined && options.roundAction !== undefined && segment.round !== undefined) {
+      const roundState = options.roundAction.describe(segment.round);
+      roundButton.textContent = roundState.label;
+      // Not disabled once logged: a disabled button drops focus, so a keyboard user would land on Pause.
+      roundButton.disabled = roundState.disabled;
+    }
 
     moveFocusOffDisabledControl();
   }
@@ -423,8 +456,22 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   // Capture phase, so the audio is unlocked before the button's own handler schedules tones on it.
   overlay.addEventListener("click", () => options.onUserTap?.(), true);
   closeButton.addEventListener("click", close);
+  /**
+   * "Log set N" tapped: logs the set for the round the timer is in (EMOM: one
+   * round per minute). The timer keeps running; only the button changes.
+   */
+  function handleRoundTap(): void {
+    options.onUserTap?.();
+    const segment = state.plan.segments[state.segmentIndex];
+    if (options.roundAction === undefined || segment?.round === undefined) return;
+    const errorMessage = options.roundAction.onTap(segment.round);
+    roundMessage.textContent = errorMessage ?? "";
+    render();
+  }
+
   toggleButton.addEventListener("click", handleToggle);
   skipButton.addEventListener("click", handleSkip);
+  roundButton?.addEventListener("click", handleRoundTap);
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("visibilitychange", refreshFromClock);
   window.addEventListener("hashchange", close);
