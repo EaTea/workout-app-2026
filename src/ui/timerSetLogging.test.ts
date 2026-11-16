@@ -4,8 +4,7 @@ import { parseProgram } from "../program/parse";
 import { buildSession, type BlockView, type ItemView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import type { WorkoutLog } from "../log/model";
-import { setsForItem } from "../log/operations";
-import { logSet } from "../log/operations";
+import { logSet, setsForItem } from "../log/operations";
 import { buildEmomRoundAction, type TimerSetLoggingSource } from "./timerSetLogging";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
@@ -26,7 +25,7 @@ function pullUpEmom(date: string, overrides: Partial<TrainingSettings> = {}): { 
  * A fake of app.ts's log source: holds one log, applies each change to it
  * the way the real change path does, and counts the saves.
  */
-function fakeSource(initialLog: WorkoutLog, canLog = true): TimerSetLoggingSource & { saves: number; refreshes: number; log: WorkoutLog } {
+function fakeSource(initialLog: WorkoutLog, canLog = true, saveError: string | null = null): TimerSetLoggingSource & { saves: number; refreshes: number; log: WorkoutLog } {
   const source = {
     log: initialLog,
     saves: 0,
@@ -41,7 +40,7 @@ function fakeSource(initialLog: WorkoutLog, canLog = true): TimerSetLoggingSourc
     changeLog(operation: (freshLog: WorkoutLog) => WorkoutLog) {
       source.log = operation(source.log);
       source.saves += 1;
-      return { log: source.log, error: null };
+      return { log: source.log, error: saveError };
     },
   };
   return source;
@@ -76,7 +75,8 @@ describe("buildEmomRoundAction", () => {
     action.onTap(2);
     action.onTap(2);
 
-    expect(action.describe(2)).toEqual({ label: "Logged set 2", disabled: true });
+    // Still enabled, so focus stays on it, but a second tap saves nothing.
+    expect(action.describe(2)).toEqual({ label: "Logged set 2", disabled: false });
     expect(source.saves).toBe(1);
   });
 
@@ -88,6 +88,16 @@ describe("buildEmomRoundAction", () => {
     expect(action.describe(99)).toEqual({ label: "No set for this minute", disabled: true });
     action.onTap(99);
     expect(source.saves).toBe(0);
+  });
+
+  it("returns the save error so the timer can say the set was not saved", () => {
+    const { item, block, blockPosition } = pullUpEmom(DATE);
+    const source = fakeSource({ sessions: {} }, true, "Storage is full");
+    const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
+
+    expect(action.onTap(1)).toBe("Storage is full");
+    expect(action.onTap(2)).toBe("Storage is full");
+    expect(action.onTap(99)).toBeNull();
   });
 
   it("is disabled on a future preview", () => {
@@ -121,7 +131,7 @@ describe("buildEmomRoundAction", () => {
     const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
 
     // Minute 1 was logged on the log screen; the timer sees that and offers minute 2.
-    expect(action.describe(1).disabled).toBe(true);
+    expect(action.describe(1)).toEqual({ label: "Logged set 1", disabled: false });
     expect(action.describe(2)).toEqual({ label: "Log set 2", disabled: false });
   });
 });

@@ -505,7 +505,8 @@ test("Log set on an EMOM timer saves that minute, keeps the timer running, and s
   const logMinuteOne = overlay.getByRole("button", { name: "Log set 1" });
   await expect(logMinuteOne).toBeEnabled();
   await logMinuteOne.click();
-  await expect(overlay.getByRole("button", { name: "Logged set 1" })).toBeDisabled();
+  // Focus stays on the button after a log (it must not jump to Pause).
+  await expect(overlay.getByRole("button", { name: "Logged set 1" })).toBeFocused();
 
   await page.clock.runFor(61_000);
   await expect(overlay.locator(".timer-ring-number")).toHaveText("2/9");

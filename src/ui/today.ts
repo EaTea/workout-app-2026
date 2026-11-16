@@ -141,7 +141,8 @@ const NO_TICKS: NoEquipmentTicks = new Map();
 const NO_COMBINES: CombinesByDate = new Map();
 
 /**
- * Builds the Today screen for `date` ("YYYY-MM-DD"). Starting the program is
+ * Builds the Today screen for `date` ("YYYY-MM-DD"). `setLogging` (from app.ts)
+ * lets an EMOM timer log its minutes; without it the timers only count. Starting the program is
  * no longer done here: with no start date app.ts shows the Overview instead
  * (see overview.ts), so Today never has a first-run card. `programId` is the
  * active program's catalogue id, used to decide which rows get a "Show me" button.
@@ -714,9 +715,11 @@ function renderItemRow(
 }
 
 /**
- * "Start EMOM" button for an EMOM row. Opens the full-screen timer for the
- * item (timer/plans.ts) with beeps and vibration (timer/cues.ts) wired in;
- * the audio is unlocked/resumed on every tap inside the timer.
+ * The "Start EMOM" button on an EMOM row. It opens the full-screen timer for
+ * the item. With the app's log source (`rowTimerLogging`) the timer also has a
+ * "Log set N" button for each minute, which saves through the same path as the
+ * log screen (ui/timerSetLogging.ts). Closing after a logged set redraws Today
+ * and returns focus to this button's new copy.
  */
 function renderStartEmomButton(
   item: ItemView,
@@ -754,8 +757,10 @@ function renderStartEmomButton(
       roundAction: roundAction === undefined ? undefined : {
         describe: (round) => roundAction.describe(round),
         onTap: (round) => {
-          roundAction.onTap(round);
+          // A save that failed still changed the log in memory, so Today also needs redrawing on close.
+          const errorMessage = roundAction.onTap(round);
           loggedFromTimer = true;
+          return errorMessage;
         },
       },
       // Closing after a logged set redraws Today, then puts focus back on this button's new copy.

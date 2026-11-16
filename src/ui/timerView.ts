@@ -75,8 +75,11 @@ export interface TimerSetup {
 export interface TimerRoundAction {
   /** What the button shows while `round` is the current round, and whether it is unavailable. */
   describe(round: number): { label: string; disabled: boolean };
-  /** Logs the round's set. Runs inside the tap, so it may use the user gesture. */
-  onTap(round: number): void;
+  /**
+   * Logs the round's set. Runs inside the tap, so it may use the user gesture.
+   * Returns a message when the save failed (shown under the timer), or null.
+   */
+  onTap(round: number): string | null;
 }
 
 /** Optional hooks for whoever opens the timer. */
@@ -185,8 +188,12 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   // Only timers with a round action get the log button; it sits between Start and Skip.
   const roundButton = options.roundAction === undefined ? undefined : element("button", "timer-button timer-button-log", "");
   if (roundButton !== undefined) roundButton.type = "button";
+  // Says why a set was not saved; empty when there is nothing to say.
+  const roundMessage = element("div", "timer-round-message");
+  roundMessage.setAttribute("role", "status");
   const controls = element("div", "timer-controls");
   controls.append(toggleButton, ...(roundButton === undefined ? [] : [roundButton]), skipButton);
+  // The message sits above the controls, so a failed save is seen where the button was tapped.
 
   const setupBox = element("div", "timer-setup");
   const setupSummary = element("div", "timer-setup-summary");
@@ -215,7 +222,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
 
   const body = element("div", "timer-body");
   body.append(phaseWord, ring, digits, roundCounter, segmentLabel, setupBox);
-  overlay.append(topBar, body, controls);
+  overlay.append(topBar, body, roundMessage, controls);
 
   // --- Behaviour ---
 
@@ -310,7 +317,8 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     if (roundButton !== undefined && options.roundAction !== undefined && segment.round !== undefined) {
       const roundState = options.roundAction.describe(segment.round);
       roundButton.textContent = roundState.label;
-      roundButton.disabled = roundState.disabled || state.status === "finished";
+      // Not disabled once logged: a disabled button drops focus, so a keyboard user would land on Pause.
+      roundButton.disabled = roundState.disabled;
     }
 
     moveFocusOffDisabledControl();
@@ -456,7 +464,8 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     options.onUserTap?.();
     const segment = state.plan.segments[state.segmentIndex];
     if (options.roundAction === undefined || segment?.round === undefined) return;
-    options.roundAction.onTap(segment.round);
+    const errorMessage = options.roundAction.onTap(segment.round);
+    roundMessage.textContent = errorMessage ?? "";
     render();
   }
 

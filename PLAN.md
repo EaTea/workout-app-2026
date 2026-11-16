@@ -2542,6 +2542,10 @@ set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
      count after a reload.
   3. [x] Follow-up found in review: closing the timer after a logged set
      redraws Today and returns focus to the Start EMOM button.
+  - **Order changed:** PR 33 was built before PR 32, at Ed's request (EMOM
+    first). PR 32 is still to do. When it lands, a set logged from the
+    timer must clear a skip for that minute the same way the log screen
+    does, so the timer's save path and the log screen's stay in step.
   - **Merge point:** an EMOM can be logged without leaving the timer.
 - **PR 34 — Scroll to the next exercise** *(behavior change)*
   1. Pure "next unfinished item" function, with unit tests in session

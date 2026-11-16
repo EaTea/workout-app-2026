@@ -27,7 +27,10 @@ export interface TimerSetLoggingSource {
   /** The stored log as app.ts holds it now (fresh after every change). */
   currentLog(): WorkoutLog;
 
-  /** Applies one change through app.ts's save path; `error` is set when saving failed. */
+  /**
+   * Applies one change through app.ts's save path. `error` is set when saving
+   * failed; the change is then kept in memory only, as on the log screen.
+   */
   changeLog(operation: (freshLog: WorkoutLog) => WorkoutLog): { log: WorkoutLog; error: string | null };
 
   /** False for a `?date=` preview of a future day: nothing can be logged there. */
@@ -99,10 +102,11 @@ export function buildEmomRoundAction(input: EmomRoundInput): TimerRoundAction {
     return undefined;
   }
 
-  /** What the button shows for `round` right now, and whether tapping it does nothing. */
+  /** What the button shows for `round` right now, and whether tapping it can save anything. */
   function stateOf(round: number): { label: string; disabled: boolean } {
+    // A logged round stays enabled (so focus stays on the button) but tapping it saves nothing.
     if (loggedSetsNow().some((set) => set.setNumber === round)) {
-      return { label: `Logged set ${round}`, disabled: true };
+      return { label: `Logged set ${round}`, disabled: false };
     }
     const reason = blockedReason(round, prefillFor(round).reps);
     if (reason !== undefined) return { label: reason, disabled: true };
@@ -112,9 +116,13 @@ export function buildEmomRoundAction(input: EmomRoundInput): TimerRoundAction {
   return {
     describe: stateOf,
 
-    onTap(round: number) {
-      // Same rule as the button: a disabled round is never saved, even if tapped twice quickly.
-      if (stateOf(round).disabled) return;
+    /**
+     * Saves the round's set, pre-filled as the log screen would. A disabled or
+     * already logged round is a no-op, so a double tap cannot save twice.
+     * Returns the save error, if any, for the timer to show.
+     */
+    onTap(round: number): string | null {
+      if (stateOf(round).disabled || loggedSetsNow().some((set) => set.setNumber === round)) return null;
 
       const prefill = prefillFor(round);
       const loggedSet: LoggedSet = { exerciseId: item.exercise.id, blockPosition, setNumber: round, loggedAt: new Date() };
@@ -122,7 +130,7 @@ export function buildEmomRoundAction(input: EmomRoundInput): TimerRoundAction {
       if (tracksReps && prefill.reps !== undefined) loggedSet.reps = prefill.reps;
       if (tracksReps && prefill.loadKg > 0) loggedSet.loadKg = prefill.loadKg;
 
-      source.changeLog((freshLog) => logSet(freshLog, date, loggedSet, sessionContext));
+      return source.changeLog((freshLog) => logSet(freshLog, date, loggedSet, sessionContext)).error;
     },
   };
 
