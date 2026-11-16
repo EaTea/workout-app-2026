@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { loopLengthMs, frameAt, stillFrames } from "./timeline";
-import { BODY, angleAtJoint, distance, jointPositions } from "./skeleton";
+import { BODY, angleAtJoint, distance, jointPositions, palmDirections } from "./skeleton";
 import { START_HOLD_MS, type Demo, type JointName, type Pose, type Vec3 } from "./model";
-import { steadyStrengthDemos } from "./steadyStrength";
+import { SUITCASE_COUNTER_HEIGHT, WRIST_CURL_UP_DEGREES, steadyStrengthDemos } from "./steadyStrength";
 import { DEMO_EXERCISE_IDS, hasDemo, loadDemo } from "./registry";
-import { propBoxes, type PropBox } from "./renderer";
+import { heldThingCentre, propBoxes, type PropBox } from "./renderer";
 import { centreOfMass, footMargins } from "./balance";
 
 /** Every 100 ms across one whole loop, including the blended frames inside the moves. */
@@ -115,14 +115,23 @@ const PLAN_TABLE: Record<string, { cue: string; view: Demo["views"][number]; fra
   calf_stretch: { cue: "Hands on the wall, one foot back with the heel down, lean in gently and hold.", view: "side", framing: "body" },
   doorway_chest_stretch: { cue: "Forearm on the door frame, step forward gently until you feel a stretch, and hold.", view: "threeQuarter", framing: "body" },
   comfortable_walk: { cue: "Walk at a pace where you can still talk.", view: "side", framing: "body" },
+  heel_to_toe_walk: { cue: "One hand on the counter, walk with each heel touching the other toe.", view: "side", framing: "body" },
+  wall_push_hold: { cue: "Hands on the wall, lean in on bent elbows and hold.", view: "side", framing: "body" },
+  grip_squeeze: { cue: "Squeeze the soft ball at half effort, hold, then let go.", view: "front", framing: "closeUpHand" },
+  counter_plank: { cue: "Hands on the counter, step back, keep your body straight and hold.", view: "side", framing: "body" },
+  split_stance_hold: { cue: "Hold the counter, one foot ahead, bend both knees a little and hold.", view: "side", framing: "body" },
+  suitcase_hold: { cue: "Lift the bag off the counter, stand tall without leaning and hold.", view: "front", framing: "body" },
+  band_row: { cue: "Pull the band back with your elbows close and squeeze for 2 seconds.", view: "side", framing: "body" },
+  band_outward_rotation: { cue: "Elbow at your side, swing your hand out to the side and back.", view: "front", framing: "body" },
+  counter_push_up: { cue: "Hands on the counter, lower your chest towards it, then push back.", view: "side", framing: "body" },
+  wrist_curl: { cue: "Forearm on the table, curl the tin up and down, then turn your hand over and lift.", view: "side", framing: "closeUpHand" },
+  band_pull_apart: { cue: "Arms out in front, pull the band apart, then let it back slowly.", view: "front", framing: "body" },
+  stair_step_up: { cue: "Hold the rail, step up with your whole foot, then step back down.", view: "side", framing: "body" },
+  back_knee_bend: { cue: "Hold the counter and bend one knee to bring the heel up behind you.", view: "side", framing: "body" },
+  pallof_press: { cue: "Side-on to the door, push your hands straight out and back. Don't turn.", view: "threeQuarter", framing: "body" },
+  wall_side_plank: { cue: "Side-on to the wall, forearm on it, feet a step away, body straight and hold.", view: "front", framing: "body" },
+  tall_sitting_hold: { cue: "Sit forward away from the chair back, sit tall, breathe and hold.", view: "side", framing: "body" },
 };
-
-/** The 16 exercises whose demos arrive in PR 22. */
-const STILL_TO_COME = [
-  "heel_to_toe_walk", "wall_push_hold", "grip_squeeze", "counter_plank", "split_stance_hold", "suitcase_hold", "band_row",
-  "band_outward_rotation", "counter_push_up", "wrist_curl", "band_pull_apart", "stair_step_up", "back_knee_bend", "pallof_press",
-  "wall_side_plank", "tall_sitting_hold",
-];
 
 /** Each limb as [upper joint, lower joint, its fixed length], used to check no pose stretches a limb. */
 const LIMB_SEGMENTS: Array<[JointName, JointName, number]> = [
@@ -232,14 +241,14 @@ function handRestsOnTop(hand: Vec3, boxes: PropBox[]): boolean {
 describe("every Steady Strength demo", () => {
   const demos = Object.values(steadyStrengthDemos);
 
-  it("has a demo for every exercise in the program except the 16 that arrive in PR 22", () => {
+  it("has a demo for every exercise in the program, and none for anything else", () => {
     const programFile = JSON.parse(readFileSync("public/steady-strength.json", "utf8")) as { exercises: Record<string, unknown> };
     const missing = Object.keys(programFile.exercises).filter((id) => steadyStrengthDemos[id] === undefined);
-    expect(missing.sort()).toEqual([...STILL_TO_COME].sort());
+    expect(missing).toEqual([]);
     for (const id of Object.keys(steadyStrengthDemos)) expect(programFile.exercises[id]).toBeDefined();
   });
 
-  it("has exactly the 18 Day 1 and Day 2 demos", () => {
+  it("has exactly the 34 demos of the plan table", () => {
     expect(Object.keys(steadyStrengthDemos).sort()).toEqual(Object.keys(PLAN_TABLE).sort());
   });
 
@@ -268,7 +277,8 @@ describe("every Steady Strength demo", () => {
           expect(pose.spine.flex).toBeGreaterThanOrEqual(spineRange[0] - 1e-9);
           expect(pose.spine.flex).toBeLessThanOrEqual(spineRange[1] + 1e-9);
           expect(Math.abs(pose.spine.sideBend)).toBeLessThanOrEqual(5);
-          expect(Math.abs(pose.pelvis.roll)).toBeLessThanOrEqual(5);
+          // The wall side plank tips the WHOLE body sideways as one straight line (that is pelvis roll); the spine itself stays straight (sideBend above).
+          if (demo.exerciseId !== "wall_side_plank") expect(Math.abs(pose.pelvis.roll)).toBeLessThanOrEqual(5);
           expect(pose.neck.flex).toBeGreaterThanOrEqual(-5);
         }
       });
@@ -622,8 +632,9 @@ describe("glute bridge hold", () => {
 
 describe("pallof press hold", () => {
   const demo = steadyStrengthDemos.pallof_press_hold!;
-  const band = demo.props.find((prop) => prop.kind === "band");
-  if (band?.kind !== "band") throw new Error("expected a band");
+  const foundBand = demo.props.find((prop) => prop.kind === "band");
+  if (foundBand?.kind !== "band" || typeof foundBand.anchor === "string") throw new Error("expected a band tied to a fixed point");
+  const band = { toJoints: foundBand.toJoints, anchor: foundBand.anchor };
 
   it("presses the hands straight out in front, parallel to the door, while the body does not turn", () => {
     const frames = sampledFrames(demo);
@@ -904,5 +915,455 @@ describe("doorway chest stretch", () => {
 
   it("opens in a view where the moving arm is not hidden by the near post", () => {
     expect(demo.views[0]).not.toBe("side");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Day 3 and Day 5 demos (PR 22): safe ranges and what each one has to show
+// ---------------------------------------------------------------------------
+
+/** The grey blocks of a demo's props of one kind. */
+function blocksOf(demo: Demo, kind: string): PropBox[] {
+  return demo.props.filter((prop) => prop.kind === kind).flatMap((prop) => propBoxes(prop));
+}
+
+/** The joints of a demo's n-th hold (0 = Start, the last = End or Hold). */
+function holdJoints(demo: Demo, index: number): Record<JointName, Vec3> {
+  return jointPositions(stillFrames(demo)[index]!.pose);
+}
+
+/** Asserts a hand rests on top of the boxes in every sampled frame. */
+function expectHandsRestOnTop(demo: Demo, hands: Array<"handLeft" | "handRight">, boxes: PropBox[]): void {
+  expect(boxes.length).toBeGreaterThan(0);
+  for (const { joints, time } of sampledFrames(demo)) {
+    for (const hand of hands) {
+      const point = joints[hand];
+      expect(handRestsOnTop(point, boxes), `${demo.exerciseId} at ${time} ms: ${hand} at ${point.x.toFixed(2)}, ${point.y.toFixed(3)}, ${point.z.toFixed(2)} is not on the support`).toBe(true);
+    }
+  }
+}
+
+/** Interior angle at the hips between the middle of the shoulders and the middle of the heels (180 = one straight line). */
+function bodyLineAngle(joints: Record<JointName, Vec3>): number {
+  const middle = (a: Vec3, b: Vec3): Vec3 => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 });
+  return angleAtJoint(middle(joints.shoulderLeft, joints.shoulderRight), joints.pelvis, middle(joints.heelLeft, joints.heelRight));
+}
+
+/** Knee bend in degrees (0 = straight) for one leg. */
+function kneeBend(joints: Record<JointName, Vec3>, side: "Left" | "Right"): number {
+  return 180 - angleAtJoint(joints[`hip${side}`], joints[`knee${side}`], joints[`ankle${side}`]);
+}
+
+/** Elbow bend in degrees (0 = straight) for one arm. */
+function elbowBend(joints: Record<JointName, Vec3>, side: "Left" | "Right"): number {
+  return 180 - angleAtJoint(joints[`shoulder${side}`], joints[`elbow${side}`], joints[`wrist${side}`]);
+}
+
+describe("heel to toe walk", () => {
+  const demo = steadyStrengthDemos.heel_to_toe_walk!;
+
+  it("keeps the left hand on the counter top and the weight over the feet in every frame", () => {
+    expectHandsRestOnTop(demo, ["handLeft"], blocksOf(demo, "counter"));
+    for (const { joints, time } of sampledFrames(demo)) {
+      const margins = footMargins(joints);
+      expect(margins.aheadOfHeels, `at ${time} ms`).toBeGreaterThanOrEqual(0);
+      expect(margins.behindToes, `at ${time} ms`).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("walks three steps along the counter, ending with the front heel touching the back toe in one line and both feet flat", () => {
+    const start = holdJoints(demo, 0);
+    const end = holdJoints(demo, 1);
+    // Feet side by side at the start.
+    expect(Math.abs(start.heelLeft.x - start.heelRight.x)).toBeLessThan(0.01);
+    // Three steps of one foot length each: the front heel is about 3 x 22.5 cm further along than any heel was at the start.
+    expect(Math.max(end.heelLeft.x, end.heelRight.x) - start.heelLeft.x).toBeGreaterThan(0.6);
+    expect(end.pelvis.x - start.pelvis.x).toBeGreaterThan(0.45);
+    const [front, back] = end.heelRight.x > end.heelLeft.x ? (["Right", "Left"] as const) : (["Left", "Right"] as const);
+    expect(Math.abs(end[`heel${front}`].x - end[`toe${back}`].x)).toBeLessThan(0.02);
+    expect(Math.abs(end.heelLeft.z - end.heelRight.z)).toBeLessThan(0.02);
+    for (const joint of ["heelLeft", "heelRight", "toeLeft", "toeRight"] as const) expect(end[joint].y).toBeCloseTo(0, 2);
+  });
+
+  it("steps with the back foot each time, lifting it clear of the floor (at least 5 cm) while it passes the other", () => {
+    let highestLift = 0;
+    for (const { joints } of sampledFrames(demo)) highestLift = Math.max(highestLift, joints.heelLeft.y, joints.heelRight.y, joints.toeLeft.y, joints.toeRight.y);
+    expect(highestLift).toBeGreaterThanOrEqual(0.05);
+    expect(highestLift).toBeLessThanOrEqual(0.1);
+  });
+});
+
+describe("wall push hold", () => {
+  const demo = steadyStrengthDemos.wall_push_hold!;
+
+  it("keeps both hands on the wall and the body one straight line from the heels, with the heels not moving", () => {
+    const wall = blocksOf(demo, "wall")[0]!;
+    let firstHeelX: number | undefined;
+    for (const { joints, time } of sampledFrames(demo)) {
+      for (const hand of ["handLeft", "handRight"] as const) {
+        const point = joints[hand];
+        expect(Math.abs(point.x - (wall.min.x - HAND_RESTING_HEIGHT)), `${hand} at ${time} ms`).toBeLessThanOrEqual(0.02);
+        expect(point.y).toBeGreaterThan(1.1);
+      }
+      expect(bodyLineAngle(joints), `at ${time} ms`).toBeGreaterThanOrEqual(170);
+      firstHeelX ??= joints.heelRight.x;
+      expect(Math.abs(joints.heelRight.x - firstHeelX)).toBeLessThan(0.005);
+      expect(joints.heelRight.y).toBeCloseTo(0, 2);
+    }
+  });
+
+  it("starts with nearly straight arms and holds leaning in on elbows bent about 60 degrees, the trunk tipped no more than 20 degrees", () => {
+    const start = holdJoints(demo, 0);
+    const held = holdJoints(demo, 1);
+    expect(elbowBend(start, "Left")).toBeLessThan(25);
+    expect(elbowBend(held, "Left")).toBeGreaterThan(45);
+    expect(elbowBend(held, "Left")).toBeLessThan(90);
+    expect(trunkLeanDegrees(held)).toBeLessThanOrEqual(20);
+    expect(held.chest.x).toBeGreaterThan(start.chest.x + 0.1);
+  });
+});
+
+describe("grip squeeze", () => {
+  const demo = steadyStrengthDemos.grip_squeeze!;
+
+  it("changes only the grip (fingers), from loosely round the ball to a half-effort squeeze that is short of a fist", () => {
+    const [open, squeezed] = stillFrames(demo).map((still) => still.pose) as [Pose, Pose];
+    expect(open.armLeft.grip).toBeGreaterThan(0.1);
+    expect(squeezed.armLeft.grip!).toBeGreaterThan(open.armLeft.grip! + 0.4);
+    expect(squeezed.armLeft.grip!).toBeLessThanOrEqual(0.85);
+    // Everything else is identical.
+    const withoutGrip = (pose: Pose) => ({ ...pose, armLeft: { ...pose.armLeft, grip: 0 } });
+    expect(withoutGrip(squeezed)).toEqual(withoutGrip(open));
+  });
+
+  it("keeps the ball in the palm: its centre within 8 cm of the hand in every frame", () => {
+    const ball = demo.props.find((prop) => prop.kind === "ball");
+    if (ball?.kind !== "ball") throw new Error("expected a ball");
+    for (const { pose, joints } of sampledFrames(demo)) {
+      expect(distance(heldThingCentre(ball, joints, palmDirections(pose)), joints.handLeft)).toBeLessThan(0.08);
+    }
+  });
+});
+
+describe("counter plank and counter push-up", () => {
+  const plank = steadyStrengthDemos.counter_plank!;
+  const pushUp = steadyStrengthDemos.counter_push_up!;
+
+  it("keeps the body one straight line (shoulders, hips, heels at least 170 degrees) with both hands on the counter and the feet flat, in every frame", () => {
+    for (const demo of [plank, pushUp]) {
+      expectHandsRestOnTop(demo, ["handLeft", "handRight"], blocksOf(demo, "counter"));
+      for (const { joints, time } of sampledFrames(demo)) {
+        expect(bodyLineAngle(joints), `${demo.exerciseId} at ${time} ms`).toBeGreaterThanOrEqual(170);
+        for (const joint of ["heelLeft", "heelRight", "toeLeft", "toeRight"] as const) expect(Math.abs(joints[joint].y), `${demo.exerciseId} ${joint} at ${time} ms`).toBeLessThan(0.01);
+      }
+    }
+  });
+
+  it("plank: steps the feet back from standing tall to a 26 degree straight lean with nearly straight arms, held", () => {
+    const start = holdJoints(plank, 0);
+    const held = holdJoints(plank, 1);
+    expect(trunkLeanDegrees(start)).toBeLessThan(2);
+    expect(trunkLeanDegrees(held)).toBeCloseTo(26, 0);
+    expect(held.heelRight.x).toBeLessThan(start.heelRight.x - 0.3);
+    expect(elbowBend(held, "Left")).toBeLessThan(20);
+  });
+
+  it("push-up: the heels stay put, the elbows bend to about a right angle at the bottom and the chest moves towards the counter", () => {
+    const [top, bottom] = [holdJoints(pushUp, 0), holdJoints(pushUp, 1)];
+    expect(Math.abs(top.heelRight.x - bottom.heelRight.x)).toBeLessThan(0.005);
+    expect(elbowBend(top, "Left")).toBeLessThan(20);
+    expect(elbowBend(bottom, "Left")).toBeGreaterThan(70);
+    expect(elbowBend(bottom, "Left")).toBeLessThan(110);
+    expect(bottom.chest.y).toBeLessThan(top.chest.y - 0.08);
+    expect(bottom.chest.x).toBeGreaterThan(top.chest.x + 0.1);
+  });
+});
+
+describe("wall side plank", () => {
+  const demo = steadyStrengthDemos.wall_side_plank!;
+
+  it("keeps the whole body one straight line (shoulders, hips, heels at least 170 degrees) and the spine itself straight in every frame", () => {
+    for (const { joints, pose, time } of sampledFrames(demo)) {
+      expect(bodyLineAngle(joints), `at ${time} ms`).toBeGreaterThanOrEqual(170);
+      expect(Math.abs(pose.spine.sideBend)).toBeLessThanOrEqual(1);
+      expect(Math.abs(pose.spine.flex)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("keeps the left forearm upright on the wall face in every frame, and ends with the body tipped 18 degrees and the feet a step further from the wall", () => {
+    const wall = blocksOf(demo, "wall")[0]!;
+    for (const { joints, time } of sampledFrames(demo)) {
+      for (const joint of ["elbowLeft", "wristLeft"] as const) {
+        expect(Math.abs(joints[joint].z - (wall.min.z - 0.045)), `${joint} at ${time} ms`).toBeLessThanOrEqual(0.02);
+      }
+      expect(joints.wristLeft.y).toBeGreaterThan(joints.elbowLeft.y + 0.2);
+    }
+    const [start, held] = [holdJoints(demo, 0), holdJoints(demo, 1)];
+    expect(held.heelRight.z).toBeLessThan(start.heelRight.z - 0.3);
+    expect(Math.abs(held.heelLeft.y)).toBeLessThan(0.01);
+    expect(Math.abs(held.heelRight.y)).toBeLessThan(0.01);
+    const sidewaysLean = (Math.atan2(held.chest.z - held.pelvis.z, held.chest.y - held.pelvis.y) * 180) / Math.PI;
+    expect(sidewaysLean).toBeCloseTo(18, 0);
+  });
+});
+
+describe("split-stance hold", () => {
+  const demo = steadyStrengthDemos.split_stance_hold!;
+
+  it("bends both knees a little (no more than 30 degrees in the holds, 40 while the foot is stepping), keeps the trunk upright and the left hand on the counter, in every frame", () => {
+    expectHandsRestOnTop(demo, ["handLeft"], blocksOf(demo, "counter"));
+    for (const { joints, time } of sampledFrames(demo)) {
+      expect(kneeBend(joints, "Left"), `left knee at ${time} ms`).toBeLessThanOrEqual(40);
+      expect(kneeBend(joints, "Right"), `right knee at ${time} ms`).toBeLessThanOrEqual(40);
+      expect(trunkLeanDegrees(joints), `at ${time} ms`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("holds with one foot 22 to 32 cm ahead of the other, both knees really bent (8 to 30 degrees), the weight between the feet, both feet flat", () => {
+    const held = holdJoints(demo, 1);
+    expect(held.heelRight.x - held.heelLeft.x).toBeGreaterThan(0.22);
+    expect(held.heelRight.x - held.heelLeft.x).toBeLessThan(0.32);
+    expect(kneeBend(held, "Left")).toBeLessThanOrEqual(30);
+    expect(kneeBend(held, "Right")).toBeLessThanOrEqual(30);
+    expect(kneeBend(held, "Left")).toBeGreaterThanOrEqual(8);
+    expect(kneeBend(held, "Right")).toBeGreaterThanOrEqual(8);
+    for (const joint of ["heelLeft", "heelRight", "toeLeft", "toeRight"] as const) expect(held[joint].y).toBeCloseTo(0, 2);
+    const margins = footMargins(held);
+    expect(margins.aheadOfHeels).toBeGreaterThan(0.1);
+    expect(margins.behindToes).toBeGreaterThan(0.1);
+  });
+});
+
+describe("suitcase hold", () => {
+  const demo = steadyStrengthDemos.suitcase_hold!;
+  const counterTop = SUITCASE_COUNTER_HEIGHT;
+
+  it("picks the bag up off the counter: it starts standing on it, rises clear, and the hand is never lower than the counter top or than where it ends up", () => {
+    const bag = demo.props.find((prop) => prop.kind === "bag");
+    if (bag?.kind !== "bag") throw new Error("expected a bag");
+    const counter = blocksOf(demo, "counter")[0]!;
+
+    const startPose = stillFrames(demo)[0]!.pose;
+    const startBag = heldThingCentre(bag, jointPositions(startPose), palmDirections(startPose));
+    // The bag's bottom (11 cm below its centre) is on the counter top, and it is over the counter.
+    expect(startBag.y - 0.11).toBeCloseTo(counterTop, 2);
+    expect(startBag.z).toBeGreaterThan(counter.min.z + 0.09);
+
+    const holdingHandY = holdJoints(demo, 1).handLeft.y;
+    for (const { joints, time } of sampledFrames(demo)) {
+      expect(joints.handLeft.y, `hand at ${time} ms`).toBeGreaterThanOrEqual(counterTop);
+      expect(joints.handLeft.y, `hand at ${time} ms`).toBeGreaterThanOrEqual(holdingHandY - 0.01);
+    }
+  });
+
+  it("clears the counter while the bag is carried in, and hangs at the side with a straight arm", () => {
+    const bag = demo.props.find((prop) => prop.kind === "bag");
+    if (bag?.kind !== "bag") throw new Error("expected a bag");
+    const counter = blocksOf(demo, "counter")[0]!;
+    for (const { pose, joints, time } of sampledFrames(demo)) {
+      const centre = heldThingCentre(bag, joints, palmDirections(pose));
+      const inside = [centre.x - 0.05, centre.x + 0.05].every((x) => x >= counter.min.x && x <= counter.max.x) &&
+        centre.z + 0.09 > counter.min.z + 0.01 && centre.z - 0.09 < counter.max.z && centre.y - 0.11 < counter.max.y - 0.01 && centre.y + 0.11 > counter.min.y;
+      expect(inside, `bag in the counter at ${time} ms`).toBe(false);
+    }
+    expect(elbowBend(holdJoints(demo, 1), "Left")).toBeLessThan(10);
+  });
+
+  it("stands tall without leaning: side bend and pelvis roll within 3 degrees and the trunk upright in every frame", () => {
+    for (const { pose, joints, time } of sampledFrames(demo)) {
+      expect(Math.abs(pose.spine.sideBend), `at ${time} ms`).toBeLessThanOrEqual(3);
+      expect(Math.abs(pose.pelvis.roll), `at ${time} ms`).toBeLessThanOrEqual(3);
+      expect(trunkLeanDegrees(joints), `at ${time} ms`).toBeLessThanOrEqual(3);
+      expect(Math.abs(joints.shoulderLeft.y - joints.shoulderRight.y), `shoulders at ${time} ms`).toBeLessThan(0.02);
+    }
+  });
+});
+
+describe("band demos", () => {
+  it("band row: elbows pulled back past the shoulders with the hands level and together, arms straight at the start, held 2 seconds, trunk upright", () => {
+    const demo = steadyStrengthDemos.band_row!;
+    const [start, held] = [holdJoints(demo, 0), holdJoints(demo, 1)];
+    expect(elbowBend(start, "Left")).toBeLessThan(30);
+    expect(held.elbowLeft.x).toBeLessThan(held.shoulderLeft.x - 0.08);
+    expect(held.elbowRight.x).toBeLessThan(held.shoulderRight.x - 0.08);
+    expect(demo.steps.find((step) => step.label === "Squeeze")!.ms).toBe(2000);
+    for (const { joints, time } of sampledFrames(demo)) {
+      expect(Math.abs(joints.handLeft.y - joints.handRight.y), `hands at ${time} ms`).toBeLessThan(0.02);
+      expect(Math.abs(joints.handLeft.z + joints.handRight.z), `hands at ${time} ms`).toBeLessThan(0.02);
+      expect(trunkLeanDegrees(joints)).toBeLessThanOrEqual(3);
+    }
+    const band = demo.props[0]!;
+    if (band.kind !== "band" || typeof band.anchor === "string") throw new Error("expected a band tied to a fixed point");
+    const stretch = (joints: Record<JointName, Vec3>) => distance(band.anchor as Vec3, { x: joints.handLeft.x, y: joints.handLeft.y, z: 0 });
+    expect(stretch(held)).toBeGreaterThan(stretch(start) + 0.3);
+  });
+
+  it("band outward rotation: only the forearm moves, from across the belly out to the side, with the elbow at the side bent a right angle", () => {
+    const demo = steadyStrengthDemos.band_outward_rotation!;
+    const [start, held] = [holdJoints(demo, 0), holdJoints(demo, 1)];
+    for (const { joints, pose, time } of sampledFrames(demo)) {
+      expect(distance(joints.elbowRight, start.elbowRight), `elbow at ${time} ms`).toBeLessThan(0.005);
+      expect(elbowBend(joints, "Right"), `elbow at ${time} ms`).toBeCloseTo(90, 0);
+      expect(pose.pelvis.yaw).toBe(0);
+      expect(Math.abs(joints.elbowRight.z - joints.shoulderRight.z)).toBeLessThan(0.1);
+    }
+    // The hand moves from in front of the belly (z beyond the body's middle line) to out beyond the elbow.
+    expect(start.handRight.z).toBeGreaterThan(held.handRight.z + 0.25);
+    expect(held.handRight.z).toBeLessThan(held.elbowRight.z - 0.1);
+  });
+
+  it("band pull-apart: arms straight at shoulder height, hands from under shoulder-width to more than a metre apart, the band between the hands", () => {
+    const demo = steadyStrengthDemos.band_pull_apart!;
+    const [start, held] = [holdJoints(demo, 0), holdJoints(demo, 1)];
+    expect(demo.props).toEqual([{ kind: "band", anchor: "handLeft", toJoints: ["handRight"] }]);
+    expect(distance(start.handLeft, start.handRight)).toBeLessThan(0.36);
+    expect(distance(held.handLeft, held.handRight)).toBeGreaterThan(1.2);
+    for (const { joints, time } of sampledFrames(demo)) {
+      expect(elbowBend(joints, "Left"), `at ${time} ms`).toBeLessThanOrEqual(10);
+      for (const hand of ["handLeft", "handRight"] as const) expect(Math.abs(joints[hand].y - joints.shoulderLeft.y), `${hand} at ${time} ms`).toBeLessThan(0.05);
+    }
+  });
+
+  it("pallof press: hands from the chest to straight out and back to the chest, without turning, 1.5 s out", () => {
+    const demo = steadyStrengthDemos.pallof_press!;
+    const [chest, out] = [holdJoints(demo, 0), holdJoints(demo, 1)];
+    expect(out.handLeft.x - chest.handLeft.x).toBeGreaterThan(0.25);
+    expect(angleAtJoint(out.shoulderLeft, out.elbowLeft, out.wristLeft)).toBeGreaterThan(165);
+    expect(demo.steps.map((step) => step.label)).toEqual(["Start", "Push your hands straight out", "Push your hands straight out", "Push your hands straight out", "Push your hands straight out", "End", "Bring your hands back", "Bring your hands back", "Bring your hands back", "Bring your hands back"]);
+    expect(demo.steps[5]!.ms).toBe(1500);
+    for (const { pose } of sampledFrames(demo)) {
+      expect(pose.pelvis.yaw).toBe(0);
+      expect(pose.spine.flex).toBe(0);
+    }
+  });
+});
+
+describe("wrist curl", () => {
+  const demo = steadyStrengthDemos.wrist_curl!;
+
+  it("keeps the forearm lying on the table and only the hand moves, curling up from flat 40 degrees palm up and 30 degrees palm down, never down into the table", () => {
+    const table = blocksOf(demo, "counter")[0]!;
+    const first = sampledFrames(demo)[0]!;
+    let biggestCurl = 0;
+    for (const { joints, pose, time } of sampledFrames(demo)) {
+      for (const joint of ["elbowRight", "wristRight"] as const) {
+        expect(Math.abs(joints[joint].y - (table.max.y + 0.045)), `${joint} at ${time} ms`).toBeLessThan(0.01);
+        expect(distance(joints[joint], first.joints[joint]), `${joint} at ${time} ms`).toBeLessThan(0.005);
+      }
+      expect(joints.handRight.y, `hand at ${time} ms`).toBeGreaterThanOrEqual(table.max.y + 0.03);
+      expect(pose.armRight.wrist).toBeGreaterThanOrEqual(0);
+      biggestCurl = Math.max(biggestCurl, pose.armRight.wrist);
+    }
+    expect(biggestCurl).toBe(WRIST_CURL_UP_DEGREES);
+  });
+
+  it("holds the tin in the hand with the fingers curled, and tells palm up from palm down by the step labels", () => {
+    const tin = demo.props.find((prop) => prop.kind === "tin");
+    if (tin?.kind !== "tin") throw new Error("expected a tin");
+    for (const { pose, joints } of sampledFrames(demo)) {
+      expect(pose.armRight.grip!).toBeGreaterThan(0.3);
+      expect(distance(heldThingCentre(tin, joints, palmDirections(pose)), joints.handRight)).toBeLessThan(0.1);
+    }
+    const labels = demo.steps.map((step) => step.label.toLowerCase());
+    expect(labels.some((label) => label.includes("palm up"))).toBe(true);
+    expect(labels.some((label) => label.includes("palm down"))).toBe(true);
+  });
+
+  it("starts with the palm facing up (the hand curls up from the palm side)", () => {
+    expect(palmDirections(stillFrames(demo)[0]!.pose).Right.y).toBeGreaterThan(0.7);
+  });
+});
+
+describe("stair step-up", () => {
+  const demo = steadyStrengthDemos.stair_step_up!;
+  const stair = demo.props.find((prop) => prop.kind === "stair");
+  if (stair?.kind !== "stair") throw new Error("expected a stair");
+
+  it("keeps a hand on the rail and the trunk tipped no more than 30 degrees in every frame", () => {
+    expectHandsRestOnTop(demo, ["handLeft"], blocksOf(demo, "rail").filter((box) => box.max.z - box.min.z > 0.05));
+    for (const { joints, time } of sampledFrames(demo)) {
+      expect(trunkLeanDegrees(joints), `at ${time} ms`).toBeLessThanOrEqual(30);
+      expect(joints.handRight.y).toBeLessThan(joints.shoulderRight.y);
+    }
+  });
+
+  it("puts the whole foot on the step: heel at least 2 cm past the edge and the toe on it, whenever a foot is up; and the floor foot's toe stays short of the edge", () => {
+    for (const { joints, time } of sampledFrames(demo)) {
+      for (const side of ["Left", "Right"] as const) {
+        const heel = joints[`heel${side}`];
+        const toe = joints[`toe${side}`];
+        const onStep = Math.abs(heel.y - stair.height) < 0.008 && Math.abs(toe.y - stair.height) < 0.008;
+        const onFloor = Math.abs(heel.y) < 0.008 && Math.abs(toe.y) < 0.008;
+        if (onStep) expect(heel.x, `${side} heel at ${time} ms`).toBeGreaterThanOrEqual(stair.x + 0.02);
+        if (onFloor) expect(toe.x, `${side} toe at ${time} ms`).toBeLessThanOrEqual(stair.x - 0.01);
+      }
+    }
+    const held = holdJoints(demo, 1);
+    for (const joint of ["heelLeft", "heelRight", "toeLeft", "toeRight"] as const) expect(held[joint].y).toBeCloseTo(stair.height, 2);
+  });
+
+  it("starts and ends the loop on the floor, with the weight over the feet in every frame", () => {
+    const start = holdJoints(demo, 0);
+    expect(start.heelLeft.y).toBeCloseTo(0, 2);
+    expect(start.heelRight.y).toBeCloseTo(0, 2);
+    for (const { joints, time } of sampledFrames(demo)) {
+      const footprint = [joints.heelLeft, joints.heelRight, joints.toeLeft, joints.toeRight];
+      const centre = centreOfMass(joints);
+      expect(centre.x, `centre of mass at ${time} ms`).toBeGreaterThanOrEqual(Math.min(...footprint.map((point) => point.x)));
+      expect(centre.x, `centre of mass at ${time} ms`).toBeLessThanOrEqual(Math.max(...footprint.map((point) => point.x)));
+    }
+  });
+});
+
+describe("back knee bend", () => {
+  const demo = steadyStrengthDemos.back_knee_bend!;
+
+  it("keeps the hips level, the standing knee soft (3 to 20 degrees), the thigh upright and the left hand on the counter in every frame", () => {
+    expectHandsRestOnTop(demo, ["handLeft"], blocksOf(demo, "counter"));
+    for (const { joints, pose, time } of sampledFrames(demo)) {
+      expect(Math.abs(joints.hipLeft.y - joints.hipRight.y), `hips at ${time} ms`).toBeLessThan(0.01);
+      expect(kneeBend(joints, "Left"), `standing knee at ${time} ms`).toBeGreaterThanOrEqual(3);
+      expect(kneeBend(joints, "Left"), `standing knee at ${time} ms`).toBeLessThanOrEqual(20);
+      expect(Math.abs(pose.legRight.flex), `thigh at ${time} ms`).toBeLessThanOrEqual(8);
+      expect(joints.heelLeft.y).toBeCloseTo(0, 2);
+    }
+  });
+
+  it("brings the heel up behind: the knee bends to 85 degrees and the heel ends above the knee's height line, behind the body", () => {
+    const [start, end] = [holdJoints(demo, 0), holdJoints(demo, 1)];
+    expect(kneeBend(end, "Right")).toBeGreaterThanOrEqual(80);
+    expect(end.heelRight.x).toBeLessThan(end.hipRight.x - 0.2);
+    expect(end.heelRight.y).toBeGreaterThan(start.heelRight.y + 0.3);
+    expect(footMargins(end).aheadOfHeels).toBeGreaterThan(0);
+  });
+});
+
+describe("tall sitting hold", () => {
+  const demo = steadyStrengthDemos.tall_sitting_hold!;
+  const chair = demo.props.find((prop) => prop.kind === "chair");
+  if (chair?.kind !== "chair") throw new Error("expected a chair");
+  /** The face of the chair back, in metres (the chair's seat is 0.44 deep). */
+  const chairBackFace = chair.x - 0.44;
+
+  it("keeps the spine neutral and the feet and seat height unchanged in every frame, so only the hips shuffle", () => {
+    const first = sampledFrames(demo)[0]!;
+    for (const { pose, joints, time } of sampledFrames(demo)) {
+      expect(pose.spine.flex).toBe(0);
+      expect(pose.spine.sideBend).toBe(0);
+      expect(distance(joints.heelRight, first.joints.heelRight), `heel at ${time} ms`).toBeLessThan(0.005);
+      expect(Math.abs(joints.pelvis.y - first.joints.pelvis.y)).toBeLessThan(0.005);
+    }
+  });
+
+  it("starts sitting back against the chair back and holds sitting tall, upright and clear of it", () => {
+    const [start, held] = [holdJoints(demo, 0), holdJoints(demo, 1)];
+    // The back of the chest (12.5 cm behind its centre) touches the chair back at the start and is 10 cm or more clear in the hold.
+    expect(start.chest.x - 0.125 - chairBackFace).toBeLessThan(0.03);
+    expect(held.chest.x - 0.125 - chairBackFace).toBeGreaterThan(0.1);
+    expect(trunkLeanDegrees(held)).toBeLessThanOrEqual(2);
+    expect(trunkLeanDegrees(start)).toBeLessThanOrEqual(10);
+    expect(held.pelvis.x).toBeGreaterThan(start.pelvis.x + 0.08);
+    // Still seated on the seat: the hips are over it.
+    expect(held.pelvis.x).toBeLessThan(chair.x);
   });
 });
