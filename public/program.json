@@ -133,10 +133,10 @@
       "evidence": "coaching practice"
     },
 
-    "backpack_slam": {
-      "name": "Backpack slams",
+    "explosive_inverted_row": {
+      "name": "Explosive inverted rows",
       "category": "explosive",
-      "cues": ["Books only in the bag: no bottles or electronics", "Slam onto carpet or grass", "Reach tall, then slam with the whole trunk"],
+      "cues": ["Test the table first: it mustn't tip or slide", "Lie under the middle and grip the edge", "Pull the chest to the edge fast, then lower under control", "Walk the feet in to make it easier"],
       "evidence": "coaching practice"
     },
     "backpack_swing": {
@@ -242,7 +242,7 @@
           { "exercise": "pallof_press", "reps": "12-15", "noEquipment": { "exercise": "plank_shoulder_tap", "reps": "12–15 per side" } }
         ]},
         { "type": "explosive", "items": [
-          { "exercise": "med_ball_slam", "sets": 6, "reps": 6, "restSec": [30, 45], "noEquipment": { "exercise": "backpack_slam", "load": "backpack with books" } }
+          { "exercise": "med_ball_slam", "sets": 6, "reps": 6, "restSec": [30, 45], "noEquipment": { "exercise": "explosive_inverted_row", "load": "body weight under a sturdy table" } }
         ]},
         { "type": "mainStrength", "minutes": 9, "items": [
           { "exercise": "pull_up", "format": "emom", "minutes": 9, "repsPctOfMax": 0.40, "weeklyIncrease": "+1 rep per minute", "noEquipment": { "exercise": "inverted_row", "reps": "6-8" } }

@@ -418,7 +418,7 @@ describe("an item's noEquipment swap", () => {
 
   /** Adds two library entries a swap can point at (the shipped file has none yet). */
   function addSwapExercises(json: any): void {
-    json.exercises.backpack_slam = { name: "Backpack slams", category: "explosive", evidence: "coaching practice", cues: ["Books only"] };
+    json.exercises.explosive_inverted_row = { name: "Explosive inverted rows", category: "explosive", evidence: "coaching practice", cues: ["Test the table first"] };
     json.exercises.inverted_row = { name: "Inverted rows", category: "main strength", evidence: "coaching practice" };
   }
 
@@ -449,7 +449,7 @@ describe("an item's noEquipment swap", () => {
     expect(errorMessageAfter((json) => withSidePlankSwap(json, { exercise: "wall_plank", reps: 10 }))).toBe(
       `${sidePlankPath}.noEquipment.reps: the original item is a timed hold, so its swap is a hold too: give "durationSec", not "reps"`,
     );
-    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", durationSec: 30 }))).toBe(
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "explosive_inverted_row", durationSec: 30 }))).toBe(
       `${slamsPath}.noEquipment.durationSec: the original item is done in reps, so its swap is too: give "reps", not "durationSec"`,
     );
   });
@@ -467,27 +467,27 @@ describe("an item's noEquipment swap", () => {
 
   it("maps a valid swap: exercise resolved, reps parsed, text copied", () => {
     const json = readRealProgramJson();
-    withSlamsSwap(json, { exercise: "backpack_slam", reps: "8-10", load: "Loaded backpack", note: "On carpet", tempo: "Fast" });
+    withSlamsSwap(json, { exercise: "explosive_inverted_row", reps: "8-10", load: "Sturdy table", note: "On carpet", tempo: "Fast" });
     const result = parseProgram(json);
     const slams = result.program.days[1]!.blocks[1]!.items[0]!;
 
     expect(result.warnings).toEqual([]);
     expect(slams.noEquipment).toEqual({
-      exercise: result.program.exercises.backpack_slam,
+      exercise: result.program.exercises.explosive_inverted_row,
       reps: { kind: "range", min: 8, max: 10 },
       durationSec: undefined,
-      load: "Loaded backpack",
+      load: "Sturdy table",
       note: "On carpet",
       tempo: "Fast",
     });
-    expect(slams.noEquipment!.exercise.name).toBe("Backpack slams");
+    expect(slams.noEquipment!.exercise.name).toBe("Explosive inverted rows");
     // The original is untouched.
     expect(slams.sets).toEqual(dayOf(1).blocks[1]!.items[0]!.sets);
   });
 
   it("accepts a swap with only an exercise when the original is not max-based", () => {
     const json = readRealProgramJson();
-    withSlamsSwap(json, { exercise: "backpack_slam" });
+    withSlamsSwap(json, { exercise: "explosive_inverted_row" });
     const swap = parseProgram(json).program.days[1]!.blocks[1]!.items[0]!.noEquipment!;
     expect(swap.reps).toBeUndefined();
     expect(swap.load).toBeUndefined();
@@ -501,7 +501,7 @@ describe("an item's noEquipment swap", () => {
   });
 
   it("rejects a swap that is not an object", () => {
-    expect(errorMessageAfter((json) => withSlamsSwap(json, "backpack_slam"))).toBe(`${slamsPath}.noEquipment: expected an object but found "backpack_slam"`);
+    expect(errorMessageAfter((json) => withSlamsSwap(json, "explosive_inverted_row"))).toBe(`${slamsPath}.noEquipment: expected an object but found "explosive_inverted_row"`);
     expect(errorMessageAfter((json) => withSlamsSwap(json, [1]))).toContain(`${slamsPath}.noEquipment:`);
   });
 
@@ -517,7 +517,7 @@ describe("an item's noEquipment swap", () => {
   it.each([
     "sets", "restSec", "minutes", "rounds", "workSec", "format", "repsPctOfMax", "perSide", "optional", "sameEveryWeek", "weeklyIncrease", "noEquipment",
   ])("rejects %s, which the swap keeps from the original", (key) => {
-    const message = errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", [key]: 1 }));
+    const message = errorMessageAfter((json) => withSlamsSwap(json, { exercise: "explosive_inverted_row", [key]: 1 }));
     expect(message).toContain(`${slamsPath}.noEquipment.${key}:`);
     expect(message).toContain("keeps");
     expect(message).toContain("from the original item");
@@ -525,8 +525,8 @@ describe("an item's noEquipment swap", () => {
 
   it("rejects a swap exercise that is max-tested", () => {
     const message = errorMessageAfter((json) => {
-      withSlamsSwap(json, { exercise: "backpack_slam" });
-      json.exercises.backpack_slam.maxTested = true;
+      withSlamsSwap(json, { exercise: "explosive_inverted_row" });
+      json.exercises.explosive_inverted_row.maxTested = true;
     });
     expect(message).toContain(`${slamsPath}.noEquipment.exercise:`);
     expect(message).toContain("max-tested");
@@ -558,15 +558,15 @@ describe("an item's noEquipment swap", () => {
   });
 
   it("validates reps, durationSec, load, note and tempo like the item does", () => {
-    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", reps: true }))).toBe(
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "explosive_inverted_row", reps: true }))).toBe(
       `${slamsPath}.noEquipment.reps: expected a number or text but found true`,
     );
-    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", reps: "15-10" }))).toContain("rep range minimum 15 is larger than maximum 10");
+    expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "explosive_inverted_row", reps: "15-10" }))).toContain("rep range minimum 15 is larger than maximum 10");
     expect(errorMessageAfter((json) => withSidePlankSwap(json, { exercise: "wall_plank", durationSec: "30" }))).toBe(
       `${sidePlankPath}.noEquipment.durationSec: expected a number but found "30"`,
     );
     for (const key of ["load", "note", "tempo"]) {
-      expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "backpack_slam", [key]: 3 }))).toBe(
+      expect(errorMessageAfter((json) => withSlamsSwap(json, { exercise: "explosive_inverted_row", [key]: 3 }))).toBe(
         `${slamsPath}.noEquipment.${key}: expected text but found 3`,
       );
     }
@@ -574,7 +574,7 @@ describe("an item's noEquipment swap", () => {
 
   it("warns, with a suggestion, about a misspelt key inside the swap", () => {
     const json = readRealProgramJson();
-    withSlamsSwap(json, { exercise: "backpack_slam", tempoo: "Fast", colour: "red" });
+    withSlamsSwap(json, { exercise: "explosive_inverted_row", tempoo: "Fast", colour: "red" });
     const { warnings } = parseProgram(json);
 
     expect(warnings).toHaveLength(2);
