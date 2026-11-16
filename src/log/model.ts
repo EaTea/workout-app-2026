@@ -55,7 +55,31 @@ export interface LoggedSet {
   loggedAt: Date;
 }
 
-/** Everything logged on one program date. Never empty: deleting the last set removes the session. */
+/**
+ * A set the athlete skipped on purpose (Skip on the log screen). Nothing was
+ * done, so it has no reps or load, but it counts as finished for the item, so
+ * a whole exercise can be skipped. It is kept apart from `LoggedSet` so that
+ * "Last time", progress and exports only ever see sets that were done.
+ * Tapping a skipped set on the log screen and logging it replaces the skip.
+ */
+export interface SkippedSet {
+  /** Exercise library id, as `LoggedSet.exerciseId`. */
+  exerciseId: string;
+
+  /** Program day of the set's block, as `LoggedSet.day`. Absent on a normal (single-day) session. */
+  day?: DayNumber;
+
+  /** 1-based position of the block within that day's blocks. */
+  blockPosition: number;
+
+  /** 1-based set number within the item. */
+  setNumber: number;
+}
+
+/**
+ * Everything logged on one program date. A session exists while it has at
+ * least one logged or skipped set: deleting the last of both removes it.
+ */
 export interface LoggedSession {
   /** Program date "YYYY-MM-DD" (local date, same format as `program/calendar.ts`). */
   date: string;
@@ -67,6 +91,9 @@ export interface LoggedSession {
   day?: DayNumber;
 
   sets: LoggedSet[];
+
+  /** Sets skipped on purpose, not logged. Absent when none were skipped. */
+  skippedSets?: SkippedSet[];
 }
 
 /** The whole log: sessions keyed by program date. */
