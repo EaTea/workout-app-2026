@@ -2525,14 +2525,19 @@ set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
   no version bump is needed.*
   1. [x] Model, wire types, parser and `skippedSets` (rule 1 and rule 6),
      with a v1 reader. Unit tests for old and new load, save and round trip.
-  2. Operations: skip a set, clear a skip, and "item done" for logged or
+  2. [x] Operations: skip a set, clear a skip, and "item done" for logged or
      skipped sets. Unit tests.
-  3. Log screen: Skip records the skip, skipped sets can be reopened, and
-     Skip stays enabled while any set is open. Today progress and History
-     show skips. Unit tests.
-  4. Export and import of skips, README. E2E: skip every set of an
-     exercise, see it done on Today, reopen one set, reload, and see it in
-     History.
+  3. [x] Log screen: Skip records the skip, skipped sets can be reopened, and
+     Skip stays enabled while any set is open. Today progress shows skips;
+     a day with only skips gets no History card. Unit and E2E tests.
+  4. [ ] Still open: export and import of skips, and an E2E run through
+     History. Not done in this PR; the README documents skips.
+  - **Follow-ups found in review, not in this PR:** a date with only skips
+    still counts as "nothing logged" for combine Undo and combine offers
+    (`ui/today.ts`, `program/combineOffers.ts`); the import summary counts
+    skip-only sessions as sessions (`export/import.ts`); "Log all as
+    planned" keeps the open set's draft (done in this PR) but not its
+    note on a skipped set.
   - **Merge point:** Skip does what Ed expects, and a whole exercise can be
     skipped.
 - **PR 33 — Log sets from the EMOM timer** *(behavior change)*

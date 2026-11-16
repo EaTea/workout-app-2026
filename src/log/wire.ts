@@ -215,11 +215,7 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
     sets.push(set);
   });
 
-  const skippedSets = skippedSetsFromWire(record.skippedSets, `${path}.skippedSets`, sets, problems);
-  if (sets.length === 0 && skippedSets.length === 0) return undefined;
-
   const session: LoggedSession = { date, sets };
-  if (skippedSets.length > 0) session.skippedSets = skippedSets;
 
   // programWeek and day are only History context: a bad value drops that field, not the sets.
   if (record.programWeek !== undefined) {
@@ -236,6 +232,11 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
       recordProblem(problems, error, 0);
     }
   }
+
+  // Skips are read last, because whether a skip and a logged set are the same set depends on the session's day.
+  const skippedSets = skippedSetsFromWire(record.skippedSets, `${path}.skippedSets`, session, problems);
+  if (sets.length === 0 && skippedSets.length === 0) return undefined;
+  if (skippedSets.length > 0) session.skippedSets = skippedSets;
   return session;
 }
 
@@ -244,7 +245,7 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
  * set which is also logged is dropped: the logged set wins, as `logSet` makes
  * it. A bad entry is set aside with a message; it does not cost any sets.
  */
-function skippedSetsFromWire(raw: unknown, path: string, loggedSets: LoggedSet[], problems: LogReadProblems): SkippedSet[] {
+function skippedSetsFromWire(raw: unknown, path: string, session: LoggedSession, problems: LogReadProblems): SkippedSet[] {
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) {
     problems.messages.push(new LogWireError(`${path}: expected an array`).message);
@@ -261,9 +262,13 @@ function skippedSetsFromWire(raw: unknown, path: string, loggedSets: LoggedSet[]
       recordProblem(problems, error, 0);
       return;
     }
-    const isLogged = loggedSets.some((set) =>
-      set.exerciseId === skip.exerciseId && set.blockPosition === skip.blockPosition && set.setNumber === skip.setNumber && isSetOnDay(set, skip.day));
-    if (isLogged) return;
+    // Same rule as operations.ts (`isSameSkip`): a missing day means the session's day, on both sides.
+    const skipDay = skip.day ?? session.day;
+    const isLogged = session.sets.some((set) =>
+      set.exerciseId === skip.exerciseId && set.blockPosition === skip.blockPosition && set.setNumber === skip.setNumber && (set.day ?? session.day) === skipDay);
+    const isDuplicate = skips.some((kept) =>
+      kept.exerciseId === skip.exerciseId && kept.blockPosition === skip.blockPosition && kept.setNumber === skip.setNumber && (kept.day ?? session.day) === skipDay);
+    if (isLogged || isDuplicate) return;
     skips.push(skip);
   });
   return skips;

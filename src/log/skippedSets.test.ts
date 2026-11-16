@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkoutLog } from "./model";
-import { logSet, skipSet, skippedSetNumbersForItem, setsForItem } from "./operations";
+import { deleteSet, logSet, skipSet, skippedSetNumbersForItem, setsForItem } from "./operations";
 import { formatProgress } from "./itemSets";
 import { logFromWire, logToWire } from "./wire";
 
@@ -112,6 +112,56 @@ describe("wire form of skips", () => {
 
     expect(problems.messages).toEqual([]);
     expect(log.sessions[DATE]?.skippedSets).toEqual([{ exerciseId: "pull_up", blockPosition: 2, setNumber: 2 }]);
+  });
+});
+
+describe("skip day rules", () => {
+  it("a skip with no day of its own is still found on its session's day", () => {
+    const log = skipSet(emptyLog, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3 }, { programWeek: 1, day: 1 });
+
+    expect(skippedSetNumbersForItem(log, DATE, 2, "pull_up", 1)).toEqual([3]);
+  });
+
+  it("a skip records the day it was taken on, so a later change of the session's day does not move it", () => {
+    const log = skipSet(emptyLog, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3 }, { programWeek: 1, day: 1 });
+
+    expect(log.sessions[DATE]?.skippedSets?.[0]?.day).toBe(1);
+  });
+
+  it("logging a combined Day 2 set does not clear the Day 1 skip", () => {
+    let log = skipSet(emptyLog, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3, day: 1 }, { programWeek: 1, day: 1 });
+    log = logSet(log, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3, day: 2, reps: 6, loggedAt: new Date("2026-11-02T10:00:00Z") }, { programWeek: 1, day: 1 });
+
+    expect(skippedSetNumbersForItem(log, DATE, 2, "pull_up", 1)).toEqual([3]);
+  });
+
+  it("deleting a logged set keeps the skips on the same session", () => {
+    let log = skipSet(emptyLog, DATE, { ...KEY, setNumber: 4 }, CONTEXT);
+    log = logSet(log, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3, reps: 6, loggedAt: new Date("2026-11-02T10:00:00Z") }, CONTEXT);
+    log = deleteSet(log, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3 });
+
+    expect(log.sessions[DATE]?.sets).toEqual([]);
+    expect(skippedSetNumbersForItem(log, DATE, 2, "pull_up")).toEqual([4]);
+  });
+
+  it("a duplicate stored skip is kept once", () => {
+    const wire = {
+      version: 1,
+      sessions: [{ date: DATE, day: 1, sets: [], skippedSets: [{ exerciseId: "pull_up", blockPosition: 2, setNumber: 3 }, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3 }] }],
+    };
+    const { log, problems } = logFromWire(wire);
+
+    expect(problems.messages).toEqual([]);
+    expect(log.sessions[DATE]?.skippedSets).toHaveLength(1);
+  });
+
+  it("a stored combined skip survives a reload next to a Day 2 logged set with the same block and number", () => {
+    const log = skipSet(emptyLog, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3, day: 1 }, { programWeek: 1, day: 1 });
+    const withDayTwoSet = logSet(log, DATE, { exerciseId: "pull_up", blockPosition: 2, setNumber: 3, day: 2, reps: 6, loggedAt: new Date("2026-11-02T10:00:00Z") }, { programWeek: 1, day: 1 });
+    const { log: readBack, problems } = logFromWire(JSON.parse(JSON.stringify(logToWire(withDayTwoSet))));
+
+    expect(problems.messages).toEqual([]);
+    expect(readBack.sessions[DATE]?.skippedSets).toEqual([{ exerciseId: "pull_up", day: 1, blockPosition: 2, setNumber: 3 }]);
   });
 });
 

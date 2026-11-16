@@ -129,8 +129,11 @@ export function skipSet(log: WorkoutLog, date: string, key: SetKey, context: Ses
   const skippedSets = session.skippedSets ?? [];
   if (skippedSets.some((candidate) => isSameSkip(session, candidate, key))) return log;
 
+  // A skip always records its day (the row's own day, or the session's), so it stays on that day's row
+  // even if the session's day later changes (a moved start date). Skips never mean "any day".
   const skip: SkippedSet = { exerciseId: key.exerciseId, blockPosition: key.blockPosition, setNumber: key.setNumber };
-  if (key.day !== undefined) skip.day = key.day;
+  const skipDay = key.day ?? session.day;
+  if (skipDay !== undefined) skip.day = skipDay;
 
   return withSession(log, date, { ...session, skippedSets: [...skippedSets, skip] });
 }

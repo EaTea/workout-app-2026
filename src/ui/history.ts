@@ -105,7 +105,7 @@ export function renderHistoryScreen(
   function handleDelete(date: string, set: LoggedSet): void {
     commit((freshLog) => deleteSet(freshLog, date, keyOf(set)));
     editing = undefined;
-    draw(log.sessions[date] !== undefined ? cardFocusName(date) : PAGE_HEADING_FOCUS_NAME);
+    draw((log.sessions[date]?.sets.length ?? 0) > 0 ? cardFocusName(date) : PAGE_HEADING_FOCUS_NAME);
   }
 
   /** Name for the focus target of a session card's heading. */

@@ -316,7 +316,8 @@ export function renderLogScreen(
     if (currentSetNumber === undefined || isFutureDate) return;
     const skippedNumber = currentSetNumber;
     message = undefined;
-    commit((freshLog) => skipSet(freshLog, date, { exerciseId: trackedItem.exercise.id, day: isCombined ? dayNumber : undefined, blockPosition, setNumber: skippedNumber }, sessionContext));
+    // The row's own day is always given, so the skip stays on this row's day even on a combined date.
+    commit((freshLog) => skipSet(freshLog, date, { exerciseId: trackedItem.exercise.id, day: dayNumber, blockPosition, setNumber: skippedNumber }, sessionContext));
     if (message !== undefined) {
       drawAndFocus();
       return;
@@ -344,8 +345,9 @@ export function renderLogScreen(
     const simulatedSets = [...loggedSets()];
 
     for (let setNumber = 1; setNumber <= totalSets; setNumber++) {
-      // Logged and skipped sets are left as they are.
-      if (closedNumbers().includes(setNumber)) continue;
+      // Logged and skipped sets are left as they are, except the set open on screen: its draft (what the steppers show) is logged.
+      const isOpenOnScreen = setNumber === currentSetNumber;
+      if (closedNumbers().includes(setNumber) && !isOpenOnScreen) continue;
 
       const values: SetDraft = setNumber === currentSetNumber
         ? draft
