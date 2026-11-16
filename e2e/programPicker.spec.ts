@@ -31,9 +31,9 @@ test.describe("first visit", () => {
     await expect(page.getByRole("button", { name: /Explosive Endurance Program/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Steady Strength/ })).toBeVisible();
 
-    // The headline times are rounded to 15 minutes: Steady Strength is 135 min, Explosive 242 min.
+    // The headline times are rounded to 15 minutes: Steady Strength is 135 min, Explosive 249 min (rounds to 4 h 15 min).
     await expect(page.getByRole("button", { name: /Steady Strength/ })).toContainText("about 2 h 15 min a week");
-    await expect(page.getByRole("button", { name: /Explosive Endurance Program/ })).toContainText("about 4 h a week");
+    await expect(page.getByRole("button", { name: /Explosive Endurance Program/ })).toContainText("about 4 h 15 min a week");
 
     // 2. Choosing Steady Strength opens its overview, with the safety card.
     await page.getByRole("button", { name: /Steady Strength/ }).click();

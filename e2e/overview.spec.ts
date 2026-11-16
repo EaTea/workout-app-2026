@@ -11,7 +11,7 @@ test("first visit lands on the overview and its one call to action starts Day 1"
   await page.goto("/?date=2026-11-09");
 
   await expect(page.getByRole("heading", { level: 1, name: "Program overview" })).toBeVisible();
-  await expect(page.getByText("8 weeks · 6 training days a week · about 4 h a week")).toBeVisible();
+  await expect(page.getByText("8 weeks · 6 training days a week · about 4 h 15 min a week")).toBeVisible();
 
   // The week strip and the four phases.
   await expect(page.locator(".overview-week")).toHaveText(["1", "2", "3", "4", "5", "6", "7", "8"]);

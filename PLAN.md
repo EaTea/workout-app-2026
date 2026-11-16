@@ -2442,6 +2442,17 @@ accepted, since these are estimates.
 
 1. **Changing your mind.** Allowed until the first bag round is logged.
 
+### Day 3 on-the-spot crawl *(behavior change, content only)*
+
+Ed asked for an extra finisher on Day 3: an on-the-spot crawl with the legs
+off the ground, 5 rounds of 1 minute with 30 seconds rest between rounds. He
+confirmed the placement (a finisher after the core work), the 30-second rest,
+no deload change, and that Day 3's target can grow.
+
+1. [x] Add an `on_the_spot_crawl` exercise and a Day 3 finisher block to
+       `public/program.json`, and extend Day 3's `targetMinutes` from 40 to 47.
+2. [x] Mirror the change in the program document (kept in the project files, not this repo)'s Day 3 row and notes.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.

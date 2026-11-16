@@ -132,6 +132,12 @@
       "cues": ["Post one hand and turn over into a quadruped, knees hovering", "Sprawl fast: legs back, hips to the floor, chest up", "Snap back to the quadruped, then switch into the crab", "Alternate the turn direction each rep"],
       "evidence": "coaching practice"
     },
+    "on_the_spot_crawl": {
+      "name": "On-the-spot crawl",
+      "category": "finisher",
+      "cues": ["Hands and feet on the floor, hips low", "Lift the knees and hips so the legs come off the ground", "Crawl on the spot: move the hands and feet without travelling", "Keep the back flat and the core braced"],
+      "evidence": "coaching practice"
+    },
 
     "backpack_slam": {
       "name": "Backpack slams",
@@ -283,7 +289,7 @@
     {
       "day": 3,
       "focus": "Upper: push",
-      "targetMinutes": 40,
+      "targetMinutes": 47,
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
           { "exercise": "pallof_press", "reps": "12-15", "noEquipment": { "exercise": "plank_shoulder_tap", "reps": "12–15 per side" } },
@@ -303,6 +309,9 @@
         { "type": "core", "format": "superset", "restSecBetweenPairs": [45, 60], "items": [
           { "exercise": "crab_knee_to_elbow", "sets": 3, "reps": 10, "note": "Alternate sides, 5 each. Hips stay up." },
           { "exercise": "crab_base_switch_sprawl", "sets": 3, "reps": 6, "note": "Alternate the turn direction. Sprawl fast, knees hover in the quadruped. End the set if the sprawls slow down." }
+        ]},
+        { "type": "finisher", "items": [
+          { "exercise": "on_the_spot_crawl", "format": "interval", "rounds": 5, "workSec": 60, "restSec": 30, "note": "5 rounds of 1 minute, 30 seconds rest between rounds. Legs come off the ground." }
         ]}
       ]
     },
