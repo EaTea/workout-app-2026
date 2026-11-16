@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 28 are merged (#3 to #36). PR 29 (optional boxing on Today) and PR 30 (the gear-up break before the heavy bag) are being built in parallel.**
+Status: **PR 1 to PR 28 and PR 30 are merged (#3 to #37). PR 29 (optional boxing on Today) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -2292,7 +2292,7 @@ PR 29 and PR 30 implement it.
  Upper: pull · ~50 min                ┌──────────────────────────┐
  ┌───────────────────────────────┐    │        GEAR UP           │
  │ Boxing today?                 │    │         1:42             │
- │ [ Box ✓ ]   [ Skip boxing ]   │    │ Wrap hands, gloves on    │
+ │ [ Yes ✓ ]   [ Skip ]          │    │ Wrap hands, gloves on    │
  └───────────────────────────────┘    │ then round 1 by itself   │
  1 Warm-up ...                        │ [ ❚❚ Pause ] [ Ready › ] │
  ...                                  └──────────────────────────┘
@@ -2315,10 +2315,14 @@ PR 29 and PR 30 implement it.
 2. **When the question shows.** On a training day whose session has an
    optional block, a "Boxing today?" card sits just under the header (in
    the same place as the combine buttons, so it's seen before starting).
-   Two buttons: **Box** (selected by default: the program as written) and
-   **Skip boxing**. Ed can change his mind until a round of that block is
-   logged; after that the card is gone. It shows on `?date=` previews too
-   (backfilling a session that had no boxing), unlike combining.
+   Two buttons: **Yes** (selected by default: the program as written) and
+   **Skip** (fixed words, so any `label` reads well; their accessible
+   names include the label). Once skipped, the card goes and the block's
+   "Add it back" line is the way back. Ed can change his mind until a
+   round of that block is logged; after that the card is gone, and a
+   logged round always wins over a stored skip. It shows on today and on
+   past `?date=` previews (backfilling a session that had no boxing), but
+   not on future dates, which take no writes elsewhere either.
 3. **When boxing is skipped.**
    - Today replaces the finisher card with one line, "Boxing skipped
      today · Add it back". Block numbers don't change (blocks keep their
@@ -2372,18 +2376,25 @@ PR 29 and PR 30 implement it.
 **Steps.**
 
 - **PR 29 — Optional boxing on Today** *(behavior change)*
-  1. Block `optional` in the wire types, parser and model (rule 1), and
+  1. [x] Block `optional` in the wire types, parser and model (rule 1), and
      the field on Days 1 and 5 in `public/program.json`. Unit tests and
      data tests over the shipped file.
-  2. The `optionalBlockChoices` store: model, wire, parse/serialize,
+  2. [x] The `optionalBlockChoices` store: model, wire, parse/serialize,
      storage, export and import (rule 5). Unit tests.
-  3. Applying a skip to the session view, header minutes and block count,
+  3. [x] Applying a skip to the session view, header minutes and block count,
      and session progress (rule 3). Unit tests for the worked examples.
-  4. The "Boxing today?" card and the skipped line on Today, single and
+  4. [x] The "Boxing today?" card and the skipped line on Today, single and
      combined days, and "Boxing skipped" in History. E2E: skip on Week 2
      Day 1, header reads ~43 min · 5 blocks, add it back, log a round and
      the card goes away.
-  5. README "Editing program.json" documents the block field.
+  5. [x] README "Editing program.json" documents the block field.
+  6. [x] Fixes from the challenger review: a logged round now wins over a
+     stored skip (it used to leave Today stuck on "Boxing skipped");
+     History only lists skips for the session's own days; no question on
+     future dates; fixed "Yes"/"Skip" buttons instead of deriving "Box"
+     from the label; the question hides once skipped; README data and
+     import sections; E2E for combined, past and future dates. Accepted:
+     the combined-day estimate is about a minute high (see below).
   - **Merge point:** boxing can be skipped before a session and the
     session completes without it.
 - **PR 30 — Gear-up break before the heavy bag** *(behavior change)*
@@ -2398,13 +2409,17 @@ PR 29 and PR 30 implement it.
   - **Merge point:** the bag timer opens with a gear-up countdown that
     runs into round 1 without a tap.
 
-The two PRs don't depend on each other and can land in either order.
+The two PRs don't depend on each other. PR 30 landed first (#37), so PR
+29 merged `main` and its figures include the 2:00 gear-up (~43 min). On a
+combined day the skip takes off the full 5-round estimate (7 min) though
+the combined bag would run 4 rounds, so the header is about a minute low;
+accepted, since these are estimates.
 
 **Worked examples** (start 2 Nov, as in section 6):
 
 | Date | Situation | Expected |
 | --- | --- | --- |
-| 9 Nov (W2 D1) | Nothing logged, nothing chosen | "Boxing today?" with Box selected; ~50 min · 6 blocks |
+| 9 Nov (W2 D1) | Nothing logged, nothing chosen | "Boxing today?" with Yes selected; ~50 min · 6 blocks |
 | 9 Nov (W2 D1) | Skip boxing | Finisher shows "Boxing skipped today · Add it back"; ~43 min · 5 blocks; logging every other set completes the session |
 | 9 Nov (W2 D1) | One bag round logged | No card; the choice can no longer change |
 | 13 Nov (W2 D5) | Bag timer opened | Setup row: Work 30s · Rest 30s · 5 rounds · Gear up 2:00; Start shows GEAR UP 2:00, then round 1 of 5 |
@@ -2415,7 +2430,7 @@ The two PRs don't depend on each other and can land in either order.
 
 **Decided by Ed (14 Nov):**
 
-- **Default:** Box is pre-selected, so not answering means boxing as
+- **Default:** Yes (box) is pre-selected, so not answering means boxing as
   written.
 - **Gear-up break:** kept. It counts down (2:00 by default) and starts
   round 1 by itself, so Start is tapped bare-handed and nothing is tapped

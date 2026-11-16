@@ -5,7 +5,8 @@ import type { LoggedSession, LoggedSet, WorkoutLog } from "../log/model";
 import { deleteSet, editSet, sessionDates, type SetKey } from "../log/operations";
 import { element } from "./dom";
 import { formatSetsSummary } from "./format";
-import { formatSessionHeader, loggedSetLabel, loggedSetNoun, loggedSetShowsRepsAndLoad, performedExerciseName } from "./historyText";
+import type { SkippedBlocksByDate } from "../optionalBlocks/model";
+import { formatSessionHeader, loggedSetLabel, skippedBlockLines, loggedSetNoun, loggedSetShowsRepsAndLoad, performedExerciseName } from "./historyText";
 import type { ChangeLog } from "./logChange";
 import { renderProgressSection } from "./progressChart";
 import { renderSetEditor, type SetEditorValues } from "./setEditor";
@@ -57,6 +58,7 @@ export function renderHistoryScreen(
   program: Program,
   initialLog: WorkoutLog,
   changeLog: ChangeLog,
+  skippedOptionalBlocks: SkippedBlocksByDate = new Map(),
 ): HTMLElement {
   const screen = element("section", "screen history-screen");
 
@@ -157,6 +159,11 @@ export function renderHistoryScreen(
     header.tabIndex = -1;
     focusTargets.set(cardFocusName(session.date), header);
     card.append(header);
+
+    // "Boxing skipped" for each optional block the athlete skipped that day, so the unlogged bag isn't a mystery.
+    for (const line of skippedBlockLines(program, skippedOptionalBlocks.get(session.date), session)) {
+      card.append(element("p", "history-exercise-note", line));
+    }
 
     for (const group of groupSetsByExercise(session)) {
       card.append(renderExerciseRow(session, group));

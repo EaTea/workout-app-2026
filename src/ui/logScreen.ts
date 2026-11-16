@@ -5,6 +5,7 @@ import type { BlockView, ItemView } from "../program/schedule";
 import type { NoEquipmentTicks } from "../noEquipment/model";
 import type { CombinesByDate } from "../combine/model";
 import { buildSwappedSessionFor } from "../noEquipment/session";
+import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { todayLocalDate } from "../program/calendar";
 import { blockSlotsOf } from "../program/combine";
 import { activeCombineOn, activeDonorOn } from "../program/combineOffers";
@@ -109,8 +110,9 @@ interface SetDraft {
  * "Show me" for exercises that have an animation.
  *
  * `day` is the program day from the route (absent in an old-form link: the
- * date's own day), and `combines` the stored combines, so the screen builds the
- * same session Today showed (`buildSwappedSessionFor`).
+ * date's own day), `combines` the stored combines and
+ * `skippedOptionalBlocks` the stored skips, so the screen builds the same
+ * session Today showed (`buildSwappedSessionFor`).
  */
 export function renderLogScreen(
   program: Program,
@@ -125,11 +127,12 @@ export function renderLogScreen(
   noEquipmentTicks: NoEquipmentTicks = new Map(),
   day?: DayNumber,
   combines: CombinesByDate = new Map(),
+  skippedOptionalBlocks: SkippedBlocksByDate = new Map(),
 ): HTMLElement {
   const screen = element("section", "screen log-screen");
   // The swapped session, so a swapped item is found under the swap's id (the one in the address)
   // and logs, pre-fills and shows "last time" as the swap. A combined date gives the merged session.
-  const { session } = buildSwappedSessionFor(program, settings, initialLog, noEquipmentTicks, combines, date, realToday);
+  const { session } = buildSwappedSessionFor(program, settings, initialLog, noEquipmentTicks, combines, date, realToday, skippedOptionalBlocks);
   const combine = activeCombineOn(program, settings.startDate, date, combines, initialLog, realToday);
 
   // A donor date (its day was folded into another date) shows "Day N done with ..." on Today and no

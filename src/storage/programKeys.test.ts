@@ -19,6 +19,7 @@ describe("storageKeysForProgram", () => {
       retestJumpSkipped: "explosive-endurance.retest-jump-skipped",
       noEquipment: "explosive-endurance.no-equipment",
       combines: "explosive-endurance.combines",
+      optionalBlockChoices: "explosive-endurance.optional-block-choices",
       importBackupPrefix: "explosive-endurance.import-backup-",
     });
   });

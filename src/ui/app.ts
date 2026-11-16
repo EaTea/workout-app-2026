@@ -31,6 +31,9 @@ import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramL
 import { renderTodayScreen } from "./today";
 import { loadTicks, setTick } from "../noEquipment/storage";
 import { buildSwappedSessionFor } from "../noEquipment/session";
+import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
+import type { OptionalBlockControl } from "./optionalBlockCards";
+import { loadOptionalBlockChoices, setBlockSkipped } from "../optionalBlocks/storage";
 import type { Combine, CombinesByDate } from "../combine/model";
 import { activeCombineOn } from "../program/combineOffers";
 import { addCombine, loadCombines, removeCombine } from "../combine/storage";
@@ -244,6 +247,8 @@ export function startApp(
   let noEquipmentTicks: NoEquipmentTicks = loadTicks(localStorage, storageKeys.noEquipment);
   /** The days combined into another day's session, by host date (kept in localStorage too; see combine/storage.ts). */
   let combines: CombinesByDate = loadCombines(localStorage, storageKeys.combines);
+  /** The optional blocks (boxing) skipped per date (kept in localStorage too; see optionalBlocks/storage.ts). */
+  let skippedOptionalBlocks: SkippedBlocksByDate = loadOptionalBlockChoices(localStorage, storageKeys.optionalBlockChoices);
   /** The date "Remind me tomorrow" was tapped on the check-in card (kept in localStorage too), or undefined. */
   let checkInSnoozedDate = loadStoredValue(storageKeys.checkInSnoozed, checkInSnoozedFromWire);
   /** The program week whose drop banner was dismissed (kept in localStorage too), or undefined. */
@@ -293,7 +298,7 @@ export function startApp(
     let isWanted = false;
     if (sessionDate !== undefined && sessionDate === resolveToday(window.location.search)) {
       try {
-        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate()).session, log, sessionDate, new Date());
+        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate(), skippedOptionalBlocks).session, log, sessionDate, new Date());
       } catch {
         isWanted = false;
       }
@@ -351,6 +356,26 @@ export function startApp(
 
     combines = result.combines;
     render();
+    return null;
+  }
+
+  /**
+   * "Skip boxing" / "Box" / "Add it back" tapped on the shown date: stores the
+   * choice for that block (`setBlockSkipped`) and re-renders Today, which then
+   * shows or hides the block and its minutes. Returns null on success or the
+   * failure message for Today to show.
+   */
+  function handleSetBlockSkipped(blockKey: OptionalBlockKey, skipped: boolean, focusAfter: OptionalBlockControl): string | null {
+    // Like other writes to a future date, a skip is refused (Today doesn't offer the buttons there either).
+    if (shownDate > todayLocalDate()) return "Boxing can't be chosen for a future date.";
+
+    const result = setBlockSkipped(localStorage, storageKeys.optionalBlockChoices, shownDate, blockKey, skipped);
+    if (!result.ok) return result.error;
+
+    skippedOptionalBlocks = result.skipsByDate;
+    render();
+    // The tapped button is gone after the re-render: focus its counterpart, as the No equipment tick does.
+    document.querySelector<HTMLElement>(`[data-optional-block-key="${CSS.escape(blockKey)}"][data-optional-block-control="${focusAfter}"]`)?.focus();
     return null;
   }
 
@@ -425,6 +450,7 @@ export function startApp(
     fatigueHistory = loadedFatigue.history;
     // An import replaces the stored combines too (an import without any clears them).
     combines = loadCombines(localStorage, storageKeys.combines);
+    skippedOptionalBlocks = loadOptionalBlockChoices(localStorage, storageKeys.optionalBlockChoices);
     logWarningDismissed = false;
     fatigueLoadWarningDismissed = false;
     checkInDraft = undefined;
@@ -764,9 +790,9 @@ export function startApp(
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
-        main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines));
+        main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines, skippedOptionalBlocks));
       } else if (route === "history") {
-        main.append(renderHistoryScreen(program, log, changeLog));
+        main.append(renderHistoryScreen(program, log, changeLog, skippedOptionalBlocks));
       } else if (route === "plan" && planTarget !== undefined) {
         const planScreen = renderDayPlanScreen(program, storageKeys.programId, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
         if (planScreen !== undefined) main.append(planScreen);
@@ -804,6 +830,10 @@ export function startApp(
             onAdd: handleAddCombine,
             onUndo: handleUndoCombine,
           },
+        }, {
+          skippedByDate: skippedOptionalBlocks,
+          canChoose: shownDate <= todayLocalDate(),
+          onSetSkipped: handleSetBlockSkipped,
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.

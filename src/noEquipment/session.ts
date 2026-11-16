@@ -1,5 +1,7 @@
 import type { Combine, CombinesByDate } from "../combine/model";
 import type { WorkoutLog } from "../log/model";
+import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
+import { applySkippedBlocks } from "../optionalBlocks/session";
 import { combineSessions, type CombinedSession } from "../program/combine";
 import { activeCombineOn } from "../program/combineOffers";
 import { applyNoEquipmentChoices } from "../program/noEquipment";
@@ -9,6 +11,9 @@ import type { TrainingSettings } from "../settings/model";
 import { noEquipmentChoices } from "./choices";
 import type { NoEquipmentTicks } from "./model";
 import { ticksForDate } from "./storage";
+
+/** "Nothing skipped": the default for callers that don't pass the date's skipped optional blocks. */
+const NO_SKIPPED_BLOCKS: ReadonlySet<OptionalBlockKey> = new Set();
 
 /** A date's session with its "No equipment" choices applied, plus which choices logged sets have locked. */
 export interface SwappedSession {
@@ -30,8 +35,10 @@ export interface SwappedSession {
  *
  * Used by Today, the log screen and app.ts's wake-lock check, so they agree
  * on which exercise id an item's sets belong to. The day plan and overview
- * deliberately keep using the plain `buildSession`. Throws what `buildSession`
- * throws (a program gap on the date).
+ * deliberately keep using the plain `buildSession`. `skippedBlockKeys` are the
+ * date's skipped optional blocks (`optionalBlocks/session.ts`); they are marked
+ * last, so the minutes and the progress checks see them. Throws what
+ * `buildSession` throws (a program gap on the date).
  */
 export function buildSwappedSession(
   program: Program,
@@ -39,12 +46,13 @@ export function buildSwappedSession(
   log: WorkoutLog,
   ticks: NoEquipmentTicks,
   date: string,
+  skippedBlockKeys: ReadonlySet<OptionalBlockKey> = NO_SKIPPED_BLOCKS,
 ): SwappedSession {
   const unswappedSession = buildSession(program, settings, date);
   const choices = noEquipmentChoices(unswappedSession, log, date, ticksForDate(ticks, date));
 
   return {
-    session: applyNoEquipmentChoices(unswappedSession, choices.swapped),
+    session: applySkippedBlocks(applyNoEquipmentChoices(unswappedSession, choices.swapped), skippedBlockKeys, log, date),
     locked: choices.locked,
   };
 }
@@ -91,7 +99,10 @@ export interface SwappedCombinedSession {
  * ("2.3:single_leg_rdl") because both days have a block 3. A plain key ticked
  * on the host date before combining ("3:pull_up", from the single-day screen)
  * counts as the HOST day's tick, so "Add Day 2" does not drop it. Throws what
- * `buildSession` or `combineSessions` throws; callers go through
+ * `buildSession` or `combineSessions` throws. `skippedBlockKeys` (stored under
+ * the HOST date) hold day-qualified keys, so each day's skips are applied to
+ * that day's session before merging and the combined minutes drop the same
+ * way; callers go through
  * `buildSwappedSessionFor`, which only combines a still-valid combine.
  */
 export function buildSwappedCombinedSession(
@@ -101,6 +112,7 @@ export function buildSwappedCombinedSession(
   ticks: NoEquipmentTicks,
   hostDate: string,
   combine: Combine,
+  skippedBlockKeys: ReadonlySet<OptionalBlockKey> = NO_SKIPPED_BLOCKS,
 ): SwappedCombinedSession {
   const locked = new Set<string>();
   const ticksOfHostDate = withHostDayTicksQualified(ticksForDate(ticks, hostDate), combine.hostDay);
@@ -110,7 +122,7 @@ export function buildSwappedCombinedSession(
     const unswapped = buildSession(program, settings, dateOfDay);
     const choices = noEquipmentChoices(unswapped, log, hostDate, ticksOfHostDate, true);
     for (const key of choices.locked) locked.add(key);
-    return applyNoEquipmentChoices(unswapped, choices.swapped, true);
+    return applySkippedBlocks(applyNoEquipmentChoices(unswapped, choices.swapped, true), skippedBlockKeys, log, hostDate);
   }
 
   const hostSession = swappedDay(hostDate);
@@ -131,9 +143,14 @@ export interface SessionForDate {
  * Builds whatever session `date` shows: the combined session when a still
  * valid combine is stored for the date (`activeCombineOn`, which also skips
  * a lapsed one, hence the log and the device's `realToday`), else the normal
- * swapped session. Used by Today, the log screen and app.ts's wake-lock
- * check, so all three agree on which rows exist and which day each belongs to.
- * A stale combine (e.g. the start date moved) is ignored, never an error.
+ * swapped session.
+ *
+ * `skippedBlocks` are all the stored skips; only the shown date's apply, and
+ * a block with a set logged on that date is never skipped (logged sets win).
+ *
+ * Used by Today, the log screen and app.ts's wake-lock check, so all three
+ * agree on which rows exist and which day each belongs to. A stale combine
+ * (e.g. the start date moved) is ignored, never an error.
  */
 export function buildSwappedSessionFor(
   program: Program,
@@ -143,9 +160,12 @@ export function buildSwappedSessionFor(
   combines: CombinesByDate,
   date: string,
   realToday: string,
+  skippedBlocks: SkippedBlocksByDate = new Map(),
 ): SessionForDate {
-  const combine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
-  if (combine !== undefined) return buildSwappedCombinedSession(program, settings, log, ticks, date, combine);
+  const skippedBlockKeys = skippedBlocks.get(date) ?? NO_SKIPPED_BLOCKS;
 
-  return buildSwappedSession(program, settings, log, ticks, date);
+  const combine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
+  if (combine !== undefined) return buildSwappedCombinedSession(program, settings, log, ticks, date, combine, skippedBlockKeys);
+
+  return buildSwappedSession(program, settings, log, ticks, date, skippedBlockKeys);
 }

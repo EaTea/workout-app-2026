@@ -629,3 +629,16 @@ describe("Day 3 crab core block (PLAN.md PR 13)", () => {
     expect(item(trainingOn("2026-11-04").blocks, "crab_base_switch_sprawl").note).toContain("End the set if the sprawls slow down");
   });
 });
+
+describe("optional block label on block views", () => {
+  it("is carried onto the Day 1 finisher view and absent on its other blocks", () => {
+    const { blocks } = trainingOn("2026-11-09");
+    expect(block(blocks, "finisher").optional).toEqual({ label: "Boxing" });
+    expect(block(blocks, "core").optional).toBeUndefined();
+  });
+
+  it("is absent on a day with no optional block", () => {
+    const { blocks } = trainingOn("2026-11-10");
+    expect(blocks.every((candidate) => candidate.optional === undefined)).toBe(true);
+  });
+});

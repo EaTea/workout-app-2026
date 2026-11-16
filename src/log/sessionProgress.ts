@@ -46,6 +46,9 @@ export function isSessionInProgress(session: SessionView | CombinedSession, log:
   let hasItemWithSetsLeft = false;
 
   for (const { source, block } of blockSlotsOf(session)) {
+    // A block the athlete chose to skip (boxing) neither holds the session open nor counts its sets.
+    if (block.skipped) continue;
+
     for (const item of block.items) {
       const loggedCount = setsForItem(log, date, source.blockPosition, item.exercise.id, source.day).length;
       totalLoggedSets += loggedCount;
