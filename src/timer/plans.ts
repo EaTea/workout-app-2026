@@ -158,7 +158,7 @@ export function defaultRestSeconds(range: Range): number {
  * Builds the plan for a rest between sets: one "rest" segment, titled e.g.
  * "Rest · Med ball slams". Its finish cue (see timer/cues.ts) is the signal
  * to start the next set. `exerciseName` may also be a phrase such as
- * "Between pairs" for a superset block. Called first with the default and
+ * "After each superset" for a superset block. Called first with the default and
  * again each time Ed changes the seconds stepper. Throws below 5 seconds.
  */
 export function buildRestPlan(seconds: number, exerciseName: string): TimerPlan {

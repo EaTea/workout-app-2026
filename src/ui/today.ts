@@ -510,10 +510,10 @@ function appendBlockBody(
     const restRow = element("div", "block-rest");
     restRow.append(renderStartRestButton(
       block.restSecBetweenPairs,
-      "Between pairs",
+      "After each superset",
       restMemoryKey(date, slot.blockPosition, "between-pairs", keyDayOf(slot)),
       undefined,
-      " between pairs",
+      " after each superset",
     ));
     card.append(restRow);
 
@@ -782,7 +782,7 @@ function renderStartIntervalButton(item: ItemView, gearUpMemoryKey: string): HTM
  * focus stay put). A fresh render reads the remembered value too.
  *
  * The visible text is "Rest 30s" plus an optional `visibleSuffix` (the
- * between-pairs button says "Rest 45s between pairs" since no exercise row
+ * after-each-superset button says "Rest 45s after each superset" since no exercise row
  * names it). `accessibleContext`, when given, is appended to the visible text
  * for the accessible name ("Rest 30s, Med ball slams"), so the visible label
  * stays at the start of the name (WCAG 2.5.3); without it the visible text is

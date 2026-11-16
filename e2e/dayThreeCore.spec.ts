@@ -29,9 +29,9 @@ test("Day 3 Today shows the crab core superset and its Rest button starts at 45s
   const coreCard = page.locator(".block-card", { hasText: "Core" });
   await expect(row(page, "Crab knee-to-elbow touch").locator(".item-dose-main")).toHaveText("3 × 10");
   await expect(row(page, "Crab to base switch and sprawl").locator(".item-dose-main")).toHaveText("3 × 6");
-  await expect(coreCard.locator(".block-rest")).toContainText("Rest 45s between pairs");
+  await expect(coreCard.locator(".block-rest")).toContainText("Rest 45s after each superset");
 
-  await coreCard.getByRole("button", { name: /Rest 45s between pairs/ }).click();
+  await coreCard.getByRole("button", { name: /Rest 45s after each superset/ }).click();
   const restOverlay = page.getByRole("dialog", { name: "Rest timer" });
   await expect(restOverlay.locator(".timer-digits")).toHaveText("0:45");
 });
@@ -51,9 +51,9 @@ test("Day 3 in week 5 (power endurance) cuts the core Rest button to 30s", async
   await page.goto("/");
 
   const coreCard = page.locator(".block-card", { hasText: "Core" });
-  await expect(coreCard.locator(".block-rest")).toContainText("Rest 30s between pairs");
+  await expect(coreCard.locator(".block-rest")).toContainText("Rest 30s after each superset");
 
-  await coreCard.getByRole("button", { name: /Rest 30s between pairs/ }).click();
+  await coreCard.getByRole("button", { name: /Rest 30s after each superset/ }).click();
   await expect(page.getByRole("dialog", { name: "Rest timer" }).locator(".timer-digits")).toHaveText("0:30");
 });
 
@@ -61,7 +61,7 @@ test("Day 3 plan for week 5 says the core rest and sets changed from week 4", as
   await seedApp(page, WEEK_1_DAY_3);
   await page.goto("/#/plan/3/5");
 
-  await expect(page.getByText("Changed: rest 45–60s between pairs in week 4")).toBeVisible();
+  await expect(page.getByText("Changed: rest 45–60s after each superset in week 4")).toBeVisible();
   await expect(row(page, "Crab knee-to-elbow touch").locator(".plan-changed")).toHaveText("Changed: 2 × 10 in week 4");
   await expect(row(page, "Crab to base switch and sprawl").locator(".plan-changed")).toHaveText("Changed: 2 × 6 in week 4");
 });

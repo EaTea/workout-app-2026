@@ -1,4 +1,4 @@
-# Explosive Endurance
+# Let's Work!
 
 A mobile-first web app for following an 8-week "Explosive Endurance" training
 program. Today it shows today's session from `public/program.json` (with

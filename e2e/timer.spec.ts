@@ -264,13 +264,13 @@ test("a rest timer from a set: default 30s, raise to 35s, finish cue and buzz", 
 test("the superset block has a between-pairs rest button defaulting to 45s", async ({ page }) => {
   await openToday(page);
 
-  // The visible caption is the whole accessible name, so voice control ("tap Rest 45s between pairs") works.
-  const betweenPairs = page.getByRole("button", { name: "Rest 45s between pairs", exact: true });
-  await expect(betweenPairs).toHaveText("Rest 45s between pairs");
+  // The visible caption is the whole accessible name, so voice control ("tap Rest 45s after each superset") works.
+  const betweenPairs = page.getByRole("button", { name: "Rest 45s after each superset", exact: true });
+  await expect(betweenPairs).toHaveText("Rest 45s after each superset");
   await betweenPairs.click();
 
   const overlay = page.getByRole("dialog", { name: "Rest timer" });
-  await expect(overlay.locator(".timer-title")).toHaveText("Rest · Between pairs");
+  await expect(overlay.locator(".timer-title")).toHaveText("Rest · After each superset");
   await expect(overlay.locator(".timer-digits")).toHaveText("0:45");
 });
 
