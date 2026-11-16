@@ -67,7 +67,9 @@ under keys that start with its id from `programs.json`: `<programId>.settings`,
 `.max-history`, `.log`, `.fatigue`, `.checkin-snoozed`,
 `.fatigue-warning-dismissed`, `.rotation-dismissed`, `.retest-dismissed`,
 `.retest-jump-skipped`, `.no-equipment` (swap ticks per date, pruned after
-14 days, not exported), plus the backup keys `.log.corrupt-<time>`,
+14 days, not exported), `.combines` (days combined into another day's session)
+and `.optional-block-choices` (optional blocks such as boxing skipped on a
+date; both are exported and imported), plus the backup keys `.log.corrupt-<time>`,
 `.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
 (`explosive-endurance`) these are the keys the app has always used. One key is
 app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
@@ -276,16 +278,18 @@ with its own `rounds` or `minutes` (both would still change from week to week).
 
 A whole block can be made optional with a block-level `"optional": { "label":
 "Boxing" }` (the shipped Day 1 and Day 5 heavy bag finishers have it). Today
-then asks "Boxing today?" under the header, with **Box** (the default, the
-program as written) and **Skip boxing**; the choice can be changed until a set
-of that block is logged. A skipped block shows as one line, "Boxing skipped
-today · Add it back", keeps its block number, and leaves out of the header's
-block count, minutes (the length of the block's default timer plan, rounded to
-the nearest minute) and the session's completion; History notes "Boxing
-skipped". `label` must be non-empty text, and `optional` must be an object,
-otherwise the file is an error. This is not the item-level `"optional": true`
-(side plank, hollow hold), which only means "shown, but doesn't hold up
-completion".
+then asks "Boxing today?" under the header, with **Yes** (the default, the
+program as written) and **Skip**. Once skipped, the block shows as one line,
+"Boxing skipped today · Add it back", which keeps its block number; "Add it
+back" is the way to change your mind. A skipped block is no longer counted in
+the header's blocks and minutes (the minutes are the length of the block's
+default timer plan, rounded to the nearest minute) or in whether the session is
+complete, and History notes "Boxing skipped". The question is only offered
+for today and earlier dates, and the choice is final once a set of that block
+is logged: logged sets always win over a skip. `label` must be non-empty text
+and `optional` must be an object, otherwise the file is an error. This is not
+the item-level `"optional": true` (side plank, hollow hold), which only means
+"shown, but doesn't hold up completion".
 
 An item can run in only some weeks with `"weeks"`, a list of program weeks:
 `{ "exercise": "plyo_push_up", "weeks": [1, 3, 5, 7], ... }` shows that item in
@@ -369,7 +373,8 @@ kg, note) for any spreadsheet; `exercise_name` is the program's name and
 UTF-8 byte order mark so Excel reads it correctly. The export reads what is
 stored at the moment you tap the button.
 "Export everything as JSON" gives the log, the weekly checks, your
-settings and the max history (every max you saved, under `maxHistory`) in a
+settings, the max history (every max you saved, under `maxHistory`), the
+combined days and the skipped optional blocks in a
 versioned file (`"format": "explosive-endurance-export"`, `"version": 2`, and
 `"programId"`, the catalogue id of the program the data belongs to),
 plus `corruptLogBackups` if the app ever had to set aside unreadable log text,
@@ -401,7 +406,8 @@ replace my data"); "Cancel" leaves everything as it was.
   stored data is: the readable ones are kept and the preview lists what was
   left out. Files exported before the max history was added (no `maxHistory`)
   and files with older settings versions still import.
-- Importing replaces the log, weekly checks, settings and max history. Before
+- Importing replaces the log, weekly checks, settings, max history, combined
+  days and skipped optional blocks (boxing). Before
   anything is written, the current data is saved as a backup in the browser
   (key `<programId>.import-backup-<time>`), itself a complete export
   file (written compactly, with the exact stored text of each key inside). The

@@ -110,8 +110,9 @@ interface SetDraft {
  * "Show me" for exercises that have an animation.
  *
  * `day` is the program day from the route (absent in an old-form link: the
- * date's own day), and `combines` the stored combines and `skippedOptionalBlocks` the stored skips, so the screen builds the
- * same session Today showed (`buildSwappedSessionFor`).
+ * date's own day), `combines` the stored combines and
+ * `skippedOptionalBlocks` the stored skips, so the screen builds the same
+ * session Today showed (`buildSwappedSessionFor`).
  */
 export function renderLogScreen(
   program: Program,
