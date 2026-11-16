@@ -2463,6 +2463,109 @@ accepted, since these are estimates.
 
 1. **Changing your mind.** Allowed until the first bag round is logged.
 
+### PR 31 — Plan: logging from timers, real Skip, and scroll *(design)*
+Ed reported four problems on 16 Nov, with these decisions:
+
+1. **Can't log sets from an EMOM.** The EMOM timer has Start/Pause and
+   Skip only. Sets are saved only from the log screen.
+2. **Skip does nothing for a whole exercise.** Skip on the log screen only
+   moves to the next unlogged set and saves nothing. Skipping every set
+   leaves the exercise looking untouched, and Skip disables on the last
+   set.
+3. **Timers don't log anything.** The boxing timer has the same gap.
+4. **Leaving a set returns to the top of Today.** The user has to scroll
+   to the latest exercise.
+
+Ed's answers: **skipped sets are recorded as skipped, and a skipped set
+can be opened again to log it.** The **EMOM timer comes first, then the
+boxing timer.** He asked for a design PR before code.
+
+Full screen (asked in the first message) is not in these PRs. See the
+last milestone.
+
+**How it should behave.**
+
+- *Skip (log screen).* Records the set as skipped, not logged. Today and
+  History show "Skipped" on that set. Tapping a skipped set opens it to
+  log, and that clears the skip. When every set of an item is logged or
+  skipped, the item counts as done on Today (for example "4 logged · 2
+  skipped"), so the day can complete.
+- *Skip (timers).* Unchanged: it jumps to the next minute, round, or
+  segment. It logs nothing.
+- *Log from the EMOM timer.* A "Log set" button saves the set for the
+  current minute, pre-filled by the same rule as the log screen (rule 8),
+  through the same save path and session context. The timer keeps
+  running. The minute maps to set number = minute. Assumed: an EMOM's
+  total sets equal its minutes; the implementation checks this.
+- *Log from the boxing timer.* Same idea, one set per bag round, on the
+  heavy bag item (later PR).
+- *Scroll.* On returning to Today from the log screen or a timer, Today
+  scrolls to the first item in session order that still has an unlogged
+  set. If none is left, it stays at the top.
+
+**Data.** A skip is stored apart from logged sets, so "Last time",
+progress and export of reps stay as they are. The log moves from version
+1 to version 2 with a `skippedSets` list per session. Each entry names the
+date, day (for combined days), block position, exercise and set number.
+A version 1 log loads with no skips. Export and import handle both
+versions, as PR 29 did for boxing skips.
+
+**Files.** `src/log/model.ts`, `wire.ts` (v2 with a v1 reader),
+`operations.ts`, `itemSets.ts` (skipped sets count as closed for
+`nextSetNumber`), `sessionProgress.ts`, `history.ts`, `lastTime.ts` (skips
+are ignored), `storage.ts`; `src/ui/logScreen.ts`, `today.ts`,
+`timerView.ts`, `app.ts` (scroll target), `src/timer/plans.ts` (minute to
+set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
+
+**Milestones** (one PR each, in this order):
+
+- **PR 32 — Skip records skipped sets** *(behavior change)*
+  1. Log v2 wire types, parser, model and `skippedSets` (rule 1 and rule 6),
+     with a v1 reader. Unit tests for v1 and v2 load, save and round trip.
+  2. Operations: skip a set, clear a skip, and "item done" for logged or
+     skipped sets. Unit tests.
+  3. Log screen: Skip records the skip, skipped sets can be reopened, and
+     Skip stays enabled while any set is open. Today progress and History
+     show skips. Unit tests.
+  4. Export and import of skips, README. E2E: skip every set of an
+     exercise, see it done on Today, reopen one set, reload, and see it in
+     History.
+  - **Merge point:** Skip does what Ed expects, and a whole exercise can be
+    skipped.
+- **PR 33 — Log sets from the EMOM timer** *(behavior change)*
+  1. Pure mapping from an EMOM minute to its set number, with unit tests,
+     including the check that totals match.
+  2. "Log set" on the EMOM timer, pre-filled and saved through the log
+     path, shown as logged on the timer. Unit tests and an E2E test that
+     logs two minutes from the timer and checks the log screen.
+  - **Merge point:** an EMOM can be logged without leaving the timer.
+- **PR 34 — Scroll to the next exercise** *(behavior change)*
+  1. Pure "next unfinished item" function, with unit tests in session
+     order.
+  2. Today scrolls to it when it re-renders after the log screen or a
+     timer closes. E2E checks the scroll position on a long day.
+  - **Merge point:** returning from a set lands on the next exercise.
+- **PR 35 — Log sets from the boxing timer** *(behavior change)*
+  1. Round-to-set mapping for the heavy bag, with unit tests.
+  2. "Log round" on the boxing timer, saved through the log path. E2E on
+     Day 1.
+  - **Merge point:** boxing rounds can be logged from the timer.
+- **PR 36 — Full screen** *(behavior change)*
+  1. A Full screen button that uses the Fullscreen API where the browser
+     allows it, and an "Add to Home Screen" note for iPhone Safari, which
+     does not allow it for web pages. Unit tests for the support check.
+  - **Merge point:** Ed can use full screen on Android and desktop. On
+    iPhone, the home-screen app is the way to go full screen.
+
+**Open questions for Ed** (with the answers I'm assuming):
+
+1. **EMOM "Log set".** Assumed: the timer keeps running and does not jump
+   to the next minute.
+2. **Full screen on iPhone.** Assumed: home-screen app plus the button
+   elsewhere is enough. Safari gives no other way.
+3. **Boxing rounds.** Assumed: one set per bag round, logged from the
+   timer's round counter.
+
 ### Day 3 on-the-spot crawl *(behavior change, content only)*
 
 Ed asked for an extra finisher on Day 3: an on-the-spot crawl with the legs
