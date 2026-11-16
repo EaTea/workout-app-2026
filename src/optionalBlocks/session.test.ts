@@ -94,6 +94,56 @@ describe("applySkippedBlocks", () => {
   });
 });
 
+describe("logged sets win over a stored skip", () => {
+  const bagRound: LoggedSet = { exerciseId: "heavy_bag", blockPosition: 6, setNumber: 1, reps: 1, loggedAt: new Date("2026-11-09T12:00:00Z") };
+  const logWithBagRound: WorkoutLog = { sessions: { [WEEK_2_DAY_1]: { date: WEEK_2_DAY_1, day: 1, sets: [bagRound] } } };
+
+  it("applySkippedBlocks does not skip a block with a set logged on that date", () => {
+    const session = applySkippedBlocks(buildSession(program, settings, WEEK_2_DAY_1), new Set([BOXING_KEY]), logWithBagRound, WEEK_2_DAY_1);
+
+    expect(session.kind === "training" && session.targetMinutes).toBe(50);
+    expect(session.kind === "training" && finisherOf(session).skipped).toBeUndefined();
+  });
+
+  it("a set logged on another date does not matter", () => {
+    const session = applySkippedBlocks(buildSession(program, settings, WEEK_2_DAY_1), new Set([BOXING_KEY]), logWithBagRound, "2026-11-16");
+
+    expect(session.kind === "training" && finisherOf(session).skipped).toBe(true);
+  });
+
+  it("buildSwappedSessionFor shows the block again, with all minutes and blocks", () => {
+    const skips = new Map([[WEEK_2_DAY_1, new Set([BOXING_KEY])]]);
+
+    const { session } = buildSwappedSessionFor(program, settings, logWithBagRound, new Map(), new Map(), WEEK_2_DAY_1, WEEK_2_DAY_1, skips);
+
+    expect(session.kind === "training" && session.targetMinutes).toBe(50);
+    expect(session.kind === "training" && blockCountOf(session)).toBe(6);
+  });
+
+  it("a combined day does not skip a block of its own day that has a set logged", () => {
+    const combine = { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" };
+    const logWithDayOneRound: WorkoutLog = { sessions: { [WEEK_2_DAY_1]: { date: WEEK_2_DAY_1, day: 1, sets: [{ ...bagRound, day: 1 }] } } };
+
+    const { session } = buildSwappedCombinedSession(program, settings, logWithDayOneRound, new Map(), WEEK_2_DAY_1, combine, new Set([BOXING_KEY]));
+
+    expect(blockSlotsOf(session).filter((slot) => slot.block.skipped)).toEqual([]);
+    expect(blockCountOf(session)).toBe(session.blocks.length);
+  });
+});
+
+describe("No equipment with a skipped block", () => {
+  it("skips the shadow boxing block too, with the same minutes", () => {
+    const ticks = new Map([[WEEK_2_DAY_1, new Set(["6:heavy_bag"])]]);
+
+    const { session } = buildSwappedSession(program, settings, noSets, ticks, WEEK_2_DAY_1, new Set([BOXING_KEY]));
+
+    if (session.kind !== "training") throw new Error("expected training");
+    expect(finisherOf(session).items[0]!.exercise.id).toBe("shadow_boxing");
+    expect(finisherOf(session).skipped).toBe(true);
+    expect(session.targetMinutes).toBe(45);
+  });
+});
+
 describe("session progress with a skipped block", () => {
   /** Every set of every item except those of the finisher, as logged on `WEEK_2_DAY_1`. */
   function allSetsExceptBoxing(session: Extract<SessionView, { kind: "training" }>): LoggedSet[] {

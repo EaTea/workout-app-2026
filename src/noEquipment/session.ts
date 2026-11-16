@@ -52,7 +52,7 @@ export function buildSwappedSession(
   const choices = noEquipmentChoices(unswappedSession, log, date, ticksForDate(ticks, date));
 
   return {
-    session: applySkippedBlocks(applyNoEquipmentChoices(unswappedSession, choices.swapped), skippedBlockKeys),
+    session: applySkippedBlocks(applyNoEquipmentChoices(unswappedSession, choices.swapped), skippedBlockKeys, log, date),
     locked: choices.locked,
   };
 }
@@ -122,7 +122,7 @@ export function buildSwappedCombinedSession(
     const unswapped = buildSession(program, settings, dateOfDay);
     const choices = noEquipmentChoices(unswapped, log, hostDate, ticksOfHostDate, true);
     for (const key of choices.locked) locked.add(key);
-    return applySkippedBlocks(applyNoEquipmentChoices(unswapped, choices.swapped, true), skippedBlockKeys);
+    return applySkippedBlocks(applyNoEquipmentChoices(unswapped, choices.swapped, true), skippedBlockKeys, log, hostDate);
   }
 
   const hostSession = swappedDay(hostDate);
@@ -143,9 +143,14 @@ export interface SessionForDate {
  * Builds whatever session `date` shows: the combined session when a still
  * valid combine is stored for the date (`activeCombineOn`, which also skips
  * a lapsed one, hence the log and the device's `realToday`), else the normal
- * swapped session; `skippedBlocks` are all stored skips, of which the date's apply. Used by Today, the log screen and app.ts's wake-lock
- * check, so all three agree on which rows exist and which day each belongs to.
- * A stale combine (e.g. the start date moved) is ignored, never an error.
+ * swapped session.
+ *
+ * `skippedBlocks` are all the stored skips; only the shown date's apply, and
+ * a block with a set logged on that date is never skipped (logged sets win).
+ *
+ * Used by Today, the log screen and app.ts's wake-lock check, so all three
+ * agree on which rows exist and which day each belongs to. A stale combine
+ * (e.g. the start date moved) is ignored, never an error.
  */
 export function buildSwappedSessionFor(
   program: Program,

@@ -161,7 +161,7 @@ export function renderHistoryScreen(
     card.append(header);
 
     // "Boxing skipped" for each optional block the athlete skipped that day, so the unlogged bag isn't a mystery.
-    for (const line of skippedBlockLines(program, skippedOptionalBlocks.get(session.date))) {
+    for (const line of skippedBlockLines(program, skippedOptionalBlocks.get(session.date), session)) {
       card.append(element("p", "history-exercise-note", line));
     }
 

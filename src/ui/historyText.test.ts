@@ -196,17 +196,37 @@ describe("History text for the alternating Day 3 explosive exercises (PLAN.md PR
 });
 
 describe("skippedBlockLines", () => {
+  const set = (blockPosition: number, day?: number): LoggedSet => ({ exerciseId: "pull_up", day, blockPosition, setNumber: 1, reps: 5, loggedAt: new Date("2026-11-09T12:00:00Z") });
+  const dayOneSession = sessionWith({ programWeek: 2, day: 1, sets: [set(3)] });
+
   it("says which optional block was skipped, by its label", () => {
-    expect(skippedBlockLines(program, new Set(["1:6"]))).toEqual(["Boxing skipped"]);
-    expect(skippedBlockLines(program, new Set(["5:6", "1:6"]))).toEqual(["Boxing skipped", "Boxing skipped"]);
+    expect(skippedBlockLines(program, new Set(["1:6"]), dayOneSession)).toEqual(["Boxing skipped"]);
   });
 
   it("says nothing when nothing was skipped", () => {
-    expect(skippedBlockLines(program, undefined)).toEqual([]);
-    expect(skippedBlockLines(program, new Set())).toEqual([]);
+    expect(skippedBlockLines(program, undefined, dayOneSession)).toEqual([]);
+    expect(skippedBlockLines(program, new Set(), dayOneSession)).toEqual([]);
   });
 
   it("leaves out a key whose block is missing or no longer optional", () => {
-    expect(skippedBlockLines(program, new Set(["1:5", "1:9", "6:1", "3:6"]))).toEqual([]);
+    expect(skippedBlockLines(program, new Set(["1:5", "1:9", "1:3"]), dayOneSession)).toEqual([]);
+  });
+
+  it("leaves out a skip of a day the session did not have (a combine that was undone)", () => {
+    const dayFiveSession = sessionWith({ programWeek: 3, day: 5, sets: [set(3)] });
+    const dayOneAlone = sessionWith({ programWeek: 2, day: 1, sets: [set(3)] });
+
+    expect(skippedBlockLines(program, new Set(["1:6", "5:6"]), dayFiveSession)).toEqual(["Boxing skipped"]);
+    expect(skippedBlockLines(program, new Set(["5:6"]), dayOneAlone)).toEqual([]);
+  });
+
+  it("keeps the skip of the added day of a combined session", () => {
+    const combined = sessionWith({ programWeek: 2, day: 1, sets: [set(3, 1), set(3, 5)] });
+    expect(skippedBlockLines(program, new Set(["1:6", "5:6"]), combined)).toEqual(["Boxing skipped", "Boxing skipped"]);
+  });
+
+  it("leaves out a skip when a set of that block was logged anyway (logged sets win)", () => {
+    const withBagRound = sessionWith({ programWeek: 2, day: 1, sets: [set(3), { ...set(6), exerciseId: "heavy_bag" }] });
+    expect(skippedBlockLines(program, new Set(["1:6"]), withBagRound)).toEqual([]);
   });
 });

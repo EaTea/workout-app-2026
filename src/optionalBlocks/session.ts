@@ -1,3 +1,5 @@
+import type { WorkoutLog } from "../log/model";
+import { setsForItem } from "../log/operations";
 import type { CombinedBlock, CombinedSession } from "../program/combine";
 import type { BlockView, SessionView } from "../program/schedule";
 import { buildIntervalPlan, defaultIntervalSettings } from "../timer/plans";
@@ -39,21 +41,33 @@ export function estimatedBlockMinutes(block: BlockView): number {
 }
 
 /**
+ * True when any of the given exercises has a logged set in this day's block
+ * on `date`. Logged sets win over a stored skip (see `applySkippedBlocks`),
+ * and the "Boxing today?" question is hidden once this is true.
+ */
+export function isBlockStarted(log: WorkoutLog, date: string, day: number, blockPosition: number, exerciseIds: string[]): boolean {
+  return exerciseIds.some((exerciseId) => setsForItem(log, date, blockPosition, exerciseId, day).length > 0);
+}
+
+/**
  * Returns `session` with every block whose key is in `skippedKeys` marked
  * skipped and `targetMinutes` reduced by `estimatedBlockMinutes` for each
  * (never below 0). Only blocks with `optional` set can be skipped; a key for
- * any other block is ignored. A session that is not a training day is
+ * any other block is ignored. Logged sets win: a block with any set logged on
+ * `date` in `log` is never treated as skipped, whatever is stored (the
+ * athlete skipped, then logged a round through a direct link). A session that is not a training day is
  * returned as is. Does not change its input. Called by
  * `buildSwappedSession` / `buildSwappedCombinedSession` so every screen that
  * counts sets agrees.
  */
-export function applySkippedBlocks(session: SessionView, skippedKeys: ReadonlySet<OptionalBlockKey>): SessionView {
+export function applySkippedBlocks(session: SessionView, skippedKeys: ReadonlySet<OptionalBlockKey>, log: WorkoutLog = { sessions: {} }, date = ""): SessionView {
   if (session.kind !== "training" || skippedKeys.size === 0) return session;
 
   let minutesSaved = 0;
   const blocks = session.blocks.map((block) => {
     const isSkipped = block.optional !== undefined && skippedKeys.has(optionalBlockKey(session.dayNumber, block.position));
     if (!isSkipped) return block;
+    if (isBlockStarted(log, date, session.dayNumber, block.position, block.items.map((item) => item.exercise.id))) return block;
 
     minutesSaved += estimatedBlockMinutes(block);
     return { ...block, skipped: true };
