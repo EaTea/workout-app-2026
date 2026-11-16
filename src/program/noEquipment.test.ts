@@ -41,11 +41,11 @@ describe("applyNoEquipmentChoices", () => {
     expect(applyNoEquipmentChoices(built, new Set())).toEqual(built);
   });
 
-  it("2 Nov W1 D1 with slams and pull-ups ticked: backpack slams 6 x 6, inverted rows 9 min x 6-8, others unchanged", () => {
+  it("2 Nov W1 D1 with slams and pull-ups ticked: explosive inverted rows 6 x 6, inverted rows 9 min x 6-8, others unchanged", () => {
     const built = buildSession(program, settings, "2026-11-02");
     const session = sessionWith("2026-11-02", [noEquipmentItemKey(2, "med_ball_slam"), noEquipmentItemKey(3, "pull_up")]);
 
-    const slams = findItem(session, "backpack_slam");
+    const slams = findItem(session, "explosive_inverted_row");
     expect(slams.sets).toHaveLength(6);
     expect(slams.sets.every((set) => set.target?.kind === "fixed" && set.target.count === 6)).toBe(true);
     expect(slams.swappedFrom?.id).toBe("med_ball_slam");

@@ -31,7 +31,7 @@ const EASY = "easy, ~50% effort";
 const EXPECTED_SWAPS: Record<string, ExpectedSwap> = {
   // Day 1
   "1:warmup:pallof_press": { swapExerciseId: "plank_shoulder_tap", reps: "12–15 per side" },
-  "1:explosive:med_ball_slam": { swapExerciseId: "backpack_slam" },
+  "1:explosive:med_ball_slam": { swapExerciseId: "explosive_inverted_row" },
   "1:mainStrength:pull_up": { swapExerciseId: "inverted_row", reps: "6-8" },
   "1:miniDose:dip": { swapExerciseId: "chair_dip", reps: EASY },
   "1:core:back_extension": { swapExerciseId: "prone_back_extension", reps: "15-20", tempo: "2s hold at the top" },
@@ -79,7 +79,7 @@ const EXPECTED_SWAPS: Record<string, ExpectedSwap> = {
 
 /** The 16 swap exercises the plan's "Library" bullet lists. */
 const SWAP_EXERCISE_IDS = [
-  "backpack_slam",
+  "explosive_inverted_row",
   "backpack_swing",
   "backpack_push_press",
   "inverted_row",

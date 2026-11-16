@@ -54,13 +54,13 @@ function swapOn(date: string, blockType: string, exerciseId: string, overrides: 
 }
 
 describe("swap views: worked examples (PR 17)", () => {
-  it("2 Nov W1 D1: backpack slams 6 x 6 with 30-45s rest, inverted rows 9 min x 6-8, chair dips 2 x easy", () => {
+  it("2 Nov W1 D1: explosive inverted rows 6 x 6 with 30-45s rest, inverted rows 9 min x 6-8, chair dips 2 x easy", () => {
     const slams = swapOn("2026-11-02", "explosive", "med_ball_slam");
-    expect(slams.exercise.id).toBe("backpack_slam");
+    expect(slams.exercise.id).toBe("explosive_inverted_row");
     expect(slams.sets).toHaveLength(6);
     expect(slams.sets.every((set) => set.target?.kind === "fixed" && set.target.count === 6)).toBe(true);
     expect(slams.restSec).toEqual({ min: 30, max: 45 });
-    expect(slams.load).toBe("backpack with books");
+    expect(slams.load).toBe("body weight under a sturdy table");
 
     const rows = swapOn("2026-11-02", "mainStrength", "pull_up");
     expect(rows.exercise.id).toBe("inverted_row");
