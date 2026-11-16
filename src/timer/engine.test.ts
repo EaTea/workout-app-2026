@@ -177,3 +177,44 @@ describe("formatClock", () => {
     expect(formatClock(59.9)).toBe("0:59");
   });
 });
+
+describe("gear-up break before round 1", () => {
+  const gearUp = segment({ phase: "gearUp", durationSec: 120, round: 1, label: "Wrap hands, gloves on" });
+
+  /** Gear-up 120s, then work 10s (round 1), rest 5s, work 10s (round 2). */
+  function gearUpState(): TimerState {
+    return createTimerState(createTimerPlan("Test", [gearUp, segment({ round: 1 }), segment({ phase: "rest", durationSec: 5 }), segment({ round: 2 })]));
+  }
+
+  it("starts in the gear-up, then round 1 work starts by itself when it ends", () => {
+    const { state: started, events: startEvents } = startTimer(gearUpState(), T0);
+    expect(startEvents).toEqual([{ kind: "segmentStarted", segment: gearUp, segmentIndex: 0 }]);
+    expect(describeTimer(started).segment.phase).toBe("gearUp");
+
+    const midway = tickTimer(started, T0 + 119_000);
+    expect(midway.events).toEqual([]);
+    expect(describeTimer(midway.state).remainingSec).toBe(1);
+
+    const { state, events } = tickTimer(midway.state, T0 + 120_000);
+    expect(events).toEqual([{ kind: "segmentStarted", segment: state.plan.segments[1], segmentIndex: 1 }]);
+    expect(describeTimer(state).segment.phase).toBe("work");
+    expect(describeTimer(state).round).toBe(1);
+    expect(state.status).toBe("running");
+  });
+
+  it("Skip during the gear-up starts round 1 early", () => {
+    const started = startTimer(gearUpState(), T0).state;
+    const { state, events } = skipSegment(started, T0 + 5_000);
+
+    expect(events).toEqual([{ kind: "segmentStarted", segment: state.plan.segments[1], segmentIndex: 1 }]);
+    expect(describeTimer(state).segment.phase).toBe("work");
+    expect(describeTimer(state).remainingSec).toBe(10);
+  });
+
+  it("a plan without a gear-up segment starts straight on work", () => {
+    const { state } = startTimer(threeSegmentState(), T0);
+
+    expect(describeTimer(state).segment.phase).toBe("work");
+    expect(state.plan.segments.some((each) => each.phase === "gearUp")).toBe(false);
+  });
+});

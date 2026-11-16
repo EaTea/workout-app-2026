@@ -15,7 +15,9 @@ changes, and a "Changed: ... in week N" line under whatever differs from the pre
 that opens a full-screen timer with a beep and vibration each minute and a
 3-2-1 countdown (the beeps ask Safari 16.4+ to play through an iPhone's
 silent switch; older iOS versions may still mute them, and iOS Safari has no
-vibration). The heavy bag and Day 6 wall sit rows have a "Start timer"
+vibration). The heavy bag timer opens with a 2:00 "GEAR UP" countdown
+(wrap hands, gloves on) that beeps 3-2-1 and then starts round 1 by itself, or
+sooner when you tap "Ready". The heavy bag and Day 6 wall sit rows have a "Start timer"
 interval timer and rows with a prescribed rest (and superset blocks) have a
 "Rest 30s" button, all with adjustable numbers before Start. The Back button or gesture closes an open timer
 (and stays on the same screen). The screen stays awake while a timer is open,
@@ -307,6 +309,14 @@ Last time and Progress match a logged set to the first item with that exercise.
 week of the program. Deload halving and the power-endurance changes apply to
 whichever item runs that week. `weeks` can't be set inside a `noEquipment`
 swap, because the swap keeps the original's weeks.
+
+An interval item (the heavy bag) can carry `"gearUpSec"`, a number of seconds
+(0 or more) of break before round 1: its timer opens with a "GEAR UP" countdown
+(wrap hands, gloves on), beeps 3-2-1, then round 1 starts by itself, or sooner
+when Ed taps "Ready". Leave it out, or give 0, for no break. Ed can change it
+on the timer's setup row (0 to 5 minutes in 15 second steps). A negative or
+non-number value is an error. A "No equipment" swap never inherits it, so
+shadow boxing starts straight on round 1.
 
 An item can carry a household-kit swap, `"noEquipment"`, for days when the
 kit isn't to hand. It is an object next to the item it replaces, with an

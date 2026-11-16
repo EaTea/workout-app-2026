@@ -256,7 +256,7 @@
           { "exercise": "side_plank", "sets": 2, "durationSec": 30, "perSide": true, "optional": true }
         ]},
         { "type": "finisher", "optional": { "label": "Boxing" }, "items": [
-          { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "note": "Hard combinations", "noEquipment": { "exercise": "shadow_boxing" } }
+          { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "gearUpSec": 120, "note": "Hard combinations", "noEquipment": { "exercise": "shadow_boxing" } }
         ]}
       ]
     },
@@ -350,7 +350,7 @@
           { "exercise": "hollow_hold", "sets": 2, "durationSec": 30, "optional": true }
         ]},
         { "type": "finisher", "optional": { "label": "Boxing" }, "items": [
-          { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "note": "Mostly hooks and uppercuts", "noEquipment": { "exercise": "shadow_boxing" } }
+          { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "gearUpSec": 120, "note": "Mostly hooks and uppercuts", "noEquipment": { "exercise": "shadow_boxing" } }
         ]}
       ]
     },

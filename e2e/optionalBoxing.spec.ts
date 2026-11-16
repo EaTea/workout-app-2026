@@ -40,7 +40,7 @@ test("week 2 day 1: skip boxing, keep it across a reload, add it back, and the q
   // the question is gone, and focus lands on "Add it back".
   await skipButton(page).click();
   await expect(page.getByText("Boxing skipped today")).toBeVisible();
-  await expect(page.getByText("~45 min · 5 blocks")).toBeVisible();
+  await expect(page.getByText("~43 min · 5 blocks")).toBeVisible();
   await expect(page.locator(".block-title").last()).toHaveText("6 · Finisher");
   await expect(page.locator(".item-row", { hasText: "Heavy bag" })).toHaveCount(0);
   await expect(page.getByText("Boxing today?")).toHaveCount(0);
@@ -49,7 +49,7 @@ test("week 2 day 1: skip boxing, keep it across a reload, add it back, and the q
   // The choice is stored and survives a reload.
   await page.reload();
   await expect(page.getByText("Boxing skipped today")).toBeVisible();
-  await expect(page.getByText("~45 min · 5 blocks")).toBeVisible();
+  await expect(page.getByText("~43 min · 5 blocks")).toBeVisible();
 
   // Add it back restores the program as written, with focus on the question's Skip button.
   await page.getByRole("button", { name: "Add it back" }).click();
@@ -70,7 +70,7 @@ test("a round logged after skipping wins: boxing is back on Today and History do
   await seedAt(page);
   await page.goto("/");
   await skipButton(page).click();
-  await expect(page.getByText("~45 min · 5 blocks")).toBeVisible();
+  await expect(page.getByText("~43 min · 5 blocks")).toBeVisible();
 
   // Log a round through a direct link to the skipped block's log screen.
   await page.goto("/#/log/2026-11-09/6/heavy_bag/day/1");
@@ -109,7 +109,7 @@ test("a combined day (Day 1 + Day 2) asks about boxing with a D1 tag, and skippi
   await expect(question).toContainText("Boxing today?");
 
   await skipButton(page).click();
-  await expect(page.getByText("~68 min · 8 blocks")).toBeVisible();
+  await expect(page.getByText("~66 min · 8 blocks")).toBeVisible();
   await expect(page.getByText("Boxing skipped today")).toBeVisible();
   await expect(page.getByRole("button", { name: "Add it back" })).toBeFocused();
 });
@@ -130,7 +130,7 @@ test("a past date still asks about boxing", async ({ page }) => {
 
   await expect(page.getByText("Boxing today?")).toBeVisible();
   await skipButton(page).click();
-  await expect(page.getByText("~45 min · 5 blocks")).toBeVisible();
+  await expect(page.getByText("~43 min · 5 blocks")).toBeVisible();
 });
 
 test("week 2 day 2 has no optional block, so no boxing question", async ({ page }) => {

@@ -447,3 +447,24 @@ describe("audio clock and wall clock disagree", () => {
     expect(audio.started.every((tone) => tone.disconnected)).toBe(true);
   });
 });
+
+describe("gear-up break cues", () => {
+  const gearUp: TimerSegment = { phase: "gearUp", durationSec: 10, round: 1, totalRounds: 2, label: "Wrap hands, gloves on" };
+  const work: TimerSegment = { phase: "work", durationSec: 10, round: 1, totalRounds: 2, label: "Go" };
+
+  it("the gear-up segment start has its own cue, distinct from work and rest", () => {
+    expect(cueForEvent({ kind: "segmentStarted", segment: gearUp, segmentIndex: 0 })).toBe("gearUpStart");
+    expect(tonesForCue("gearUpStart")).not.toEqual(tonesForCue("workStart"));
+    expect(tonesForCue("gearUpStart")).not.toEqual(tonesForCue("restStart"));
+  });
+
+  it("ticks 3-2-1 before the end of the gear-up, then the work start cue for round 1", () => {
+    const state = startTimer(createTimerState(createTimerPlan("Test", [gearUp, work])), 0).state;
+    const timeline = buildCueTimeline(state).map((entry) => [entry.atSec, entry.cue, entry.key]);
+
+    expect(timeline.slice(0, 4)).toEqual([
+      [7, "countdownTick", "tick:0:3"], [8, "countdownTick", "tick:0:2"], [9, "countdownTick", "tick:0:1"],
+      [10, "workStart", "start:1"],
+    ]);
+  });
+});

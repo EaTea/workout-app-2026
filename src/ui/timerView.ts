@@ -6,6 +6,7 @@ import type { CuePlayer } from "../timer/cues";
 import { createScreenWakeLock } from "../timer/wakeLock";
 import { closeOnBack } from "./backToClose";
 import { element } from "./dom";
+import { phaseWordFor, roundCounterText, skipButtonAccessibleName, skipButtonText } from "./timerText";
 
 /**
  * Full-screen timer overlay shared by the EMOM, interval and rest timers.
@@ -142,6 +143,8 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", options.dialogName ?? plan.title);
   overlay.tabIndex = -1;
+  // More than three steppers need the compact 2-column layout (see style.css) to keep Start on screen.
+  if ((options.setup?.fields.length ?? 0) > 3) overlay.classList.add("timer-view-many-steppers");
 
   const closeButton = element("button", "timer-close", "✕ Close");
   closeButton.type = "button";
@@ -235,14 +238,15 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     const isFinished = state.status === "finished";
 
     // A finished timer says DONE in a neutral colour (CSS keys off data-status), not the last segment's WORK/REST.
-    phaseWord.textContent = isFinished ? "DONE" : segment.phase === "work" ? "WORK" : segment.phase === "rest" ? "REST" : "";
+    phaseWord.textContent = phaseWordFor(segment.phase, isFinished);
     phaseWord.hidden = isMinuteStyle && !isFinished;
     ring.hidden = !isMinuteStyle || isFinished;
     // A single-segment plan (a plain rest) has no rounds worth counting.
-    roundCounter.hidden = isMinuteStyle || view.totalRounds === 1;
+    // The gear-up still shows its line ("Round 1 starts after the countdown"), even before a one-round plan.
+    roundCounter.hidden = isMinuteStyle || (view.totalRounds === 1 && segment.phase !== "gearUp");
 
     ringNumber.replaceChildren(String(view.round), element("span", "timer-ring-total", `/${view.totalRounds}`));
-    roundCounter.textContent = `Round ${view.round} of ${view.totalRounds}`;
+    roundCounter.textContent = roundCounterText(segment.phase, view.round, view.totalRounds);
     digits.textContent = formatClock(view.remainingSec);
     segmentLabel.textContent = segment.label;
 
@@ -277,6 +281,11 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
 
     toggleButton.textContent =
       state.status === "ready" ? "Start" : state.status === "running" ? "❚❚ Pause" : state.status === "paused" ? "▶ Resume" : "Done";
+    // During the gear-up Skip is "Ready ›": it starts round 1.
+    skipButton.textContent = skipButtonText(segment.phase, state.status);
+    const skipName = skipButtonAccessibleName(segment.phase, state.status);
+    if (skipName) skipButton.setAttribute("aria-label", skipName);
+    else skipButton.removeAttribute("aria-label");
     skipButton.disabled = state.status === "ready" || state.status === "finished";
 
     moveFocusOffDisabledControl();

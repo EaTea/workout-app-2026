@@ -3,6 +3,7 @@ import type { Program, Range, WarmupRotation } from "../program/model";
 import { type BlockView, type ItemView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
 import { createCuePlayer } from "../timer/cues";
+import { formatClock } from "../timer/engine";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS, shortExerciseName } from "../timer/plans";
 import { element } from "./dom";
 import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
@@ -33,7 +34,7 @@ import { renderOptionalBlockQuestions, renderSkippedBlockCard, undecidedOptional
 import { renderCombineOffers, renderDonorCard, renderUndoCombine, type CombineActions } from "./combineCards";
 import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
-import { restMemoryKey } from "./restMemory";
+import { createRestMemory, restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 import { openTimer } from "./timerView";
 import { blockLabel, formatBlockTitle, formatCombinedSessionKicker, formatItemDetails, formatItemDose, formatSessionKicker, formatTimerAdjustment, formatShortDate, isAwaitingRetest } from "./format";
@@ -681,7 +682,7 @@ function renderItemRow(
 
   // Heavy bag intervals likewise.
   if (item.format === "interval" && item.rounds && item.workSec && item.restSec) {
-    row.append(renderStartIntervalButton(item));
+    row.append(renderStartIntervalButton(item, restMemoryKey(date, blockPosition, `${item.exercise.id}-gear-up`, keyDay)));
   }
 
 
@@ -720,20 +721,31 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
   return button;
 }
 
+/** Gear-up lengths Ed started a timer with, for this page load only (see renderStartIntervalButton). */
+const adjustedGearUps = createRestMemory();
+
 /**
  * "Start timer" button for an interval row (heavy bag, wall sit). Opens the
  * timer with a setup row so Ed can change work, rest and rounds before
- * starting; every change rebuilds the plan through buildIntervalPlan.
+ * starting; every change rebuilds the plan through buildIntervalPlan. An item
+ * with a gear-up break (heavy bag) gets a fourth stepper for it; the chosen
+ * length is remembered for the rest of the page load under `gearUpMemoryKey`
+ * (same memory idea as the rest stepper, restMemory.ts) and used as the
+ * default next time the timer is opened.
  */
-function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
+function renderStartIntervalButton(item: ItemView, gearUpMemoryKey: string): HTMLButtonElement {
   const button = element("button", "item-start", "Start timer");
   button.type = "button";
   button.setAttribute("aria-label", `Start timer, ${itemDisplayName(item)}`);
 
   button.addEventListener("click", () => {
-    const defaults = defaultIntervalSettings(item);
+    const itemDefaults = defaultIntervalSettings(item);
+    const hasGearUp = itemDefaults.gearUpSec > 0;
+    const defaults = { ...itemDefaults, gearUpSec: adjustedGearUps.get(gearUpMemoryKey, itemDefaults.gearUpSec) };
+    /** The gear-up length currently chosen on the stepper; recorded in the memory when the timer starts. */
+    let chosenGearUpSec = defaults.gearUpSec;
     const cues = createCuePlayer();
-    const { minRounds, maxRounds, minSeconds, maxWorkSec, maxRestSec, secondsStep } = INTERVAL_LIMITS;
+    const { minRounds, maxRounds, minSeconds, maxWorkSec, maxRestSec, secondsStep, minGearUpSec, maxGearUpSec, gearUpStep } = INTERVAL_LIMITS;
 
     openTimer(buildIntervalPlan(item, defaults), {
       dialogName: `${shortExerciseName(itemDisplayName(item))} timer`, // "Heavy bag timer", "Wall sit timer"
@@ -741,6 +753,8 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
       cues,
+      // Remember the gear-up length that was actually started.
+      onStart: () => adjustedGearUps.set(gearUpMemoryKey, chosenGearUpSec),
       setup: {
         fields: [
           {
@@ -758,13 +772,26 @@ function renderStartIntervalButton(item: ItemView): HTMLButtonElement {
             min: minRounds, max: maxRounds, step: 1,
             format: (value) => (value === 1 ? "1 round" : `${value} rounds`),
           },
+          // Only items that come with a gear-up get the stepper; wall sit and shadow boxing look as before.
+          ...(hasGearUp
+            ? [{
+                id: "gearUpSec", label: "gear up", value: defaults.gearUpSec,
+                min: minGearUpSec, max: maxGearUpSec, step: gearUpStep,
+                format: (value: number) => (value === 0 ? "No gear-up" : `Gear up ${formatClock(value)}`),
+              }]
+            : []),
         ],
-        rebuildPlan: (values) =>
-          buildIntervalPlan(item, {
+        rebuildPlan: (values) => {
+          // Keep the stepper's gear-up so onStart can remember what was actually started.
+          chosenGearUpSec = values.gearUpSec ?? defaults.gearUpSec;
+
+          return buildIntervalPlan(item, {
             rounds: values.rounds ?? defaults.rounds,
             workSec: values.workSec ?? defaults.workSec,
             restSec: values.restSec ?? defaults.restSec,
-          }),
+            gearUpSec: chosenGearUpSec,
+          });
+        },
       },
     });
   });

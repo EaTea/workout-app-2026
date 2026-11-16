@@ -35,12 +35,12 @@ function finisherOf(session: Extract<SessionView, { kind: "training" }>): BlockV
 }
 
 describe("estimatedBlockMinutes", () => {
-  it("is 5 x 30s work + 4 x 30s rest = 270s, so 5 minutes, in week 2", () => {
-    expect(estimatedBlockMinutes(finisherOf(trainingOn(WEEK_2_DAY_1)))).toBe(5);
+  it("is a 2:00 gear-up + 5 x 30s work + 4 x 30s rest = 390s, so 7 minutes, in week 2", () => {
+    expect(estimatedBlockMinutes(finisherOf(trainingOn(WEEK_2_DAY_1)))).toBe(7);
   });
 
-  it("is 5 x 35s + 4 x 30s = 295s, so 5 minutes, in week 5", () => {
-    expect(estimatedBlockMinutes(finisherOf(trainingOn(WEEK_5_DAY_1)))).toBe(5);
+  it("is 120s + 5 x 35s + 4 x 30s = 415s, so 7 minutes, in week 5", () => {
+    expect(estimatedBlockMinutes(finisherOf(trainingOn(WEEK_5_DAY_1)))).toBe(7);
   });
 
   it("is 0 for a block with no interval item", () => {
@@ -55,13 +55,13 @@ describe("applySkippedBlocks", () => {
     expect(applySkippedBlocks(plain, new Set())).toBe(plain);
   });
 
-  it("W2 D1: marks the boxing block, keeps its position, drops 5 minutes and one block (50 to 45, 6 to 5)", () => {
+  it("W2 D1: marks the boxing block, keeps its position, drops 7 minutes and one block (50 to 43, 6 to 5)", () => {
     const plain = trainingOn(WEEK_2_DAY_1);
     const skipped = trainingOn(WEEK_2_DAY_1, [BOXING_KEY]);
 
     expect(plain.targetMinutes).toBe(50);
     expect(blockCountOf(plain)).toBe(6);
-    expect(skipped.targetMinutes).toBe(45);
+    expect(skipped.targetMinutes).toBe(43);
     expect(blockCountOf(skipped)).toBe(5);
     expect(skipped.blocks).toHaveLength(6);
     expect(finisherOf(skipped).skipped).toBe(true);
@@ -70,7 +70,7 @@ describe("applySkippedBlocks", () => {
   });
 
   it("W5 D1: drops the 5 minute estimate as well", () => {
-    expect(trainingOn(WEEK_5_DAY_1).targetMinutes - trainingOn(WEEK_5_DAY_1, [BOXING_KEY]).targetMinutes).toBe(5);
+    expect(trainingOn(WEEK_5_DAY_1).targetMinutes - trainingOn(WEEK_5_DAY_1, [BOXING_KEY]).targetMinutes).toBe(7);
   });
 
   it("ignores a key for a block that is not optional, a block of another day, or a nonsense key", () => {
@@ -132,7 +132,7 @@ describe("logged sets win over a stored skip", () => {
 });
 
 describe("No equipment with a skipped block", () => {
-  it("skips the shadow boxing block too, with the same minutes", () => {
+  it("skips the shadow boxing block too, which has no gear-up, so 5 minutes come off (50 to 45)", () => {
     const ticks = new Map([[WEEK_2_DAY_1, new Set(["6:heavy_bag"])]]);
 
     const { session } = buildSwappedSession(program, settings, noSets, ticks, WEEK_2_DAY_1, new Set([BOXING_KEY]));
@@ -177,7 +177,7 @@ describe("through the builders", () => {
   it("buildSwappedSession applies the date's skipped keys", () => {
     const { session } = buildSwappedSession(program, settings, noSets, new Map(), WEEK_2_DAY_1, new Set([BOXING_KEY]));
 
-    expect(session.kind === "training" && session.targetMinutes).toBe(45);
+    expect(session.kind === "training" && session.targetMinutes).toBe(43);
     expect(session.kind === "training" && finisherOf(session).skipped).toBe(true);
   });
 
@@ -187,7 +187,7 @@ describe("through the builders", () => {
     const onSkippedDate = buildSwappedSessionFor(program, settings, noSets, new Map(), new Map(), WEEK_2_DAY_1, WEEK_2_DAY_1, skips).session;
     const onOtherDate = buildSwappedSessionFor(program, settings, noSets, new Map(), new Map(), WEEK_5_DAY_1, WEEK_5_DAY_1, skips).session;
 
-    expect(onSkippedDate.kind === "training" && onSkippedDate.targetMinutes).toBe(45);
+    expect(onSkippedDate.kind === "training" && onSkippedDate.targetMinutes).toBe(43);
     expect(onOtherDate.kind === "training" && onOtherDate.targetMinutes).toBe(trainingOn(WEEK_5_DAY_1).targetMinutes);
   });
 
@@ -196,7 +196,7 @@ describe("through the builders", () => {
     const skipped = buildSwappedCombinedSession(program, settings, noSets, new Map(), WEEK_2_DAY_1, combine, new Set([BOXING_KEY])).session;
 
     expect(plain.targetMinutes).toBe(73);
-    expect(skipped.targetMinutes).toBe(68);
+    expect(skipped.targetMinutes).toBe(66);
     expect(blockCountOf(plain)).toBe(plain.blocks.length);
     expect(blockCountOf(skipped)).toBe(plain.blocks.length - 1);
 

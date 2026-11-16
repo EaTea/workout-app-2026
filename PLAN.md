@@ -1,6 +1,6 @@
 # PLAN: Workout app (mobile): Explosive Endurance, and Steady Strength
 
-Status: **PR 1 to PR 28 are merged (#3 to #36). PR 29 (optional boxing on Today) and PR 30 (the gear-up break before the heavy bag) are being built in parallel.**
+Status: **PR 1 to PR 28 and PR 30 are merged (#3 to #37). PR 29 (optional boxing on Today) is in review.**
 
 The program has no weekdays. Sessions are numbered Day 1 to Day 7 of a
 7-day cycle that starts on the day Ed starts, and nothing in the app,
@@ -2292,8 +2292,8 @@ PR 29 and PR 30 implement it.
  Upper: pull · ~50 min                ┌──────────────────────────┐
  ┌───────────────────────────────┐    │        GEAR UP           │
  │ Boxing today?                 │    │         1:42             │
- │ [ Box ✓ ]   [ Skip boxing ]   │    │ Wrap hands, gloves on    │
- └───────────────────────────────┘    │ Round 1 starts after 3-2-1│
+ │ [ Yes ✓ ]   [ Skip ]          │    │ Wrap hands, gloves on    │
+ └───────────────────────────────┘    │ then round 1 by itself   │
  1 Warm-up ...                        │ [ ❚❚ Pause ] [ Ready › ] │
  ...                                  └──────────────────────────┘
  6 Finisher  Heavy bag 5 × 30s          then WORK, round 1 of 5 ...
@@ -2351,10 +2351,12 @@ PR 29 and PR 30 implement it.
      5 minutes in 15s steps; 0 means no break. The value chosen is
      remembered for the page load, like the rest stepper.
    - The no-equipment swap (shadow boxing) has no gear-up: swaps don't
-     inherit `gearUpSec` (no wraps or gloves), unless the swap sets it.
+     inherit `gearUpSec` (no wraps or gloves), and a swap can't set it.
+     `gearUpSec` is only allowed on interval items, as a whole number
+     of seconds from 0 to 300 (the stepper's range).
    - The engine gets a fourth segment phase, `gearUp`, with its own colour
      (neutral, not green work or blue rest) and its own start cue. It is
-     not a round, so the round dots and "Round 1 of 5" count from the
+     not a round, so "Round 1 of 5" counts from the
      first work segment.
 5. **Logging.** The choice is stored per date and per block, so History
    can say "Boxing skipped" instead of showing the bag as unlogged. A
@@ -2386,27 +2388,38 @@ PR 29 and PR 30 implement it.
      Day 1, header reads ~43 min · 5 blocks, add it back, log a round and
      the card goes away.
   5. [x] README "Editing program.json" documents the block field.
+  6. [x] Fixes from the challenger review: a logged round now wins over a
+     stored skip (it used to leave Today stuck on "Boxing skipped");
+     History only lists skips for the session's own days; no question on
+     future dates; fixed "Yes"/"Skip" buttons instead of deriving "Box"
+     from the label; the question hides once skipped; README data and
+     import sections; E2E for combined, past and future dates. Accepted:
+     the combined-day estimate is about a minute high (see below).
   - **Merge point:** boxing can be skipped before a session and the
     session completes without it.
 - **PR 30 — Gear-up break before the heavy bag** *(behavior change)*
-  1. The `gearUp` phase in the engine, plans and cues; `gearUpSec` in the
+  1. [x] The `gearUp` phase in the engine, plans and cues; `gearUpSec` in the
      wire types, parser, model and the shipped file (rule 4). Unit tests
      with a fake clock: the break runs, beeps 3-2-1, round 1 starts by
      itself; Skip starts it early; 0 gives no break.
-  2. The timer view: GEAR UP colour and text, "Ready ›" on Skip, the
-     fourth stepper, round dots counting from round 1. E2E: start the bag
+  2. [x] The timer view: GEAR UP colour and text, "Ready ›" on Skip, the
+     fourth stepper, the round line counting from round 1. E2E: start the bag
      timer, see GEAR UP 2:00, tap Ready, see WORK round 1 of 5.
-  3. README documents `gearUpSec`.
+  3. [x] README documents `gearUpSec`.
   - **Merge point:** the bag timer opens with a gear-up countdown that
     runs into round 1 without a tap.
 
-The two PRs don't depend on each other and can land in either order.
+The two PRs don't depend on each other. PR 30 landed first (#37), so PR
+29 merged `main` and its figures include the 2:00 gear-up (~43 min). On a
+combined day the skip takes off the full 5-round estimate (7 min) though
+the combined bag would run 4 rounds, so the header is about a minute low;
+accepted, since these are estimates.
 
 **Worked examples** (start 2 Nov, as in section 6):
 
 | Date | Situation | Expected |
 | --- | --- | --- |
-| 9 Nov (W2 D1) | Nothing logged, nothing chosen | "Boxing today?" with Box selected; ~50 min · 6 blocks |
+| 9 Nov (W2 D1) | Nothing logged, nothing chosen | "Boxing today?" with Yes selected; ~50 min · 6 blocks |
 | 9 Nov (W2 D1) | Skip boxing | Finisher shows "Boxing skipped today · Add it back"; ~43 min · 5 blocks; logging every other set completes the session |
 | 9 Nov (W2 D1) | One bag round logged | No card; the choice can no longer change |
 | 13 Nov (W2 D5) | Bag timer opened | Setup row: Work 30s · Rest 30s · 5 rounds · Gear up 2:00; Start shows GEAR UP 2:00, then round 1 of 5 |
@@ -2417,7 +2430,7 @@ The two PRs don't depend on each other and can land in either order.
 
 **Decided by Ed (14 Nov):**
 
-- **Default:** Box is pre-selected, so not answering means boxing as
+- **Default:** Yes (box) is pre-selected, so not answering means boxing as
   written.
 - **Gear-up break:** kept. It counts down (2:00 by default) and starts
   round 1 by itself, so Start is tapped bare-handed and nothing is tapped

@@ -122,6 +122,8 @@ export interface ItemView {
   workSec?: Range;
   /** The seconds added to `workSec` by the phase (e.g. 5 in power endurance); absent when none were. */
   workSecAdjustment?: number;
+  /** Seconds of gear-up break before the first round of an interval timer; absent when the item has none. */
+  gearUpSec?: number;
   /**
    * True for a `sameEveryWeek` item in a week where other items change (a
    * deload week, or a phase with timer adjustments), so Today can say it
@@ -452,6 +454,7 @@ function buildItemView(item: BlockItem, settings: TrainingSettings, blockHalve: 
     rounds: item.rounds && (halve ? { min: halveRoundingUp(item.rounds.min), max: halveRoundingUp(item.rounds.min) } : item.rounds),
     workSec: workAdjusted ? shiftRange(item.workSec as Range, workAdjustment, MAX_INTERVAL_WORK_SECONDS) : item.workSec,
     workSecAdjustment: workAdjusted ? workAdjustment : undefined,
+    gearUpSec: item.gearUpSec,
     showsSameEveryWeekNote: item.sameEveryWeek && (week.isDeload || week.timerAdjustments !== undefined) ? true : undefined,
     durationSec: item.durationSec,
     perSide: item.perSide,
@@ -475,6 +478,7 @@ function buildItemView(item: BlockItem, settings: TrainingSettings, blockHalve: 
  *                   │            sameEveryWeek
  *                   ├─ swap's:   exercise (and exerciseId), load, note, tempo
  *                   │            (never the original's: those describe its kit)
+ *                   ├─ dropped:  gearUpSec (it is about the original's kit)
  *                   └─ swap's if given, else the original's: reps, durationSec
  *                      (for items with sets, each set takes the swap's reps and
  *                       loses its own load such as "heavy")
@@ -501,6 +505,8 @@ export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
     // An item with sets carries its reps in the sets, not at item level.
     reps: item.sets.length > 0 ? item.reps : (swap.reps ?? item.reps),
     durationSec: swap.durationSec ?? item.durationSec,
+    // The gear-up break is about boxing kit (wraps, gloves); the swap needs none.
+    gearUpSec: undefined,
     load: swap.load,
     note: swap.note,
     tempo: swap.tempo,

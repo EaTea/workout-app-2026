@@ -598,6 +598,12 @@ body {
   --timer-button: #1c3a68;
 }
 
+/* Gear up: a neutral slate, distinct from the green work and blue rest. */
+.timer-view[data-phase="gearUp"] {
+  --timer-tint: #1c1a24;
+  --timer-button: #34304a;
+}
+
 /* Finished: neutral tint and a neutral DONE word, whatever the last segment was. The extra [data-phase] outranks the work/rest rules that come later. */
 .timer-view[data-status="finished"][data-phase] {
   --timer-tint: #171b22;
@@ -657,6 +663,10 @@ body {
 
 .timer-view[data-phase="work"] .timer-phase {
   color: #5fd497;
+}
+
+.timer-view[data-phase="gearUp"] .timer-phase {
+  color: #cbb8ff;
 }
 
 .timer-view[data-phase="rest"] .timer-phase {
@@ -802,6 +812,49 @@ body {
 .timer-stepper-button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+/*
+ * Four steppers (heavy bag: work, rest, rounds, gear up) would stack in one
+ * column on a phone and push Start off the screen, so they sit in a 2 x 2
+ * grid with a slightly tighter value column. Buttons stay 48px. Only timers
+ * with more than three setup fields get the class (timerView.ts), so the
+ * rest, EMOM and wall sit screens look as before.
+ *
+ *   [-] Work 30s [+]   [-] Rest 30s [+]
+ *   [-] 5 rounds [+]   [-] Gear up 2:00 [+]
+ */
+.timer-view-many-steppers .timer-setup {
+  margin-top: 14px;
+}
+
+.timer-view-many-steppers .timer-setup-steppers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+}
+
+/* Without this the grid above would outrank the plain [hidden] rule and the steppers would stay visible after Start. */
+.timer-view-many-steppers .timer-setup-steppers[hidden] {
+  display: none;
+}
+
+.timer-view-many-steppers .timer-stepper {
+  justify-content: center;
+  gap: 2px;
+}
+
+.timer-view-many-steppers .timer-stepper-value {
+  min-width: 0;
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.timer-view-many-steppers .timer-stepper-button {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
 }
 
 /* The ring jumps in whole steps with reduced motion (see timerView.ts); no CSS transitions are used otherwise. */
