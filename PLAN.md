@@ -2533,11 +2533,15 @@ set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
   - **Merge point:** Skip does what Ed expects, and a whole exercise can be
     skipped.
 - **PR 33 — Log sets from the EMOM timer** *(behavior change)*
-  1. Pure mapping from an EMOM minute to its set number, with unit tests,
-     including the check that totals match.
-  2. "Log set" on the EMOM timer, pre-filled and saved through the log
-     path, shown as logged on the timer. Unit tests and an E2E test that
-     logs two minutes from the timer and checks the log screen.
+  1. [x] Pure mapping from an EMOM minute to its set number (minute =
+     set number, with a check that the set count matches), in
+     `ui/timerSetLogging.ts`. Unit tests.
+  2. [x] "Log set N" on the EMOM timer, pre-filled and saved through the log
+     path (`ui/today.ts` wiring, `ui/timerView.ts` round action). Unit tests
+     and an E2E test that logs two minutes from the timer and sees the row
+     count after a reload.
+  3. [x] Follow-up found in review: closing the timer after a logged set
+     redraws Today and returns focus to the Start EMOM button.
   - **Merge point:** an EMOM can be logged without leaving the timer.
 - **PR 34 — Scroll to the next exercise** *(behavior change)*
   1. Pure "next unfinished item" function, with unit tests in session

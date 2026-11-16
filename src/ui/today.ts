@@ -26,7 +26,7 @@ import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { CombinesByDate } from "../combine/model";
 import { type CombinedBlock, type CombinedSession, type TrainingSessionView } from "../program/combine";
-import { activeDonorOn, combineOffersFor } from "../program/combineOffers";
+import { activeCombineOn, activeDonorOn, combineOffersFor } from "../program/combineOffers";
 import { programStatus, todayLocalDate } from "../program/calendar";
 import { blockCountOf } from "../optionalBlocks/session";
 import { optionalBlockKey } from "../optionalBlocks/model";
@@ -37,6 +37,7 @@ import { logRouteHash } from "./router";
 import { createRestMemory, restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 import { openTimer } from "./timerView";
+import { buildEmomRoundAction, type RowTimerLogging, type TimerSetLoggingSource } from "./timerSetLogging";
 import { blockLabel, formatBlockTitle, formatCombinedSessionKicker, formatItemDetails, formatItemDose, formatSessionKicker, formatTimerAdjustment, formatShortDate, isAwaitingRetest } from "./format";
 
 /**
@@ -157,6 +158,7 @@ export function renderTodayScreen(
   noEquipment?: NoEquipmentOptions,
   combine?: CombineOptions,
   optionalBlocks?: OptionalBlocksOptions,
+  setLogging?: TimerSetLoggingSource,
 ): HTMLElement {
   const screen = element("section", "screen");
 
@@ -206,10 +208,18 @@ export function renderTodayScreen(
           screen.append(renderRotationCard(describeSwaps(program, program.warmupRotation), program.warmupRotation, rotation.onDismiss, rotation.canDismiss));
         }
       }
+      // Timers' "Log set" buttons save with the same session facts the log screen uses for a row.
+      const rowTimerLogging: RowTimerLogging | undefined = setLogging === undefined ? undefined : {
+        program,
+        source: setLogging,
+        programWeek: session.week,
+        hostDay: activeCombineOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate())?.hostDay,
+        isCombined: session.kind === "combined",
+      };
       if (session.kind === "combined") {
-        screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, combine, optionalBlocks));
+        screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, combine, optionalBlocks, rowTimerLogging));
       } else {
-        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, combine, settings.startDate, optionalBlocks));
+        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, combine, settings.startDate, optionalBlocks, rowTimerLogging));
       }
       break;
     default:
@@ -291,6 +301,7 @@ function renderTrainingDay(
   combine: CombineOptions | undefined,
   startDate: string | null,
   optionalBlocks: OptionalBlocksOptions | undefined,
+  rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
@@ -330,7 +341,7 @@ function renderTrainingDay(
   // Blocks are numbered by their place in the program day, which a block left out this week doesn't shift.
   session.blocks.forEach((block) => {
     const slot: RowSlot = { day: session.dayNumber, blockPosition: block.position, isCombined: false };
-    parts.push(renderBlockCard(program, programId, block, block.position, slot, session.phase, date, log, locked, noEquipment, optionalBlocks));
+    parts.push(renderBlockCard(program, programId, block, block.position, slot, session.phase, date, log, locked, noEquipment, optionalBlocks, rowTimerLogging));
   });
 
   return parts;
@@ -357,6 +368,7 @@ function renderCombinedDay(
   noEquipment: NoEquipmentOptions | undefined,
   combine: CombineOptions | undefined,
   optionalBlocks: OptionalBlocksOptions | undefined,
+  rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement[] {
   const header = element("header", "today-header");
   header.append(
@@ -390,7 +402,7 @@ function renderCombinedDay(
   }
 
   session.blocks.forEach((combinedBlock, index) => {
-    parts.push(renderCombinedBlockCard(program, programId, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment, optionalBlocks));
+    parts.push(renderCombinedBlockCard(program, programId, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment, optionalBlocks, rowTimerLogging));
   });
 
   return parts;
@@ -463,6 +475,7 @@ function renderBlockCard(
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
   optionalBlocks: OptionalBlocksOptions | undefined,
+  rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement {
   // A skipped optional block is one line (it keeps its number) with "Add it back"; a logged round un-skips it (see `applySkippedBlocks`).
   if (block.skipped && block.optional !== undefined) {
@@ -473,7 +486,7 @@ function renderBlockCard(
 
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(displayNumber, block)));
-  appendBlockBody(card, program, programId, block, slot, phase, date, log, locked, noEquipment);
+  appendBlockBody(card, program, programId, block, slot, phase, date, log, locked, noEquipment, rowTimerLogging);
   return card;
 }
 
@@ -494,12 +507,13 @@ function renderCombinedBlockCard(
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
   optionalBlocks: OptionalBlocksOptions | undefined,
+  rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement {
   const slotOf = (part: CombinedBlock["parts"][number]): RowSlot => ({ day: part.source.day, blockPosition: part.source.blockPosition, isCombined: true });
 
   if (combinedBlock.arrangement === "single") {
     const [part] = combinedBlock.parts;
-    return renderBlockCard(program, programId, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment, optionalBlocks);
+    return renderBlockCard(program, programId, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment, optionalBlocks, rowTimerLogging);
   }
 
   const card = element("section", "card block-card");
@@ -508,7 +522,7 @@ function renderCombinedBlockCard(
     element("p", "combine-alternate-note", alternateNote(combinedBlock)),
   );
   for (const part of combinedBlock.parts) {
-    appendBlockBody(card, program, programId, part.block, slotOf(part), phase, date, log, locked, noEquipment);
+    appendBlockBody(card, program, programId, part.block, slotOf(part), phase, date, log, locked, noEquipment, rowTimerLogging);
   }
   return card;
 }
@@ -534,6 +548,7 @@ function appendBlockBody(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  rowTimerLogging: RowTimerLogging | undefined,
 ): void {
   // Supersets rest between pairs, so the rest button belongs to the block rather than to one row.
   if (block.restSecBetweenPairs) {
@@ -554,7 +569,7 @@ function appendBlockBody(
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(program, programId, item, block, slot, phase, date, log, locked, noEquipment));
+    card.append(renderItemRow(program, programId, item, block, slot, phase, date, log, locked, noEquipment, rowTimerLogging));
   }
 }
 
@@ -584,6 +599,7 @@ function renderItemRow(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement {
   const { day: dayNumber, blockPosition } = slot;
   const keyDay = keyDayOf(slot);
@@ -672,7 +688,7 @@ function renderItemRow(
 
   // EMOM items get their own Start button, a sibling so the row button keeps opening the log screen.
   if (item.format === "emom" && item.minutes !== undefined) {
-    row.append(renderStartEmomButton(item));
+    row.append(renderStartEmomButton(item, block, date, blockPosition, dayNumber, rowTimerLogging));
   }
 
   // Straight-set items with a prescribed rest get a rest button, tapped after each set.
@@ -702,16 +718,52 @@ function renderItemRow(
  * item (timer/plans.ts) with beeps and vibration (timer/cues.ts) wired in;
  * the audio is unlocked/resumed on every tap inside the timer.
  */
-function renderStartEmomButton(item: ItemView): HTMLButtonElement {
+function renderStartEmomButton(
+  item: ItemView,
+  block: BlockView,
+  date: string,
+  blockPosition: number,
+  dayNumber: number,
+  rowTimerLogging: RowTimerLogging | undefined,
+): HTMLButtonElement {
+  const label = `Start EMOM, ${itemDisplayName(item)}`;
   const button = element("button", "item-start", "Start EMOM");
   button.type = "button";
   // The visible text comes first in the accessible name (WCAG 2.5.3 label in name).
-  button.setAttribute("aria-label", `Start EMOM, ${itemDisplayName(item)}`);
+  button.setAttribute("aria-label", label);
 
   button.addEventListener("click", () => {
     const cues = createCuePlayer();
+    // Set when a set is logged from the timer, so closing knows Today's counts are stale.
+    let loggedFromTimer = false;
+    const roundAction = rowTimerLogging === undefined ? undefined : buildEmomRoundAction({
+      program: rowTimerLogging.program,
+      item,
+      block,
+      date,
+      blockPosition,
+      dayNumber,
+      isCombined: rowTimerLogging.isCombined,
+      sessionContext: { programWeek: rowTimerLogging.programWeek, day: rowTimerLogging.hostDay ?? dayNumber },
+      source: rowTimerLogging.source,
+    });
+
     openTimer(buildEmomPlan(item), {
       dialogName: `${itemDisplayName(item)} EMOM timer`,
+      // "Log set N" on the timer saves the same set the log screen would for that minute.
+      roundAction: roundAction === undefined ? undefined : {
+        describe: (round) => roundAction.describe(round),
+        onTap: (round) => {
+          roundAction.onTap(round);
+          loggedFromTimer = true;
+        },
+      },
+      // Closing after a logged set redraws Today, then puts focus back on this button's new copy.
+      onClose: () => {
+        if (!loggedFromTimer || rowTimerLogging === undefined) return;
+        rowTimerLogging.source.refresh();
+        focusStartEmomButton(label);
+      },
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
@@ -719,6 +771,13 @@ function renderStartEmomButton(item: ItemView): HTMLButtonElement {
     });
   });
   return button;
+}
+
+/** Puts focus on the "Start EMOM" button with this accessible name, after Today was redrawn. */
+function focusStartEmomButton(accessibleName: string): void {
+  const match = Array.from(document.querySelectorAll<HTMLButtonElement>("button.item-start"))
+    .find((candidate) => candidate.getAttribute("aria-label") === accessibleName);
+  match?.focus();
 }
 
 /** Gear-up lengths Ed started a timer with, for this page load only (see renderStartIntervalButton). */

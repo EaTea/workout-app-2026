@@ -492,3 +492,33 @@ test("after the page was hidden for several segments, becoming visible shows the
   await expect(overlay.locator(".timer-phase")).toHaveText("WORK");
   await expect(overlay.locator(".timer-digits")).toHaveText("0:20");
 });
+
+test("Log set on an EMOM timer saves that minute, keeps the timer running, and shows on Today", async ({ page }) => {
+  await openToday(page);
+
+  await page.getByRole("button", { name: "Start EMOM, Pull-ups" }).click();
+  const overlay = page.getByRole("dialog", { name: "Pull-ups EMOM timer" });
+  await expect(overlay).toBeVisible();
+  await overlay.getByRole("button", { name: "Start" }).click();
+
+  // Minute 1 is the current round; logging it marks it done and the timer carries on running.
+  const logMinuteOne = overlay.getByRole("button", { name: "Log set 1" });
+  await expect(logMinuteOne).toBeEnabled();
+  await logMinuteOne.click();
+  await expect(overlay.getByRole("button", { name: "Logged set 1" })).toBeDisabled();
+
+  await page.clock.runFor(61_000);
+  await expect(overlay.locator(".timer-ring-number")).toHaveText("2/9");
+  await expect(overlay.getByRole("button", { name: "Log set 2" })).toBeEnabled();
+  await overlay.getByRole("button", { name: "Log set 2" }).click();
+
+  // Closing the timer returns to Today, where the row now shows two of nine sets.
+  await overlay.getByRole("button", { name: /Close/ }).click();
+  await expect(overlay).toBeHidden();
+  const pullUpRow = page.locator(".item-row").filter({ hasText: "Pull-ups" }).first();
+  await expect(pullUpRow.locator(".item-progress")).toContainText("2/9");
+
+  // The sets are real: after a reload the row still shows them.
+  await page.reload();
+  await expect(page.locator(".item-row").filter({ hasText: "Pull-ups" }).first().locator(".item-progress")).toContainText("2/9");
+});
