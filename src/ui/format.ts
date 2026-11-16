@@ -194,7 +194,7 @@ export function formatBlockChange(position: number, previous: BlockView, previou
   // "superset" in the title is a format label, not a figure that can change.
   const figures = formatBlockTitle(position, previous).split(DOT).slice(2).filter((part) => part !== "superset");
   if (previous.restSecBetweenPairs) {
-    figures.push(`rest ${formatRange(previous.restSecBetweenPairs)}s between pairs`);
+    figures.push(`rest ${formatRange(previous.restSecBetweenPairs)}s after each superset`);
   }
 
   return `Changed: ${figures.length > 0 ? figures.join(DOT) : blockLabel(previous.type)} in week ${previousWeek}`;

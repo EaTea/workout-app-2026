@@ -25,7 +25,7 @@ test("week 5 day 1: Today shows the adjusted numbers and the heavy bag timer sta
   await expect(bagRow).toContainText("Power endurance: +5s work");
 
   const coreCard = page.locator(".block-card", { hasText: "Core" });
-  await expect(coreCard.locator(".block-rest")).toContainText("Rest 30s between pairs");
+  await expect(coreCard.locator(".block-rest")).toContainText("Rest 30s after each superset");
   await expect(coreCard).toContainText("Power endurance: \u221215s rest");
 
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
@@ -40,7 +40,7 @@ test("week 5 day 1: Today shows the adjusted numbers and the heavy bag timer sta
   await expect(overlay).toBeHidden();
 
   // The core block's rest button opens a rest timer at the adjusted 30s.
-  await coreCard.getByRole("button", { name: /Rest 30s between pairs/ }).click();
+  await coreCard.getByRole("button", { name: /Rest 30s after each superset/ }).click();
   const restOverlay = page.getByRole("dialog", { name: "Rest timer" });
   await expect(restOverlay.locator(".timer-digits")).toHaveText("0:30");
 });

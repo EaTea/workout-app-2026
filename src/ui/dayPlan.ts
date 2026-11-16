@@ -219,7 +219,7 @@ function renderPlanBlock(programId: string, block: BlockView, blockIndex: number
   const blockChange = changes?.blocks.find((change) => change.blockIndex === blockIndex);
 
   if (block.restSecBetweenPairs) {
-    card.append(element("p", "plan-block-rest", `Rest ${formatRange(block.restSecBetweenPairs)}s between pairs`));
+    card.append(element("p", "plan-block-rest", `Rest ${formatRange(block.restSecBetweenPairs)}s after each superset`));
     if (block.restAdjustment !== undefined) {
       card.append(element("p", "timer-adjustment", formatTimerAdjustment(session.phase, block.restAdjustment, "rest")));
     }

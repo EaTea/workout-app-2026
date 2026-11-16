@@ -243,7 +243,7 @@ describe("Day plan wording", () => {
   it("names the previous block figures", () => {
     const block = (overrides: Partial<BlockView>): BlockView => ({ position: 1, type: "core", format: "superset", items: [], ...overrides });
     expect(formatBlockChange(5, block({ rounds: { min: 3, max: 3 } }), 3)).toBe("Changed: 3 rounds in week 3");
-    expect(formatBlockChange(5, block({ restSecBetweenPairs: { min: 30, max: 45 } }), 4)).toBe("Changed: rest 30–45s between pairs in week 4");
+    expect(formatBlockChange(5, block({ restSecBetweenPairs: { min: 30, max: 45 } }), 4)).toBe("Changed: rest 30–45s after each superset in week 4");
     expect(formatBlockChange(3, block({ type: "mainStrength", minutes: 9 }), 3)).toBe("Changed: 9 min in week 3");
   });
 });
