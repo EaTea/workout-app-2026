@@ -2520,8 +2520,11 @@ set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
 **Milestones** (one PR each, in this order):
 
 - **PR 32 — Skip records skipped sets** *(behavior change)*
-  1. Log v2 wire types, parser, model and `skippedSets` (rule 1 and rule 6),
-     with a v1 reader. Unit tests for v1 and v2 load, save and round trip.
+  *Built as an optional `skippedSets` field on v1, not a v2 format: an older
+  log reads as none skipped and a log with no skips is written unchanged, so
+  no version bump is needed.*
+  1. [x] Model, wire types, parser and `skippedSets` (rule 1 and rule 6),
+     with a v1 reader. Unit tests for old and new load, save and round trip.
   2. Operations: skip a set, clear a skip, and "item done" for logged or
      skipped sets. Unit tests.
   3. Log screen: Skip records the skip, skipped sets can be reopened, and

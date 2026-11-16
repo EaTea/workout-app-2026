@@ -124,7 +124,8 @@ export function renderHistoryScreen(
    */
   function draw(focusName?: string): void {
     focusTargets = new Map();
-    const dates = sessionDates(log);
+    // A day with only skipped sets has nothing to list, so it gets no card (and does not make the page non-empty).
+    const dates = sessionDates(log).filter((date) => (log.sessions[date]?.sets.length ?? 0) > 0);
     const pageHeading = element("h1", "screen-title", "History");
     pageHeading.tabIndex = -1;
     focusTargets.set(PAGE_HEADING_FOCUS_NAME, pageHeading);

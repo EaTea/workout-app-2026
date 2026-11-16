@@ -115,9 +115,9 @@ test("edit a logged set, then delete one", async ({ page }) => {
   await seedSettings(page);
   await page.goto("/?date=2026-11-09#/log/2026-11-09/2/med_ball_slam");
 
-  await page.getByRole("button", { name: "Skip" }).click();
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
   await expect(page.locator(".log-set-current")).toContainText("Set 2");
-  await page.getByRole("button", { name: "Skip" }).click();
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
   await expect(page.locator(".log-set-current")).toContainText("Set 3");
 
   // Log sets 3 and 4 (the rest timer opens each time).
@@ -150,7 +150,7 @@ test("edit a logged set, then delete one", async ({ page }) => {
   expect(await focusedTagName(page)).not.toBe("BODY");
 
   await page.getByRole("link", { name: "Back to Today", exact: true }).click();
-  await expect(row(page, "Med ball slams").locator(".item-progress")).toHaveText("1/6");
+  await expect(row(page, "Med ball slams").locator(".item-progress")).toHaveText("1/6 · 2 skipped");
 });
 
 test("an armed delete button reverts after a few seconds", async ({ page }) => {
@@ -414,4 +414,36 @@ test("a future preview date cannot be logged to: the Log buttons are disabled wi
 
   const storedLog = await page.evaluate(() => window.localStorage.getItem("explosive-endurance.log"));
   expect(storedLog).toBeNull();
+});
+
+test("Skip records each set as skipped; skipping them all finishes the exercise; a skipped set can be logged", async ({ page }) => {
+  await seedSettings(page);
+  await page.goto("/?date=2026-11-09#/log/2026-11-09/2/med_ball_slam");
+
+  // Skip all six sets: each one is recorded as skipped and the next open one comes up.
+  for (let count = 0; count < 5; count++) {
+    await page.getByRole("button", { name: "Skip", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(page.getByText("Every set is logged or skipped.")).toBeVisible();
+  await expect(setRow(page, "Set 1")).toHaveAttribute("aria-label", /skipped, tap to log it/);
+
+  // Today counts the skips: the exercise is done with nothing logged.
+  await page.getByRole("link", { name: "Back to Today", exact: true }).click();
+  await expect(row(page, "Med ball slams").locator(".item-progress")).toHaveText("✓ 0/6 · 6 skipped");
+
+  // Still there after a reload.
+  await page.reload();
+  await expect(row(page, "Med ball slams").locator(".item-progress")).toHaveText("✓ 0/6 · 6 skipped");
+
+  // Open a skipped set and log it: the skip is replaced by the logged set.
+  await row(page, "Med ball slams").locator(".item-open").click();
+  await setRow(page, "Set 3").click();
+  // The other sets are skipped, so there is no set left to rest for and no rest timer opens.
+  await page.getByRole("button", { name: /✓ Log set/ }).click();
+  await expect(setRow(page, "Set 3")).toContainText("6 reps");
+  await expect(setRow(page, "Set 3")).not.toContainText("Skipped");
+
+  await page.getByRole("link", { name: "Back to Today", exact: true }).click();
+  await expect(row(page, "Med ball slams").locator(".item-progress")).toHaveText("✓ 1/6 · 5 skipped");
 });

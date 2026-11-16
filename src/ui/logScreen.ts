@@ -13,7 +13,7 @@ import type { DayNumber, Program } from "../program/model";
 import type { TrainingSettings } from "../settings/model";
 import { countSetsForItem, formatLoggedSet, itemTracksReps, nextSetNumber, prefillForSet, setNeedsMax, setNounFor, setWord } from "../log/itemSets";
 import type { LoggedSet, WorkoutLog } from "../log/model";
-import { deleteSet, editSet, logSet, setsForItem } from "../log/operations";
+import { deleteSet, editSet, logSet, setsForItem, skipSet, skippedSetNumbersForItem } from "../log/operations";
 import { formatClock } from "../timer/engine";
 import { element } from "./dom";
 import { openExerciseSheet } from "./exerciseSheet";
@@ -208,11 +208,21 @@ export function renderLogScreen(
     return loggedSets().map((set) => set.setNumber);
   }
 
-  /** The first set not yet logged, or undefined when every set is done. */
-  function firstUnloggedSetNumber(): number | undefined {
-    const logged = loggedNumbers();
+  /** The 1-based numbers of the sets skipped on this date (Skip), which count as done for the item. */
+  function skippedNumbers(): number[] {
+    return skippedSetNumbersForItem(log, date, blockPosition, trackedItem.exercise.id, dayNumber);
+  }
+
+  /** Sets that are done for now: logged or skipped. Only the rest are still open. */
+  function closedNumbers(): number[] {
+    return [...loggedNumbers(), ...skippedNumbers()];
+  }
+
+  /** The first set neither logged nor skipped, or undefined when every set is done or skipped. */
+  function firstOpenSetNumber(): number | undefined {
+    const closed = closedNumbers();
     for (let setNumber = 1; setNumber <= totalSets; setNumber++) {
-      if (!logged.includes(setNumber)) return setNumber;
+      if (!closed.includes(setNumber)) return setNumber;
     }
     return undefined;
   }
@@ -224,6 +234,11 @@ export function renderLogScreen(
    */
   function prefillFor(setNumber: number): { reps?: number; loadKg: number } {
     return prefillForSet(trackedItem, setNumber, loggedSets(), lastTime);
+  }
+
+  /** The message when no set is open: "All sets logged." or, when some were skipped, "Every set is logged or skipped." */
+  function doneMessage(): string {
+    return skippedNumbers().length > 0 ? "Every set is logged or skipped." : "All sets logged.";
   }
 
   /** Makes `setNumber` the expanded set and loads its draft (a logged set loads its own values to edit). */
@@ -279,7 +294,7 @@ export function renderLogScreen(
       return;
     }
 
-    const upNext = nextSetNumber(loggedNumber, totalSets, loggedNumbers());
+    const upNext = nextSetNumber(loggedNumber, totalSets, closedNumbers());
     focusSet(upNext);
     drawAndFocus();
 
@@ -292,11 +307,21 @@ export function renderLogScreen(
     }
   }
 
-  /** "Skip" tapped: moves to the next unlogged set without logging anything. */
+  /**
+   * "Skip" tapped: records the current set as skipped (not logged) and moves on
+   * to the next open set. The set stays in the list as "Skipped", and tapping
+   * it later opens it to log (which replaces the skip).
+   */
   function handleSkip(): void {
-    if (currentSetNumber === undefined) return;
-    focusSet(nextSetNumber(currentSetNumber, totalSets, loggedNumbers()));
+    if (currentSetNumber === undefined || isFutureDate) return;
+    const skippedNumber = currentSetNumber;
     message = undefined;
+    commit((freshLog) => skipSet(freshLog, date, { exerciseId: trackedItem.exercise.id, day: isCombined ? dayNumber : undefined, blockPosition, setNumber: skippedNumber }, sessionContext));
+    if (message !== undefined) {
+      drawAndFocus();
+      return;
+    }
+    focusSet(nextSetNumber(skippedNumber, totalSets, closedNumbers()));
     drawAndFocus();
   }
 
@@ -319,7 +344,8 @@ export function renderLogScreen(
     const simulatedSets = [...loggedSets()];
 
     for (let setNumber = 1; setNumber <= totalSets; setNumber++) {
-      if (loggedNumbers().includes(setNumber)) continue;
+      // Logged and skipped sets are left as they are.
+      if (closedNumbers().includes(setNumber)) continue;
 
       const values: SetDraft = setNumber === currentSetNumber
         ? draft
@@ -344,7 +370,7 @@ export function renderLogScreen(
       }
       return updatedLog;
     });
-    focusSet(firstUnloggedSetNumber());
+    focusSet(firstOpenSetNumber());
     drawAndFocus();
   }
 
@@ -361,7 +387,7 @@ export function renderLogScreen(
     const key = { exerciseId: changed.exerciseId, day: dayNumber, blockPosition, setNumber: changed.setNumber };
     // A key with value undefined clears that field in the stored set.
     commit((freshLog) => editSet(freshLog, date, key, { reps: changed.reps, loadKg: changed.loadKg, note: changed.note }));
-    focusSet(firstUnloggedSetNumber());
+    focusSet(firstOpenSetNumber());
     drawAndFocus();
   }
 
@@ -370,7 +396,7 @@ export function renderLogScreen(
     if (currentSetNumber === undefined) return;
     const key = { exerciseId: trackedItem.exercise.id, day: dayNumber, blockPosition, setNumber: currentSetNumber };
     commit((freshLog) => deleteSet(freshLog, date, key));
-    focusSet(firstUnloggedSetNumber());
+    focusSet(firstOpenSetNumber());
     drawAndFocus();
   }
 
@@ -378,7 +404,8 @@ export function renderLogScreen(
   function draw(): void {
     const logged = loggedSets();
     const isEditing = currentSetNumber !== undefined && logged.some((set) => set.setNumber === currentSetNumber);
-    const unloggedCount = totalSets - logged.length;
+    // Open sets: neither logged nor skipped. This is what "Log all as planned" and the done message depend on.
+    const openCount = totalSets - closedNumbers().length;
 
     const children: HTMLElement[] = [
       renderHeader(),
@@ -403,12 +430,12 @@ export function renderLogScreen(
     }
 
     if (currentSetNumber === undefined) {
-      const done = element("p", "log-done", unloggedCount === 0 ? "All sets logged." : "No set selected. Tap a set above.");
+      const done = element("p", "log-done", openCount === 0 ? doneMessage() : "No set selected. Tap a set above.");
       // Not a tab stop, but focusable by script so `drawAndFocus` can land here.
       done.tabIndex = -1;
       children.push(done);
     } else {
-      children.push(renderActions(isEditing, unloggedCount));
+      children.push(renderActions(isEditing, openCount));
     }
 
     screen.replaceChildren(...children);
@@ -468,6 +495,7 @@ export function renderLogScreen(
   function renderSetList(): HTMLElement {
     const card = element("div", "card log-sets");
     const logged = loggedSets();
+    const skipped = skippedNumbers();
 
     for (let setNumber = 1; setNumber <= totalSets; setNumber++) {
       const loggedSet = logged.find((set) => set.setNumber === setNumber);
@@ -475,22 +503,28 @@ export function renderLogScreen(
       if (setNumber === currentSetNumber) {
         card.append(renderCurrentSet(setNumber, loggedSet !== undefined));
       } else {
-        card.append(renderCollapsedSet(setNumber, loggedSet));
+        card.append(renderCollapsedSet(setNumber, loggedSet, skipped.includes(setNumber)));
       }
     }
     return card;
   }
 
-  /** One collapsed row: logged (tick plus values) or still to do (empty circle plus plan). Tapping focuses it. */
-  function renderCollapsedSet(setNumber: number, loggedSet: LoggedSet | undefined): HTMLElement {
-    const row = element("button", loggedSet ? "log-set-row log-set-logged" : "log-set-row");
+  /**
+   * One collapsed row: logged (tick plus values), skipped (a dash and "Skipped"),
+   * or still to do (empty circle plus plan). Tapping focuses it; a skipped
+   * row opens for logging, which replaces the skip.
+   */
+  function renderCollapsedSet(setNumber: number, loggedSet: LoggedSet | undefined, isSkipped: boolean): HTMLElement {
+    const rowClass = loggedSet ? "log-set-row log-set-logged" : isSkipped ? "log-set-row log-set-skipped" : "log-set-row";
+    const row = element("button", rowClass);
     row.type = "button";
 
-    const circle = element("span", loggedSet ? "log-check log-check-done" : "log-check", loggedSet ? "✓" : "");
+    const circle = element("span", loggedSet ? "log-check log-check-done" : isSkipped ? "log-check log-check-skipped" : "log-check", loggedSet ? "✓" : isSkipped ? "–" : "");
     circle.setAttribute("aria-hidden", "true");
 
     const details = element("span", "log-set-details");
-    details.append(element("span", "log-set-values", loggedSet ? formatLoggedSet(loggedSet) : plannedText(setNumber)));
+    const valuesText = loggedSet ? formatLoggedSet(loggedSet) : isSkipped ? "Skipped" : plannedText(setNumber);
+    details.append(element("span", "log-set-values", valuesText));
     if (loggedSet?.note) {
       details.append(element("span", "log-set-note", loggedSet.note));
     }
@@ -498,7 +532,9 @@ export function renderLogScreen(
     row.append(element("span", "log-set-label", `${word} ${setNumber}`), circle, details);
     row.setAttribute("aria-label", loggedSet
       ? `${word} ${setNumber}, ${formatLoggedSet(loggedSet)}, tap to edit`
-      : `${word} ${setNumber}, not done, tap to log`);
+      : isSkipped
+        ? `${word} ${setNumber}, skipped, tap to log it`
+        : `${word} ${setNumber}, not done, tap to log`);
 
     row.addEventListener("click", () => {
       message = undefined;
@@ -554,14 +590,14 @@ export function renderLogScreen(
   }
 
   /** The sticky button bar: Skip + Log set normally, Cancel/Delete/Save while editing; plus "Log all as planned". */
-  function renderActions(isEditing: boolean, unloggedCount: number): HTMLElement {
+  function renderActions(isEditing: boolean, openCount: number): HTMLElement {
     const bar = element("div", "log-actions");
 
     if (isEditing) {
       const save = renderActionButton("log-primary", "✓ Save changes", handleSaveEdit);
       const cancel = renderActionButton("log-secondary", "Cancel", () => {
         message = undefined;
-        focusSet(firstUnloggedSetNumber());
+        focusSet(firstOpenSetNumber());
         drawAndFocus();
       });
       const remove = renderDeleteButton(handleDelete);
@@ -569,17 +605,17 @@ export function renderLogScreen(
       return bar;
     }
 
-    if (unloggedCount >= 2) {
+    if (openCount >= 2) {
       const logAll = renderActionButton("log-all", "Log all as planned", handleLogAll);
       logAll.disabled = isFutureDate;
       bar.append(logAll);
     }
 
     const skip = renderActionButton("log-secondary", "Skip", handleSkip);
-    skip.disabled = currentSetNumber === undefined || nextSetNumber(currentSetNumber, totalSets, loggedNumbers()) === undefined;
+    skip.disabled = currentSetNumber === undefined || isFutureDate;
 
     // Label shows the rest only when logging will actually start it (a set is still to come).
-    const startsRest = restRange !== undefined && !isInAlternateBlock && nextSetNumber(currentSetNumber ?? 0, totalSets, loggedNumbers()) !== undefined;
+    const startsRest = restRange !== undefined && !isInAlternateBlock && nextSetNumber(currentSetNumber ?? 0, totalSets, closedNumbers()) !== undefined;
     const logLabel = startsRest ? `✓ Log set · rest ${formatClock(currentRestSeconds(restRange, restMemory))}` : "✓ Log set";
     const logButton = renderActionButton("log-primary", logLabel, handleLogSet);
     logButton.disabled = isFutureDate;
@@ -587,7 +623,7 @@ export function renderLogScreen(
     return bar;
   }
 
-  focusSet(firstUnloggedSetNumber());
+  focusSet(firstOpenSetNumber());
   draw();
   return screen;
 }

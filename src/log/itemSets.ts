@@ -197,12 +197,17 @@ export function nextSetNumber(fromSetNumber: number, totalSets: number, loggedSe
 
 /**
  * Today's progress text for an item: "2/6", "✓ 6/6" when complete, or
- * undefined when nothing is logged (the row shows no progress then). Logged
- * counts above the total (a deload-shortened item re-opened) read as complete.
+ * undefined when nothing is logged or skipped (the row shows no progress then).
+ * Skipped sets are shown as "· 2 skipped" and count towards complete: "✓ 4/6 · 2 skipped"
+ * means four logged and two skipped. Counts above the total (a deload-shortened
+ * item re-opened) read as complete.
  */
-export function formatProgress(loggedCount: number, totalSets: number): string | undefined {
-  if (loggedCount === 0) return undefined;
-  return loggedCount >= totalSets ? `✓ ${loggedCount}/${totalSets}` : `${loggedCount}/${totalSets}`;
+export function formatProgress(loggedCount: number, totalSets: number, skippedCount = 0): string | undefined {
+  if (loggedCount === 0 && skippedCount === 0) return undefined;
+  const isComplete = loggedCount + skippedCount >= totalSets;
+  const counts = `${loggedCount}/${totalSets}`;
+  const skippedText = skippedCount > 0 ? ` · ${skippedCount} skipped` : "";
+  return `${isComplete ? "✓ " : ""}${counts}${skippedText}`;
 }
 
 /**

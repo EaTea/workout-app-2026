@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkoutLog } from "./model";
 import { logSet, skipSet, skippedSetNumbersForItem, setsForItem } from "./operations";
+import { formatProgress } from "./itemSets";
 import { logFromWire, logToWire } from "./wire";
 
 const emptyLog: WorkoutLog = { sessions: {} };
@@ -111,5 +112,20 @@ describe("wire form of skips", () => {
 
     expect(problems.messages).toEqual([]);
     expect(log.sessions[DATE]?.skippedSets).toEqual([{ exerciseId: "pull_up", blockPosition: 2, setNumber: 2 }]);
+  });
+});
+
+describe("formatProgress with skipped sets", () => {
+  it("shows skipped sets beside the logged count", () => {
+    expect(formatProgress(2, 6, 1)).toBe("2/6 · 1 skipped");
+  });
+
+  it("reads as complete when logged and skipped sets fill the item", () => {
+    expect(formatProgress(4, 6, 2)).toBe("✓ 4/6 · 2 skipped");
+    expect(formatProgress(0, 3, 3)).toBe("✓ 0/3 · 3 skipped");
+  });
+
+  it("shows nothing when nothing is logged or skipped", () => {
+    expect(formatProgress(0, 6, 0)).toBeUndefined();
   });
 });
