@@ -447,6 +447,11 @@ Open the deployed site once while online, then add it to the home screen
 (iPhone Safari: Share, then Add to Home Screen; Android Chrome: menu, then
 Install app). After that first visit the app opens with no signal.
 
+The "Full screen" button in the bottom bar goes full screen where the browser
+allows it (Android Chrome, desktop). iPhone Safari does not allow web pages to go
+full screen, so there the button explains the Add to Home Screen route, and the app
+opened from the home screen has no browser bars and no button.
+
 The app shell and its files come from the cache that the installed worker
 version precached; page loads never overwrite it, so a patchy connection
 can't leave a half-updated app behind. Every program file listed in

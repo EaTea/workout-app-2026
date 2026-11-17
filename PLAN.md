@@ -2574,6 +2574,7 @@ set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
   1. A Full screen button that uses the Fullscreen API where the browser
      allows it, and an "Add to Home Screen" note for iPhone Safari, which
      does not allow it for web pages. Unit tests for the support check.
+  - *Status: built. The button is in the bottom bar (`ui/app.ts`), its decision is `ui/fullScreen.ts` with unit tests, E2E in `e2e/fullScreen.spec.ts`. Not verified on a real iPhone.*
   - **Merge point:** Ed can use full screen on Android and desktop. On
     iPhone, the home-screen app is the way to go full screen.
 
