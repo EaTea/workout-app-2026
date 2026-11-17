@@ -800,7 +800,8 @@ export function startApp(
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
         // Coming back to Today should land on the next unfinished exercise after this one (PR 34).
-        rowToReturnTo = todayRowKey(logTarget.blockPosition, logTarget.exerciseId, logTarget.day);
+        // Only for the day Today shows: a log link to another date must not scroll that date's Today.
+        rowToReturnTo = logTarget.date === shownDate ? todayRowKey(logTarget.blockPosition, logTarget.exerciseId, logTarget.day) : undefined;
         main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines, skippedOptionalBlocks));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog, skippedOptionalBlocks));
