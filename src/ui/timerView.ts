@@ -316,11 +316,15 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
 
     // The gear-up break comes before round 1 and has no round of its own to log.
     const hasLoggableRound = options.roundAction !== undefined && segment.round !== undefined && segment.phase !== "gearUp";
-    if (roundButton !== undefined && options.roundAction !== undefined && hasLoggableRound) {
-      const roundState = options.roundAction.describe(segment.round!);
-      roundButton.textContent = roundState.label;
-      // Not disabled once logged: a disabled button drops focus, so a keyboard user would land on Pause.
-      roundButton.disabled = roundState.disabled;
+    if (roundButton !== undefined && options.roundAction !== undefined) {
+      // Hidden, not just blank, during the gear-up break: an empty enabled button would be focusable and unnamed.
+      roundButton.hidden = !hasLoggableRound;
+      if (hasLoggableRound) {
+        const roundState = options.roundAction.describe(segment.round!);
+        roundButton.textContent = roundState.label;
+        // Not disabled once logged: a disabled button drops focus, so a keyboard user would land on Pause.
+        roundButton.disabled = roundState.disabled;
+      }
     }
 
     moveFocusOffDisabledControl();
@@ -460,7 +464,9 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   closeButton.addEventListener("click", close);
   /**
    * "Log set N" tapped: logs the set for the round the timer is in (EMOM: one
-   * round per minute). The timer keeps running; only the button changes.
+   * round per minute; intervals: the work round, or the rest after it). The
+   * gear-up break has no round, so a tap there saves nothing. The timer keeps
+   * running; only the button changes.
    */
   function handleRoundTap(): void {
     options.onUserTap?.();

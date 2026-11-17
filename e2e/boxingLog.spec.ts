@@ -22,8 +22,8 @@ test("Log set on the heavy bag timer logs that round, and Today counts it", asyn
   await page.getByRole("button", { name: "Start timer, Heavy bag finisher" }).click();
   const overlay = page.getByRole("dialog", { name: "Heavy bag timer" });
   await expect(overlay.locator(".timer-phase")).toHaveText("GEAR UP");
-  // No round yet during the gear-up break, so no log button.
-  await expect(overlay.getByRole("button", { name: /Log set/ })).toHaveCount(0);
+  // No round yet during the gear-up break, so the log button is hidden (not merely blank).
+  await expect(overlay.locator(".timer-button-log")).toBeHidden();
 
   await overlay.getByRole("button", { name: "Start" }).click();
   await overlay.getByRole("button", { name: "Ready, start round 1" }).click();
