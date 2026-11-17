@@ -238,7 +238,8 @@ button.full-screen-button {
   background: none;
   border: 0;
   padding: 0;
-  font: inherit;
+  /* Only the family is inherited: `font` would also reset the 12px size that .nav-item sets. */
+  font-family: inherit;
   cursor: pointer;
 }
 

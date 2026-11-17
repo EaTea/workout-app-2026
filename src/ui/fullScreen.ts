@@ -59,6 +59,16 @@ export function readFullScreenEnvironment(browser: FullScreenBrowserLike): FullS
   };
 }
 
-/** Text shown when the browser cannot go full screen. Says how to get the same effect on iPhone. */
+/**
+ * Text shown when the browser has no Fullscreen API (iPhone Safari). Says how
+ * to get the same effect: the Home Screen app opens without browser bars.
+ */
 export const HOME_SCREEN_HINT =
-  "This browser can't make the page full screen. On iPhone, tap Share, then Add to Home Screen, and open the app from there.";
+  "This browser can't make the page full screen. On iPhone, tap Share (or ••• then Share), then Add to Home Screen, and open the app from there.";
+
+/**
+ * Text shown when the browser has the API but refuses the request (for
+ * example, no recent tap). It must not give the iPhone advice, which is wrong
+ * on Android and desktop.
+ */
+export const FULL_SCREEN_REFUSED_MESSAGE = "Couldn't go full screen. Try tapping the button again.";

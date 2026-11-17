@@ -54,7 +54,7 @@ import {
   type CheckInDraft,
 } from "./checkin";
 import { renderDropBanner } from "./checkinCard";
-import { HOME_SCREEN_HINT, nextFullScreenStep, readFullScreenEnvironment, type FullScreenEnvironment } from "./fullScreen";
+import { FULL_SCREEN_REFUSED_MESSAGE, HOME_SCREEN_HINT, nextFullScreenStep, readFullScreenEnvironment, type FullScreenEnvironment } from "./fullScreen";
 import { focusMainHeading, renderWarningBanner } from "./warningBanner";
 
 /**
@@ -939,7 +939,10 @@ function renderLogWarningBanner(warningText: string, onDismiss: () => void): HTM
   return banner;
 }
 
-/** Bottom nav: Today, History and Settings. */
+/**
+ * Bottom nav: Today, History and Settings, plus the Full screen button when the
+ * app is not already a Home Screen app (see `renderFullScreenButton`).
+ */
 function renderNavigationBar(activeRoute: Route): HTMLElement {
   const nav = element("nav", "bottom-nav");
   nav.setAttribute("aria-label", "Main");
@@ -998,7 +1001,7 @@ function setFullScreenButtonLabel(button: HTMLElement, label: string): void {
 function handleFullScreenTap(): void {
   const step = nextFullScreenStep(currentFullScreenEnvironment());
   if (step === "enter") {
-    document.documentElement.requestFullscreen().catch(() => showToast(HOME_SCREEN_HINT));
+    document.documentElement.requestFullscreen().catch(() => showToast(FULL_SCREEN_REFUSED_MESSAGE));
   } else if (step === "exit") {
     document.exitFullscreen().catch(() => undefined);
   } else if (step === "showHomeScreenHint") {
