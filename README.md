@@ -33,7 +33,7 @@ the edits made to the current set). Logging a set that has a prescribed rest
 opens the rest timer already running. Logged sets can be
 tapped to edit or delete (delete asks for a second tap), and Today rows show progress such as "2/6". The log
 is kept in this browser's local storage (nothing is sent anywhere); the
-exercise details sheet is behind the ⓘ button on the log screen. Skip records the current set as skipped: it is not logged, shows as "Skipped", and counts as done for the exercise (Today shows, for example, "✓ 0/6 · 6 skipped"); tapping a skipped set and logging it replaces the skip. A day with only skipped sets has no History card. "Last time"
+exercise details sheet is behind the ⓘ button on the log screen. Skip records the current set as skipped: it is not logged, shows as "Skipped", and counts as done for the exercise (Today shows, for example, "✓ 0/6 · 6 skipped"); tapping a skipped set and logging it replaces the skip. A day with only skipped sets has no History card. Coming back from a set scrolls Today to the next exercise that still has a set to do, not to the top of the day (or stays put when none is left). "Last time"
 hints (last week's same day and block type, else the same kind of block on
 another day) show on Today rows and the log screen. The History tab lists every logged
 session, newest first, with a summary per exercise; tap an exercise to see its

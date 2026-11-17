@@ -37,6 +37,7 @@ import { logRouteHash } from "./router";
 import { createRestMemory, restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
 import { openTimer } from "./timerView";
+import { todayRowKey } from "./returnScroll";
 import { buildEmomRoundAction, type RowTimerLogging, type TimerSetLoggingSource } from "./timerSetLogging";
 import { blockLabel, formatBlockTitle, formatCombinedSessionKicker, formatItemDetails, formatItemDose, formatSessionKicker, formatTimerAdjustment, formatShortDate, isAwaitingRetest } from "./format";
 
@@ -605,6 +606,8 @@ function renderItemRow(
   const { day: dayNumber, blockPosition } = slot;
   const keyDay = keyDayOf(slot);
   const row = element("div", "item-row");
+  // Keys let app.ts scroll back to this row after a set (returnScroll.ts). "complete" means every set is done.
+  row.dataset.rowKey = todayRowKey(blockPosition, item.exercise.id, keyDay);
   const dose = formatItemDose(item);
 
   const openButton = element("button", "item-open");
@@ -648,6 +651,7 @@ function renderItemRow(
   }
   const skippedCount = skippedSetNumbersForItem(log, date, blockPosition, item.exercise.id, dayNumber).length;
   const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id, dayNumber).length, countSetsForItem(item, block), skippedCount);
+  row.dataset.complete = progress?.startsWith("✓") ? "true" : "false";
   if (progress !== undefined) {
     text.append(element("span", "item-progress", progress));
   }

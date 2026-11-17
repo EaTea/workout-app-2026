@@ -2556,10 +2556,13 @@ set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
     does, so the timer's save path and the log screen's stay in step.
   - **Merge point:** an EMOM can be logged without leaving the timer.
 - **PR 34 — Scroll to the next exercise** *(behavior change)*
-  1. Pure "next unfinished item" function, with unit tests in session
-     order.
-  2. Today scrolls to it when it re-renders after the log screen or a
-     timer closes. E2E checks the scroll position on a long day.
+  *Status: built. Unit tests in `ui/returnScroll.test.ts`; E2E in `e2e/timer.spec.ts`.*
+  1. [x] Pure "next unfinished row" function, with unit tests in session
+     order (`ui/returnScroll.ts`).
+  2. [x] Today scrolls to it when it re-renders after the log screen. An EMOM
+     timer that closes after a logged set keeps the page where it was rather
+     than scrolling (the timer is opened from its row, so the row stays in
+     view). E2E checks the scroll position on a long day.
   - **Merge point:** returning from a set lands on the next exercise.
 - **PR 35 — Log sets from the boxing timer** *(behavior change)*
   1. Round-to-set mapping for the heavy bag, with unit tests.

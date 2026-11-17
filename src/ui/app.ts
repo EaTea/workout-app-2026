@@ -29,6 +29,7 @@ import { buildProgramPicker, programNamesById } from "../program/picker";
 import type { LoadedCatalogueEntry } from "../program/load";
 import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramLink } from "./programPicker";
 import { renderTodayScreen } from "./today";
+import { scrollToNextUnfinishedRow, todayRowKey } from "./returnScroll";
 import { loadTicks, setTick } from "../noEquipment/storage";
 import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
@@ -239,6 +240,10 @@ export function startApp(
   const programNames = programNamesById(loadedPrograms);
   let settings = initialSettings;
   let log = loadedLog.log;
+  /** Row Ed worked on in the log screen; the next Today render scrolls to the next unfinished row after it (PR 34). */
+  let rowToReturnTo: string | undefined;
+  /** Set while Today is being rendered from `rowToReturnTo`, applied once Today is on the page. */
+  let scrollAfterRender: string | undefined;
   let warningsDismissed = false;
   let logWarningDismissed = false;
   let fatigueHistory = loadedFatigue.history;
@@ -770,7 +775,11 @@ export function startApp(
       if (route !== "settings" && loadedFatigue.warning !== undefined && !fatigueLoadWarningDismissed) {
         main.append(renderLogWarningBanner(loadedFatigue.warning, handleDismissFatigueLoadWarning));
       }
+      // Leaving for another screen forgets the row; Today and the log screen keep it.
+      if (route !== "log" && route !== "today") rowToReturnTo = undefined;
       if (route === "today") {
+        scrollAfterRender = rowToReturnTo;
+        rowToReturnTo = undefined;
         const drop = dropWarningForShownDate(program, settings, shownDate, fatigueHistory);
         if (program.fatigueCheck !== undefined && drop.warnings.length > 0 && dropBannerDismissedWeek !== drop.week) {
           main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week)));
@@ -790,6 +799,9 @@ export function startApp(
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
       } else if (route === "log" && logTarget !== undefined) {
+        // Coming back to Today should land on the next unfinished exercise after this one (PR 34).
+        // Only for the day Today shows: a log link to another date must not scroll that date's Today.
+        rowToReturnTo = logTarget.date === shownDate ? todayRowKey(logTarget.blockPosition, logTarget.exerciseId, logTarget.day) : undefined;
         main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines, skippedOptionalBlocks));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog, skippedOptionalBlocks));
@@ -839,11 +851,20 @@ export function startApp(
           currentLog: () => log,
           changeLog,
           canLog: shownDate <= todayLocalDate(),
-          refresh: render,
+          // Closing an EMOM timer after logging redraws Today; keep the page where Ed was.
+          refresh: () => {
+            const scrollY = window.scrollY;
+            render();
+            window.scrollTo(0, scrollY);
+          },
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" || route === "overview" || route === "plan" ? "today" : route));
+      if (scrollAfterRender !== undefined) {
+        scrollToNextUnfinishedRow(root, scrollAfterRender);
+        scrollAfterRender = undefined;
+      }
       updateSessionWakeLock();
       showNewDayBannerIfNeeded();
     } catch (error) {

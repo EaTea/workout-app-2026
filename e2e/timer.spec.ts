@@ -523,3 +523,23 @@ test("Log set on an EMOM timer saves that minute, keeps the timer running, and s
   await page.reload();
   await expect(page.locator(".item-row").filter({ hasText: "Pull-ups" }).first().locator(".item-progress")).toContainText("2/9");
 });
+
+test("after a set, Today scrolls to the next unfinished exercise, not the top", async ({ page }) => {
+  await openToday(page);
+
+  const rows = page.locator(".item-row");
+  const workedIndex = 2;
+  const nextIndex = workedIndex + 1;
+  expect(await rows.count()).toBeGreaterThan(nextIndex);
+
+  // Scroll down to the exercise, open it, and log one set.
+  await rows.nth(workedIndex).scrollIntoViewIfNeeded();
+  await rows.nth(workedIndex).locator(".item-open").click();
+  await page.getByRole("button", { name: /✓ Log set/ }).click();
+  const restDialog = page.getByRole("dialog", { name: "Rest timer" });
+  if (await restDialog.isVisible()) await restDialog.getByRole("button", { name: "✕ Close" }).click();
+
+  // Back on Today, the next exercise is on screen, not the top of the day.
+  await page.getByRole("link", { name: "Back to Today", exact: true }).click();
+  await expect(rows.nth(nextIndex)).toBeInViewport();
+});
