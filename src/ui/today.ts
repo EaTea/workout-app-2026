@@ -19,7 +19,7 @@ import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
 import { countSetsForItem, formatProgress } from "../log/itemSets";
 import type { WorkoutLog } from "../log/model";
-import { setsForItem } from "../log/operations";
+import { setsForItem, skippedSetNumbersForItem } from "../log/operations";
 import { hasNoEquipmentSwap, noEquipmentItemKey, originalExerciseIdOf } from "../program/noEquipment";
 import type { NoEquipmentTicks } from "../noEquipment/model";
 import { buildSwappedSessionFor } from "../noEquipment/session";
@@ -646,7 +646,8 @@ function renderItemRow(
   if (item.showsSameEveryWeekNote) {
     text.append(element("span", "timer-adjustment", SAME_EVERY_WEEK_TEXT));
   }
-  const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id, dayNumber).length, countSetsForItem(item, block));
+  const skippedCount = skippedSetNumbersForItem(log, date, blockPosition, item.exercise.id, dayNumber).length;
+  const progress = formatProgress(setsForItem(log, date, blockPosition, item.exercise.id, dayNumber).length, countSetsForItem(item, block), skippedCount);
   if (progress !== undefined) {
     text.append(element("span", "item-progress", progress));
   }

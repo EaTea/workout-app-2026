@@ -2,7 +2,7 @@ import { blockSlotsOf, type CombinedSession } from "../program/combine";
 import type { BlockView, ItemView, SessionView } from "../program/schedule";
 import { countSetsForItem } from "./itemSets";
 import type { WorkoutLog } from "./model";
-import { setsForItem } from "./operations";
+import { setsForItem, skippedSetNumbersForItem } from "./operations";
 
 /** How long after the last logged set a session still counts as in progress (PLAN.md rule 8). */
 export const SESSION_IDLE_TIMEOUT_MILLISECONDS = 45 * 60 * 1000;
@@ -52,6 +52,8 @@ export function isSessionInProgress(session: SessionView | CombinedSession, log:
     for (const item of block.items) {
       const loggedCount = setsForItem(log, date, source.blockPosition, item.exercise.id, source.day).length;
       totalLoggedSets += loggedCount;
+      // A skipped set is done for the item, so it no longer leaves the session with sets to log.
+      const doneCount = loggedCount + skippedSetNumbersForItem(log, date, source.blockPosition, item.exercise.id, source.day).length;
 
       // Warm-ups are never required to end the session.
       if (block.type === "warmup") continue;
@@ -59,8 +61,8 @@ export function isSessionInProgress(session: SessionView | CombinedSession, log:
       // An optional item nobody started (the side plank) doesn't hold the
       // session open: skipping it is normal, and it would otherwise keep the
       // screen awake until the idle timeout. Once started, it counts like any other.
-      const isSkippedOptional = item.optional && loggedCount === 0;
-      if (!isSkippedOptional && loggedCount < setsNeededToComplete(item, block)) hasItemWithSetsLeft = true;
+      const isSkippedOptional = item.optional && doneCount === 0;
+      if (!isSkippedOptional && doneCount < setsNeededToComplete(item, block)) hasItemWithSetsLeft = true;
     }
   }
 

@@ -1,4 +1,4 @@
-import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
+import type { LoggedSession, LoggedSet, SkippedSet, WorkoutLog } from "./model";
 import { toDayNumber } from "../program/calendar";
 import type { DayNumber } from "../program/model";
 import { isSetOnDay } from "./setDay";
@@ -28,12 +28,21 @@ export interface LoggedSetWireV1 {
   loggedAt: string;
 }
 
+/** Wire form of one skipped set (see `SkippedSet`). Added later to v1 as an optional field, so older saves read as none skipped. */
+export interface SkippedSetWireV1 {
+  exerciseId: string;
+  day?: DayNumber;
+  blockPosition: number;
+  setNumber: number;
+}
+
 /** Wire form of one session. */
 export interface LoggedSessionWireV1 {
   date: string;
   programWeek?: number;
   day?: DayNumber;
   sets: LoggedSetWireV1[];
+  skippedSets?: SkippedSetWireV1[];
 }
 
 /** Format v1 of the stored log: a list of sessions. */
@@ -59,6 +68,16 @@ function sessionToWire(session: LoggedSession): LoggedSessionWireV1 {
   const wire: LoggedSessionWireV1 = { date: session.date, sets: session.sets.map(setToWire) };
   if (session.programWeek !== undefined) wire.programWeek = session.programWeek;
   if (session.day !== undefined) wire.day = session.day;
+  if (session.skippedSets !== undefined && session.skippedSets.length > 0) {
+    wire.skippedSets = session.skippedSets.map(skippedSetToWire);
+  }
+  return wire;
+}
+
+/** Maps one skipped set to its wire form, omitting an absent day. */
+function skippedSetToWire(skip: SkippedSet): SkippedSetWireV1 {
+  const wire: SkippedSetWireV1 = { exerciseId: skip.exerciseId, blockPosition: skip.blockPosition, setNumber: skip.setNumber };
+  if (skip.day !== undefined) wire.day = skip.day;
   return wire;
 }
 
@@ -168,7 +187,7 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
     return undefined;
   }
 
-  // An empty session holds no data, so dropping it loses nothing and needs no warning.
+  // A session with no logged and no skipped sets holds no data, so dropping it loses nothing and needs no warning.
   const sets: LoggedSet[] = [];
   rawSets.forEach((rawSet, index) => {
     const setPath = `${path}.sets[${index}]`;
@@ -196,8 +215,6 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
     sets.push(set);
   });
 
-  if (sets.length === 0) return undefined;
-
   const session: LoggedSession = { date, sets };
 
   // programWeek and day are only History context: a bad value drops that field, not the sets.
@@ -215,7 +232,58 @@ function sessionFromWire(raw: unknown, path: string, problems: LogReadProblems):
       recordProblem(problems, error, 0);
     }
   }
+
+  // Skips are read last, because whether a skip and a logged set are the same set depends on the session's day.
+  const skippedSets = skippedSetsFromWire(record.skippedSets, `${path}.skippedSets`, session, problems);
+  if (sets.length === 0 && skippedSets.length === 0) return undefined;
+  if (skippedSets.length > 0) session.skippedSets = skippedSets;
   return session;
+}
+
+/**
+ * Reads a session's skipped sets, keeping the valid ones. A skip that names a
+ * set which is also logged is dropped: the logged set wins, as `logSet` makes
+ * it. A bad entry is set aside with a message; it does not cost any sets.
+ */
+function skippedSetsFromWire(raw: unknown, path: string, session: LoggedSession, problems: LogReadProblems): SkippedSet[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    problems.messages.push(new LogWireError(`${path}: expected an array`).message);
+    return [];
+  }
+
+  const skips: SkippedSet[] = [];
+  raw.forEach((rawSkip, index) => {
+    const skipPath = `${path}[${index}]`;
+    let skip: SkippedSet;
+    try {
+      skip = skippedSetFromWire(rawSkip, skipPath);
+    } catch (error) {
+      recordProblem(problems, error, 0);
+      return;
+    }
+    // Same rule as operations.ts (`isSameSkip`): a missing day means the session's day, on both sides.
+    const skipDay = skip.day ?? session.day;
+    const isLogged = session.sets.some((set) =>
+      set.exerciseId === skip.exerciseId && set.blockPosition === skip.blockPosition && set.setNumber === skip.setNumber && (set.day ?? session.day) === skipDay);
+    const isDuplicate = skips.some((kept) =>
+      kept.exerciseId === skip.exerciseId && kept.blockPosition === skip.blockPosition && kept.setNumber === skip.setNumber && (kept.day ?? session.day) === skipDay);
+    if (isLogged || isDuplicate) return;
+    skips.push(skip);
+  });
+  return skips;
+}
+
+/** Validates and maps one skipped set; `path` names it in error messages. */
+function skippedSetFromWire(raw: unknown, path: string): SkippedSet {
+  const record = requireObject(raw, path);
+  const skip: SkippedSet = {
+    exerciseId: requireString(record.exerciseId, `${path}.exerciseId`),
+    blockPosition: requirePositiveInteger(record.blockPosition, `${path}.blockPosition`),
+    setNumber: requirePositiveInteger(record.setNumber, `${path}.setNumber`),
+  };
+  if (record.day !== undefined) skip.day = requireDayNumber(record.day, `${path}.day`);
+  return skip;
 }
 
 /** Adds the message of a caught `LogWireError` to `problems`, counting `setCount` sets as set aside. */

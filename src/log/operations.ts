@@ -1,4 +1,4 @@
-import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
+import type { LoggedSession, LoggedSet, SkippedSet, WorkoutLog } from "./model";
 import type { DayNumber } from "../program/model";
 import { isSetOnDay } from "./setDay";
 
@@ -51,11 +51,29 @@ function isSameSet(session: LoggedSession, candidate: LoggedSet, key: SetKey): b
   );
 }
 
-/** Returns a copy of `log` with `session` stored, or with that date removed if the session has no sets. */
+/**
+ * True when the stored skip `candidate` is the set named by `key`. Skips store a
+ * day only on combined dates, so a missing day on either side means the
+ * session's day (`session.day`), as `setDay` does for logged sets.
+ */
+function isSameSkip(session: LoggedSession, candidate: SkippedSet, key: SetKey): boolean {
+  return (
+    (candidate.day ?? session.day) === (key.day ?? session.day) &&
+    candidate.exerciseId === key.exerciseId &&
+    candidate.blockPosition === key.blockPosition &&
+    candidate.setNumber === key.setNumber
+  );
+}
+
+/**
+ * Returns a copy of `log` with `session` stored, or with that date removed if
+ * the session has neither logged nor skipped sets left.
+ */
 function withSession(log: WorkoutLog, date: string, session: LoggedSession): WorkoutLog {
   const sessions = { ...log.sessions };
+  const hasSkips = (session.skippedSets?.length ?? 0) > 0;
 
-  if (session.sets.length === 0) {
+  if (session.sets.length === 0 && !hasSkips) {
     delete sessions[date];
   } else {
     sessions[date] = session;
@@ -83,7 +101,56 @@ export function logSet(log: WorkoutLog, date: string, set: LoggedSet, context: S
     sets.push(set);
   }
 
-  return withSession(log, date, { ...session, sets });
+  // Logging a skipped set replaces the skip: the set is done now, so it no longer counts as skipped.
+  const skippedSets = (session.skippedSets ?? []).filter((skip) => !isSameSkip(session, skip, set));
+
+  return withSession(log, date, withSkippedSets({ ...session, sets }, skippedSets));
+}
+
+/** A copy of `session` holding `skippedSets`, leaving the field out entirely when there are none (keeps saved JSON unchanged for older logs). */
+function withSkippedSets(session: LoggedSession, skippedSets: SkippedSet[]): LoggedSession {
+  const { skippedSets: _previous, ...rest } = session;
+  return skippedSets.length === 0 ? rest : { ...rest, skippedSets };
+}
+
+/**
+ * Records that a set was skipped on purpose (Skip on the log screen). Nothing
+ * is logged: the set just counts as done for its item. A set already logged
+ * is left alone (logged wins), and skipping the same set twice keeps one skip.
+ * `context` is only used when this creates the session. Logging the set later
+ * (`logSet`) replaces the skip.
+ */
+export function skipSet(log: WorkoutLog, date: string, key: SetKey, context: SessionContext = {}): WorkoutLog {
+  const existingSession = Object.hasOwn(log.sessions, date) ? log.sessions[date] : undefined;
+  const session: LoggedSession = existingSession ?? { date, ...context, sets: [] };
+
+  if (session.sets.some((candidate) => isSameSet(session, candidate, key))) return log;
+
+  const skippedSets = session.skippedSets ?? [];
+  if (skippedSets.some((candidate) => isSameSkip(session, candidate, key))) return log;
+
+  // A skip always records its day (the row's own day, or the session's), so it stays on that day's row
+  // even if the session's day later changes (a moved start date). Skips never mean "any day".
+  const skip: SkippedSet = { exerciseId: key.exerciseId, blockPosition: key.blockPosition, setNumber: key.setNumber };
+  const skipDay = key.day ?? session.day;
+  if (skipDay !== undefined) skip.day = skipDay;
+
+  return withSession(log, date, { ...session, skippedSets: [...skippedSets, skip] });
+}
+
+/**
+ * The set numbers of one item that were skipped on `date`, in order. Used
+ * with `setsForItem` to tell which sets of an item are done and which are
+ * still open. `day` works as in `setsForItem`.
+ */
+export function skippedSetNumbersForItem(log: WorkoutLog, date: string, blockPosition: number, exerciseId: string, day?: DayNumber): number[] {
+  const session = Object.hasOwn(log.sessions, date) ? log.sessions[date] : undefined;
+  if (session === undefined || session.skippedSets === undefined) return [];
+
+  return session.skippedSets
+    .filter((skip) => skip.exerciseId === exerciseId && skip.blockPosition === blockPosition && (day === undefined || (skip.day ?? session.day) === day))
+    .map((skip) => skip.setNumber)
+    .sort((first, second) => first - second);
 }
 
 /**
