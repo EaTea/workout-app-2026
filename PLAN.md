@@ -2565,6 +2565,7 @@ set number); `src/export/csv.ts`; `README.md`; unit tests and E2E tests.
      view). E2E checks the scroll position on a long day.
   - **Merge point:** returning from a set lands on the next exercise.
 - **PR 35 — Log sets from the boxing timer** *(behavior change)*
+  *Status: built. The round action is shared with the EMOM timer (`ui/timerSetLogging.ts`, `ui/today.ts` `timerSetLoggingFor`). The gear-up break has no round, so no button there. E2E in `e2e/boxingLog.spec.ts`.*
   1. Round-to-set mapping for the heavy bag, with unit tests.
   2. "Log round" on the boxing timer, saved through the log path. E2E on
      Day 1.

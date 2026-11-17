@@ -314,8 +314,10 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
     else skipButton.removeAttribute("aria-label");
     skipButton.disabled = state.status === "ready" || state.status === "finished";
 
-    if (roundButton !== undefined && options.roundAction !== undefined && segment.round !== undefined) {
-      const roundState = options.roundAction.describe(segment.round);
+    // The gear-up break comes before round 1 and has no round of its own to log.
+    const hasLoggableRound = options.roundAction !== undefined && segment.round !== undefined && segment.phase !== "gearUp";
+    if (roundButton !== undefined && options.roundAction !== undefined && hasLoggableRound) {
+      const roundState = options.roundAction.describe(segment.round!);
       roundButton.textContent = roundState.label;
       // Not disabled once logged: a disabled button drops focus, so a keyboard user would land on Pause.
       roundButton.disabled = roundState.disabled;
@@ -463,7 +465,7 @@ export function openTimer(plan: TimerPlan, options: TimerViewOptions = {}): Time
   function handleRoundTap(): void {
     options.onUserTap?.();
     const segment = state.plan.segments[state.segmentIndex];
-    if (options.roundAction === undefined || segment?.round === undefined) return;
+    if (options.roundAction === undefined || segment?.round === undefined || segment.phase === "gearUp") return;
     const errorMessage = options.roundAction.onTap(segment.round);
     roundMessage.textContent = errorMessage ?? "";
     render();

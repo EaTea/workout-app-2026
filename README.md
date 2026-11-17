@@ -15,7 +15,7 @@ changes, and a "Changed: ... in week N" line under whatever differs from the pre
 that opens a full-screen timer with a beep and vibration each minute and a
 3-2-1 countdown (the beeps ask Safari 16.4+ to play through an iPhone's
 silent switch; older iOS versions may still mute them, and iOS Safari has no
-vibration). Its "Log set N" button logs that minute as a set, pre-filled the way the log screen pre-fills it, and the timer keeps running; the row's count updates when the timer closes. The heavy bag timer opens with a 2:00 "GEAR UP" countdown
+vibration). Its "Log set N" button logs that minute as a set, pre-filled the way the log screen pre-fills it, and the timer keeps running; the row's count updates when the timer closes. The heavy bag and wall sit timers have the same "Log set N" button for each round (not during the gear-up break), which logs that round as a set. The heavy bag timer opens with a 2:00 "GEAR UP" countdown
 (wrap hands, gloves on) that beeps 3-2-1 and then starts round 1 by itself, or
 sooner when you tap "Ready". The heavy bag and Day 6 wall sit rows have a "Start timer"
 interval timer and rows with a prescribed rest (and superset blocks) have a
