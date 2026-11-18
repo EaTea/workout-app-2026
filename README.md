@@ -211,7 +211,7 @@ If you write your own timing test, seed storage before the timed page load,
 for example with `page.evaluate` on another page of the site. Don't seed with
 `page.addInitScript`. That script runs at the start of every page load on the
 slowed CPU, so writing a multi-megabyte log gets timed as if it were the app.
-In our runs it added about 0.1 s at two years, and more on a slower machine.
+In our runs it added about 0.1 s at two years, and the extra grows with the size of the log.
 
 ## Checking the drawings
 
