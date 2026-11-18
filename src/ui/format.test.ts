@@ -135,7 +135,7 @@ describe("formatLastTime", () => {
   });
 
   it("lists the reps when they differ", () => {
-    expect(formatLastTime(lastTime([[6, 6], [6, 6], [5, 6]]), "set")).toBe("Last time (2 Nov): 6, 6, 5 at 6 kg");
+    expect(formatLastTime(lastTime([[6, 6], [6, 6], [5, 6]]), "set")).toBe("Last time (2 Nov): 6, 6, 5 (17 total) at 6 kg");
   });
 
   it("gives a load range when loads differ, and no load part for bodyweight", () => {
@@ -152,8 +152,25 @@ describe("formatLastTime", () => {
 describe("formatSetsSummary", () => {
   it("has the same text as the last-time hint without its prefix", () => {
     expect(formatSetsSummary([{ reps: 6, loadKg: 6 }, { reps: 6, loadKg: 6 }], "set")).toBe("2 × 6 at 6 kg");
-    expect(formatSetsSummary([{ reps: 6 }, { reps: 6 }, { reps: 5 }], "set")).toBe("6, 6, 5");
+    expect(formatSetsSummary([{ reps: 6 }, { reps: 6 }, { reps: 5 }], "set")).toBe("6, 6, 5 (17 total)");
     expect(formatSetsSummary([{}, {}, {}, {}, {}], "round")).toBe("5 rounds");
+  });
+
+  it("shows the total for an uneven 9-minute EMOM", () => {
+    const minutes = [4, 5, 5, 5, 5, 5, 4, 4, 4].map((reps) => ({ reps }));
+    expect(formatSetsSummary(minutes, "minute")).toBe("4, 5, 5, 5, 5, 5, 4, 4, 4 (41 total)");
+  });
+
+  it("keeps even lists as sets x reps without a total", () => {
+    expect(formatSetsSummary(Array.from({ length: 9 }, () => ({ reps: 5 })), "minute")).toBe("9 × 5");
+  });
+
+  it("puts the total before the load for uneven loaded sets", () => {
+    expect(formatSetsSummary([{ reps: 6, loadKg: 6 }, { reps: 6, loadKg: 6 }, { reps: 5, loadKg: 6 }], "set")).toBe("6, 6, 5 (17 total) at 6 kg");
+  });
+
+  it("leaves sets without reps out of the list and the total", () => {
+    expect(formatSetsSummary([{ reps: 6 }, {}, { reps: 5 }], "set")).toBe("6, 5 (11 total)");
   });
 });
 
