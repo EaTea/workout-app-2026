@@ -36,9 +36,9 @@ import { lastTimeHint } from "./lastTimeHint";
 import { logRouteHash } from "./router";
 import { createRestMemory, restMemoryKey } from "./restMemory";
 import { currentRestSeconds, openRestTimer } from "./restTimer";
-import { openTimer } from "./timerView";
+import { openTimer, type TimerRoundAction } from "./timerView";
 import { todayRowKey } from "./returnScroll";
-import { buildEmomRoundAction, type RowTimerLogging, type TimerSetLoggingSource } from "./timerSetLogging";
+import { buildRoundAction, type RowTimerLogging, type TimerSetLoggingSource } from "./timerSetLogging";
 import { blockLabel, formatBlockTitle, formatCombinedSessionKicker, formatItemDetails, formatItemDose, formatSessionKicker, formatTimerAdjustment, formatShortDate, isAwaitingRetest } from "./format";
 
 /**
@@ -704,7 +704,7 @@ function renderItemRow(
 
   // Heavy bag intervals likewise.
   if (item.format === "interval" && item.rounds && item.workSec && item.restSec) {
-    row.append(renderStartIntervalButton(item, restMemoryKey(date, blockPosition, `${item.exercise.id}-gear-up`, keyDay)));
+    row.append(renderStartIntervalButton(item, block, date, blockPosition, dayNumber, rowTimerLogging, restMemoryKey(date, blockPosition, `${item.exercise.id}-gear-up`, keyDay)));
   }
 
 
@@ -742,38 +742,13 @@ function renderStartEmomButton(
 
   button.addEventListener("click", () => {
     const cues = createCuePlayer();
-    // Set when a set is logged from the timer, so closing knows Today's counts are stale.
-    let loggedFromTimer = false;
-    const roundAction = rowTimerLogging === undefined ? undefined : buildEmomRoundAction({
-      program: rowTimerLogging.program,
-      item,
-      block,
-      date,
-      blockPosition,
-      dayNumber,
-      isCombined: rowTimerLogging.isCombined,
-      sessionContext: { programWeek: rowTimerLogging.programWeek, day: rowTimerLogging.hostDay ?? dayNumber },
-      source: rowTimerLogging.source,
-    });
+    const logging = timerSetLoggingFor(rowTimerLogging, item, block, date, blockPosition, dayNumber, label);
 
     openTimer(buildEmomPlan(item), {
       dialogName: `${itemDisplayName(item)} EMOM timer`,
       // "Log set N" on the timer saves the same set the log screen would for that minute.
-      roundAction: roundAction === undefined ? undefined : {
-        describe: (round) => roundAction.describe(round),
-        onTap: (round) => {
-          // A save that failed still changed the log in memory, so Today also needs redrawing on close.
-          const errorMessage = roundAction.onTap(round);
-          loggedFromTimer = true;
-          return errorMessage;
-        },
-      },
-      // Closing after a logged set redraws Today, then puts focus back on this button's new copy.
-      onClose: () => {
-        if (!loggedFromTimer || rowTimerLogging === undefined) return;
-        rowTimerLogging.source.refresh();
-        focusStartEmomButton(label);
-      },
+      roundAction: logging.roundAction,
+      onClose: logging.onClose,
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),
@@ -783,8 +758,57 @@ function renderStartEmomButton(
   return button;
 }
 
-/** Puts focus on the "Start EMOM" button with this accessible name, after Today was redrawn. */
-function focusStartEmomButton(accessibleName: string): void {
+/**
+ * The log wiring a timer opened from a Today row needs (PR 33 for EMOM, PR 35
+ * for the heavy bag and wall sit): the round action, and what happens when the
+ * timer closes. Built on each open, so "a set was logged from this timer" is
+ * per opening. Returns no round action when Today has no logging source (tests).
+ *
+ *   timer "Log set N" ──▶ roundAction.onTap ──▶ loggedFromTimer = true
+ *   timer closes ──▶ onClose: if logged, redraw Today and focus the opener again
+ */
+function timerSetLoggingFor(
+  rowTimerLogging: RowTimerLogging | undefined,
+  item: ItemView,
+  block: BlockView,
+  date: string,
+  blockPosition: number,
+  dayNumber: number,
+  openerLabel: string,
+): { roundAction: TimerRoundAction | undefined; onClose: () => void } {
+  let loggedFromTimer = false;
+  const action = rowTimerLogging === undefined ? undefined : buildRoundAction({
+    program: rowTimerLogging.program,
+    item,
+    block,
+    date,
+    blockPosition,
+    dayNumber,
+    isCombined: rowTimerLogging.isCombined,
+    sessionContext: { programWeek: rowTimerLogging.programWeek, day: rowTimerLogging.hostDay ?? dayNumber },
+    source: rowTimerLogging.source,
+  });
+
+  return {
+    roundAction: action === undefined ? undefined : {
+      describe: (round) => action.describe(round),
+      onTap: (round) => {
+        // A save that failed still changed the log in memory, so Today also needs redrawing on close.
+        const errorMessage = action.onTap(round);
+        loggedFromTimer = true;
+        return errorMessage;
+      },
+    },
+    onClose: () => {
+      if (!loggedFromTimer || rowTimerLogging === undefined) return;
+      rowTimerLogging.source.refresh();
+      focusStartButton(openerLabel);
+    },
+  };
+}
+
+/** Puts focus on the Today button (Start EMOM, Start timer) with this accessible name, after Today was redrawn. */
+function focusStartButton(accessibleName: string): void {
   const match = Array.from(document.querySelectorAll<HTMLButtonElement>("button.item-start"))
     .find((candidate) => candidate.getAttribute("aria-label") === accessibleName);
   match?.focus();
@@ -802,10 +826,19 @@ const adjustedGearUps = createRestMemory();
  * (same memory idea as the rest stepper, restMemory.ts) and used as the
  * default next time the timer is opened.
  */
-function renderStartIntervalButton(item: ItemView, gearUpMemoryKey: string): HTMLButtonElement {
+function renderStartIntervalButton(
+  item: ItemView,
+  block: BlockView,
+  date: string,
+  blockPosition: number,
+  dayNumber: number,
+  rowTimerLogging: RowTimerLogging | undefined,
+  gearUpMemoryKey: string,
+): HTMLButtonElement {
+  const label = `Start timer, ${itemDisplayName(item)}`;
   const button = element("button", "item-start", "Start timer");
   button.type = "button";
-  button.setAttribute("aria-label", `Start timer, ${itemDisplayName(item)}`);
+  button.setAttribute("aria-label", label);
 
   button.addEventListener("click", () => {
     const itemDefaults = defaultIntervalSettings(item);
@@ -815,9 +848,13 @@ function renderStartIntervalButton(item: ItemView, gearUpMemoryKey: string): HTM
     let chosenGearUpSec = defaults.gearUpSec;
     const cues = createCuePlayer();
     const { minRounds, maxRounds, minSeconds, maxWorkSec, maxRestSec, secondsStep, minGearUpSec, maxGearUpSec, gearUpStep } = INTERVAL_LIMITS;
+    const logging = timerSetLoggingFor(rowTimerLogging, item, block, date, blockPosition, dayNumber, label);
 
     openTimer(buildIntervalPlan(item, defaults), {
       dialogName: `${shortExerciseName(itemDisplayName(item))} timer`, // "Heavy bag timer", "Wall sit timer"
+      // "Log set N" on the timer logs that round, for the heavy bag and the wall sit alike.
+      roundAction: logging.roundAction,
+      onClose: logging.onClose,
       onUserTap: () => cues.prime(),
       onEvents: (events) => cues.handleEvents(events),
       onSecondTick: (remainingSec) => cues.handleSecond(remainingSec),

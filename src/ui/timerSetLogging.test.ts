@@ -5,7 +5,7 @@ import { buildSession, type BlockView, type ItemView } from "../program/schedule
 import type { TrainingSettings } from "../settings/model";
 import type { WorkoutLog } from "../log/model";
 import { logSet, setsForItem } from "../log/operations";
-import { buildEmomRoundAction, type TimerSetLoggingSource } from "./timerSetLogging";
+import { buildRoundAction, type TimerSetLoggingSource } from "./timerSetLogging";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings: TrainingSettings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
@@ -49,11 +49,11 @@ function fakeSource(initialLog: WorkoutLog, canLog = true, saveError: string | n
 const DATE = "2026-11-02";
 const BASE_CONTEXT = { programWeek: 1, day: 1 };
 
-describe("buildEmomRoundAction", () => {
+describe("buildRoundAction", () => {
   it("offers 'Log set N' for each open minute and saves the set on tap", () => {
     const { item, block, blockPosition } = pullUpEmom(DATE);
     const source = fakeSource({ sessions: {} });
-    const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
+    const action = buildRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
 
     expect(action.describe(1)).toEqual({ label: "Log set 1", disabled: false });
 
@@ -70,7 +70,7 @@ describe("buildEmomRoundAction", () => {
   it("shows a logged minute as done and does not save it twice", () => {
     const { item, block, blockPosition } = pullUpEmom(DATE);
     const source = fakeSource({ sessions: {} });
-    const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
+    const action = buildRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
 
     action.onTap(2);
     action.onTap(2);
@@ -83,9 +83,9 @@ describe("buildEmomRoundAction", () => {
   it("does not log a minute past the item's sets", () => {
     const { item, block, blockPosition } = pullUpEmom(DATE);
     const source = fakeSource({ sessions: {} });
-    const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
+    const action = buildRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
 
-    expect(action.describe(99)).toEqual({ label: "No set for this minute", disabled: true });
+    expect(action.describe(99)).toEqual({ label: "No set for this round", disabled: true });
     action.onTap(99);
     expect(source.saves).toBe(0);
   });
@@ -93,7 +93,7 @@ describe("buildEmomRoundAction", () => {
   it("returns the save error so the timer can say the set was not saved", () => {
     const { item, block, blockPosition } = pullUpEmom(DATE);
     const source = fakeSource({ sessions: {} }, true, "Storage is full");
-    const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
+    const action = buildRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
 
     expect(action.onTap(1)).toBe("Storage is full");
     expect(action.onTap(2)).toBe("Storage is full");
@@ -103,7 +103,7 @@ describe("buildEmomRoundAction", () => {
   it("is disabled on a future preview", () => {
     const { item, block, blockPosition } = pullUpEmom(DATE);
     const source = fakeSource({ sessions: {} }, false);
-    const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
+    const action = buildRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
 
     expect(action.describe(1)).toEqual({ label: "Can't log here", disabled: true });
     action.onTap(1);
@@ -113,7 +113,7 @@ describe("buildEmomRoundAction", () => {
   it("saves under the combined host day and names the set's own day", () => {
     const { item, block, blockPosition } = pullUpEmom(DATE);
     const source = fakeSource({ sessions: {} });
-    const action = buildEmomRoundAction({
+    const action = buildRoundAction({
       program, item, block, date: DATE, blockPosition, dayNumber: 2, isCombined: true,
       sessionContext: { programWeek: 1, day: 1 }, source,
     });
@@ -128,7 +128,7 @@ describe("buildEmomRoundAction", () => {
   it("is consistent with the log screen's logSet shape: the set appears under the same exercise and block", () => {
     const { item, block, blockPosition } = pullUpEmom(DATE);
     const source = fakeSource(logSet({ sessions: {} }, DATE, { exerciseId: "pull_up", blockPosition, setNumber: 1, reps: 4, loggedAt: new Date() }, BASE_CONTEXT));
-    const action = buildEmomRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
+    const action = buildRoundAction({ program, item, block, date: DATE, blockPosition, dayNumber: 1, isCombined: false, sessionContext: BASE_CONTEXT, source });
 
     // Minute 1 was logged on the log screen; the timer sees that and offers minute 2.
     expect(action.describe(1)).toEqual({ label: "Logged set 1", disabled: false });

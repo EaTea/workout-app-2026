@@ -7,12 +7,13 @@ import { lastTimeForItem } from "./lastTimeHint";
 import type { TimerRoundAction } from "./timerView";
 
 /**
- * Logging a set from a timer (PR 33: the EMOM timer; the boxing timer comes
- * later). Today builds one of these per EMOM row and hands it to
- * `openTimer`, so that tapping "Log set N" on the timer saves the same set
- * the log screen would save for that minute.
+ * Logging a set from a timer: the EMOM timer (PR 33, one minute is one set)
+ * and the heavy-bag and wall-sit timers (PR 35, one round is one set). Today
+ * builds one of these per row and hands it to `openTimer`, so that tapping
+ * "Log set N" on the timer saves the same set the log screen would save for
+ * that minute or round.
  *
- *   EMOM timer "Log set 3" ──onTap(3)──▶ buildEmomRoundAction
+ *   EMOM timer "Log set 3" ──onTap(3)──▶ buildRoundAction
  *        ├─ prefill (rule 8): earlier set this session, else plan, else last time
  *        ├─ LoggedSet { setNumber: 3, ... } (same shape as the log screen's)
  *        └─ source.changeLog(fresh => logSet(fresh, date, set, context))
@@ -53,8 +54,8 @@ export interface SetSessionContext {
   day: DayNumber;
 }
 
-/** Everything about one EMOM row that its timer's log button needs. */
-export interface EmomRoundInput {
+/** Everything about one timer row (EMOM or interval) that its log button needs. */
+export interface RoundInput {
   program: Program;
   item: ItemView;
   block: BlockView;
@@ -76,11 +77,12 @@ export interface EmomRoundInput {
 }
 
 /**
- * Builds the timer's round action for one EMOM row. Pure except for the
- * source calls, so the rules (which rounds can be logged, what the set holds)
- * are testable with a fake source.
+ * Builds the timer's round action for one row. Pure except for the source
+ * calls, so the rules (which rounds can be logged, what the set holds) are
+ * testable with a fake source. A round is numbered as the timer numbers it
+ * (EMOM: the minute; intervals: the round).
  */
-export function buildEmomRoundAction(input: EmomRoundInput): TimerRoundAction {
+export function buildRoundAction(input: RoundInput): TimerRoundAction {
   const { program, item, block, date, blockPosition, dayNumber, isCombined, sessionContext, source } = input;
   const setTotal = countSetsForItem(item, block);
   const tracksReps = itemTracksReps(item);
@@ -97,7 +99,7 @@ export function buildEmomRoundAction(input: EmomRoundInput): TimerRoundAction {
    */
   function blockedReason(round: number, prefillReps: number | undefined): string | undefined {
     if (!source.canLog) return "Can't log here";
-    if (round > setTotal) return "No set for this minute";
+    if (round > setTotal) return "No set for this round";
     if (tracksReps && prefillReps === undefined && setNeedsMax(item, round)) return "Set your max to log";
     return undefined;
   }
