@@ -2650,11 +2650,14 @@ change (or the History week-by-week work) is judged on real numbers:
 1. [x] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
        (wire) log of N days from the program file, a session a day with every
        set logged (the rest day has no session, as in the measurements above). Unit-tested (set counts, dates, valid under `logFromWire`).
-2. [ ] `npm run bench:startup`: builds, starts `vite preview`, and for an
+2. [x] `npm run bench:startup`: builds, starts `vite preview`, and for an
        empty log, 1 year and 2 years writes the log into storage on a
        throwaway page, then times opening Today with the CPU slowed 4×
        (11 runs, prints min, median and max). Not run in CI: timings on
-       shared runners are too noisy to gate on.
+       shared runners are too noisy to gate on. Its generator counts a few
+       more sets than the prototype behind the table above (7,417 and 14,815
+       for 1 and 2 years); its first run gave 0.25 s, 0.30 s and 0.33 s, inside
+       the table's ranges.
 3. [ ] README: a "Measuring startup time" section with the command, what it
        measures, and the init-script trap above.
 
