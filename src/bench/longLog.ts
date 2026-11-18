@@ -6,7 +6,7 @@ import type { LoggedSessionWireV1, LoggedSetWireV1, LogWireV1 } from "../log/wir
  *
  * This module deliberately has NO runtime imports (type imports only, with
  * `.ts` specifiers), so a plain Node script can load it with type stripping:
- * `scripts/benchStartup.ts` (coming in step 2) calls `buildLongLogWire`, writes
+ * `scripts/benchStartup.ts` calls `buildLongLogWire`, writes
  * the JSON into the browser's localStorage, and times how long the app takes
  * to open Today with that much history.
  *
@@ -32,14 +32,24 @@ export interface LongLogOptions {
   days: number;
   /** The last date covered, inclusive, as "YYYY-MM-DD". */
   lastDate: string;
+  /**
+   * The program's start date ("YYYY-MM-DD"), the same one the app has in its
+   * settings. Day numbers are anchored to it so the log agrees with the app's
+   * schedule whatever the log length. It may lie after some or all of the log.
+   */
+  programStartDate: string;
 }
 
 /**
  * Builds a log with one session per calendar day for `options.days` days,
  * ending on `options.lastDate` (inclusive), oldest first.
  *
- * Calendar day i (0-based from the first date) trains program day
- * (i % 7) + 1 in program week floor(i / 7) + 1. The program's rest day (the
+ * A session on date D trains program day
+ * ((daysBetween(programStartDate, D) mod 7 + 7) mod 7) + 1, the app's own
+ * 7-day cycle from the start date (the double mod also handles dates before
+ * the start). `programWeek` is history context only: floor(i / 7) + 1 for the
+ * 0-based calendar day i counted from the log's FIRST date, so it is always a
+ * positive integer but is not the program's real week. The program's rest day (the
  * day number with no entry in `program.days`) gets no session at all, because
  * `logFromWire` drops sessions without sets anyway.
  *
@@ -48,10 +58,12 @@ export interface LongLogOptions {
  */
 export function buildLongLogWire(program: ProgramWire, options: LongLogOptions): LogWireV1 {
   const firstDayNumber = utcDayNumber(options.lastDate) - (options.days - 1);
+  const startDayNumber = utcDayNumber(options.programStartDate);
   const sessions: LoggedSessionWireV1[] = [];
 
   for (let dayIndex = 0; dayIndex < options.days; dayIndex++) {
-    const programDayNumber = (dayIndex % DAYS_PER_WEEK) + 1;
+    const daysSinceProgramStart = firstDayNumber + dayIndex - startDayNumber;
+    const programDayNumber = (((daysSinceProgramStart % DAYS_PER_WEEK) + DAYS_PER_WEEK) % DAYS_PER_WEEK) + 1;
     const programDay = program.days.find((candidate) => candidate.day === programDayNumber);
     if (programDay === undefined) continue; // Rest day: nothing to log.
 

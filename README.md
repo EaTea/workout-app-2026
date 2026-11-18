@@ -200,16 +200,18 @@ npm run bench:startup
 This builds the app, serves it with `vite preview` on port 4174, and times
 how long Today takes to appear with an empty log, a year of daily sessions
 and two years of them. It uses Chromium with the iPhone 13 viewport and the
-CPU slowed 4×, measures from navigation start to the first Today row, and
-prints the min, median and max of 11 runs per size. The fake logs come from
+CPU slowed 4×, measures from navigation start until the first Today row is in the page
+(timed inside the page), and prints the min, median and max of 11 runs per size. The fake logs come from
 `src/bench/longLog.ts`. Like the E2E suite, it needs the Playwright Chromium
-browser. It isn't run in CI, because timings on shared runners vary too much.
+browser. Run it from the repo root through npm (it reads `public/program.json`
+and `node_modules/.bin/vite` by relative path), with Node 22.18 or later (the
+script is TypeScript run directly by Node's type stripping). It isn't run in CI, because timings on shared runners vary too much.
 
 If you write your own timing test, seed storage before the timed page load,
 for example with `page.evaluate` on another page of the site. Don't seed with
 `page.addInitScript`. That script runs at the start of every page load on the
 slowed CPU, so writing a multi-megabyte log gets timed as if it were the app.
-That mistake once made a two-year log look like 1.8 s instead of about 0.4 s.
+In our runs it added about 0.1 s at two years, and more on a slower machine.
 
 ## Checking the drawings
 
