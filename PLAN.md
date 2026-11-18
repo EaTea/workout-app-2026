@@ -2647,9 +2647,9 @@ follow-up only if Ed wants it.
 What this milestone does instead is make startup measurable, so a future
 change (or the History week-by-week work) is judged on real numbers:
 
-1. [ ] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
+1. [x] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
        (wire) log of N days from the program file, a session a day with every
-       set logged. Unit-tested (set counts, dates, valid under `logFromWire`).
+       set logged (the rest day has no session, as in the measurements above). Unit-tested (set counts, dates, valid under `logFromWire`).
 2. [ ] `npm run bench:startup`: builds, starts `vite preview`, and for an
        empty log, 1 year and 2 years writes the log into storage on a
        throwaway page, then times opening Today with the CPU slowed 4×
