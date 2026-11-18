@@ -2597,6 +2597,69 @@ no deload change, and that Day 3's target can grow.
        `public/program.json`, and extend Day 3's `targetMinutes` from 40 to 47.
 2. [x] Mirror the change in the program document (kept in the project files, not this repo)'s Day 3 row and notes.
 
+### Startup time with a long log *(design, then internal refactor: tooling only)*
+
+Ed asked why opening the app (Today) gets slower as the log grows, and for
+the smallest safe fix. An earlier look reported 0.9 s at a year of daily
+sessions and 1.8 s at two years (4× slowed CPU).
+
+**What I measured.** Built app, headless Chromium, iPhone 13 profile, CPU
+slowed 4×, a session every day with all of the day's sets logged, time from
+navigation to the first Today row. Each figure is the median of 11 runs;
+the range is across 3 to 4 separate batches on different builds of the same code:
+
+| Log | Sets | Open Today |
+| --- | --- | --- |
+| empty | 0 | 0.24 to 0.30 s |
+| 1 year | 7,261 | 0.30 to 0.38 s |
+| 2 years | 14,503 | 0.32 to 0.41 s |
+| 4 years | 29,011 | 0.40 to 0.44 s |
+
+The log adds about 0.1 s at two years. I could not reproduce the earlier
+0.9 s and 1.8 s. The likely cause is the test setup: writing the log into
+storage from a Playwright init script runs on the slowed CPU at the start of
+every page load, and is then timed as if it were the app. Seeded that way, my
+2-year figure rises to 0.58 to 0.79 s (median 0.65 s). The rest of the gap
+is probably the machine the earlier numbers came from; I did not confirm that.
+
+**Where the 0.1 s goes** (CPU profile, 2 years):
+
+- `loadLog` (`src/log/storage.ts`), about 85 ms: `JSON.parse` about 20 ms and
+  `logFromWire` (checking and converting every set) about 60 ms. It is
+  linear in the number of sets (about 170 ms at 4 years).
+- "Last time" hints on Today (`src/log/lastTime.ts`), about 10 to 15 ms:
+  every row re-sorts every session date (`sessionDates`).
+- Building the Today page itself does not grow with the log.
+
+**Fixes I tried and rejected.** A fast path in `logFromWire` that skips
+building error-path strings for valid sets cut its time in a warm Node run
+(15 ms to 11 ms) but made no difference in the browser that I could tell
+apart from noise (two runs each, before and after). Sorting the dates once
+per render would save at most about 10 ms. Neither is worth the risk of
+changing how the log is checked.
+
+**Decision.** Leave the app's startup code as it is. The real fix, if a log
+ever gets big enough to matter, is to stop reading the whole log at startup
+(for example, one storage key per month, read newest first). That changes
+the storage format, needs a migration and touches import/export, so it is a
+follow-up only if Ed wants it.
+
+What this milestone does instead is make startup measurable, so a future
+change (or the History week-by-week work) is judged on real numbers:
+
+1. [ ] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
+       (wire) log of N days from the program file, a session a day with every
+       set logged. Unit-tested (set counts, dates, valid under `logFromWire`).
+2. [ ] `npm run bench:startup`: builds, starts `vite preview`, and for an
+       empty log, 1 year and 2 years writes the log into storage on a
+       throwaway page, then times opening Today with the CPU slowed 4×
+       (11 runs, prints min, median and max). Not run in CI: timings on
+       shared runners are too noisy to gate on.
+3. [ ] README: a "Measuring startup time" section with the command, what it
+       measures, and the init-script trap above.
+
+Merge point: one PR for steps 1 to 3. No app behavior changes.
+
 ### PR 37 — Plan: total reps for uneven rep lists *(design)*
 
 Ed's nit: when an EMOM's minutes had different rep counts, the summary
