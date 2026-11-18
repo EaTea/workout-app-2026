@@ -186,7 +186,7 @@ the starting point. Revisit them if the app shows they're wrong.
      the easy calf-raise mini-dose never pre-fills the heavy main lift's
      load, and a pull-up EMOM ignores pull-up mini-doses. Shown as "Last
      time (2 Nov): 6 × 6 at 6 kg" (sets × reps when every set matched,
-     else the reps listed, e.g. "6, 6, 5"). Warm-ups don't show it.
+     else the reps listed with their total, e.g. "6, 6, 5 (17 total)"). Warm-ups don't show it.
    - Logging a set that has a prescribed rest opens and starts the rest
      timer (the Log tap counts as the tap that unlocks sound).
    - A session is "in progress" from its first logged set until the date

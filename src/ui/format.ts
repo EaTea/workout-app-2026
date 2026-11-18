@@ -410,7 +410,9 @@ export function formatSetsSummary(sets: Pick<LoggedSet, "reps" | "loadKg">[], se
   // Uneven lists get their total appended, since adding "4, 5, 5, ..." up is tedious;
   // even lists stay "9 × 5" because that total is easy to see.
   const totalReps = repsPerSet.reduce((sum, reps) => sum + reps, 0);
-  const repsText = allSameReps ? `${repsPerSet.length} ${MULTIPLY} ${repsPerSet[0]}` : `${repsPerSet.join(", ")} (${totalReps} total)`;
+  const repsText = allSameReps
+    ? `${repsPerSet.length} ${MULTIPLY} ${repsPerSet[0]}`
+    : `${repsPerSet.join(", ")} (${totalReps} total)`;
 
   const loads = sets.flatMap((set) => (set.loadKg === undefined ? [] : [set.loadKg]));
   if (loads.length === 0) return repsText;
