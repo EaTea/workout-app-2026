@@ -379,7 +379,8 @@ export function formatPrescriptionSummary(item: ItemView): string {
  * Today rows and under the log screen's set list (via `ui/lastTimeHint.ts`).
  *
  *  - Reps: "6 × 6" (sets × reps) when every set had the same reps, else the
- *    reps listed in set order, "6, 6, 5". Sets without reps are left out of the list.
+ *    reps listed in set order with their sum, "6, 6, 5 (17 total)" (EMOM minutes
+ *    included). Sets without reps are left out of the list and of the total.
  *  - Load: " at 6 kg" when the sets that had a load all had the same one,
  *    " at 6–8 kg" (lowest to highest) when they differed, nothing without a load.
  *  - Ticked-only sets (heavy-bag rounds, timed holds: no reps at all) read as
@@ -394,7 +395,7 @@ export function formatLastTime(lastTime: LastTime, setNoun: string): string {
 
 /**
  * The compact summary of an exercise's sets without any prefix: "6 × 6 at 6 kg",
- * "6, 6, 5" or "5 rounds" (rules in `formatLastTime`'s comment). Shared by the
+ * "6, 6, 5 (17 total)" or "5 rounds" (rules in `formatLastTime`'s comment). Shared by the
  * "Last time" hint and History's exercise rows, so both read the same way.
  * `sets` must not be empty.
  */
@@ -406,7 +407,10 @@ export function formatSetsSummary(sets: Pick<LoggedSet, "reps" | "loadKg">[], se
   }
 
   const allSameReps = repsPerSet.every((reps) => reps === repsPerSet[0]);
-  const repsText = allSameReps ? `${repsPerSet.length} ${MULTIPLY} ${repsPerSet[0]}` : repsPerSet.join(", ");
+  // Uneven lists get their total appended, since adding "4, 5, 5, ..." up is tedious;
+  // even lists stay "9 × 5" because that total is easy to see.
+  const totalReps = repsPerSet.reduce((sum, reps) => sum + reps, 0);
+  const repsText = allSameReps ? `${repsPerSet.length} ${MULTIPLY} ${repsPerSet[0]}` : `${repsPerSet.join(", ")} (${totalReps} total)`;
 
   const loads = sets.flatMap((set) => (set.loadKg === undefined ? [] : [set.loadKg]));
   if (loads.length === 0) return repsText;

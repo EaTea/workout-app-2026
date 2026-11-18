@@ -2609,7 +2609,7 @@ Where the list shows: `formatSetsSummary` in `ui/format.ts`, which feeds the
 The EMOM timer itself only shows one minute's target, so it doesn't change.
 
 - **PR 38 — Show the total for uneven rep lists** *(behavior change)*
-  1. `formatSetsSummary` appends " (41 total)" after the listed reps
+  1. [x] `formatSetsSummary` appends " (41 total)" after the listed reps
      whenever the reps differ, for EMOM minutes and regular sets alike:
      "4, 5, 5, 5, 5, 5, 4, 4, 4 (41 total)", "6, 6, 5 (17 total)". With a
      load it reads "6, 6, 5 (17 total) at 6 kg". Even lists keep "9 × 5",
