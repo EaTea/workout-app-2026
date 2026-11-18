@@ -2658,7 +2658,7 @@ change (or the History week-by-week work) is judged on real numbers:
        more sets than the prototype behind the table above (7,417 and 14,815
        for 1 and 2 years); its first run gave 0.25 s, 0.30 s and 0.33 s, inside
        the table's ranges.
-3. [ ] README: a "Measuring startup time" section with the command, what it
+3. [x] README: a "Measuring startup time" section with the command, what it
        measures, and the init-script trap above.
 
 Merge point: one PR for steps 1 to 3. No app behavior changes.

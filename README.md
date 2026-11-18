@@ -191,6 +191,26 @@ The E2E run builds the app and serves it with `vite preview` automatically.
 It needs a Playwright Chromium browser installed (`npx playwright install chromium`).
 CI runs the same suite; see "Deployment" below.
 
+## Measuring startup time
+
+```sh
+npm run bench:startup
+```
+
+This builds the app, serves it with `vite preview` on port 4174, and times
+how long Today takes to appear with an empty log, a year of daily sessions
+and two years of them. It uses Chromium with the iPhone 13 viewport and the
+CPU slowed 4×, measures from navigation start to the first Today row, and
+prints the min, median and max of 11 runs per size. The fake logs come from
+`src/bench/longLog.ts`. Like the E2E suite, it needs the Playwright Chromium
+browser. It isn't run in CI, because timings on shared runners vary too much.
+
+If you write your own timing test, seed storage before the timed page load,
+for example with `page.evaluate` on another page of the site. Don't seed with
+`page.addInitScript`. That script runs at the start of every page load on the
+slowed CPU, so writing a multi-megabyte log gets timed as if it were the app.
+That mistake once made a two-year log look like 1.8 s instead of about 0.4 s.
+
 ## Checking the drawings
 
 The "Show me" figures can be looked at all at once as a contact sheet: one
