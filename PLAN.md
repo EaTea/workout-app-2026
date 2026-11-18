@@ -2597,29 +2597,27 @@ no deload change, and that Day 3's target can grow.
        `public/program.json`, and extend Day 3's `targetMinutes` from 40 to 47.
 2. [x] Mirror the change in the program document (kept in the project files, not this repo)'s Day 3 row and notes.
 
-### PR 37 — Plan: total reps for uneven EMOMs *(design)*
+### PR 37 — Plan: total reps for uneven rep lists *(design)*
 
 Ed's nit: when an EMOM's minutes had different rep counts, the summary
 lists them all ("4, 5, 5, 5, 5, 5, 4, 4, 4") and the total is hard to work
-out at a glance. He asked for a "total reps" count in parentheses.
+out at a glance. He asked for a "total reps" count in parentheses, and
+chose to have it for regular sets with uneven reps too, not only EMOMs.
 
 Where the list shows: `formatSetsSummary` in `ui/format.ts`, which feeds the
 "Last time" hint (Today rows, the log screen) and History's exercise rows.
 The EMOM timer itself only shows one minute's target, so it doesn't change.
 
-- **PR 38 — Show the total for uneven EMOM minutes** *(behavior change)*
-  1. `formatSetsSummary` appends " (41 total)" after the listed reps when the
-     sets are EMOM minutes (set noun "minute", see `itemSets.setNounFor`)
-     and their reps differ: "4, 5, 5, 5, 5, 5, 4, 4, 4 (41 total)". With a
-     load it reads "... (41 total) at 16 kg". Even EMOMs keep "9 × 5", whose
-     total is already easy. Regular sets ("6, 6, 5") don't change. Unit
-     tests in `ui/format.test.ts`, and an E2E check in `e2e/history.spec.ts`
-     that logs an uneven EMOM and sees the total.
-  - **Merge point:** uneven EMOMs show their total in History and Last time.
-
-**Open question for Ed** (with the answer I'm assuming): only EMOMs get the
-total, as asked. The same suffix could be added to regular sets with
-differing reps ("6, 6, 5 (17 total)") if wanted.
+- **PR 38 — Show the total for uneven rep lists** *(behavior change)*
+  1. `formatSetsSummary` appends " (41 total)" after the listed reps
+     whenever the reps differ, for EMOM minutes and regular sets alike:
+     "4, 5, 5, 5, 5, 5, 4, 4, 4 (41 total)", "6, 6, 5 (17 total)". With a
+     load it reads "6, 6, 5 (17 total) at 6 kg". Even lists keep "9 × 5",
+     whose total is already easy. Unit tests in `ui/format.test.ts`, and
+     E2E expectations that show an uneven list updated (and one added for
+     History if none covers it).
+  - **Merge point:** uneven rep lists show their total in History and Last
+    time.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
