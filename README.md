@@ -356,6 +356,12 @@ but nothing in the app uses them yet.
   The blocks are written exactly like a day's blocks, except that their items
   can't have `noEquipment` or `injury`.
 
+The shipped Explosive Endurance program tags every exercise for the shoulder
+(`avoid` or `caution`), gives stand-ins to the items that have one (for
+example lying leg raise for the hanging leg raise, broad jumps for the
+kettlebell swings) and carries a "Shoulder-free session". The app doesn't use
+these fields yet; they are checked by `src/program/injuryData.test.ts`.
+
 ## Warm-up rotation
 
 Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the

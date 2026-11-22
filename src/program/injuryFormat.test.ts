@@ -56,7 +56,12 @@ function sessionWith(items: unknown[]): unknown {
 
 describe("a program without the injury fields", () => {
   it("parses as before: no loads, stand-ins or sessions anywhere", () => {
-    const { program, warnings } = parseProgram(readRealProgramJson());
+    // The shipped file now carries the shoulder data (src/program/injuryData.test.ts), so strip it first.
+    const json = readRealProgramJson();
+    delete json.injurySessions;
+    for (const exercise of Object.values<any>(json.exercises)) delete exercise.loads;
+    for (const day of json.days) for (const block of day.blocks) for (const item of block.items) delete item.injury;
+    const { program, warnings } = parseProgram(json);
 
     expect(warnings).toEqual([]);
     expect(program.injurySessions).toBeUndefined();

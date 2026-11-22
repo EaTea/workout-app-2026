@@ -2925,8 +2925,13 @@ shoulder flagged from 22 Nov):
   1. [x] File format: `loads`, `injury` (validated by the same function
      as `noEquipment`) and `injurySessions` in the wire types, parser and
      model, with unit tests (`src/program/injuryFormat.test.ts`) and README.
-  2. [ ] The shoulder data and stand-in exercises in `public/program.json`,
-     with data tests over the shipped file.
+  2. [x] The shoulder data and stand-in exercises in `public/program.json`,
+     with data tests over the shipped file (`src/program/injuryData.test.ts`,
+     including every unflagged session matching the program without the
+     injury fields). The parser takes one number for `durationSec`, so the
+     session's hollow hold is 30s, not 20–30s. The Day 1 side plank stand-in
+     keeps "per side" (a stand-in can't change it), and its note says to
+     rest through the injured side's hold.
   3. [ ] The exercise sheet's "Your shoulder" section, with E2E.
   - Merge point: the doses can be checked on a phone, nothing else moves.
 - **Injury 2 — Flag the shoulder and train around it** *(behavior
