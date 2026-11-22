@@ -74,8 +74,10 @@ export function groupDatesIntoWeeks(log: WorkoutLog): HistoryWeek[] {
 
 /**
  * True when `earlierDate` is at least DAYS_PER_WEEK (7) calendar days before
- * `laterDate`. Used by `groupDatesIntoWeeks` for the "gap inside one stored
- * week" rule. Compares whole UTC day numbers, so DST cannot skew the count.
+ * `laterDate`. Used by `groupDatesIntoWeeks` to end a week 7 days after its
+ * newest date even when the stored week stays the same: that keeps a restart's
+ * week 1 apart from the first run's, and limits sessions with no stored week
+ * to 7-day groups. Compares whole UTC day numbers, so DST cannot skew the count.
  */
 function isSevenOrMoreDaysBefore(earlierDate: string, laterDate: string): boolean {
   return toDayNumber(laterDate) - toDayNumber(earlierDate) >= DAYS_PER_WEEK;

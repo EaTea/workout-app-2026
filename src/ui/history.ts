@@ -2,9 +2,9 @@ import type { Program } from "../program/model";
 import { formatLoggedSet } from "../log/itemSets";
 import { groupSetsByExercise, type ExerciseGroup } from "../log/history";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "../log/model";
-import { deleteSet, editSet, sessionDates, type SetKey } from "../log/operations";
-import { element } from "./dom";
 import { groupDatesIntoWeeks, type HistoryWeek } from "../log/historyWeeks";
+import { deleteSet, editSet, type SetKey } from "../log/operations";
+import { element } from "./dom";
 import { formatSetsSummary } from "./format";
 import type { Injury } from "../injury/model";
 import type { TrainingSettings } from "../settings/model";
@@ -19,8 +19,9 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
  * The History screen at `#/history`: one card per logged session, newest
  * first, for the latest 2 program weeks; a "Show older weeks" button under the
  * last card adds 2 more weeks at a time. Each card lists its exercises in
- * block order with a compact summary; tapping an exercise expands its sets, and tapping a set opens the shared
- * edit panel (reps, kg, note, Save, Delete).
+ * block order with a compact summary; tapping an exercise expands its sets,
+ * and tapping a set opens the shared edit panel (reps, kg, note, Save,
+ * Delete).
  *
  *   renderHistoryScreen(program, log, changeLog)
  *     state: log (own copy) · weeksShown · expandedGroups · editingSet · message
@@ -82,7 +83,10 @@ export function renderHistoryScreen(
   const screen = element("section", "screen history-screen");
 
   let log = initialLog;
-  /** How many program weeks (newest first, see `groupDatesIntoWeeks`) have cards drawn; grows by HISTORY_WEEKS_PER_PAGE per "Show older weeks" tap. */
+  /**
+   * How many program weeks (newest first, see `groupDatesIntoWeeks`) have
+   * cards drawn; grows by HISTORY_WEEKS_PER_PAGE per "Show older weeks" tap.
+   */
   let weeksShown = HISTORY_WEEKS_PER_PAGE;
   /** Keys (see `groupKey`) of the exercise rows currently expanded. */
   const expandedGroups = new Set<string>();
@@ -146,15 +150,19 @@ export function renderHistoryScreen(
    */
   function draw(focusName?: string): void {
     focusTargets = new Map();
-    // A day with only skipped sets has nothing to list, so it gets no card (and does not make the page non-empty).
-    const dates = sessionDates(log).filter((date) => (log.sessions[date]?.sets.length ?? 0) > 0);
+    // Every date that has a card, grouped into program weeks, newest first.
+    // groupDatesIntoWeeks leaves out days with only skipped sets: they have
+    // nothing to list, so they get no card and do not make the page non-empty.
+    const allWeeks = groupDatesIntoWeeks(log);
+    const hasCards = allWeeks.length > 0;
     const pageHeading = element("h1", "screen-title", "History");
     pageHeading.tabIndex = -1;
     focusTargets.set(PAGE_HEADING_FOCUS_NAME, pageHeading);
     const children: HTMLElement[] = [pageHeading];
 
     // Progress charts come first; they are rebuilt with the log on every redraw.
-    if (dates.length > 0) children.push(renderProgressSection(program, log));
+    // They read the whole log, not only the weeks shown.
+    if (hasCards) children.push(renderProgressSection(program, log));
 
     if (message !== undefined) {
       const alert = element("p", "field-error", message);
@@ -162,12 +170,11 @@ export function renderHistoryScreen(
       children.push(alert);
     }
 
-    if (dates.length === 0) {
+    if (!hasCards) {
       children.push(element("p", "history-empty", EMPTY_HISTORY_MESSAGE));
     }
 
-    // Only the newest `weeksShown` weeks get cards; `dates` above still covers everything, so "is the log empty" is unaffected.
-    const allWeeks = groupDatesIntoWeeks(log);
+    // Only the newest `weeksShown` weeks get cards.
     const shownDates = allWeeks.slice(0, weeksShown).flatMap((week) => week.dates);
     for (const date of shownDates) {
       const session = log.sessions[date];
