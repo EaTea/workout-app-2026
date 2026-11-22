@@ -2,10 +2,11 @@ import type { ItemView } from "../program/schedule";
 import { closeOnBack } from "./backToClose";
 import { element } from "./dom";
 import { formatPrescriptionSummary } from "./format";
+import { injuryStandInCues, injurySectionLine } from "./injurySheetText";
 
 /**
  * Bottom sheet with the details for one exercise (cues, alternative,
- * the "No equipment" swap when the item has one, progression, evidence). Opened by the ⓘ button on the log screen.
+ * the "No equipment" swap when the item has one, "Your shoulder" when the item is tagged for it, progression, evidence). Opened by the ⓘ button on the log screen.
  *
  *   ⓘ button (log screen) ──click──▶ openExerciseSheet(item, opener)
  *                           ├─ backdrop (tap closes)    ┐ appended to <body>, outside #app,
@@ -50,6 +51,15 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   }
   if (item.noEquipment) {
     content.push(...renderNoEquipmentSection(item.noEquipment));
+  }
+  const injuryLine = injurySectionLine(item);
+  if (injuryLine !== undefined) {
+    // Information only: Today does not act on the flag yet (Injury 2).
+    content.push(sectionHeading("Your shoulder"), element("p", "sheet-text", injuryLine));
+    const standInCues = injuryStandInCues(item);
+    if (standInCues.length > 0) {
+      content.push(bulletList(standInCues));
+    }
   }
   if (exercise.progression.length > 0) {
     content.push(sectionHeading("Progression"), bulletList(exercise.progression));

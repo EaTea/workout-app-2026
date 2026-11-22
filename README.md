@@ -338,6 +338,38 @@ on the item's exercise sheet. The shipped program gives swaps only to items
 that need kit; the swap exercises are ordinary `exercises` entries with
 `"evidence": "coaching practice"`.
 
+Three optional fields let a program cope with an injured body area. The only
+known area for now is `"shoulder"`; an unknown area is an error naming the
+path, with a "did you mean" hint for a near miss. They are read and checked;
+for now only the exercise sheet shows them (see below), and Today ignores them.
+
+- `exercises.<id>.loads`: how much the exercise loads an area, for example
+  `{ "shoulder": "avoid" }`. The level is `"avoid"` or `"caution"`; anything
+  else is an error.
+- `injury` on an item: a stand-in per area, for example
+  `{ "shoulder": { "exercise": "lying_leg_raise", "reps": "10-15" } }`. Each
+  stand-in takes the fields and follows the rules of `noEquipment` above (and
+  can't itself carry `noEquipment` or `injury`), and may also set `perSide`
+  (true or false) to override the original item's; for example a side plank
+  stand-in done on the uninjured side only sets `"perSide": false`. A
+  `noEquipment` swap can't set `perSide`.
+- Top-level `injurySessions`: a session per area for when the injury leaves a
+  day with nothing to do, for example
+  `{ "shoulder": { "name": "Shoulder-free session", "blocks": [ ... ] } }`.
+  The blocks are written exactly like a day's blocks, except that their items
+  can't have `noEquipment` or `injury`.
+
+The shipped Explosive Endurance program tags the exercises that load the
+shoulder (`avoid` or `caution`; the rest are untagged), gives stand-ins to the items that have one (for
+example lying leg raise for the hanging leg raise, broad jumps for the
+kettlebell swings) and carries a "Shoulder-free session". The data is checked
+by `src/program/injuryData.test.ts`. The exercise sheet shows it: a "Your
+shoulder" section on tagged exercises says what the app will do while the
+shoulder is flagged and gives the stand-in's name, this week's dose and its
+cues (on a row ticked "No equipment" it still describes the original
+exercise, since an injury wins over the tick). Untagged exercises have no such
+section. Today doesn't act on the flag yet.
+
 ## Warm-up rotation
 
 Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the

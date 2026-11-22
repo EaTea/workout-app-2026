@@ -1,5 +1,5 @@
-import type { Block, BlockItem, Exercise, Format, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
-import { DAYS_PER_WEEK, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
+import type { Block, BlockItem, Exercise, Format, InjuryArea, NoEquipmentSwap, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
+import { DAYS_PER_WEEK, INJURY_AREAS, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
 import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
@@ -159,6 +159,13 @@ export interface ItemView {
    * switches a row over to it.
    */
   noEquipment?: ItemView;
+  /**
+   * The item's stand-in for each injured area as it would be done this week
+   * (same week arithmetic as `noEquipment`, built through `applyStandIn`).
+   * Present only on items whose program entry has an `injury` stand-in. The
+   * exercise sheet's "Your shoulder" section reads it; Today ignores it.
+   */
+  injury?: Partial<Record<InjuryArea, ItemView>>;
   /**
    * Set when this view is a ticked "No equipment" swap (see
    * `applyNoEquipmentChoices` in noEquipment.ts): the original item's
@@ -417,13 +424,31 @@ function shiftRange(range: Range, seconds: number, ceiling: number): Range {
 function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
   const view = buildItemView(item, settings, blockHalve, week);
 
-  if (item.noEquipment === undefined) {
+  if (item.noEquipment === undefined && item.injury === undefined) {
     return view;
   }
 
+  const result: ItemView = { ...view };
+
   // The swap goes through exactly the same week arithmetic (halving, weekly
   // increase, timer changes) as the original, via its effective item.
-  return { ...view, noEquipment: buildItemView(applyNoEquipmentSwap(item), settings, blockHalve, week) };
+  if (item.noEquipment !== undefined) {
+    result.noEquipment = buildItemView(applyNoEquipmentSwap(item), settings, blockHalve, week);
+  }
+
+  // Injury stand-ins take the very same route, one view per injured area.
+  if (item.injury !== undefined) {
+    const injuryViews: Partial<Record<InjuryArea, ItemView>> = {};
+    for (const area of INJURY_AREAS) {
+      const standIn = item.injury[area];
+      if (standIn !== undefined) {
+        injuryViews[area] = buildItemView(applyStandIn(item, standIn), settings, blockHalve, week);
+      }
+    }
+    result.injury = injuryViews;
+  }
+
+  return result;
 }
 
 /**
@@ -495,6 +520,17 @@ export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
     return item;
   }
 
+  return applyStandIn(item, swap);
+}
+
+/**
+ * The dose rules shared by "No equipment" swaps and injury stand-ins (both
+ * are `NoEquipmentSwap`-shaped, validated by one parser function): see
+ * `applyNoEquipmentSwap` for the diagram (a stand-in may also set `perSide`;
+ * a swap never does). The result has neither
+ * `noEquipment` nor `injury`, so a stand-in is never swapped again.
+ */
+export function applyStandIn(item: BlockItem, swap: NoEquipmentSwap & { perSide?: boolean }): BlockItem {
   return {
     ...item,
     exerciseId: swap.exercise.id,
@@ -510,7 +546,10 @@ export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
     load: swap.load,
     note: swap.note,
     tempo: swap.tempo,
+    // A stand-in may override perSide (e.g. a side plank done on the uninjured side only).
+    perSide: swap.perSide ?? item.perSide,
     noEquipment: undefined,
+    injury: undefined,
   };
 }
 
