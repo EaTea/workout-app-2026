@@ -55,6 +55,27 @@ export function recentlyClearedInjuriesOn(injuries: readonly Injury[], date: str
   });
 }
 
+/** How far back (in days) a past or current injury still explains a dip in a check-in ("expected after time off"). */
+export const RECENT_INJURY_LOOKBACK_DAYS = 28;
+
+/**
+ * True when `area` was active on `date` or was cleared within the
+ * `RECENT_INJURY_LOOKBACK_DAYS` days before it (the clearing date counts, 28
+ * days earlier does too). An injury cleared the day it was flagged was never
+ * active, so it never counts. Used by the weekly check-in to add "expected
+ * after time off" to the 10% warning; pure.
+ */
+export function wasAreaInjuredRecently(injuries: readonly Injury[], area: InjuryArea, date: string): boolean {
+  const windowStart = addDaysToDate(date, -RECENT_INJURY_LOOKBACK_DAYS);
+
+  return injuries.some((injury) => {
+    if (injury.area !== area || injury.from > date) return false;
+    if (injury.to === undefined) return true;
+
+    return injury.to > injury.from && injury.to >= windowStart;
+  });
+}
+
 /** The still-flagged (no clearing date) injury for `area`, if any. Used by the Settings screen to show "Clear" instead of "Add". */
 export function openInjuryFor(injuries: readonly Injury[], area: InjuryArea): Injury | undefined {
   return injuries.find((injury) => injury.area === area && injury.to === undefined);

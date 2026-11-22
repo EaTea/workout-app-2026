@@ -53,6 +53,7 @@ import {
   dropWarningForShownDate,
   fatigueWarningDismissedFromWire,
   fatigueWarningDismissedToWire,
+  timeOffExplanation,
   type CheckInDraft,
 } from "./checkin";
 import { renderDropBanner } from "./checkinCard";
@@ -831,7 +832,7 @@ export function startApp(
         rowToReturnTo = undefined;
         const drop = dropWarningForShownDate(program, settings, shownDate, fatigueHistory);
         if (program.fatigueCheck !== undefined && drop.warnings.length > 0 && dropBannerDismissedWeek !== drop.week) {
-          main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week)));
+          main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week), drop.checkDate === undefined ? undefined : timeOffExplanation(drop.warnings, loadInjuries(localStorage, storageKeys.injuries), drop.checkDate)));
         }
       }
       const logTarget = parseLogRoute(window.location.hash);
@@ -853,7 +854,7 @@ export function startApp(
         rowToReturnTo = logTarget.date === shownDate ? todayRowKey(logTarget.blockPosition, logTarget.exerciseId, logTarget.day) : undefined;
         main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines, skippedOptionalBlocks, loadInjuries(localStorage, storageKeys.injuries), injuryChoices));
       } else if (route === "history") {
-        main.append(renderHistoryScreen(program, log, changeLog, skippedOptionalBlocks));
+        main.append(renderHistoryScreen(program, log, changeLog, skippedOptionalBlocks, { settings, injuries: loadInjuries(localStorage, storageKeys.injuries) }));
       } else if (route === "plan" && planTarget !== undefined) {
         const planScreen = renderDayPlanScreen(program, storageKeys.programId, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
         if (planScreen !== undefined) main.append(planScreen);

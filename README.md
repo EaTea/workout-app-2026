@@ -60,7 +60,14 @@ program's `fatigueCheck.rule` text as a warning on the card, and after saving
 as a dismissible banner on Today for the rest of that week. "Remind me
 tomorrow" hides the card for that date only. Saving the week 8 retest of
 pull-ups and/or the broad jump records them as that week's check, whichever is
-saved first, the other merging into it later. Checks are stored in
+saved first, the other merging into it later. With the shoulder flagged on
+the shown date the check-in replaces "Max pull-ups" with "Skip while your
+shoulder is flagged" (a blank is saved as no pull-up value), and the retest
+holds pull-ups and dips back ("Retest pull-ups and dips once your shoulder is
+no longer flagged"; the jump stays, and the EMOMs keep week 7's figure as when no
+max is saved). A pull-up drop of more than 10% adds "This is expected after time
+off for your shoulder." when a shoulder injury was active or cleared in the 28
+days before that check. Checks are stored in
 `localStorage` under `<programId>.fatigue` (`explosive-endurance.fatigue` for Explosive Endurance). It is a static site
 (Vite + TypeScript, no UI framework).
 
@@ -70,8 +77,10 @@ under keys that start with its id from `programs.json`: `<programId>.settings`,
 `.fatigue-warning-dismissed`, `.rotation-dismissed`, `.retest-dismissed`,
 `.retest-jump-skipped`, `.no-equipment` (swap ticks per date, pruned after
 14 days, not exported), `.combines` (days combined into another day's session)
-and `.optional-block-choices` (optional blocks such as boxing skipped on a
-date; both are exported and imported), plus the backup keys `.log.corrupt-<time>`,
+`.optional-block-choices` (optional blocks such as boxing skipped on a
+date) and `.injuries` (the flagged and cleared injuries; all three are exported
+and imported), `.injury-choices` ("Add it back" and "Half sets today" per date,
+pruned after 14 days, not exported), plus the backup keys `.log.corrupt-<time>`,
 `.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
 (`explosive-endurance`) these are the keys the app has always used. One key is
 app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
@@ -166,6 +175,13 @@ session it appears in, until a set of it is logged on a later date (the
 clearing date counts). That row offers "Half sets today": the "Add it back"
 halving (warm-ups never halved), for that date only, and the header minutes
 are re-estimated.
+
+History marks a day an area was flagged: its card shows a small tag ("Right
+shoulder"), "Left out: Pull-ups, ..." and each stand-in ("Lying leg raise
+instead of Hanging leg raise"). These are worked out from the injury dates and
+the program when the card is drawn, never stored (a combined day shows only the
+tag; exercises added back and logged count as done, not left out). Days with no
+logged sets still get no card.
 
 "Show me": in Steady Strength, a large "▶ Show me" button sits beside each
 exercise that has an animation, on Today, on the day plan, and in the log
@@ -446,7 +462,9 @@ UTF-8 byte order mark so Excel reads it correctly. The export reads what is
 stored at the moment you tap the button.
 "Export everything as JSON" gives the log, the weekly checks, your
 settings, the max history (every max you saved, under `maxHistory`), the
-combined days and the skipped optional blocks in a
+combined days, the skipped optional blocks and the injuries (`injuries`, an
+optional field of the same version 2; the per-date injury choices are not
+exported) in a
 versioned file (`"format": "explosive-endurance-export"`, `"version": 2`, and
 `"programId"`, the catalogue id of the program the data belongs to),
 plus `corruptLogBackups` if the app ever had to set aside unreadable log text,
@@ -479,7 +497,9 @@ replace my data"); "Cancel" leaves everything as it was.
   left out. Files exported before the max history was added (no `maxHistory`)
   and files with older settings versions still import.
 - Importing replaces the log, weekly checks, settings, max history, combined
-  days and skipped optional blocks (boxing). Before
+  days, skipped optional blocks (boxing) and injuries. A file from before
+  injuries were exported has none, so it clears the stored injuries like the
+  other optional parts; Undo puts the previous injuries back. Before
   anything is written, the current data is saved as a backup in the browser
   (key `<programId>.import-backup-<time>`), itself a complete export
   file (written compactly, with the exact stored text of each key inside). The

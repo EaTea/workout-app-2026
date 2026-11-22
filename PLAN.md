@@ -3030,8 +3030,20 @@ shoulder flagged from 22 Nov):
      is logged on a date from the clearing date up to (not including) the shown
      date; sets under a stand-in's id don't count; today's own sets keep the
      mark but hide the button. A ticked No-equipment swap replaces the marked row.
-  2. [ ] Weekly check-in, week 8 retest, History marks, export and import of
-     injuries.
+  2. [x] Weekly check-in, week 8 retest, History marks, export and import of
+     injuries. Decisions: the check-in drops the pull-up field (and saves no
+     pull-up value) while the shoulder is flagged on the shown date, and a
+     pull-up drop adds "expected after time off" when a shoulder injury was
+     active or cleared in the 28 days before the check's date (card and Today
+     banner); the retest holds back exercises a flagged area tags "avoid"
+     (pull-ups, dips) behind one line, the jump stays, and the card's done
+     condition is the jump or "Skip jump"; History derives the tag and the
+     left-out/stand-in lists from the injury dates with `buildSwappedSession`
+     (nothing stored; a combined day shows the tag only); the JSON export adds
+     an optional `injuries` field to version 2 (no bump, like `optionalBlockChoices`),
+     an older file without it imports as no injuries (the import replaces), Undo
+     restores the previous injuries, and injury choices are not exported. The
+     broad-jump skip for lower-body areas waits for those areas.
   - Merge point: the shoulder feature is complete.
 - **Then: plan the other areas** *(design)*: only after Injury 3 is
   merged. A new design PR picks the areas, their tables and their order.

@@ -1240,6 +1240,18 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* The small "Right shoulder" tag on a day an area was flagged. */
+.history-injury-tag {
+  display: inline-block;
+  margin: 0 0 4px;
+  padding: 2px 8px;
+  border: 1px solid #f5c451;
+  border-radius: 999px;
+  color: #f5c451;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .history-exercise-row,
 .history-set-row {
   display: flex;

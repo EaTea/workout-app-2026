@@ -6,18 +6,19 @@ import { createCuePlayer } from "../timer/cues";
 import { formatClock } from "../timer/engine";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS, shortExerciseName } from "../timer/plans";
 import { element } from "./dom";
-import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
+import { retestExercisesHeldBack, retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
 import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderInjuredLink, renderInjuryBanners } from "./injuryFlagUi";
 import type { Injury, InjuryChoices } from "../injury/model";
+import { wasAreaInjuredRecently } from "../injury/operations";
 import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
 import "./injuryRows.css";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
-import { checkInWeekToAsk, trainingWeekOf, type CheckInDraft } from "./checkin";
+import { checkInWeekToAsk, shouldSkipPullUps, trainingWeekOf, type CheckInDraft } from "./checkin";
 import { weeklyChecksFor } from "../fatigue/operations";
 import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
@@ -210,7 +211,8 @@ export function renderTodayScreen(
     case "training":
     case "combined":
       if (retest !== undefined) {
-        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
+        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate, injury?.injuries ?? []);
+        const exercisesHeldBack = retestExercisesHeldBack(program, settings, date, retest.dismissedDate, injury?.injuries ?? []);
         // The broad jump is part of the fatigue check; a program without one has no jump to ask for.
         const hasJump = program.fatigueCheck !== undefined;
         const jumpOnly = hasJump && exercisesToRetest.length === 0
@@ -219,7 +221,7 @@ export function renderTodayScreen(
           screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, hasJump ? {
             week: trainingWeekOf(program, settings, date) ?? 0,
             history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks),
-          } : undefined));
+          } : undefined, exercisesHeldBack));
         }
       }
       if (checkIn !== undefined) {
@@ -230,6 +232,8 @@ export function renderTodayScreen(
             canSave: checkIn.canSave,
             onSave: checkIn.onSave,
             onSnooze: checkIn.onSnooze,
+            skipPullUps: shouldSkipPullUps(injury?.injuries ?? [], date),
+            recentShoulderInjury: wasAreaInjuredRecently(injury?.injuries ?? [], "shoulder", date),
           }));
         }
       }

@@ -1,6 +1,8 @@
 import type { Exercise, Program } from "../program/model";
 import { retestWeekStartDate, wasMaxSavedDuringWeek } from "../program/schedule";
 import { toDayNumber } from "../program/calendar";
+import type { Injury } from "../injury/model";
+import { activeAreasOn } from "../injury/operations";
 import type { TrainingSettings } from "../settings/model";
 import type { FatigueCheck, WeeklyFatigueCheck } from "../fatigue/model";
 import type { FatigueHistory } from "../fatigue/model";
@@ -20,19 +22,12 @@ import { stampMaxSavedDates, updateMaxHistory } from "./settings";
  */
 
 /**
- * Which max-tested exercises the retest card should still ask for on `date`.
- * Empty (no card) unless `date` is a retest-week training day, the card was
- * not dismissed for that date, and the exercise's max was not yet saved on a
- * date inside that week, Day 1 to Day 7 (the same check the schedule uses to
- * switch EMOMs to the new max, `wasMaxSavedDuringWeek`). Exercises come back in program order.
- * Called by `renderTodayScreen` on every render.
+ * The max-tested exercises not yet retested in the retest week of `date`, in
+ * program order; empty when `date` is not a retest-week training day or "Not
+ * today" was tapped for it. Shared by `retestExercisesToSave` and
+ * `retestExercisesHeldBack`, so both agree on what is still outstanding.
  */
-export function retestExercisesToSave(
-  program: Program,
-  settings: TrainingSettings,
-  date: string,
-  dismissedDate: string | undefined,
-): Exercise[] {
+function outstandingRetestExercises(program: Program, settings: TrainingSettings, date: string, dismissedDate: string | undefined): Exercise[] {
   const weekStartDate = retestWeekStartDate(program, settings, date);
   if (weekStartDate === undefined || dismissedDate === date) {
     return [];
@@ -41,6 +36,50 @@ export function retestExercisesToSave(
   return Object.values(program.exercises).filter(
     (exercise) => exercise.maxTested && !wasMaxSavedDuringWeek(settings, exercise.id, weekStartDate),
   );
+}
+
+/** True when a flagged area on `date` has the exercise at "avoid" (a max test would load it). */
+function isAvoidedByFlaggedArea(exercise: Exercise, injuries: readonly Injury[], date: string): boolean {
+  return activeAreasOn(injuries, date).some((area) => exercise.loads?.[area] === "avoid");
+}
+
+/**
+ * Which max-tested exercises the retest card should still ask for on `date`.
+ * Empty (no card) unless `date` is a retest-week training day, the card was
+ * not dismissed for that date, and the exercise's max was not yet saved on a
+ * date inside that week, Day 1 to Day 7 (the same check the schedule uses to
+ * switch EMOMs to the new max, `wasMaxSavedDuringWeek`). An exercise that a
+ * flagged area leaves out (pull-ups and dips with the shoulder flagged) is
+ * not asked for; see `retestExercisesHeldBack`. When nothing is saved the
+ * EMOMs keep week 7's figure, exactly as when Ed skips the retest.
+ * Exercises come back in program order. Called by `renderTodayScreen` on every render.
+ */
+export function retestExercisesToSave(
+  program: Program,
+  settings: TrainingSettings,
+  date: string,
+  dismissedDate: string | undefined,
+  injuries: readonly Injury[] = [],
+): Exercise[] {
+  return outstandingRetestExercises(program, settings, date, dismissedDate)
+    .filter((exercise) => !isAvoidedByFlaggedArea(exercise, injuries, date));
+}
+
+/**
+ * The outstanding retest exercises held back because a flagged area leaves
+ * them out on `date`, in program order. The card says "Retest ... once your
+ * shoulder is no longer flagged" for these instead of offering a stepper.
+ * Called by `renderTodayScreen`.
+ */
+export function retestExercisesHeldBack(
+  program: Program,
+  settings: TrainingSettings,
+  date: string,
+  dismissedDate: string | undefined,
+  injuries: readonly Injury[],
+): Exercise[] {
+  return outstandingRetestExercises(program, settings, date, dismissedDate)
+    .filter((exercise) => isAvoidedByFlaggedArea(exercise, injuries, date));
 }
 
 /**

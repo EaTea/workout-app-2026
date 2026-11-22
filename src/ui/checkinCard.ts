@@ -10,6 +10,8 @@ import {
   MAXIMUM_PULL_UPS,
   MINIMUM_BROAD_JUMP_METRES,
   PREVIEW_SAVING_OFF_MESSAGE,
+  EXPECTED_AFTER_TIME_OFF_SENTENCE,
+  PULL_UPS_SKIPPED_LINE,
   describeDrops,
   formatBestRecent,
   formatMetres,
@@ -62,6 +64,12 @@ export interface CheckInCardActions {
 
   /** "Remind me tomorrow" tapped (never called when `canSave` is false). */
   onSnooze: () => void;
+
+  /** True while the shoulder is flagged on the shown date: the pull-up field is replaced by a "Skip" line and no pull-up value is saved. */
+  skipPullUps?: boolean;
+
+  /** True when a shoulder injury was active or cleared in the 28 days before the shown date: a pull-up drop warning then adds "expected after time off". */
+  recentShoulderInjury?: boolean;
 }
 
 /** Broad jump stepper rules: two decimals, 0.01 to 5 m, typed text up to two decimals. */
@@ -92,6 +100,8 @@ export function renderCheckInCard(
   actions: CheckInCardActions,
 ): HTMLElement {
   const { draft } = actions;
+  const skipPullUps = actions.skipPullUps === true;
+  if (skipPullUps) draft.maxPullUps = undefined; // a value typed before the flag must not be saved
   const card = element("section", "card checkin-card");
   card.setAttribute("aria-label", "Weekly check-in");
 
@@ -120,6 +130,9 @@ export function renderCheckInCard(
     warning.replaceChildren();
     if (drops.length > 0) {
       warning.append(element("strong", undefined, `⚠ ${describeDrops(drops)}`), " ", ruleText);
+      if (actions.recentShoulderInjury === true && drops.some((drop) => drop.field === "maxPullUps")) {
+        warning.append(" ", EXPECTED_AFTER_TIME_OFF_SENTENCE);
+      }
     }
 
     saveButton.disabled = !actions.canSave || (draft.broadJumpMetres === undefined && draft.maxPullUps === undefined);
@@ -132,7 +145,7 @@ export function renderCheckInCard(
     () => draft.broadJumpMetres,
     (value) => { draft.broadJumpMetres = value; refreshSummary(); },
   );
-  const pullUpSection = renderFieldSection({
+  const pullUpSection = skipPullUps ? { element: renderSkippedPullUps() } : renderFieldSection({
     heading: "Max pull-ups",
     field: "maxPullUps",
     stepperName: "Max pull-ups",
@@ -174,6 +187,15 @@ export function renderCheckInCard(
 
   refreshSummary();
   return card;
+}
+
+/** The "Max pull-ups" heading with a plain line instead of a stepper, while the shoulder is flagged. */
+function renderSkippedPullUps(): HTMLElement {
+  const section = element("div", "checkin-field checkin-field-skipped");
+  const titleRow = element("div", "checkin-field-head");
+  titleRow.append(element("h3", "checkin-field-title", "Max pull-ups"));
+  section.append(titleRow, element("p", "checkin-best", PULL_UPS_SKIPPED_LINE));
+  return section;
 }
 
 /**
@@ -298,10 +320,10 @@ function renderFieldSection(options: FieldSectionOptions): FieldSection {
 /**
  * The dismissible amber banner on Today after a check-in with a drop:
  * "Pull-ups are down more than 10% this week. <rule>". `onDismiss` lets app.ts
- * remember the dismissal for that week; focus then moves to the page heading
+ * remember the dismissal for that week; `extraSentence` is the "expected after time off" line when it applies (`timeOffExplanation`); focus then moves to the page heading
  * because the Dismiss button disappears with the banner.
  */
-export function renderDropBanner(warnings: FatigueWarning[], ruleText: string, onDismiss: () => void): HTMLElement {
+export function renderDropBanner(warnings: FatigueWarning[], ruleText: string, onDismiss: () => void, extraSentence?: string): HTMLElement {
   const banner = element("div", "card warning-banner drop-banner");
   banner.setAttribute("role", "status");
 
@@ -314,6 +336,7 @@ export function renderDropBanner(warnings: FatigueWarning[], ruleText: string, o
 
   const text = element("p", "warning-banner-text");
   text.append(element("strong", undefined, `⚠ ${describeDrops(warnings)}`), " ", ruleText);
+  if (extraSentence !== undefined) text.append(" ", extraSentence);
 
   const header = element("div", "warning-banner-header");
   header.append(text, dismissButton);

@@ -5,6 +5,9 @@ import type { LoggedSession, LoggedSet, WorkoutLog } from "../log/model";
 import { deleteSet, editSet, sessionDates, type SetKey } from "../log/operations";
 import { element } from "./dom";
 import { formatSetsSummary } from "./format";
+import type { Injury } from "../injury/model";
+import type { TrainingSettings } from "../settings/model";
+import { injuryNoteForDate, leftOutSummaryLine } from "./historyInjury";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { formatSessionHeader, loggedSetLabel, skippedBlockLines, loggedSetNoun, loggedSetShowsRepsAndLoad, performedExerciseName } from "./historyText";
 import type { ChangeLog } from "./logChange";
@@ -25,6 +28,9 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
  *                                                    └─tap─▶ edit panel
  *     Save ─▶ editSet ─┐
  *     Delete ─▶ deleteSet ─┴▶ changeLog(op) re-reads, saves (app.ts) ─▶ draw()
+ *
+ * On a day an area was flagged the card also shows a small tag ("Right
+ * shoulder"), what was left out and what was stood in (`historyInjury.ts`).
  *
  * Deleting the last set of a session removes the session (`deleteSet`), so its
  * card disappears. As on the log screen, a failed save keeps the change in
@@ -59,6 +65,7 @@ export function renderHistoryScreen(
   initialLog: WorkoutLog,
   changeLog: ChangeLog,
   skippedOptionalBlocks: SkippedBlocksByDate = new Map(),
+  injuryContext?: { settings: TrainingSettings; injuries: readonly Injury[] },
 ): HTMLElement {
   const screen = element("section", "screen history-screen");
 
@@ -160,6 +167,15 @@ export function renderHistoryScreen(
     header.tabIndex = -1;
     focusTargets.set(cardFocusName(session.date), header);
     card.append(header);
+
+    // On a day an area was flagged: a small tag, what was left out and what was stood in (derived, see historyInjury.ts).
+    const injuryNote = injuryContext === undefined ? undefined : injuryNoteForDate(program, injuryContext.settings, log, injuryContext.injuries, session.date);
+    if (injuryNote !== undefined) {
+      card.append(element("p", "history-injury-tag", injuryNote.tag));
+      const leftOutLine = leftOutSummaryLine(injuryNote);
+      if (leftOutLine !== undefined) card.append(element("p", "history-exercise-note", leftOutLine));
+      for (const standInLine of injuryNote.standIns) card.append(element("p", "history-exercise-note", standInLine));
+    }
 
     // "Boxing skipped" for each optional block the athlete skipped that day, so the unlogged bag isn't a mystery.
     for (const line of skippedBlockLines(program, skippedOptionalBlocks.get(session.date), session)) {

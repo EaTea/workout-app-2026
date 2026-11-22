@@ -2,6 +2,8 @@ import type { Program } from "../program/model";
 import { programStatus, toDayNumber } from "../program/calendar";
 import { phaseForWeek } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
+import type { Injury } from "../injury/model";
+import { activeAreasOn, wasAreaInjuredRecently } from "../injury/operations";
 import type { FatigueField, FatigueHistory } from "../fatigue/model";
 import { checkForWeek, fatigueWarnings, weeklyChecksFor, type FatigueWarning } from "../fatigue/operations";
 
@@ -81,7 +83,7 @@ export function trainingWeekOf(program: Program, settings: TrainingSettings, dat
 /**
  * The drops over 10% in the check saved for the program week of `date`
  * (any day of an active program, including the rest day), with that week.
- * Empty `warnings` when the date is outside the program or the week has no
+ * `checkDate` is the saved check's date (present with warnings). Empty `warnings` when the date is outside the program or the week has no
  * drop. A program without a `fatigueCheck` never has one. Drives the Today
  * banner, "for the rest of that week".
  */
@@ -90,14 +92,43 @@ export function dropWarningForShownDate(
   settings: TrainingSettings,
   date: string,
   history: FatigueHistory,
-): { week: number; warnings: FatigueWarning[] } {
+): { week: number; warnings: FatigueWarning[]; checkDate?: string } {
   if (program.fatigueCheck === undefined) return { week: 0, warnings: [] };
 
   const status = programStatus(settings.startDate, program.lengthWeeks, date);
   if (status.kind !== "active") return { week: 0, warnings: [] };
 
   const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks);
-  return { week: status.week, warnings: fatigueWarnings(weeklyChecks, status.week) };
+  const warnings = fatigueWarnings(weeklyChecks, status.week);
+  const checkDate = checkForWeek(weeklyChecks, status.week)?.date;
+  return warnings.length === 0 || checkDate === undefined ? { week: status.week, warnings } : { week: status.week, warnings, checkDate };
+}
+
+/** Shown in place of the "Max pull-ups" field while the shoulder is flagged on the shown date. */
+export const PULL_UPS_SKIPPED_LINE = "Skip while your shoulder is flagged";
+
+/** Added to a pull-up drop warning when the shoulder was recently injured. */
+export const EXPECTED_AFTER_TIME_OFF_SENTENCE = "This is expected after time off for your shoulder.";
+
+/**
+ * True while the shoulder is flagged on `date`: the check-in then offers no
+ * pull-up field and saves no pull-up value (pull-ups are an avoid exercise
+ * for the shoulder). Called by Today when drawing the check-in card.
+ */
+export function shouldSkipPullUps(injuries: readonly Injury[], date: string): boolean {
+  return activeAreasOn(injuries, date).includes("shoulder");
+}
+
+/**
+ * The extra sentence for a drop warning, or undefined. It applies only when
+ * pull-ups are among the `drops` and a shoulder injury was active, or cleared
+ * in the 28 days before `checkDate` (the date of the check being judged).
+ * Used by the check-in card and Today's drop banner.
+ */
+export function timeOffExplanation(drops: readonly FatigueWarning[], injuries: readonly Injury[], checkDate: string): string | undefined {
+  if (!drops.some((drop) => drop.field === "maxPullUps")) return undefined;
+
+  return wasAreaInjuredRecently(injuries, "shoulder", checkDate) ? EXPECTED_AFTER_TIME_OFF_SENTENCE : undefined;
 }
 
 /** What the card's two steppers hold before saving; undefined is a blank field (never saved as a number). */
