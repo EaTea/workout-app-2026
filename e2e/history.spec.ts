@@ -198,16 +198,21 @@ test("focus follows each History action, and reps can be added to a set logged w
 test("History shows 2 weeks at first and 'Show older weeks' adds 2 more at a time", async ({ page }) => {
   await seedSettings(page);
 
-  // Five program weeks, one session each, on the Monday of each week (start date 2026-11-02).
-  const mondays = ["2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23", "2026-11-30"];
+  // Five program weeks (start date 2026-11-02): a Day 1 session on each week's
+  // first day, plus a Day 3 session in week 1 so the oldest week has two cards
+  // and the focus check can tell its first card from its last.
+  const sessions = [
+    { date: "2026-11-02", week: 1, day: 1 }, { date: "2026-11-04", week: 1, day: 3 },
+    { date: "2026-11-09", week: 2, day: 1 }, { date: "2026-11-16", week: 3, day: 1 },
+    { date: "2026-11-23", week: 4, day: 1 }, { date: "2026-11-30", week: 5, day: 1 },
+  ];
   const log = {
     version: 1,
-    sessions: mondays.map((date, index) => ({
-      date, programWeek: index + 1, day: 1,
-      sets: [
-        wireSet("med_ball_slam", 2, 1, 6), wireSet("med_ball_slam", 2, 2, 6),
-        wireSet("pull_up", 3, 1, 5, { loadKg: 8 }),
-      ],
+    sessions: sessions.map(({ date, week, day }) => ({
+      date, programWeek: week, day,
+      sets: day === 1
+        ? [wireSet("med_ball_slam", 2, 1, 6), wireSet("med_ball_slam", 2, 2, 6), wireSet("pull_up", 3, 1, 5, { loadKg: 8 })]
+        : [wireSet("dip", 3, 1, 7, { loadKg: 10 })],
     })),
   };
   await page.addInitScript((seed) => {
@@ -218,10 +223,14 @@ test("History shows 2 weeks at first and 'Show older weeks' adds 2 more at a tim
   const headers = page.locator(".history-session-header");
   const showOlder = page.getByRole("button", { name: "Show older weeks" });
 
-  // Only weeks 5 and 4 at first, with the button under them; Progress covers the whole log.
+  // Only weeks 5 and 4 at first, with the button under them.
   await expect(headers).toHaveText(["30 Nov · Week 5 · Day 1 · Upper: pull", "23 Nov · Week 4 · Day 1 · Upper: pull"]);
   await expect(showOlder).toBeVisible();
+
+  // Progress still covers the whole log: its table has the week 1 pull-ups, whose card isn't drawn yet.
   await expect(page.locator(".progress-card")).toBeVisible();
+  await expect(page.locator(".progress-table")).toContainText("W1");
+  await expect(card(page, "2 Nov")).toHaveCount(0);
 
   // Expand a row in a week 4 card, then load 2 more weeks.
   await exerciseRow(page, "23 Nov", "Med ball slams").locator(".history-exercise-row").click();
@@ -237,11 +246,47 @@ test("History shows 2 weeks at first and 'Show older weeks' adds 2 more at a tim
   await expect(headers.nth(2)).toBeFocused();
   await expect(showOlder).toBeVisible();
 
-  // Once more: week 1 appears and nothing older is left, so the button goes.
+  // Once more: week 1's two cards appear, focus goes to the newer of them (4 Nov),
+  // and nothing older is left, so the button goes.
   await showOlder.click();
-  await expect(headers).toHaveCount(5);
-  await expect(headers.nth(4)).toContainText("Week 1");
+  await expect(headers).toHaveCount(6);
+  await expect(headers.nth(4)).toHaveText("4 Nov · Week 1 · Day 3 · Upper: push");
+  await expect(headers.nth(5)).toHaveText("2 Nov · Week 1 · Day 1 · Upper: pull");
   await expect(headers.nth(4)).toBeFocused();
   await expect(showOlder).toHaveCount(0);
   await expect(page.locator(".progress-card")).toBeVisible();
+});
+
+test("deleting the only card of a shown week brings the next older week into view", async ({ page }) => {
+  await seedSettings(page);
+
+  // Three program weeks, one session each. History shows weeks 3 and 2 at first.
+  const log = {
+    version: 1,
+    sessions: [
+      { date: "2026-11-02", programWeek: 1, day: 1, sets: [wireSet("pull_up", 3, 1, 5)] },
+      { date: "2026-11-09", programWeek: 2, day: 1, sets: [wireSet("pull_up", 3, 1, 5)] },
+      { date: "2026-11-16", programWeek: 3, day: 1, sets: [wireSet("pull_up", 3, 1, 5)] },
+    ],
+  };
+  await page.addInitScript((seed) => {
+    window.localStorage.setItem("explosive-endurance.log", JSON.stringify(seed));
+  }, log);
+  await page.goto("/?date=2026-11-20#/history");
+
+  const headers = page.locator(".history-session-header");
+  await expect(headers).toHaveCount(2);
+  await expect(card(page, "2 Nov")).toHaveCount(0);
+
+  // Delete week 2's only set: its card goes, and History still shows 2 weeks, so week 1 moves up.
+  await exerciseRow(page, "9 Nov", "Pull-ups").locator(".history-exercise-row").click();
+  await card(page, "9 Nov").getByRole("button", { name: /^Min 1 · 5 reps/ }).click();
+  await page.getByRole("button", { name: "Delete set" }).click();
+  await page.getByRole("button", { name: "Tap again to delete" }).click();
+
+  await expect(card(page, "9 Nov")).toHaveCount(0);
+  await expect(headers).toHaveCount(2);
+  await expect(card(page, "2 Nov")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Show older weeks" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "History" })).toBeFocused();
 });

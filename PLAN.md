@@ -2619,6 +2619,9 @@ loads the log.
 - The **progress charts still use the whole log**, not only the shown
   weeks.
 - Leaving History and coming back starts again at 2 weeks.
+- The window is a number of weeks, not a fixed set of dates: if a Delete
+  removes the only card of a shown week, the next older week moves up into
+  view.
 - **Taps redraw only what they change.** Expand, collapse, open a set and
   Cancel redraw only that session's card. Save redraws that card and the
   progress charts. Delete does the same, or removes the card if it was the
