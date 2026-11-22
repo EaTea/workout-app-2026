@@ -29,6 +29,9 @@ export interface InjuryDayNote {
   /** "Right shoulder"; several flagged areas are joined with ", ". */
   tag: string;
 
+  /** "Shoulder-free session instead of Day 3 (Upper: push)" when the day was swapped for the area's own session; otherwise undefined. */
+  areaFreeLine?: string;
+
   /** Names of the exercises left out that day, program order, each once. */
   leftOut: string[];
 
@@ -71,6 +74,10 @@ export function injuryNoteForDate(
   try {
     const { session } = buildSwappedSession(program, settings, log, new Map(), date, undefined, injuries);
     if (session.kind !== "training") return note;
+
+    if (session.areaFreeSession !== undefined) {
+      note.areaFreeLine = `${session.areaFreeSession.name} instead of Day ${session.dayNumber} (${session.areaFreeSession.insteadOf})`;
+    }
 
     for (const block of session.blocks) {
       for (const item of block.items) {

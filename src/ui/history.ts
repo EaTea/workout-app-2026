@@ -172,6 +172,7 @@ export function renderHistoryScreen(
     const injuryNote = injuryContext === undefined ? undefined : injuryNoteForDate(program, injuryContext.settings, log, injuryContext.injuries, session.date);
     if (injuryNote !== undefined) {
       card.append(element("p", "history-injury-tag", injuryNote.tag));
+      if (injuryNote.areaFreeLine !== undefined) card.append(element("p", "history-exercise-note", injuryNote.areaFreeLine));
       const leftOutLine = leftOutSummaryLine(injuryNote);
       if (leftOutLine !== undefined) card.append(element("p", "history-exercise-note", leftOutLine));
       for (const standInLine of injuryNote.standIns) card.append(element("p", "history-exercise-note", standInLine));

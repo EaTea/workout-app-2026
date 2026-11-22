@@ -177,8 +177,18 @@ describe("the retest with the shoulder flagged", () => {
     expect(retestExercisesToSave(program, settings, "2026-12-21", undefined, unflagged).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
     expect(retestExercisesHeldBack(program, settings, "2026-12-21", undefined, unflagged)).toEqual([]);
 
-    const cleared: Injury[] = [{ area: "shoulder", side: "right", from: "2026-12-14", to: "2026-12-20" }];
-    expect(retestExercisesToSave(program, settings, "2026-12-21", undefined, cleared).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+    // Cleared long enough ago (28 Nov, 23 days before the 21 Dec retest) to be outside the 14-day return window.
+    const clearedLongAgo: Injury[] = [{ area: "shoulder", side: "right", from: "2026-11-20", to: "2026-11-28" }];
+    expect(retestExercisesToSave(program, settings, "2026-12-21", undefined, clearedLongAgo).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+  });
+
+  it("keeps holding them back through the 14 days after the flag is cleared (flagged 15 Dec, cleared 23 Dec)", () => {
+    const cleared: Injury[] = [{ area: "shoulder", side: "right", from: "2026-12-15", to: "2026-12-23" }];
+    expect(retestExercisesToSave(program, settings, "2026-12-23", undefined, cleared)).toEqual([]);
+    expect(retestExercisesHeldBack(program, settings, "2026-12-23", undefined, cleared).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+
+    // The day before is held back too (the retest week runs 21-27 Dec, inside the window).
+    expect(retestExercisesHeldBack(program, settings, "2026-12-22", undefined, cleared).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
   });
 
   it("holds back only what is still outstanding, and nothing outside the retest week or when dismissed", () => {
@@ -197,7 +207,8 @@ describe("the retest with the shoulder flagged", () => {
   });
 
   it("words the held-back line from the exercise names", () => {
-    expect(retestHeldBackLine(["Pull-ups", "Dips"])).toBe("Retest pull-ups and dips once your shoulder is no longer flagged");
+    expect(retestHeldBackLine(["Pull-ups", "Dips"])).toBe("Pull-ups and dips aren't retested while your shoulder is flagged or in its first two weeks back.");
+    expect(retestHeldBackLine(["Dips"])).toBe("Dips aren't retested while your shoulder is flagged or in its first two weeks back.");
   });
 
   it("leaves week 8's EMOMs at week 7's figure when no new max is saved (the schedule is unchanged by the flag)", () => {

@@ -372,7 +372,7 @@ test("the week 8 retest holds pull-ups and dips back while the shoulder is flagg
   await page.goto(`/?date=${weekEightDayOne}#/today`);
 
   const card = page.locator(".retest-card");
-  await expect(card).toContainText("Retest pull-ups and dips once your shoulder is no longer flagged");
+  await expect(card).toContainText("Pull-ups and dips aren't retested while your shoulder is flagged or in its first two weeks back.");
   await expect(card.getByRole("button", { name: /Save max/ })).toHaveCount(0);
   await expect(card.getByText("Best broad jump")).toBeVisible();
   await expect(card.getByRole("button", { name: "Skip jump" })).toBeVisible();

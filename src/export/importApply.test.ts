@@ -83,7 +83,7 @@ describe("applyImport", () => {
     expect(readExportSource(storage, KEYS).optionalBlockChoices).toEqual(new Map());
   });
 
-  it("replaces the stored injuries, and an import with none clears them", () => {
+  it("replaces the stored injuries when the file has an injuries section (an empty one clears them)", () => {
     const storage = storageWithOldData();
 
     applyImport(storage, KEYS, importedData, NOW);
@@ -91,6 +91,15 @@ describe("applyImport", () => {
 
     applyImport(storage, KEYS, { ...importedData, injuries: [] }, NOW);
     expect(readExportSource(storage, KEYS).injuries).toEqual([]);
+  });
+
+  it("keeps the stored injuries when the file has no injuries section", () => {
+    const storage = storageWithOldData();
+    const before = storage.getItem(KEYS.injuries);
+
+    applyImport(storage, KEYS, { ...importedData, injuries: undefined }, NOW);
+
+    expect(storage.getItem(KEYS.injuries)).toBe(before);
   });
 
   it("does not touch the per-date injury choices", () => {

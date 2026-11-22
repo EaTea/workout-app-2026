@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseImport, wrongProgramMessage } from "./import";
+import { injuryReplacementWarning, parseImport, wrongProgramMessage } from "./import";
 import { exportToWire, serializeExport, type ExportBundle } from "./wire";
 
 const bundle: ExportBundle = {
@@ -76,7 +76,7 @@ describe("parseImport", () => {
     const result = parseImport(fileText());
 
     expect(result.ok && result.summary).toEqual({
-      exportedAt: "2026-11-09T08:00:00.000Z", sessionCount: 2, setCount: 3, checkCount: 1, firstSessionDate: "2026-11-02", lastSessionDate: "2026-11-04", startDate: "2026-11-02",
+      exportedAt: "2026-11-09T08:00:00.000Z", sessionCount: 2, setCount: 3, checkCount: 1, firstSessionDate: "2026-11-02", lastSessionDate: "2026-11-04", startDate: "2026-11-02", injuryCount: 2,
     });
   });
 
@@ -234,16 +234,26 @@ describe("parseImport", () => {
     expect(result.ok && result.data.injuries).toEqual(bundle.injuries);
   });
 
-  it("imports an older export without an injuries section as no injuries", () => {
+  it("reads an older export without an injuries section as 'keep the stored injuries' (undefined, no problem)", () => {
     const result = parseImport(fileText((file) => {
       delete file.injuries;
     }));
 
-    expect(result.ok && result.data.injuries).toEqual([]);
+    expect(result.ok && result.data.injuries).toBeUndefined();
+    expect(result.ok && result.summary.injuryCount).toBeUndefined();
     expect(result.ok && result.problems).toEqual([]);
   });
 
-  it("drops bad injuries, or a section it cannot read, without refusing the file", () => {
+  it("reads a file with an empty injuries section as 'replace with none'", () => {
+    const result = parseImport(fileText((file) => {
+      file.injuries = { version: 1, injuries: [] };
+    }));
+
+    expect(result.ok && result.data.injuries).toEqual([]);
+    expect(result.ok && result.summary.injuryCount).toBe(0);
+  });
+
+  it("drops bad injuries, and reports a section it cannot read as a problem (stored injuries kept), without refusing the file", () => {
     const withBadEntries = parseImport(fileText((file) => {
       file.injuries = { version: 1, injuries: [{ area: "shoulder", side: "left", from: "2026-11-22" }, { area: "knee", side: "left", from: "2026-11-22" }, { area: "shoulder", side: "up", from: "2026-11-22" }, { area: "shoulder", side: "left", from: "tomorrow" }] };
     }));
@@ -253,8 +263,21 @@ describe("parseImport", () => {
       const result = parseImport(fileText((file) => {
         file.injuries = unreadable;
       }));
-      expect(result.ok && result.data.injuries).toEqual([]);
+      expect(result.ok && result.data.injuries).toBeUndefined();
+      expect(result.ok && result.problems).toEqual(["The injuries section could not be read, so your current injuries will be kept."]);
     }
+  });
+
+  it("warns when the file's injuries would remove or change an open flag, and only then", () => {
+    const open = { area: "shoulder", side: "right", from: "2026-11-22" } as const;
+    const closed = { ...open, to: "2026-12-01" };
+
+    expect(injuryReplacementWarning(undefined, [open])).toBeNull();
+    expect(injuryReplacementWarning([open], [open])).toBeNull();
+    expect(injuryReplacementWarning([], [closed])).toBeNull();
+    expect(injuryReplacementWarning([], [open])).toContain("would be removed or changed");
+    expect(injuryReplacementWarning([closed], [open])).toContain("would be removed or changed");
+    expect(injuryReplacementWarning([{ ...open, side: "left" }], [open])).toContain("your open flag");
   });
 
   it("drops bad combines entries, or a combines section it cannot read, without refusing the file", () => {

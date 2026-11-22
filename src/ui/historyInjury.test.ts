@@ -35,6 +35,13 @@ describe("injuryNoteForDate", () => {
     expect(leftOutSummaryLine(note!)).toMatch(/^Left out: /);
   });
 
+  it("names the area-free session and the day it replaced on 4 Nov (Day 3, Upper: push)", () => {
+    const note = injuryNoteForDate(program, settings, noLog, injuries, "2026-11-04");
+
+    expect(note?.areaFreeLine).toBe("Shoulder-free session instead of Day 3 (Upper: push)");
+    expect(injuryNoteForDate(program, settings, noLog, injuries, "2026-11-02")?.areaFreeLine).toBeUndefined();
+  });
+
   it("keeps an exercise with logged sets (added back that day) out of the left-out list", () => {
     const log: WorkoutLog = {
       sessions: {

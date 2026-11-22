@@ -3041,9 +3041,40 @@ shoulder flagged from 22 Nov):
      left-out/stand-in lists from the injury dates with `buildSwappedSession`
      (nothing stored; a combined day shows the tag only); the JSON export adds
      an optional `injuries` field to version 2 (no bump, like `optionalBlockChoices`),
-     an older file without it imports as no injuries (the import replaces), Undo
+     an older file without it leaves the stored injuries alone (a file with the
+     section replaces them; changed by step 3 below), Undo
      restores the previous injuries, and injury choices are not exported. The
      broad-jump skip for lower-body areas waits for those areas.
+  3. [x] Fixes from the challenger review:
+     (1) "Half sets today" is offered, and "Sets halved today" shown, only where
+     halving changes the dose (not warm-ups or one-set items);
+     (2) the header's minutes are the file's written minutes scaled by the
+     share of estimated work left after rows are left out, added back or
+     halved (subtracting the removed estimate left a flagged deload Day 1 at 38
+     of 50 min), never below the estimator's reading of what remains or 1, for
+     both the Injury 2 path and half sets (W5 D1 halved 44, W4 D1 flagged 21,
+     W1 D1 flagged 19 and 26 with the pull-up EMOM added back); the
+     area-free session keeps its own estimate;
+     (3) the week 8 retest keeps holding back max-tested exercises for the 14
+     days after a clear (the line now reads "Pull-ups and dips aren't retested
+     while your shoulder is flagged or in its first two weeks back.");
+     (4) import: a file with no `injuries` section keeps the stored injuries, one
+     with the section replaces them (the preview says so and warns about an
+     open flag that would go), and an unreadable section is a listed problem
+     that keeps the stored ones; this replaces the earlier "an older file
+     imports as no injuries" decision;
+     (5) History names "Shoulder-free session instead of Day 3 (Upper: push)"
+     on an area-free day;
+     (6) sets logged under the no-equipment swap id also end "First time back",
+     and a swapped row keeps the line (without the Half sets button);
+     (7) the check-in sentence is "A drop is common after time off.";
+     (8) readability in `noEquipment/session.ts` and the test helper;
+     (9) a unit test for "First time back" with "Half sets today" on a combined
+     day.
+     Deferred / known: an "avoid" item is marked first-time-back even if the flag
+     only covered days it didn't appear (e.g. a rest day); caution stand-ins
+     aren't marked; a corrupt `to` earlier than `from` keeps the flag open (the
+     cautious reading).
   - Merge point: the shoulder feature is complete.
 - **Then: plan the other areas** *(design)*: only after Injury 3 is
   merged. A new design PR picks the areas, their tables and their order.

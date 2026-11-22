@@ -39,9 +39,15 @@ export interface SwappedSession {
  * sets must: buildSession, then decide swapped/locked items from the log and
  * the ticks, then apply the swaps.
  *
- *   buildSession ─▶ applyInjuries ─▶ applyReturnToTraining ─▶ noEquipmentChoices(log, ticks of date) ─▶ applyNoEquipmentChoices ─▶ Today,
- *                                      └─ locked ───────────────────────────────────▶   log screen,
- *                                                                                       wake lock
+ *   buildSession
+ *        │
+ *        ▼
+ *   applyInjuries ─▶ applyReturnToTraining ─▶ noEquipmentChoices(log, ticks of date)
+ *                                                  │
+ *                                                  ├─ swapped ─▶ applyNoEquipmentChoices ─▶ Today,
+ *                                                  │                                        log screen,
+ *                                                  └─ locked ──────────────────────────────▶ wake lock
+ *
  *
  * With flagged `injuries`, `applyInjuries` (program/injury.ts) runs right after
  * buildSession and BEFORE the swaps, so an injury wins: a row it leaves out or
@@ -66,8 +72,18 @@ export function buildSwappedSession(
   injuryChoices: InjuryChoices = NO_INJURY_CHOICES,
 ): SwappedSession {
   const injuryContext = { program, settings, log, logDate: date, sessionDate: date };
-  const flaggedSession = applyInjuries(buildSession(program, settings, date), injuryContext, activeAreasOn(injuries, date), addBackKeysForDate(injuryChoices, date));
-  const injuredSession = applyReturnToTraining(flaggedSession, injuryContext, recentlyClearedInjuriesOn(injuries, date), halfSetsKeysForDate(injuryChoices, date));
+  const flaggedSession = applyInjuries(
+    buildSession(program, settings, date),
+    injuryContext,
+    activeAreasOn(injuries, date),
+    addBackKeysForDate(injuryChoices, date),
+  );
+  const injuredSession = applyReturnToTraining(
+    flaggedSession,
+    injuryContext,
+    recentlyClearedInjuriesOn(injuries, date),
+    halfSetsKeysForDate(injuryChoices, date),
+  );
   const choices = noEquipmentChoices(injuredSession, log, date, ticksForDate(ticks, date));
 
   return {
@@ -147,7 +163,13 @@ export function buildSwappedCombinedSession(
     // today is trained with today's shoulder. The day's own date only sets its week, deload and blocks.
     // "Add it back" keys are stored under the host date too.
     const injuryContext = { program, settings, log, logDate: hostDate, sessionDate: dateOfDay };
-    const flagged = applyInjuries(buildSession(program, settings, dateOfDay), injuryContext, activeAreasOn(injuries, hostDate), addBackKeysOfHostDate, true);
+    const flagged = applyInjuries(
+      buildSession(program, settings, dateOfDay),
+      injuryContext,
+      activeAreasOn(injuries, hostDate),
+      addBackKeysOfHostDate,
+      true,
+    );
     const unswapped = applyReturnToTraining(flagged, injuryContext, recentlyClearedInjuries, halfSetsKeysOfHostDate, true);
     const choices = noEquipmentChoices(unswapped, log, hostDate, ticksOfHostDate, true);
     for (const key of choices.locked) locked.add(key);

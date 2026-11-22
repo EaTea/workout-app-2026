@@ -191,7 +191,7 @@ describe("shoulder wording on the check-in", () => {
 
   it("adds the time-off sentence to a pull-up drop after an active or recent shoulder injury", () => {
     expect(timeOffExplanation(pullUpDrop, flagged, "2026-11-16")).toBe(EXPECTED_AFTER_TIME_OFF_SENTENCE);
-    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, "2026-11-16")).toBe("This is expected after time off for your shoulder.");
+    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, "2026-11-16")).toBe("A drop is common after time off.");
   });
 
   it("adds nothing for a broad jump drop alone, an old injury or none", () => {

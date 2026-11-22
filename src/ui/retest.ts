@@ -2,7 +2,7 @@ import type { Exercise, Program } from "../program/model";
 import { retestWeekStartDate, wasMaxSavedDuringWeek } from "../program/schedule";
 import { toDayNumber } from "../program/calendar";
 import type { Injury } from "../injury/model";
-import { activeAreasOn } from "../injury/operations";
+import { activeAreasOn, recentlyClearedInjuriesOn } from "../injury/operations";
 import type { TrainingSettings } from "../settings/model";
 import type { FatigueCheck, WeeklyFatigueCheck } from "../fatigue/model";
 import type { FatigueHistory } from "../fatigue/model";
@@ -38,9 +38,17 @@ function outstandingRetestExercises(program: Program, settings: TrainingSettings
   );
 }
 
-/** True when a flagged area on `date` has the exercise at "avoid" (a max test would load it). */
+/**
+ * True when a flagged area on `date`, or one cleared in the last 14 days (the
+ * "first two weeks back" window, `recentlyClearedInjuriesOn`), has the
+ * exercise at "avoid": a max test would load it. Without the second half a
+ * retest on the day after clearing would ask for a max pull-up straight away.
+ */
 function isAvoidedByFlaggedArea(exercise: Exercise, injuries: readonly Injury[], date: string): boolean {
-  return activeAreasOn(injuries, date).some((area) => exercise.loads?.[area] === "avoid");
+  const flaggedAreas = activeAreasOn(injuries, date);
+  const recentlyClearedAreas = recentlyClearedInjuriesOn(injuries, date).map((injury) => injury.area);
+
+  return [...flaggedAreas, ...recentlyClearedAreas].some((area) => exercise.loads?.[area] === "avoid");
 }
 
 /**
@@ -66,9 +74,10 @@ export function retestExercisesToSave(
 }
 
 /**
- * The outstanding retest exercises held back because a flagged area leaves
- * them out on `date`, in program order. The card says "Retest ... once your
- * shoulder is no longer flagged" for these instead of offering a stepper.
+ * The outstanding retest exercises held back because a flagged area (or
+ * one in its first two weeks back) leaves them out on `date`, in program order.
+ * The card says "Pull-ups and dips aren't retested while your shoulder is
+ * flagged or in its first two weeks back." for these instead of offering a stepper.
  * Called by `renderTodayScreen`.
  */
 export function retestExercisesHeldBack(

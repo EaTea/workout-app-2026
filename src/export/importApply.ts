@@ -162,8 +162,11 @@ function writeParsedData(storage: Storage, keys: ProgramStorageKeys, data: Impor
   const optionalBlockChoicesResult = saveOptionalBlockChoices(storage, keys.optionalBlockChoices, data.optionalBlockChoices);
   if (!optionalBlockChoicesResult.ok) throw new Error(optionalBlockChoicesResult.error);
 
-  const injuriesResult = saveInjuries(storage, keys.injuries, data.injuries);
-  if (!injuriesResult.ok) throw new Error(injuriesResult.error);
+  // A file with no injuries section says nothing about injuries: keep what is stored.
+  if (data.injuries !== undefined) {
+    const injuriesResult = saveInjuries(storage, keys.injuries, data.injuries);
+    if (!injuriesResult.ok) throw new Error(injuriesResult.error);
+  }
 
   saveSettings(data.settings, storage, keys); // max history, then settings; throws on failure
 }

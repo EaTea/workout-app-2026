@@ -70,9 +70,10 @@ const ESTIMATED_SECONDS_PER_SET = 45;
  * `addBackKeys` are the date's "Add it back" item keys
  * (`noEquipmentItemKey`; day-qualified when `qualifyKeysWithDay`, for one day
  * of a combined session). When anything is left out or added back,
- * `targetMinutes` is re-estimated from the rows that are left
- * (`estimatedSessionMinutes`, an added-back row at its halved dose), the same
- * estimator the area-free session uses. Non-training sessions are returned as
+ * `targetMinutes` is the file's written minutes less the estimated minutes of
+ * what was removed (`minutesAfterChange`; an added-back row removes only the
+ * difference to its halved dose). The area-free session keeps its own
+ * estimate. Non-training sessions are returned as
  * they are. Pure; the input is not mutated.
  *
  * Logged sets lock a row whatever is flagged, so clearing the flag does not
@@ -110,8 +111,8 @@ export function applyInjuries(
   // Nothing flagged and no logged stand-in to keep: the session is exactly as built.
   const flaggedSession = anItemChanged ? { ...session, blocks } : session;
 
-  // The header's minutes: the file's figure is for the whole day, so re-estimate from what is really left.
-  const withMinutes = aRowIsLeftOutOrAddedBack ? { ...flaggedSession, targetMinutes: estimatedSessionMinutes(blocks) } : flaggedSession;
+  // The header's minutes: the file's figure is for the whole day, so take off what was removed (see `minutesAfterChange`).
+  const withMinutes = aRowIsLeftOutOrAddedBack ? { ...flaggedSession, targetMinutes: minutesAfterChange(session.targetMinutes, session.blocks, blocks) } : flaggedSession;
 
   return replaceWithAreaFreeSession(withMinutes, context, activeAreas);
 }
@@ -223,6 +224,23 @@ function halveItem(item: ItemView, block: BlockView): ItemView {
 }
 
 /**
+ * Whether `halveItem` would change this item's dose (sets, EMOM minutes or
+ * interval rounds). False for a warm-up and for an item that is already as
+ * small as halving makes it (one set, one minute, one round). Used so "Half
+ * sets today" is only offered, and "Sets halved today" only shown, when true.
+ */
+function halvingChangesDose(item: ItemView, block: BlockView): boolean {
+  const halved = halveItem(item, block);
+
+  return (
+    halved.sets.length !== item.sets.length ||
+    halved.minutes !== item.minutes ||
+    halved.rounds?.min !== item.rounds?.min ||
+    halved.rounds?.max !== item.rounds?.max
+  );
+}
+
+/**
  * Marks the items a recently cleared injury had been keeping out, the first
  * time they are back, and applies "Half sets today" to the ones the person
  * chose it for. Runs after `applyInjuries`, before the no-equipment swaps
@@ -239,15 +257,18 @@ function halveItem(item: ItemView, block: BlockView): ItemView {
  * working while its sets are logged. Instead `halfSetsOffered` goes false
  * once a set is logged today and the row is not already halved, so the
  * button is never offered mid-row. Sets under a stand-in's id do not count
- * (the original has not been trained). A row still left out, added back or
+ * (the original has not been trained), but sets under the item's no-equipment
+ * swap id do (the person trained the movement). A row still left out, added back or
  * stood in for by a flag that is active today is not marked; a no-equipment
  * tick that swaps the row afterwards replaces the marked view (the swap is
  * another exercise), and a halved row drops its swap like an added-back one.
  *
  * `recentlyClearedInjuries` come from `recentlyClearedInjuriesOn`; with none
  * the session is returned as it is. The newest clearing date per area counts.
- * When anything is halved the header's minutes are re-estimated
- * (`estimatedSessionMinutes`). Pure; the input is not mutated.
+ * "Half sets today" is offered, and `halvedForReturn` set, only where halving
+ * changes the dose (`halvingChangesDose`): never a warm-up or a one-set item.
+ * When anything is halved the header's minutes drop by the estimated minutes
+ * the halving saves (`minutesAfterChange`). Pure; the input is not mutated.
  */
 export function applyReturnToTraining(
   session: SessionView,
@@ -276,7 +297,7 @@ export function applyReturnToTraining(
   if (!anItemChanged) return session;
 
   const marked = { ...session, blocks };
-  return anItemHalved ? { ...marked, targetMinutes: estimatedSessionMinutes(blocks) } : marked;
+  return anItemHalved ? { ...marked, targetMinutes: minutesAfterChange(session.targetMinutes, session.blocks, blocks) } : marked;
 }
 
 /** The "First time back" marking (and halving) of one item, or the item itself when it does not qualify; see `applyReturnToTraining`. */
@@ -301,16 +322,22 @@ function markReturningItem(
 
   // Any set under the original's id from the clearing date up to (not including) today ends "first time back".
   const trainedSinceClear = Object.entries(context.log.sessions).some(
-    ([date, loggedSession]) => date >= clearedOn && date < context.logDate && loggedSession.sets.some((set) => set.exerciseId === item.exercise.id),
+    ([date, loggedSession]) =>
+      date >= clearedOn &&
+      date < context.logDate &&
+      loggedSession.sets.some((set) => set.exerciseId === item.exercise.id || set.exerciseId === item.noEquipment?.exercise.id),
   );
   if (trainedSinceClear) return item;
 
-  if (halfSetsKeys.has(itemKey)) {
+  // Halving a warm-up or a one-set item changes nothing, so neither the button nor the "halved" marker applies.
+  const halvingHelps = halvingChangesDose(item, block);
+
+  if (halvingHelps && halfSetsKeys.has(itemKey)) {
     return { ...halveItem(item, block), noEquipment: undefined, firstTimeBack: { area: newest.area, halfSetsOffered: true }, halvedForReturn: true };
   }
 
   const loggedToday = setsForItem(context.log, context.logDate, block.position, item.exercise.id, day).length > 0;
-  return { ...item, firstTimeBack: { area: newest.area, halfSetsOffered: !loggedToday } };
+  return { ...item, firstTimeBack: { area: newest.area, halfSetsOffered: halvingHelps && !loggedToday } };
 }
 
 /**
@@ -366,6 +393,36 @@ function replaceWithAreaFreeSession(session: Extract<SessionView, { kind: "train
  * The shoulder-free session comes out at about 12 minutes in a normal week, as the plan says.
  */
 export function estimatedSessionMinutes(blocks: readonly BlockView[]): number {
+  return Math.round(estimatedSessionSeconds(blocks) / 60);
+}
+
+/**
+ * The header's minutes after a change to the rows (items left out, added back
+ * or halved). The estimator alone reads far below the file's written minutes
+ * (it counts work, not setup or rests between sets: Day 1 is 35 against a
+ * written 50), so instead of re-estimating the whole day this scales the
+ * written minutes by the share of the estimated work left (`after` over
+ * `before`, in seconds so rounding does not drift). Never below the
+ * estimator's reading of what remains
+ * (`after`) and never below 1. Used by `applyInjuries` and
+ * `applyReturnToTraining`; the area-free session keeps its own estimate.
+ */
+function minutesAfterChange(writtenMinutes: number, before: readonly BlockView[], after: readonly BlockView[]): number {
+  // Scale the file's written minutes by the share of the estimated work that is
+  // left. The estimator alone reads well below the written figures (it doesn't
+  // count changeovers or warm-up time between blocks), and subtracting its
+  // estimate of what was removed overstates a mostly emptied day (38 of 50 min
+  // on a flagged deload Day 1 with only the warm-up and core left). A ratio
+  // keeps both ends honest: nothing removed gives the written figure back.
+  const secondsBefore = estimatedSessionSeconds(before);
+  if (secondsBefore <= 0) return Math.max(1, writtenMinutes);
+
+  const shareLeft = estimatedSessionSeconds(after) / secondsBefore;
+  return Math.max(1, estimatedSessionMinutes(after), Math.round(writtenMinutes * shareLeft));
+}
+
+/** The estimate behind `estimatedSessionMinutes`, in seconds (so differences between two block lists stay exact). */
+function estimatedSessionSeconds(blocks: readonly BlockView[]): number {
   let seconds = 0;
 
   for (const block of blocks) {
@@ -385,5 +442,5 @@ export function estimatedSessionMinutes(blocks: readonly BlockView[]): number {
     if (block.restSecBetweenPairs !== undefined && setCounts.length > 0) seconds += Math.max(...setCounts) * block.restSecBetweenPairs.max;
   }
 
-  return Math.round(seconds / 60);
+  return seconds;
 }

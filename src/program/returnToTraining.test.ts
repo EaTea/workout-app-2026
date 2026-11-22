@@ -5,7 +5,7 @@ import { recentlyClearedInjuriesOn } from "../injury/operations";
 import { choicesFromWire, choicesToWire } from "../injury/wire";
 import { halfSetsKeysForDate } from "../injury/storage";
 import type { LoggedSet, WorkoutLog } from "../log/model";
-import { buildSwappedSession } from "../noEquipment/session";
+import { buildSwappedCombinedSession, buildSwappedSession } from "../noEquipment/session";
 import type { TrainingSettings } from "../settings/model";
 import { parseProgram } from "./parse";
 import type { ItemView, SessionView } from "./schedule";
@@ -62,6 +62,7 @@ function logPullUp(date: string, blockPosition = PULL_UP_BLOCK, day = 1): Workou
   return { sessions: { [date]: { date, day, sets: [set] } } } as unknown as WorkoutLog;
 }
 
+/** The "Half sets today" choice for one item key on one date, as the choices map the builders take. */
 function choicesOf(date: string, itemKey: string): InjuryChoices {
   return new Map([[date, new Map([[itemKey, "halfSets" as const]])]]);
 }
@@ -110,6 +111,24 @@ describe("First time back", () => {
     expect(itemOf(sessionOn(W5D5, { log: earlier }), "pull_up").firstTimeBack).toBeDefined();
   });
 
+  it("ends the mark when sets were logged under the item's no-equipment swap id (inverted rows for pull-ups)", () => {
+    const rowSet: LoggedSet = { exerciseId: "inverted_row", blockPosition: PULL_UP_BLOCK, setNumber: 1, reps: 6, loggedAt: new Date("2026-12-04T10:00:00"), day: 5 };
+    const log = { sessions: { [W5D5]: { date: W5D5, day: 5, sets: [rowSet] } } } as unknown as WorkoutLog;
+
+    expect(itemOf(sessionOn(W6D1), "pull_up").firstTimeBack).toBeDefined();
+    expect(itemOf(sessionOn(W6D1, { log }), "pull_up").firstTimeBack).toBeUndefined();
+  });
+
+  it("keeps the 'first time back' line on a row swapped for its no-equipment exercise, without offering Half sets", () => {
+    const ticks = new Map([[CLEAR_DATE, new Set([pullUpKey(sessionOn(CLEAR_DATE))])]]);
+    const built = buildSwappedSession(program, settings, noLog, ticks, CLEAR_DATE, undefined, [clearedShoulder]);
+    if (built.session.kind !== "training") throw new Error("expected a training day");
+    const swapped = itemOf(built.session, "inverted_row");
+
+    expect(swapped.swappedFrom?.id).toBe("pull_up");
+    expect(swapped.firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: false });
+  });
+
   it("shows nothing for a clear older than the 14-day window", () => {
     // Cleared 30 Nov: W6 D1 (7 Dec) is inside the window; W7 D1 (14 Dec) is the 14th day, outside it.
     expect(itemOf(sessionOn(W6D1), "pull_up").firstTimeBack).toBeDefined();
@@ -142,7 +161,24 @@ describe("Half sets today", () => {
     expect(after.halvedForReturn).toBe(true);
     expect(after.firstTimeBack).toBeDefined();
     expect(after.minutes).toBe(Math.ceil(before.minutes! / 2));
-    expect(halved.targetMinutes).toBeLessThan(plain.targetMinutes!);
+    // W5 D1: the file's 50 less the 4 minutes halving the 9-minute EMOM to 5 saves.
+    expect(plain.targetMinutes).toBe(50);
+    expect(halved.targetMinutes).toBe(44);
+  });
+
+  it("is not offered, and does not mark the row halved, where halving changes nothing (a warm-up, a one-set item)", () => {
+    const plain = sessionOn(CLEAR_DATE);
+    const warmup = plain.blocks.find((block) => block.type === "warmup")!;
+    expect(itemOf(plain, "ytwi").firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: false });
+
+    const halved = sessionOn(CLEAR_DATE, { choices: choicesOf(CLEAR_DATE, `${warmup.position}:ytwi`) });
+    expect(itemOf(halved, "ytwi").halvedForReturn).toBeUndefined();
+    expect(halved.targetMinutes).toBe(plain.targetMinutes);
+
+    // Every row that offers the button is one halving really changes.
+    const offered = plain.blocks.flatMap((block) => block.items.filter((item) => item.firstTimeBack?.halfSetsOffered === true));
+    expect(offered.length).toBeGreaterThan(0);
+    for (const item of offered) expect(item.sets.length > 1 || (item.minutes ?? 0) > 1 || (item.rounds?.min ?? 0) > 1).toBe(true);
   });
 
   it("never halves a warm-up", () => {
@@ -155,6 +191,8 @@ describe("Half sets today", () => {
     const after = halved.blocks.find((block) => block.type === "warmup")!.items.find((item) => item.exercise.id === "ytwi")!;
 
     expect(after.sets).toEqual(ytwi!.sets);
+    expect(after.halvedForReturn).toBeUndefined();
+    expect(after.firstTimeBack?.halfSetsOffered).toBe(false);
   });
 
   it("applies to that date only", () => {
@@ -169,6 +207,22 @@ describe("Half sets today", () => {
     const halvedWithSet = itemOf(sessionOn(CLEAR_DATE, { choices: choicesOf(CLEAR_DATE, key), log: logPullUp(CLEAR_DATE) }), "pull_up");
 
     expect(halvedWithSet.halvedForReturn).toBe(true);
+  });
+});
+
+describe("First time back with Half sets today on a combined day", () => {
+  it("marks and halves Day 1's pull-up EMOM by its day-qualified key, and leaves the added Day 2 alone", () => {
+    const combine = { hostDay: 1, addedDay: 2, addedDate: "2026-12-01" }; // 30 Nov W5 D1 + W5 D2
+    const choices = choicesOf(CLEAR_DATE, `1.${PULL_UP_BLOCK}:pull_up`);
+    const { session } = buildSwappedCombinedSession(program, settings, noLog, noTicks, CLEAR_DATE, combine, new Set(), [clearedShoulder], choices);
+    const rows = session.blocks.flatMap((block) => block.parts).flatMap((part) => part.block.items.map((item) => ({ day: part.source.day, item })));
+
+    const pullUps = rows.find((row) => row.day === 1 && row.item.exercise.id === "pull_up")!.item;
+    expect(pullUps.firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: true });
+    expect(pullUps.halvedForReturn).toBe(true);
+    expect(pullUps.minutes).toBe(5);
+
+    expect(rows.filter((row) => row.day === 2).every((row) => row.item.halvedForReturn === undefined)).toBe(true);
   });
 });
 

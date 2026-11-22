@@ -63,10 +63,11 @@ pull-ups and/or the broad jump records them as that week's check, whichever is
 saved first, the other merging into it later. With the shoulder flagged on
 the shown date the check-in replaces "Max pull-ups" with "Skip while your
 shoulder is flagged" (a blank is saved as no pull-up value), and the retest
-holds pull-ups and dips back ("Retest pull-ups and dips once your shoulder is
-no longer flagged"; the jump stays, and the EMOMs keep week 7's figure as when no
-max is saved). A pull-up drop of more than 10% adds "This is expected after time
-off for your shoulder." when a shoulder injury was active or cleared in the 28
+holds pull-ups and dips back while it is flagged and for the 14 days after it is
+cleared ("Pull-ups and dips aren't retested while your shoulder is flagged or in
+its first two weeks back."; the jump stays, and the EMOMs keep week 7's figure as
+when no max is saved). A pull-up drop of more than 10% adds "A drop is common after
+time off." when a shoulder injury was active or cleared in the 28
 days before that check. Checks are stored in
 `localStorage` under `<programId>.fatigue` (`explosive-endurance.fatigue` for Explosive Endurance). It is a static site
 (Vite + TypeScript, no UI framework).
@@ -497,9 +498,12 @@ replace my data"); "Cancel" leaves everything as it was.
   left out. Files exported before the max history was added (no `maxHistory`)
   and files with older settings versions still import.
 - Importing replaces the log, weekly checks, settings, max history, combined
-  days, skipped optional blocks (boxing) and injuries. A file from before
-  injuries were exported has none, so it clears the stored injuries like the
-  other optional parts; Undo puts the previous injuries back. Before
+  days, skipped optional blocks (boxing) and injuries. A file with an `injuries`
+  section replaces the stored injuries (the preview says so, and warns when an
+  open flag would be removed or changed); a file without one (made before
+  injuries were exported) leaves them as they are, and an `injuries` section
+  that cannot be read is listed as a problem and leaves them as they are.
+  Undo puts the previous injuries back. Before
   anything is written, the current data is saved as a backup in the browser
   (key `<programId>.import-backup-<time>`), itself a complete export
   file (written compactly, with the exact stored text of each key inside). The

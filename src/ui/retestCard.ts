@@ -98,13 +98,17 @@ export function joinExerciseNames(names: string[]): string {
 }
 
 /**
- * "Retest pull-ups and dips once your shoulder is no longer flagged": the line
- * shown instead of the max fields for the exercises a flagged area holds back.
- * Names come from program.json. The area is always the shoulder for now (the
- * only area); a second area would pass its word in.
+ * "Pull-ups and dips aren't retested while your shoulder is flagged or in its
+ * first two weeks back.": the line shown instead of the max fields for the
+ * exercises a flagged (or recently cleared) area holds back. Names come from
+ * the held-back list (program.json). The area is always the shoulder for now
+ * (the only area); a second area would pass its word in.
  */
 export function retestHeldBackLine(names: string[]): string {
-  return `Retest ${joinExerciseNames(names)} once your shoulder is no longer flagged`;
+  const joined = joinExerciseNames(names);
+  const sentenceStart = joined.charAt(0).toUpperCase() + joined.slice(1);
+
+  return `${sentenceStart} aren't retested while your shoulder is flagged or in its first two weeks back.`;
 }
 
 /**

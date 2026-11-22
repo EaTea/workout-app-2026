@@ -108,7 +108,7 @@ export function dropWarningForShownDate(
 export const PULL_UPS_SKIPPED_LINE = "Skip while your shoulder is flagged";
 
 /** Added to a pull-up drop warning when the shoulder was recently injured. */
-export const EXPECTED_AFTER_TIME_OFF_SENTENCE = "This is expected after time off for your shoulder.";
+export const EXPECTED_AFTER_TIME_OFF_SENTENCE = "A drop is common after time off.";
 
 /**
  * True while the shoulder is flagged on `date`: the check-in then offers no
