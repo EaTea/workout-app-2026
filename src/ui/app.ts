@@ -31,6 +31,7 @@ import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramL
 import { renderTodayScreen } from "./today";
 import { scrollToNextUnfinishedRow, todayRowKey } from "./returnScroll";
 import { loadTicks, setTick } from "../noEquipment/storage";
+import { loadInjuries } from "../injury/storage";
 import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { OptionalBlockControl } from "./optionalBlockCards";
@@ -794,7 +795,7 @@ export function startApp(
           programNames,
           currentSessionCount: () => Object.keys(log.sessions).length,
           onImported: handleImported,
-        }));
+        }, { storage: localStorage, storageKey: storageKeys.injuries, today: todayLocalDate() }));
       } else if (route === "programs") {
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
@@ -857,7 +858,7 @@ export function startApp(
             render();
             window.scrollTo(0, scrollY);
           },
-        }));
+        }, loadInjuries(localStorage, storageKeys.injuries)));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" || route === "overview" || route === "plan" ? "today" : route));

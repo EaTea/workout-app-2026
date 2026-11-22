@@ -2972,11 +2972,13 @@ shoulder flagged from 22 Nov):
      removed, and skipped by `isSessionInProgress`. Note (d): the parser
      refuses an injury session with `blocks: []`. Note (b) holds and is tested
      (week 5). Unit tests cover the worked examples.
-  3. [ ] UI: Settings "Injury" section, Today banner, "When to get it checked",
-     left-out / stand-in / caution rows, "Add it back", the shoulder-free
-     session heading, log screen and timers (including the left-out item's
-     part in the log screen's progress), note (c), and E2E on Day 1, Day 3 and
-     Day 4.
+  3a. [x] UI, the flag: Settings "Injury" section (flag, clear with a plain
+     confirmation, past injuries as lines), Today's "I'm injured" link and
+     banner, and the "When to get it checked" sheet. E2E in `e2e/injury.spec.ts`.
+  3b. [ ] UI, the rows: left-out / stand-in / caution rows, "Add it back", the
+     shoulder-free session heading, log screen and timers (including the
+     left-out item's part in the log screen's progress), note (c), and E2E on
+     Day 1, Day 3 and Day 4.
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half

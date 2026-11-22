@@ -137,6 +137,17 @@ Today's header that opens the same list in the bottom sheet (Back, Close,
 Escape or a tap outside closes it). A program without safety notes (Explosive
 Endurance) shows none of these.
 
+Injuries: in Explosive Endurance (a program whose file tags exercises with
+`loads`; Steady Strength shows nothing), Settings has an "Injury" card, and
+Today an "I'm injured" link to it. Pick the area (the shoulder), the side and
+an optional note, then "Flag it": the "Get your shoulder checked" sheet opens
+once, and Today shows a banner ("Right shoulder · since 22 Nov", "Pain-free
+only.", with a "When to get it checked" button) for as long as it is flagged.
+The flag always starts today's real date, never a `?date=` preview. "My
+shoulder feels OK" asks first ("The app can't tell whether your shoulder is
+ready...") and then clears it; cleared injuries are listed as past injuries.
+The app never says an injury has healed. (Today's rows do not change yet.)
+
 "Show me": in Steady Strength, a large "▶ Show me" button sits beside each
 exercise that has an animation, on Today, on the day plan, and in the log
 screen's header next to ⓘ. It opens a full-screen 3D mannequin showing one

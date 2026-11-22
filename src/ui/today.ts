@@ -11,6 +11,8 @@ import "./rotation.css";
 import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
+import { renderInjuredLink, renderInjuryBanners } from "./injuryFlagUi";
+import type { Injury } from "../injury/model";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
 import { checkInWeekToAsk, trainingWeekOf, type CheckInDraft } from "./checkin";
@@ -161,8 +163,12 @@ export function renderTodayScreen(
   combine?: CombineOptions,
   optionalBlocks?: OptionalBlocksOptions,
   setLogging?: TimerSetLoggingSource,
+  injuries: readonly Injury[] = [],
 ): HTMLElement {
   const screen = element("section", "screen");
+
+  // While an area is flagged on the shown date, its banner leads the screen (above every card).
+  screen.append(...renderInjuryBanners(injuries, date));
 
   // A date whose day was folded into another date's session shows a card and no session.
   const donor = activeDonorOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate());
@@ -225,7 +231,7 @@ export function renderTodayScreen(
       }
       break;
     default:
-      screen.append(renderMessageCard(session, program.lengthWeeks, date, program.safety));
+      screen.append(renderMessageCard(session, program, date));
   }
 
   return screen;
@@ -242,10 +248,11 @@ export function renderTodayScreen(
  */
 function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
-  lengthWeeks: number,
+  program: Program,
   date: string,
-  safetyNotes: string[],
 ): HTMLElement {
+  const lengthWeeks = program.lengthWeeks;
+  const safetyNotes = program.safety;
   const card = element("div", "card message-card");
 
   switch (session.kind) {
@@ -281,6 +288,8 @@ function renderMessageCard(
   if (safetyNotes.length > 0) {
     card.append(renderSafetyNotesLink(safetyNotes));
   }
+  const injuredLink = renderInjuredLink(program);
+  if (injuredLink !== undefined) card.append(injuredLink);
   return card;
 }
 
@@ -316,6 +325,9 @@ function renderTrainingDay(
   if (program.safety.length > 0) {
     header.append(renderSafetyNotesLink(program.safety));
   }
+  // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
+  const injuredLink = renderInjuredLink(program);
+  if (injuredLink !== undefined) header.append(injuredLink);
 
   const parts: HTMLElement[] = [header];
 
@@ -382,6 +394,9 @@ function renderCombinedDay(
   if (program.safety.length > 0) {
     header.append(renderSafetyNotesLink(program.safety));
   }
+  // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
+  const injuredLink = renderInjuredLink(program);
+  if (injuredLink !== undefined) header.append(injuredLink);
 
   const parts: HTMLElement[] = [header];
 
