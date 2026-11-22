@@ -2647,18 +2647,30 @@ follow-up only if Ed wants it.
 What this milestone does instead is make startup measurable, so a future
 change (or the History week-by-week work) is judged on real numbers:
 
-1. [ ] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
+1. [x] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
        (wire) log of N days from the program file, a session a day with every
-       set logged. Unit-tested (set counts, dates, valid under `logFromWire`).
-2. [ ] `npm run bench:startup`: builds, starts `vite preview`, and for an
+       set logged (the rest day has no session, as in the measurements above). Unit-tested (set counts, dates, valid under `logFromWire`).
+2. [x] `npm run bench:startup`: builds, starts `vite preview`, and for an
        empty log, 1 year and 2 years writes the log into storage on a
        throwaway page, then times opening Today with the CPU slowed 4×
        (11 runs, prints min, median and max). Not run in CI: timings on
-       shared runners are too noisy to gate on.
-3. [ ] README: a "Measuring startup time" section with the command, what it
+       shared runners are too noisy to gate on. After the challenger review it
+       times inside the page (Playwright's polling had added 75 to 95 ms to
+       every figure), anchors the fake log's day cycle to the program start
+       date (7,398 and 14,815 sets for 1 and 2 years), and refuses to report
+       a run unless Today showed with the log read cleanly ("Last time"
+       hints present, no warning, no corrupt-log backup). Two runs gave
+       0.21 to 0.22 s empty, 0.25 to 0.26 s at 1 year and 0.31 to 0.33 s at
+       2 years: still about 0.1 s for two years of log.
+3. [x] README: a "Measuring startup time" section with the command, what it
        measures, and the init-script trap above.
 
 Merge point: one PR for steps 1 to 3. No app behavior changes.
+
+Follow-up for Ed to decide (from the challenger review): nothing runs the
+benchmark automatically, so a change to Today's markup or the storage keys
+could break `npm run bench:startup` unnoticed. A one-run smoke check with no
+time limits, in CI or the E2E suite, would catch that.
 
 ### PR 37 — Plan: total reps for uneven rep lists *(design)*
 
