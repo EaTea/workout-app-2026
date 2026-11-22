@@ -10,7 +10,7 @@ import { choicesFromWire, choicesToWire, injuriesFromWire, injuriesToWire } from
  * need no DOM). Settings and Today (Injury 2, step 3) call the load functions
  * at startup and the save functions when the person acts.
  *
- *   keys.injuries        InjuriesWireV1        ⇄ Injury[]        (kept; export/import arrive in Injury 3)
+ *   keys.injuries        InjuriesWireV1        ⇄ Injury[]        (kept; carried by the JSON export and import)
  *   keys.injuryChoices   InjuryChoicesWireV1   ⇄ InjuryChoices   (throwaway, pruned after 14 days)
  *
  * Every save re-reads the stored value first and changes only what was asked,
@@ -43,8 +43,8 @@ export function loadInjuries(storage: InjuryStorage, key: string): Injury[] {
   }
 }
 
-/** Writes `injuries`, or returns the write failure. Never throws. */
-function saveInjuries(storage: InjuryStorage, key: string, injuries: Injury[]): SaveInjuriesResult {
+/** Writes `injuries`, or returns the write failure. Never throws. Also used by the import to put an export file's injuries in place. */
+export function saveInjuries(storage: InjuryStorage, key: string, injuries: Injury[]): SaveInjuriesResult {
   try {
     storage.setItem(key, JSON.stringify(injuriesToWire(injuries)));
     return { ok: true, injuries };

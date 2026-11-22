@@ -1,5 +1,7 @@
 import type { CombinesByDate } from "../combine/model";
 import { combinesFromWire } from "../combine/wire";
+import type { Injury } from "../injury/model";
+import { injuriesFromWire } from "../injury/wire";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { optionalBlockChoicesFromWire } from "../optionalBlocks/wire";
 import type { FatigueHistory } from "../fatigue/model";
@@ -23,7 +25,8 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  *                                    ├─ log ───────▶ logFromWire ──────▶ WorkoutLog
  *                                    ├─ fatigueChecks ▶ fatigueHistoryFromWire ▶ FatigueHistory
  *                                    ├─ combines (optional) ▶ combinesFromWire ▶ CombinesByDate
- *                                    └─ optionalBlockChoices (optional) ▶ optionalBlockChoicesFromWire ▶ SkippedBlocksByDate
+ *                                    ├─ optionalBlockChoices (optional) ▶ optionalBlockChoicesFromWire ▶ SkippedBlocksByDate
+ *                                    └─ injuries (optional) ▶ injuriesFromWire ▶ Injury[]
  *
  * What is refused (nothing is read at all): text that is not JSON, a file
  * that is not our format, a version other than 1 or 2, a version 2 file whose `programId` is not a valid
@@ -37,7 +40,10 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  * `combines` section is optional (files from before PR 25 have none and import
  * as no combines) and never refuses a file: unusable entries are dropped, as
  * the loader does. The `optionalBlockChoices` section is optional in the same way
- * (files from before PR 29 import as no skips). Parsing never
+ * (files from before PR 29 import as no skips). The `injuries` section is optional too
+ * (files from before Injury 3 import as no injuries, so an import replaces the
+ * stored injuries like every other part: a backup made before an injury was
+ * flagged does not keep that flag); bad entries are dropped by the loader's rules. Parsing never
  * throws: anything unexpected becomes "could not be read".
  * `corruptLogBackups` and `importBackups` in the file are ignored: they are
  * not part of the data an import restores.
@@ -68,6 +74,8 @@ export interface ImportedData {
   combines: CombinesByDate;
   /** The file's skipped optional blocks; empty when the file has none (an older export). */
   optionalBlockChoices: SkippedBlocksByDate;
+  /** The file's injuries; empty when the file has none (an older export). */
+  injuries: Injury[];
 }
 
 /** What the confirmation step shows about the file. Dates are "YYYY-MM-DD"; the session dates are absent for an empty log. `exportedAt` is the file's ISO timestamp, absent when the file's is not a real date. */
@@ -168,7 +176,10 @@ function parseImportUnguarded(fileText: string): ImportParseResult {
   // Absent in files from before optional blocks existed: the same as an empty store.
   const optionalBlockChoices = optionalBlockChoicesFromWire(parsed.optionalBlockChoices);
 
-  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory, combines, optionalBlockChoices };
+  // Absent in files from before injuries existed: the same as an empty list.
+  const injuries = injuriesFromWire(parsed.injuries);
+
+  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory, combines, optionalBlockChoices, injuries };
   return { ok: true, data, summary: summarize(data, parsed.exportedAt), problems };
 }
 

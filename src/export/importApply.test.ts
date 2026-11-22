@@ -26,6 +26,7 @@ const importedData: ImportedData = {
   fatigueHistory: { checks: [{ date: "2026-11-09", maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
   combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   optionalBlockChoices: new Map([["2026-11-09", new Set(["1:6"])]]),
+  injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", note: "pinch" }],
 };
 
 /** Storage holding some older data under all five keys. */
@@ -40,12 +41,13 @@ function storageWithOldData(): FakeStorage {
     [KEYS.fatigue]: JSON.stringify({ version: 1, checks: [{ date: "2026-10-05", maxPullUps: 8, savedAt: "2026-10-05T07:00:00.000Z" }] }),
     [KEYS.combines]: JSON.stringify({ version: 1, combines: { "2026-10-05": { hostDay: 3, addedDay: 4, addedDate: "2026-10-06" } } }),
     [KEYS.optionalBlockChoices]: JSON.stringify({ version: 1, choices: { "2026-10-05": { skipped: ["5:6"] } } }),
+    [KEYS.injuries]: JSON.stringify({ version: 1, injuries: [{ area: "shoulder", side: "left", from: "2026-10-01", to: "2026-10-08" }] }),
   });
 }
 
 /** The five data keys' current raw text. */
 function dataKeys(storage: FakeStorage): Record<string, string | null> {
-  return Object.fromEntries([KEYS.log, KEYS.fatigue, KEYS.combines, KEYS.optionalBlockChoices, KEYS.settings, KEYS.maxHistory].map((key) => [key, storage.getItem(key)]));
+  return Object.fromEntries([KEYS.log, KEYS.fatigue, KEYS.combines, KEYS.optionalBlockChoices, KEYS.injuries, KEYS.settings, KEYS.maxHistory].map((key) => [key, storage.getItem(key)]));
 }
 
 describe("applyImport", () => {
@@ -79,6 +81,66 @@ describe("applyImport", () => {
 
     applyImport(storage, KEYS, { ...importedData, optionalBlockChoices: new Map() }, NOW);
     expect(readExportSource(storage, KEYS).optionalBlockChoices).toEqual(new Map());
+  });
+
+  it("replaces the stored injuries, and an import with none clears them", () => {
+    const storage = storageWithOldData();
+
+    applyImport(storage, KEYS, importedData, NOW);
+    expect(readExportSource(storage, KEYS).injuries).toEqual(importedData.injuries);
+
+    applyImport(storage, KEYS, { ...importedData, injuries: [] }, NOW);
+    expect(readExportSource(storage, KEYS).injuries).toEqual([]);
+  });
+
+  it("does not touch the per-date injury choices", () => {
+    const storage = storageWithOldData();
+    const choicesText = JSON.stringify({ version: 1, choices: { "2026-11-23": { "3:pull_up": "addBack" } } });
+    storage.setItem(KEYS.injuryChoices, choicesText);
+
+    applyImport(storage, KEYS, importedData, NOW);
+
+    expect(storage.getItem(KEYS.injuryChoices)).toBe(choicesText);
+  });
+
+  it("puts the old injuries back when the injuries write fails", () => {
+    const storage = storageWithOldData();
+    const before = dataKeys(storage);
+    storage.failingKeys.add(KEYS.injuries);
+
+    const result = applyImport(storage, KEYS, importedData, NOW);
+
+    expect(result.ok).toBe(false);
+    expect(dataKeys(storage)).toEqual(before);
+  });
+
+  it("undo puts the previous injuries back", () => {
+    const storage = storageWithOldData();
+    const before = storage.getItem(KEYS.injuries);
+    applyImport(storage, KEYS, importedData, NOW);
+    expect(storage.getItem(KEYS.injuries)).not.toBe(before);
+
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+    expect(result.ok).toBe(true);
+    expect(storage.getItem(KEYS.injuries)).toBe(before);
+  });
+
+  it("removes the current injuries when the backup predates the injuries key", () => {
+    const storage = storageWithOldData();
+    storage.removeItem(KEYS.injuries);
+    applyImport(storage, KEYS, importedData, NOW);
+    expect(storage.getItem(KEYS.injuries)).not.toBeNull();
+
+    const backupText = JSON.parse(storage.getItem(BACKUP_KEY) as string);
+    backupText.rawStoredTexts = backupText.rawStoredTexts.filter((raw: { key: string }) => raw.key !== KEYS.injuries);
+    delete backupText.injuries;
+    storage.setItem(BACKUP_KEY, JSON.stringify(backupText));
+
+    const result = undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
+
+    expect(result.ok).toBe(true);
+    expect(storage.getItem(KEYS.injuries)).toBeNull();
   });
 
   it("puts the old skipped blocks back when the optional block choices write fails", () => {
@@ -182,7 +244,7 @@ describe("applyImport", () => {
     const result = applyImport(storage, KEYS, importedData, NOW);
 
     expect(result.ok).toBe(false);
-    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.combines]: null, [KEYS.optionalBlockChoices]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
+    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.combines]: null, [KEYS.optionalBlockChoices]: null, [KEYS.injuries]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
   });
 
   it("says where the data is when even the rollback fails", () => {
@@ -306,7 +368,7 @@ describe("undoLastImport", () => {
 
     undoLastImport(storage, KEYS, new Date(NOW.getTime() + 60_000));
 
-    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.combines]: null, [KEYS.optionalBlockChoices]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
+    expect(dataKeys(storage)).toEqual({ [KEYS.log]: null, [KEYS.fatigue]: null, [KEYS.combines]: null, [KEYS.optionalBlockChoices]: null, [KEYS.injuries]: null, [KEYS.settings]: null, [KEYS.maxHistory]: null });
   });
 
   it("removes the current combines when the backup predates the combines key (there were none before)", () => {

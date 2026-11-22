@@ -46,7 +46,7 @@ export interface ProgramStorageKeys {
   combines: string;
   /** Which optional blocks (boxing) were skipped on which dates (exported and imported with the rest). */
   optionalBlockChoices: string;
-  /** The injuries the person has flagged, with their dates (`injury/storage.ts`; its export and import come with Injury 3). */
+  /** The injuries the person has flagged, with their dates (`injury/storage.ts`). */
   injuries: string;
   /** Per-date injury choices such as "Add it back" (throwaway, pruned after 14 days, not exported). */
   injuryChoices: string;

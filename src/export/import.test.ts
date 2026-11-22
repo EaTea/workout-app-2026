@@ -29,6 +29,7 @@ const bundle: ExportBundle = {
   fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
   combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   optionalBlockChoices: new Map([["2026-11-09", new Set(["1:6"])]]),
+  injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", to: "2026-12-01", note: "pinch" }, { area: "shoulder", side: "left", from: "2026-12-10" }],
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -46,7 +47,7 @@ describe("parseImport", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices });
+    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices, injuries: bundle.injuries });
     expect(result.problems).toEqual([]);
   });
 
@@ -192,7 +193,7 @@ describe("parseImport", () => {
       file.importBackups = [{ key: "explosive-endurance.import-backup-x", text: "{}" }];
     }));
 
-    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices });
+    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices, injuries: bundle.injuries });
   });
 
   it("imports an older export without a combines section as no combines", () => {
@@ -224,6 +225,35 @@ describe("parseImport", () => {
         file.optionalBlockChoices = unreadable;
       }));
       expect(result.ok && result.data.optionalBlockChoices).toEqual(new Map());
+    }
+  });
+
+  it("round-trips the injuries through an export and an import", () => {
+    const result = parseImport(fileText(() => {}));
+
+    expect(result.ok && result.data.injuries).toEqual(bundle.injuries);
+  });
+
+  it("imports an older export without an injuries section as no injuries", () => {
+    const result = parseImport(fileText((file) => {
+      delete file.injuries;
+    }));
+
+    expect(result.ok && result.data.injuries).toEqual([]);
+    expect(result.ok && result.problems).toEqual([]);
+  });
+
+  it("drops bad injuries, or a section it cannot read, without refusing the file", () => {
+    const withBadEntries = parseImport(fileText((file) => {
+      file.injuries = { version: 1, injuries: [{ area: "shoulder", side: "left", from: "2026-11-22" }, { area: "knee", side: "left", from: "2026-11-22" }, { area: "shoulder", side: "up", from: "2026-11-22" }, { area: "shoulder", side: "left", from: "tomorrow" }] };
+    }));
+    expect(withBadEntries.ok && withBadEntries.data.injuries).toEqual([{ area: "shoulder", side: "left", from: "2026-11-22" }]);
+
+    for (const unreadable of [5, "x", [], { version: 2, injuries: [] }]) {
+      const result = parseImport(fileText((file) => {
+        file.injuries = unreadable;
+      }));
+      expect(result.ok && result.data.injuries).toEqual([]);
     }
   });
 

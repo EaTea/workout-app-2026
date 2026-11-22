@@ -1,5 +1,7 @@
 import { combinesToWire, type CombinesWireV1 } from "../combine/wire";
 import type { CombinesByDate } from "../combine/model";
+import type { Injury } from "../injury/model";
+import { injuriesToWire, type InjuriesWireV1 } from "../injury/wire";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { optionalBlockChoicesToWire, type OptionalBlockChoicesWireV1 } from "../optionalBlocks/wire";
 import { fatigueHistoryToWire, type FatigueHistoryWireV1 } from "../fatigue/wire";
@@ -26,6 +28,7 @@ import { maxHistoryToWire, type MaxHistoryWireV1 } from "../settings/maxHistoryS
  *       fatigue ─fatigueHistoryToWire─▶ fatigueChecks
  *       combines ─combinesToWire─▶ combines
  *       optionalBlockChoices ─optionalBlockChoicesToWire─▶ optionalBlockChoices
+ *       injuries ─injuriesToWire─▶ injuries (the per-date injury choices are not exported)
  *       corrupt log backups ─▶ corruptLogBackups (only when any)
  *       import backups ─────▶ importBackups (only when any)
  */
@@ -58,6 +61,9 @@ export interface ExportBundle {
 
   /** The skipped optional blocks (boxing) per date; empty when none. */
   optionalBlockChoices: SkippedBlocksByDate;
+
+  /** The flagged and cleared injuries; empty when none. */
+  injuries: Injury[];
 
   /** Backups of unreadable log text kept by the log storage; empty when none. */
   corruptLogBackups: CorruptLogBackup[];
@@ -99,6 +105,15 @@ export interface ExportWireV1 {
    * restores no skips).
    */
   optionalBlockChoices?: OptionalBlockChoicesWireV1;
+
+  /**
+   * The injuries (area, side, start, end, note). Written since Injury 3 as an
+   * optional field of the same version, like `optionalBlockChoices`, so older
+   * files still fit (an import then restores no injuries). The per-date
+   * injury choices ("Add it back") are throwaway and are not exported, like
+   * the no-equipment ticks.
+   */
+  injuries?: InjuriesWireV1;
 
   /** Present only when the log storage holds backups of unreadable log text. */
   corruptLogBackups?: CorruptLogBackupWire[];
@@ -158,6 +173,7 @@ export function exportToWire(bundle: ExportBundle): ExportWireV2 {
     fatigueChecks: fatigueHistoryToWire(bundle.fatigueHistory),
     combines: combinesToWire(bundle.combines),
     optionalBlockChoices: optionalBlockChoicesToWire(bundle.optionalBlockChoices),
+    injuries: injuriesToWire(bundle.injuries),
   };
 
   if (bundle.corruptLogBackups.length > 0) {

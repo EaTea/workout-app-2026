@@ -1,4 +1,5 @@
 import { loadCombines, type CombinesStorage } from "../combine/storage";
+import { loadInjuries, type InjuryStorage } from "../injury/storage";
 import { loadOptionalBlockChoices, type OptionalBlockChoicesStorage } from "../optionalBlocks/storage";
 import { loadFatigueHistory, type FatigueStorage } from "../fatigue/storage";
 import { listCorruptLogBackups, loadLog, type KeyListingStorage, type LogStorage } from "../log/storage";
@@ -19,7 +20,7 @@ import type { ExportSource } from "../ui/exportSection";
  */
 
 /** Storage as `readExportSource` needs it: reads, and key listing for the backups. */
-export type ExportReadStorage = KeyListingStorage & LogStorage & FatigueStorage & CombinesStorage & OptionalBlockChoicesStorage & Storage;
+export type ExportReadStorage = KeyListingStorage & LogStorage & FatigueStorage & CombinesStorage & OptionalBlockChoicesStorage & InjuryStorage & Storage;
 
 /**
  * Wraps `storage` so reads work but writes are refused. `loadLog` and
@@ -41,7 +42,7 @@ function readOnlyView(storage: ExportReadStorage): ExportReadStorage {
   });
 }
 
-/** Reads settings (with the max history), log, fatigue checks, combines, optional block choices, corrupt-log backups and import backups of the active program (`keys`) fresh from `storage`. Never throws. */
+/** Reads settings (with the max history), log, fatigue checks, combines, optional block choices, injuries, corrupt-log backups and import backups of the active program (`keys`) fresh from `storage`. Never throws. */
 export function readExportSource(storage: ExportReadStorage, keys: ProgramStorageKeys): ExportSource {
   const readOnlyStorage = readOnlyView(storage);
 
@@ -52,6 +53,7 @@ export function readExportSource(storage: ExportReadStorage, keys: ProgramStorag
     fatigueHistory: loadFatigueHistory(readOnlyStorage, keys).history,
     combines: loadCombines(readOnlyStorage, keys.combines),
     optionalBlockChoices: loadOptionalBlockChoices(readOnlyStorage, keys.optionalBlockChoices),
+    injuries: loadInjuries(readOnlyStorage, keys.injuries),
     corruptLogBackups: listCorruptLogBackups(readOnlyStorage, keys),
     importBackups: listImportBackups(readOnlyStorage, keys),
   };
