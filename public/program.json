@@ -515,7 +515,7 @@
     "swaps": [
       { "out": "single_leg_hip_thrust", "in": "Kickbacks" },
       { "out": "ytwi", "in": "Reverse fly" },
-      { "out": "pallof_press", "in": "Ab raises" }
+      { "out": "pallof_press", "in": "Ab raises", "loads": { "shoulder": "avoid" } }
     ],
     "alsoAvailable": ["Tricep pushdown"]
   },

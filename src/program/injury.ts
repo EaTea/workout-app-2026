@@ -6,6 +6,7 @@ import type { TrainingSettings } from "../settings/model";
 import { noEquipmentItemKey } from "./noEquipment";
 import { INJURY_AREAS, type InjuryArea, type InjuryLoadLevel, type Program } from "./model";
 import { buildBlocksForDate, type BlockView, type ItemView, type SessionView } from "./schedule";
+import { effectiveLoads } from "./rotation";
 
 /*
  * How a flagged area reaches the screen (PLAN.md, "Plan: train around an
@@ -119,7 +120,7 @@ export function applyInjuries(
 
 /** The strictest level the flagged areas give an exercise, and the areas at that level in `INJURY_AREAS` order; undefined when none tags it. */
 function strictestLevel(item: ItemView, activeAreas: readonly InjuryArea[]): { level: InjuryLoadLevel; areas: InjuryArea[] } | undefined {
-  const levelsByArea = INJURY_AREAS.filter((area) => activeAreas.includes(area)).map((area) => ({ area, level: item.exercise.loads?.[area] }));
+  const levelsByArea = INJURY_AREAS.filter((area) => activeAreas.includes(area)).map((area) => ({ area, level: effectiveLoads(item)?.[area] }));
 
   const level: InjuryLoadLevel | undefined = levelsByArea.some((entry) => entry.level === "avoid") ? "avoid" : levelsByArea.some((entry) => entry.level === "caution") ? "caution" : undefined;
   if (level === undefined) return undefined;
@@ -313,7 +314,7 @@ function markReturningItem(
   // An item a flag still changes today (left out, stood in for, added back) is not "back" yet.
   if (item.leftOut !== undefined || item.injuryStandInFor !== undefined || item.addedBack === true) return item;
 
-  const clearedAreas = recentlyClearedInjuries.filter((injury) => item.exercise.loads?.[injury.area] === "avoid");
+  const clearedAreas = recentlyClearedInjuries.filter((injury) => effectiveLoads(item)?.[injury.area] === "avoid");
   if (clearedAreas.length === 0) return item;
 
   // The newest clearing date among the injuries that would have kept it out.

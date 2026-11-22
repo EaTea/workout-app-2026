@@ -1,4 +1,4 @@
-import type { Program, WarmupRotation } from "./model";
+import type { InjuryArea, InjuryLoadLevel, Program, WarmupRotation } from "./model";
 import type { BlockView, SessionView } from "./schedule";
 import type { CombinedSession } from "./combine";
 
@@ -32,6 +32,16 @@ export function isRotatedWeek(week: number, everyWeeks: number): boolean {
  */
 export function rotatedName(exerciseId: string, rotation: WarmupRotation): string | undefined {
   return rotation.swaps.find((swap) => swap.out === exerciseId)?.in;
+}
+
+/**
+ * The injury levels an item has this session: the rotated-in swap's own
+ * `loads` when it has them, else the exercise's `loads` (a rotated item
+ * without `loads` inherits the original's level). Called by `applyInjuries`
+ * and `applyReturnToTraining` (injury.ts).
+ */
+export function effectiveLoads(item: { exercise: { loads?: Partial<Record<InjuryArea, InjuryLoadLevel>> }; rotatedIn?: { loads?: Partial<Record<InjuryArea, InjuryLoadLevel>> } }) {
+  return item.rotatedIn?.loads ?? item.exercise.loads;
 }
 
 /**
@@ -73,12 +83,12 @@ export function applyRotationToBlocks(blocks: BlockView[], week: number, rotatio
     return {
       ...block,
       items: block.items.map((item) => {
-        const displayName = rotatedName(item.exercise.id, rotation);
-        if (displayName === undefined) return item;
+        const swap = rotation.swaps.find((candidate) => candidate.out === item.exercise.id);
+        if (swap === undefined) return item;
 
         // A rotated-in warm-up is a different exercise, so the original's
         // "No equipment" swap no longer applies to it: no swap view, no tick.
-        return { ...item, rotatedIn: { displayName, originalName: item.exercise.name }, noEquipment: undefined };
+        return { ...item, rotatedIn: { displayName: swap.in, originalName: item.exercise.name, loads: swap.loads }, noEquipment: undefined };
       }),
     };
   });

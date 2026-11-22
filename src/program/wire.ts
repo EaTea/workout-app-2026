@@ -179,6 +179,8 @@ export interface ProgramInfoWire {
 export interface WarmupSwapWire {
   out: string;
   in: string;
+  /** Optional: injury levels of the rotated-in exercise, same shape as an exercise's `loads`; they replace the original's while rotated in. */
+  loads?: Record<string, string>;
 }
 
 /** Warm-up rotation reminder data. */

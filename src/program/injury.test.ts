@@ -457,11 +457,40 @@ describe("rotated warm-ups follow the level of the item they replace (week 5)", 
     expect(standIn.injuryStandInFor?.original.name).toBe(program.exercises["ytwi"]!.name);
   });
 
-  it("the rotated-in Ab raises keeps the Pallof press's caution level: pain-free only, still shown as Ab raises", () => {
-    const abRaises = allItems(session).find(({ item }) => item.exercise.id === "pallof_press")!.item;
+  it("the rotated-in Ab raises are hanging raises: left out (Day 1 and Day 3), still shown as Ab raises", () => {
+    // Day 3 normally becomes the shoulder-free session; a set logged under a lateral raise keeps the original day.
+    const day3Log = logWithSet("2026-12-02", 1, "lateral_raise", 3);
+    const day3 = injuredOn("2026-12-02", { log: day3Log });
+    expect(day3.areaFreeSession).toBeUndefined();
 
-    expect(abRaises.rotatedIn?.displayName).toBe("Ab raises");
-    expect(abRaises.painFreeOnly).toBe(true);
+    for (const flagged of [session, day3]) {
+      const abRaises = allItems(flagged).find(({ item }) => item.exercise.id === "pallof_press")!.item;
+
+      expect(abRaises.rotatedIn?.displayName).toBe("Ab raises");
+      expect(abRaises.leftOut).toEqual({ area: "shoulder" });
+      expect(abRaises.painFreeOnly).toBeUndefined();
+    }
+  });
+
+  it("with no log, a flagged week 5 Day 3 is the shoulder-free session, so Ab raises don't appear at all", () => {
+    const day3 = injuredOn("2026-12-02");
+
+    expect(day3.areaFreeSession).toBeDefined();
+    expect(allItems(day3).some(({ item }) => item.exercise.id === "pallof_press")).toBe(false);
+  });
+
+  it("with no flag week 5 is unchanged: Ab raises are a plain rotated row", () => {
+    const abRaises = allItems(training(buildSession(program, settings, "2026-11-30"))).find(({ item }) => item.exercise.id === "pallof_press")!.item;
+
+    expect(abRaises.leftOut).toBeUndefined();
+    expect(abRaises.painFreeOnly).toBeUndefined();
+  });
+
+  it("week 4 (not rotated): the Pallof press is still pain-free only", () => {
+    const pallof = allItems(injuredOn(W4D1)).find(({ item }) => item.exercise.id === "pallof_press")!.item;
+
+    expect(pallof.rotatedIn).toBeUndefined();
+    expect(pallof.painFreeOnly).toBe(true);
   });
 });
 
