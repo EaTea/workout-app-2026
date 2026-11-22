@@ -2660,6 +2660,28 @@ change (or the History week-by-week work) is judged on real numbers:
 
 Merge point: one PR for steps 1 to 3. No app behavior changes.
 
+### PR 37 — Plan: total reps for uneven rep lists *(design)*
+
+Ed's nit: when an EMOM's minutes had different rep counts, the summary
+lists them all ("4, 5, 5, 5, 5, 5, 4, 4, 4") and the total is hard to work
+out at a glance. He asked for a "total reps" count in parentheses, and
+chose to have it for regular sets with uneven reps too, not only EMOMs.
+
+Where the list shows: `formatSetsSummary` in `ui/format.ts`, which feeds the
+"Last time" hint (Today rows, the log screen) and History's exercise rows.
+The EMOM timer itself only shows one minute's target, so it doesn't change.
+
+- **PR 38 — Show the total for uneven rep lists** *(behavior change)*
+  1. `formatSetsSummary` appends " (41 total)" after the listed reps
+     whenever the reps differ, for EMOM minutes and regular sets alike:
+     "4, 5, 5, 5, 5, 5, 4, 4, 4 (41 total)", "6, 6, 5 (17 total)". With a
+     load it reads "6, 6, 5 (17 total) at 6 kg". Even lists keep "9 × 5",
+     whose total is already easy. Unit tests in `ui/format.test.ts`, and
+     E2E expectations that show an uneven list updated (and one added for
+     History if none covers it).
+  - **Merge point:** uneven rep lists show their total in History and Last
+    time.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
