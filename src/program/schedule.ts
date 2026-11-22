@@ -167,6 +167,24 @@ export interface ItemView {
    */
   injury?: Partial<Record<InjuryArea, ItemView>>;
   /**
+   * Set when this view is an injury stand-in (see `applyInjuries` in
+   * injury.ts): the area that is flagged and the original item's exercise, so
+   * Today can say "Instead of <original> for your <area>". Absent on every
+   * normal view. The sets are logged under this view's own exercise id.
+   */
+  injuryStandInFor?: { area: InjuryArea; original: Exercise };
+  /**
+   * Set when a flagged area leaves this item out (an "avoid" exercise with no
+   * stand-in). The item stays in the session data, at its position, so Today
+   * can draw one "Left out for your <area>: <name> · Add it back" line;
+   * progress, completion and the minutes ignore it (set by `applyInjuries`).
+   */
+  leftOut?: { area: InjuryArea };
+  /** True on an item to be done "Pain-free only · stop if it hurts": a "caution" exercise kept as written, or an item added back. */
+  painFreeOnly?: boolean;
+  /** True on an item the person added back after the injury left it out: half the sets (deload rounding), pain-free only, for that date only. */
+  addedBack?: boolean;
+  /**
    * Set when this view is a ticked "No equipment" swap (see
    * `applyNoEquipmentChoices` in noEquipment.ts): the original item's
    * exercise, so Today can say "Instead of <original name>" and show the tick
@@ -222,6 +240,12 @@ export type SessionView =
       focus: string;
       targetMinutes: number;
       blocks: BlockView[];
+      /**
+       * Set when an injury left the day with no main work and its blocks were
+       * replaced by the area's own session (`applyInjuries`): `insteadOf` is the
+       * day's focus ("Upper: push"). Absent on every normal session.
+       */
+      areaFreeSession?: { area: InjuryArea; name: string; insteadOf: string };
     };
 
 // ---------------------------------------------------------------------------
@@ -243,15 +267,48 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
 
   const { week, dayNumber } = status;
   const phase = phaseForWeek(program, week);
-  const isDeload = isDeloadPhase(phase);
-  const isRetest = phase.retest;
   const day = program.days[dayNumber];
 
   if (!day) {
     return { kind: "rest", week, dayNumber, phase: phase.phase };
   }
 
-  const weekContext: WeekContext = {
+  const weekContext = buildWeekContext(program, settings, week, phase);
+
+  return {
+    kind: "training",
+    week,
+    dayNumber,
+    phase: phase.phase,
+    isDeload: weekContext.isDeload,
+    focus: day.focus,
+    targetMinutes: day.targetMinutes,
+    blocks: applyRotationToBlocks(buildBlocksForWeek(day.blocks, settings, weekContext, week), week, program.warmupRotation),
+  };
+}
+
+/**
+ * Builds `blocks` (not one of the program's days; an injury session's blocks)
+ * for the week `date` falls in, through the very same path as a day's blocks:
+ * items outside their `weeks` are dropped, a deload halves sets and minutes
+ * (warm-ups never), and the phase's timer changes apply. No warm-up rotation.
+ * Used by `applyInjuries` to build an area-free session. Returns undefined
+ * when the date is not an active program date.
+ */
+export function buildBlocksForDate(program: Program, settings: TrainingSettings, date: string, blocks: Block[]): BlockView[] | undefined {
+  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  if (status.kind !== "active") return undefined;
+
+  const weekContext = buildWeekContext(program, settings, status.week, phaseForWeek(program, status.week));
+  return buildBlocksForWeek(blocks, settings, weekContext, status.week);
+}
+
+/** The week's deload/retest/increase facts every item of that week is built with. `settings.startDate` must be set (the caller saw an active status). */
+function buildWeekContext(program: Program, settings: TrainingSettings, week: number, phase: ProgressionPhase): WeekContext {
+  const isDeload = isDeloadPhase(phase);
+  const isRetest = phase.retest;
+
+  return {
     isDeload,
     isRetest,
     offset: weeklyIncreaseOffsetForWeek(program, week),
@@ -262,17 +319,6 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     // settings.startDate is non-null here: programStatus was "active".
     weekStartDate: addDaysToDate(settings.startDate as string, (week - 1) * DAYS_PER_WEEK),
     heldEmomDates: isRetest && week > 1 ? lastEmomDatesOfWeek(program, settings.startDate as string, week - 1) : {},
-  };
-
-  return {
-    kind: "training",
-    week,
-    dayNumber,
-    phase: phase.phase,
-    isDeload,
-    focus: day.focus,
-    targetMinutes: day.targetMinutes,
-    blocks: applyRotationToBlocks(buildBlocksForWeek(day.blocks, settings, weekContext, week), week, program.warmupRotation),
   };
 }
 

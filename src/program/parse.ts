@@ -837,7 +837,11 @@ function parseInjurySessions(
     if (name.trim() === "") fail(child(sessionPath, "name"), "must not be empty");
 
     const blocksPath = child(sessionPath, "blocks");
-    const blocks = expectArray(sessionRecord.blocks ?? fail(blocksPath, "field is missing"), blocksPath).map((rawBlock, blockIndex) => {
+    const rawBlocks = expectArray(sessionRecord.blocks ?? fail(blocksPath, "field is missing"), blocksPath);
+    // An empty session would show nothing at all, so a day with nothing left would be blank.
+    if (rawBlocks.length === 0) fail(blocksPath, "an injury session needs at least one block");
+
+    const blocks = rawBlocks.map((rawBlock, blockIndex) => {
       const blockPath = `${blocksPath}[${blockIndex}]`;
       const block = parseBlock(rawBlock, exercises, lengthWeeks, blockPath, warnings);
 

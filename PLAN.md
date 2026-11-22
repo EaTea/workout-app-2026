@@ -2959,6 +2959,24 @@ shoulder flagged from 22 Nov):
   sheet only while the shoulder is flagged; (d) an injury session with
   `blocks: []` parses but would show empty, so refuse it at parse time or
   handle it.
+  Steps:
+  1. [x] Storage: `<programId>.injuries` and `<programId>.injury-choices`
+     (`src/injury/`: wire types, mappings, tolerant loading, re-read before
+     save, 14-day pruning of choices, `activeInjuriesOn`, `flagInjury`,
+     `clearInjury`), with unit tests. The wire for choices holds a kind per
+     item, so Injury 3 adds "Half sets today" as a second kind.
+  2. [x] Session logic: `applyInjuries` (`src/program/injury.ts`), chained into
+     `buildSwappedSession` / `buildSwappedCombinedSession` (new optional
+     `injuries` and `injuryChoices` parameters) BEFORE the no-equipment swaps,
+     so an injury wins (note a is done there). Left-out items are marked, not
+     removed, and skipped by `isSessionInProgress`. Note (d): the parser
+     refuses an injury session with `blocks: []`. Note (b) holds and is tested
+     (week 5). Unit tests cover the worked examples.
+  3. [ ] UI: Settings "Injury" section, Today banner, "When to get it checked",
+     left-out / stand-in / caution rows, "Add it back", the shoulder-free
+     session heading, log screen and timers (including the left-out item's
+     part in the log screen's progress), note (c), and E2E on Day 1, Day 3 and
+     Day 4.
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half
