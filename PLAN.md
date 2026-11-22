@@ -2932,7 +2932,10 @@ shoulder flagged from 22 Nov):
      session's hollow hold is 30s, not 20–30s. The Day 1 side plank stand-in
      keeps "per side" (a stand-in can't change it), and its note says to
      rest through the injured side's hold.
-  3. [ ] The exercise sheet's "Your shoulder" section, with E2E.
+  3. [x] The exercise sheet's "Your shoulder" section, with E2E
+     (`e2e/injurySheet.spec.ts`). Stand-in views are built by a new
+     `applyStandIn` shared with `applyNoEquipmentSwap`; the EMOM dose reads
+     "5 / min, 8 min" (the sheet's usual wording), not "8-min EMOM × 5".
   - Merge point: the doses can be checked on a phone, nothing else moves.
 - **Injury 2 — Flag the shoulder and train around it** *(behavior
   change)*: the injuries storage key, Settings, the banner and "When to

@@ -360,7 +360,11 @@ The shipped Explosive Endurance program tags every exercise for the shoulder
 (`avoid` or `caution`), gives stand-ins to the items that have one (for
 example lying leg raise for the hanging leg raise, broad jumps for the
 kettlebell swings) and carries a "Shoulder-free session". The app doesn't use
-these fields yet; they are checked by `src/program/injuryData.test.ts`.
+these fields on Today yet; they are checked by `src/program/injuryData.test.ts`.
+The only place they show is the exercise sheet: a "Your shoulder" section on
+tagged exercises says what the app will do while the shoulder is flagged and
+gives the stand-in's name and this week's dose. Untagged exercises have no
+such section.
 
 ## Warm-up rotation
 
