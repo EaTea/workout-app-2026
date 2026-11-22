@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync, writeFileSync } from "node:fs";
 
-/** Seeds v2 settings, a max history and a two-session log plus one check-in, once per test, before the app loads. */
+/** Seeds v2 settings, a max history and a two-session log plus one check-in, once per test, before the app loads, with the clock frozen on a training day. */
 async function seedData(page: Page): Promise<void> {
   const set = (exerciseId: string, blockPosition: number, setNumber: number, reps: number) => ({
     exerciseId, blockPosition, setNumber, reps, loggedAt: "2026-11-02T18:00:00.000Z",
@@ -18,6 +18,12 @@ async function seedData(page: Page): Promise<void> {
     },
     fatigue: { version: 1, checks: [{ date: "2026-11-09", maxPullUps: 10, savedAt: "2026-11-09T07:30:00.000Z" }] },
   };
+  // Freeze the clock on a training day (Tuesday of week 2, Day 2). After an
+  // import the app opens Today and focuses its h1, the session title; on the
+  // real date that is a rest day (every seventh day) or after week 8, Today
+  // shows a message card with no h1, and the test would fail on those dates.
+  await page.clock.setFixedTime(new Date("2026-11-10T09:00:00"));
+
   await page.addInitScript((data) => {
     // Seed only once, so that clearing storage later in a test is not undone by a reload.
     if (window.sessionStorage.getItem("seeded") !== null) return;

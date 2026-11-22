@@ -12,8 +12,20 @@ async function installAndControl(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true);
 }
 
+/**
+ * Freezes the page's clock on a training day of the seeded program (Tuesday of
+ * week 2, Day 2), so Today always shows exercise rows. Without it these tests
+ * use the real date and fail whenever that date is a rest day (every seventh
+ * day) or after the 8 weeks are over, because Today then shows a message card
+ * instead of a session.
+ */
+async function freezeOnTrainingDay(page: Page): Promise<void> {
+  await page.clock.setFixedTime(new Date("2026-11-10T09:00:00"));
+}
+
 test("the app loads offline from the cache, with the program", async ({ page, context }) => {
   // A program start date makes Today show a real session built from program.json.
+  await freezeOnTrainingDay(page);
   await page.addInitScript(() => {
     window.localStorage.setItem(
       "explosive-endurance.settings",
@@ -47,8 +59,9 @@ test("program.json edits are picked up when online (network-first)", async ({ pa
   expect(JSON.stringify(offlineLoaded)).toContain("EDITED PROGRAM NAME");
 });
 
-/** Saves a program start date before the app loads, so Today shows a real session. */
+/** Saves a program start date before the app loads, and freezes the clock on a training day, so Today shows a real session. */
 async function seedStartDate(page: Page): Promise<void> {
+  await freezeOnTrainingDay(page);
   await page.addInitScript(() => {
     window.localStorage.setItem(
       "explosive-endurance.settings",
