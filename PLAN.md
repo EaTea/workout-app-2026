@@ -2688,7 +2688,8 @@ Ed hurt the right shoulder on a rest day (22 Nov) and asked what the app
 could do to manage an injury during Explosive Endurance. The proposal was
 discussed in the project thread, and Ed answered its questions (22 Nov):
 
-1. **Areas:** all of them in the end, but build the shoulder first.
+1. **Areas:** the shoulder first. Only once the whole shoulder feature is
+   built does planning start for the other areas.
 2. **Levels and stand-ins:** the shoulder tables below are agreed.
 3. **A day with nothing left** becomes a shoulder-free session, not a rest
    day.
@@ -2809,7 +2810,7 @@ Days 2, 4 and 6 (lower body):
 | 4, 6 | Single-leg hip thrust | Caution | Kept; a cue says to do it with the shoulders on the floor if the bench presses on the shoulder |
 | 2 | Split-squat jumps | None | Unchanged |
 | 6 | Lateral skater bounds | None | Unchanged; arms swing loosely |
-| 4 | Kettlebell swings | Avoid | Stand-in: broad jumps, hands on hips, 8-min EMOM × 3 (Ed's answer 4) |
+| 4 | Kettlebell swings | Avoid | Stand-in: broad jumps, hands on hips, 8-min EMOM × 5 (Ed's answer 4, dose confirmed 22 Nov) |
 | 2, 6 | Zercher Bulgarian split squat | Avoid | Stand-in: suitcase Bulgarian split squat, one weight in the uninjured hand, same reps |
 | 2, 4 | Single-leg RDL | Caution | Stand-in: weight in the uninjured hand only, same reps |
 | 4, 6 | Single-leg calf raise | Caution | Stand-in: weight in the uninjured hand, the other hand lightly on the wall, same reps |
@@ -2828,12 +2829,10 @@ The shoulder-free session (instead of Day 3, about 12 minutes, core only):
 Rest between core pairs 45s. It follows the deload halving in weeks 4
 and 8, like any block.
 
-**The other areas** (Ed's answer 1) are elbow and wrist, lower back, hip,
-knee and ankle. Each gets its own tables, written and agreed in a short
-design note at the top of its PR, the way the shoulder's are here, and
-its own area-free session where a flag would empty a day. The file format
-and the app don't change for them: an area is a new key in `loads` and
-`injury`.
+**The other areas** (Ed's answer 1) are planned only after Injury 3 is
+merged, in their own design PR. The format is ready for them (an area is
+a new key in `loads`, `injury` and `injurySessions`), but nothing here
+decides which areas, their tables or their order.
 
 **"When to get it checked"** (the shoulder's wording; each area gets its
 own red flags):
@@ -2904,7 +2903,7 @@ shoulder flagged from 22 Nov):
 | 23 Nov | W4 D1 (deload) | Pallof press 2 rounds × 12–15, pain-free only (warm-ups aren't halved); YTWI, slams, pull-up EMOM, dip mini-dose and boxing left out; bodyweight back extension 2 × 12–15; lying leg raise 2 × 10–15; side plank uninjured side 1 × hold |
 | 24 Nov | W4 D2 | Suitcase Bulgarian split squat 2 × 12–15 per leg; single-leg RDL mini-dose, uninjured hand, 1 × easy |
 | 25 Nov | W4 D3 | Shoulder-free session, core sets halved for the deload |
-| 26 Nov | W4 D4 | Broad jumps, 4-min EMOM × 3 (8 min halved) |
+| 26 Nov | W4 D4 | Broad jumps, 4-min EMOM × 5 (8 min halved) |
 | 23 Nov, "Add it back" on the pull-up EMOM | W4 D1 | Pull-up EMOM, 3 min (the deload's 5, halved and rounded up) × 6 reps (week 3's), pain-free only |
 
 **Alternatives considered.**
@@ -2935,21 +2934,16 @@ shoulder flagged from 22 Nov):
   sets today", the check-in and week 8 changes, History marks, export and
   import of injuries. E2E.
   - Merge point: the shoulder feature is complete.
-- **Injury 4 onward — one area per PR** *(behavior change, content
-  mostly)*: elbow and wrist, lower back, hip, knee, ankle, in the order Ed
-  picks. Each starts with its tables for Ed to confirm.
+- **Then: plan the other areas** *(design)*: only after Injury 3 is
+  merged. A new design PR picks the areas, their tables and their order.
 
 **Open questions for Ed** (with the answer I'm assuming):
 
-1. **"Shoulder chest" in answer 1.** Assumed: build the shoulder first.
-   If "chest" meant a separate area (a pec strain, say), it joins the
-   later areas.
-2. **Broad jump dose.** Assumed: 8-min EMOM × 3 reps, the same minutes
-   as the swings, fewer reps because each jump is a maximal effort.
-3. **The shoulder-free session's content.** Assumed: the core-only list
+1. **The shoulder-free session's content.** Assumed: the core-only list
    above, with no leg work (answer 5).
-4. **Order of the other areas.** Assumed: lower back, knee, ankle, hip,
-   elbow and wrist, unless Ed prefers another.
+
+Resolved (22 Nov): "shoulder chest" in answer 1 meant shoulder first;
+the broad jump EMOM is 5 reps a minute.
 
 ## 6. Worked examples (used as unit-test fixtures)
 
