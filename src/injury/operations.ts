@@ -1,3 +1,4 @@
+import { addDaysToDate } from "../program/calendar";
 import { INJURY_AREAS, type InjuryArea } from "../program/model";
 import type { Injury } from "./model";
 
@@ -32,6 +33,26 @@ export function activeInjuriesOn(injuries: readonly Injury[], date: string): Inj
 export function activeAreasOn(injuries: readonly Injury[], date: string): InjuryArea[] {
   const active = activeInjuriesOn(injuries, date);
   return INJURY_AREAS.filter((area) => active.some((injury) => injury.area === area));
+}
+
+/**
+ * How many days after clearing a flag its "First time back" marks can still
+ * show (the clearing date and the 13 days after it). An old clear stops
+ * marking rows, even for an exercise that has not come back since.
+ */
+export const RETURN_TO_TRAINING_WINDOW_DAYS = 14;
+
+/**
+ * The injuries cleared recently enough to mark "First time back" on `date`:
+ * cleared on or before `date` and less than `RETURN_TO_TRAINING_WINDOW_DAYS`
+ * days ago. An injury cleared the day it was flagged was never active, so it
+ * is not included. Called by the session builders; pure.
+ */
+export function recentlyClearedInjuriesOn(injuries: readonly Injury[], date: string): Injury[] {
+  return injuries.filter((injury) => {
+    if (injury.to === undefined || injury.to <= injury.from) return false;
+    return injury.to <= date && date < addDaysToDate(injury.to, RETURN_TO_TRAINING_WINDOW_DAYS);
+  });
 }
 
 /** The still-flagged (no clearing date) injury for `area`, if any. Used by the Settings screen to show "Clear" instead of "Add". */

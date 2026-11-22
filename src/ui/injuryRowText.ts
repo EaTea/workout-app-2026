@@ -19,6 +19,20 @@ export const ADD_IT_BACK_LABEL = "Add it back";
 /** The line under a row that must be done within what doesn't hurt (kept "caution" rows and added-back rows). */
 export const PAIN_FREE_ONLY_LINE = "Pain-free only · stop if it hurts";
 
+/** The line under the row of an exercise that is back for the first time after an injury was cleared. */
+export const FIRST_TIME_BACK_LINE = "First time back · pain-free only";
+
+/** The label of the button that halves a "First time back" row's sets for the day. */
+export const HALF_SETS_TODAY_LABEL = "Half sets today";
+
+/** The line shown on a row after "Half sets today", so the halved dose is not mistaken for the program's. */
+export const HALVED_FOR_RETURN_LINE = "Sets halved today";
+
+/** The accessible name of a "Half sets today" button; it starts with the visible text (WCAG 2.5.3). */
+export function halfSetsTodayButtonName(subject: string): string {
+  return `${HALF_SETS_TODAY_LABEL}, ${subject}`;
+}
+
 /** "Left out for your shoulder": what a left-out item's compact line says. */
 export function leftOutLine(area: InjuryArea): string {
   return `Left out for your ${areaWord(area)}`;

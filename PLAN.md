@@ -3019,6 +3019,19 @@ shoulder flagged from 22 Nov):
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half
   sets today", the check-in and week 8 changes, History marks, export and
   import of injuries. E2E.
+  Steps:
+  1. [x] "First time back" and "Half sets today" after the flag is cleared:
+     `applyReturnToTraining` (`src/program/injury.ts`) after `applyInjuries` in
+     both builders; the "halfSets" choice kind; the row line and button on Today
+     (the log screen and timers read the same builders). Window choice: only an
+     injury cleared in the last 14 days marks rows (the clearing date and the 13
+     days after it, `RETURN_TO_TRAINING_WINDOW_DAYS`), so an old clear never
+     keeps marking. "First time back" ends when any set under the original's id
+     is logged on a date from the clearing date up to (not including) the shown
+     date; sets under a stand-in's id don't count; today's own sets keep the
+     mark but hide the button. A ticked No-equipment swap replaces the marked row.
+  2. [ ] Weekly check-in, week 8 retest, History marks, export and import of
+     injuries.
   - Merge point: the shoulder feature is complete.
 - **Then: plan the other areas** *(design)*: only after Injury 3 is
   merged. A new design PR picks the areas, their tables and their order.

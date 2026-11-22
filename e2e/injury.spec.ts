@@ -221,3 +221,38 @@ test("Add it back on the boxing block moves focus to its first added-back row", 
   const boxingRow = page.locator(".item-row", { hasText: "Pain-free only" }).filter({ has: page.locator(".item-open") }).last();
   await expect(boxingRow.locator(".item-open")).toBeFocused();
 });
+
+test("after the flag is cleared the pull-ups row says First time back; Half sets today halves it and survives a reload", async ({ page }) => {
+  // 30 Nov is W5 D1 and the day the shoulder was cleared; the injury ran from 22 Nov.
+  await page.clock.install({ time: new Date("2026-11-30T12:00:00") });
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "explosive-endurance.settings",
+      JSON.stringify({ version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} }),
+    );
+    if (window.localStorage.getItem("explosive-endurance.injuries") === null) {
+      window.localStorage.setItem(
+        "explosive-endurance.injuries",
+        JSON.stringify({ version: 1, injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", to: "2026-11-30" }] }),
+      );
+    }
+  });
+  await page.goto("/#/today");
+
+  // Everything is back as written; the pull-ups row is marked, with the full EMOM.
+  const pullUps = page.locator(".item-row", { hasText: "Pull-ups" });
+  await expect(pullUps).toContainText("First time back · pain-free only");
+  await expect(pullUps).toContainText("9 min");
+  await expect(page.getByText("Left out for your shoulder")).toHaveCount(0);
+
+  await pullUps.getByRole("button", { name: "Half sets today, Pull-ups" }).click();
+
+  const halved = page.locator(".item-row", { hasText: "Pull-ups" });
+  await expect(halved).toContainText("5 min");
+  await expect(halved).toContainText("First time back · pain-free only");
+  await expect(halved).toContainText("Sets halved today");
+  await expect(halved.getByRole("button", { name: "Half sets today, Pull-ups" })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator(".item-row", { hasText: "Pull-ups" })).toContainText("5 min");
+});

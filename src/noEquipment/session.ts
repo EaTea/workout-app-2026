@@ -8,10 +8,10 @@ import { applyNoEquipmentChoices } from "../program/noEquipment";
 import type { Program } from "../program/model";
 import { buildSession, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
-import { activeAreasOn } from "../injury/operations";
+import { activeAreasOn, recentlyClearedInjuriesOn } from "../injury/operations";
 import type { Injury, InjuryChoices } from "../injury/model";
-import { addBackKeysForDate } from "../injury/storage";
-import { applyInjuries } from "../program/injury";
+import { addBackKeysForDate, halfSetsKeysForDate } from "../injury/storage";
+import { applyInjuries, applyReturnToTraining } from "../program/injury";
 import { noEquipmentChoices } from "./choices";
 import type { NoEquipmentTicks } from "./model";
 import { ticksForDate } from "./storage";
@@ -39,7 +39,7 @@ export interface SwappedSession {
  * sets must: buildSession, then decide swapped/locked items from the log and
  * the ticks, then apply the swaps.
  *
- *   buildSession ─▶ applyInjuries ─▶ noEquipmentChoices(log, ticks of date) ─▶ applyNoEquipmentChoices ─▶ Today,
+ *   buildSession ─▶ applyInjuries ─▶ applyReturnToTraining ─▶ noEquipmentChoices(log, ticks of date) ─▶ applyNoEquipmentChoices ─▶ Today,
  *                                      └─ locked ───────────────────────────────────▶   log screen,
  *                                                                                       wake lock
  *
@@ -65,12 +65,9 @@ export function buildSwappedSession(
   injuries: readonly Injury[] = NO_INJURIES,
   injuryChoices: InjuryChoices = NO_INJURY_CHOICES,
 ): SwappedSession {
-  const injuredSession = applyInjuries(
-    buildSession(program, settings, date),
-    { program, settings, log, logDate: date, sessionDate: date },
-    activeAreasOn(injuries, date),
-    addBackKeysForDate(injuryChoices, date),
-  );
+  const injuryContext = { program, settings, log, logDate: date, sessionDate: date };
+  const flaggedSession = applyInjuries(buildSession(program, settings, date), injuryContext, activeAreasOn(injuries, date), addBackKeysForDate(injuryChoices, date));
+  const injuredSession = applyReturnToTraining(flaggedSession, injuryContext, recentlyClearedInjuriesOn(injuries, date), halfSetsKeysForDate(injuryChoices, date));
   const choices = noEquipmentChoices(injuredSession, log, date, ticksForDate(ticks, date));
 
   return {
@@ -141,19 +138,17 @@ export function buildSwappedCombinedSession(
   const locked = new Set<string>();
   const ticksOfHostDate = withHostDayTicksQualified(ticksForDate(ticks, hostDate), combine.hostDay);
   const addBackKeysOfHostDate = withHostDayTicksQualified(addBackKeysForDate(injuryChoices, hostDate), combine.hostDay);
+  const halfSetsKeysOfHostDate = withHostDayTicksQualified(halfSetsKeysForDate(injuryChoices, hostDate), combine.hostDay);
+  const recentlyClearedInjuries = recentlyClearedInjuriesOn(injuries, hostDate);
 
   /** One day's plain session for `dateOfDay`, with its swaps applied and its locked keys collected. */
   function swappedDay(dateOfDay: string): SessionView {
     // The flag comes from the HOST date, the date Ed trains, for both days: a missed day added to
     // today is trained with today's shoulder. The day's own date only sets its week, deload and blocks.
     // "Add it back" keys are stored under the host date too.
-    const unswapped = applyInjuries(
-      buildSession(program, settings, dateOfDay),
-      { program, settings, log, logDate: hostDate, sessionDate: dateOfDay },
-      activeAreasOn(injuries, hostDate),
-      addBackKeysOfHostDate,
-      true,
-    );
+    const injuryContext = { program, settings, log, logDate: hostDate, sessionDate: dateOfDay };
+    const flagged = applyInjuries(buildSession(program, settings, dateOfDay), injuryContext, activeAreasOn(injuries, hostDate), addBackKeysOfHostDate, true);
+    const unswapped = applyReturnToTraining(flagged, injuryContext, recentlyClearedInjuries, halfSetsKeysOfHostDate, true);
     const choices = noEquipmentChoices(unswapped, log, hostDate, ticksOfHostDate, true);
     for (const key of choices.locked) locked.add(key);
     return applySkippedBlocks(applyNoEquipmentChoices(unswapped, choices.swapped, true), skippedBlockKeys, log, hostDate);

@@ -159,6 +159,14 @@ equipment" tick. Kept "caution" rows say "Pain-free only". If nothing but the
 warm-up would be left (Day 3) the header reads "Shoulder-free session ·
 instead of Day 3 (Upper: push)".
 
+After the flag is cleared everything is as written. For 14 days after the
+clearing date, each exercise the injury would have kept out (an "avoid" one,
+left out or stood in for) says "First time back · pain-free only" in the first
+session it appears in, until a set of it is logged on a later date (the
+clearing date counts). That row offers "Half sets today": the "Add it back"
+halving (warm-ups never halved), for that date only, and the header minutes
+are re-estimated.
+
 "Show me": in Steady Strength, a large "▶ Show me" button sits beside each
 exercise that has an animation, on Today, on the day plan, and in the log
 screen's header next to ⓘ. It opens a full-screen 3D mannequin showing one

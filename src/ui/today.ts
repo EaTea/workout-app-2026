@@ -13,7 +13,7 @@ import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderInjuredLink, renderInjuryBanners } from "./injuryFlagUi";
 import type { Injury, InjuryChoices } from "../injury/model";
-import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
+import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
 import "./injuryRows.css";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
@@ -153,6 +153,9 @@ export interface InjuryOptions {
    * choice for the shown date and re-renders; returns null on success or a message to show on the line.
    */
   onAddBack: (itemKeys: string[]) => string | null;
+
+  /** "Half sets today" tapped on a "First time back" row (its item key); stores the choice for the shown date and re-renders; null on success or a message. */
+  onHalfSets: (itemKeys: string[]) => string | null;
 }
 
 /** Placeholder skips for callers (tests) that pass none. */
@@ -692,6 +695,11 @@ function renderItemRow(
   if (item.painFreeOnly) {
     text.append(element("span", "item-pain-free", PAIN_FREE_ONLY_LINE));
   }
+  // The first session back after a cleared injury: pain-free only, plus (once halved) a line saying so.
+  if (item.firstTimeBack !== undefined) {
+    text.append(element("span", "item-pain-free", FIRST_TIME_BACK_LINE));
+    if (item.halvedForReturn) text.append(element("span", "item-pain-free", HALVED_FOR_RETURN_LINE));
+  }
   const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item), keyDay);
   const isLocked = locked.has(itemKey);
   const noEquipmentLine = noEquipmentLineFor(item, isLocked);
@@ -769,6 +777,11 @@ function renderItemRow(
   }
 
 
+  // "Half sets today" is a sibling button, like Start, so the row button keeps opening the log screen.
+  if (item.firstTimeBack?.halfSetsOffered && !item.halvedForReturn) {
+    row.append(...renderHalfSetsToday(noEquipmentItemKey(blockPosition, item.exercise.id, keyDay), itemDisplayName(item), injury));
+  }
+
   // Items with a swap get the "No equipment" tick on its own line at the bottom of the row.
   // An injury wins: a stand-in or added-back row has no tick (`applyInjuries` already dropped its swap; this is the belt to that brace).
   const hasInjuryChange = item.injuryStandInFor !== undefined || item.addedBack === true;
@@ -801,6 +814,29 @@ function renderAddItBack(itemKeys: string[], subject: string, injury: InjuryOpti
 
   button.addEventListener("click", () => {
     const failure = injury.onAddBack(itemKeys);
+    if (failure !== null) errorLine.textContent = failure;
+  });
+  return [button, errorLine];
+}
+
+/**
+ * The "Half sets today" button of a "First time back" row and its error line,
+ * as a list to append; empty when the choice can't be made (no injury
+ * options, or a future preview date). Tapping saves the choice for the shown
+ * date through `injury.onHalfSets`, which re-renders Today.
+ */
+function renderHalfSetsToday(itemKey: string, subject: string, injury: InjuryOptions | undefined): HTMLElement[] {
+  if (injury === undefined || !injury.canChoose) return [];
+
+  const button = element("button", "injury-add-back injury-half-sets", HALF_SETS_TODAY_LABEL);
+  button.type = "button";
+  button.setAttribute("aria-label", halfSetsTodayButtonName(subject));
+
+  const errorLine = element("p", "field-error");
+  errorLine.setAttribute("role", "alert");
+
+  button.addEventListener("click", () => {
+    const failure = injury.onHalfSets([itemKey]);
     if (failure !== null) errorLine.textContent = failure;
   });
   return [button, errorLine];

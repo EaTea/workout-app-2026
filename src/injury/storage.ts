@@ -95,6 +95,18 @@ export function addBackKeysForDate(choices: InjuryChoices, date: string): Readon
 }
 
 /**
+ * The item keys with the "halfSets" choice ("Half sets today") on one date,
+ * for `applyReturnToTraining`. Empty when there are none.
+ */
+export function halfSetsKeysForDate(choices: InjuryChoices, date: string): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const [itemKey, kind] of choices.get(date) ?? []) {
+    if (kind === "halfSets") keys.add(itemKey);
+  }
+  return keys;
+}
+
+/**
  * Sets (`choice` given) or removes (`choice` undefined) one item's choice on
  * one date and saves. Read-modify-write like `setTick`. OTHER dates more than
  * `INJURY_CHOICE_RETENTION_DAYS` before `today` are pruned and an emptied

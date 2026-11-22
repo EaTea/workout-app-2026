@@ -104,7 +104,7 @@ describe("choices wire mapping", () => {
     const choices = choicesFromWire({
       version: 1,
       choices: {
-        "2026-11-23": { "3:pull_up": "addBack", "2.3:dip": "addBack", bad: "addBack", "3:UPPER": "addBack", "4:slam": "halfSets", "5:x": 7 },
+        "2026-11-23": { "3:pull_up": "addBack", "2.3:dip": "addBack", bad: "addBack", "3:UPPER": "addBack", "4:slam": "doubleSets", "5:x": 7 },
         "2026-02-30": { "3:a": "addBack" },
         "2026-11-24": "nope",
         "2026-11-25": { "3:a": "other" },

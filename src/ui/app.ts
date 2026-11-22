@@ -32,7 +32,7 @@ import { renderTodayScreen } from "./today";
 import { scrollToNextUnfinishedRow, todayRowKey } from "./returnScroll";
 import { loadTicks, setTick } from "../noEquipment/storage";
 import { loadInjuries, loadInjuryChoices, setInjuryChoice } from "../injury/storage";
-import type { InjuryChoices } from "../injury/model";
+import type { InjuryChoiceKind, InjuryChoices } from "../injury/model";
 import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { OptionalBlockControl } from "./optionalBlockCards";
@@ -397,10 +397,20 @@ export function startApp(
    * when a whole block comes back), since the tapped button is gone. Returns null on success or the failure message.
    */
   function handleAddBackInjuredItems(itemKeys: string[]): string | null {
-    if (shownDate > todayLocalDate()) return "Items can't be added back on a future date.";
+    return handleInjuryChoice(itemKeys, "addBack", "Items can't be added back on a future date.");
+  }
+
+  /** "Half sets today" tapped on a "First time back" row: the same flow as "Add it back", saving the "halfSets" choice. */
+  function handleHalfSetsToday(itemKeys: string[]): string | null {
+    return handleInjuryChoice(itemKeys, "halfSets", "Sets can't be halved on a future date.");
+  }
+
+  /** Saves `kind` for each item key on the shown date, re-renders and focuses the first changed row; null on success or the failure message. */
+  function handleInjuryChoice(itemKeys: string[], kind: InjuryChoiceKind, futureMessage: string): string | null {
+    if (shownDate > todayLocalDate()) return futureMessage;
 
     for (const itemKey of itemKeys) {
-      const result = setInjuryChoice(localStorage, storageKeys.injuryChoices, shownDate, itemKey, "addBack", todayLocalDate());
+      const result = setInjuryChoice(localStorage, storageKeys.injuryChoices, shownDate, itemKey, kind, todayLocalDate());
       if (!result.ok) return result.error;
       injuryChoices = result.choices;
     }
@@ -901,6 +911,7 @@ export function startApp(
           choices: injuryChoices,
           canChoose: shownDate <= todayLocalDate(),
           onAddBack: handleAddBackInjuredItems,
+          onHalfSets: handleHalfSetsToday,
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.
