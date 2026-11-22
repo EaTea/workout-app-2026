@@ -2682,6 +2682,275 @@ The EMOM timer itself only shows one minute's target, so it doesn't change.
   - **Merge point:** uneven rep lists show their total in History and Last
     time.
 
+### Plan: train around an injury *(design)*
+
+Ed hurt the right shoulder on a rest day (22 Nov) and asked what the app
+could do to manage an injury during Explosive Endurance. The proposal was
+discussed in the project thread, and Ed answered its questions (22 Nov):
+
+1. **Areas:** all of them in the end, but build the shoulder first.
+2. **Levels and stand-ins:** the shoulder tables below are agreed.
+3. **A day with nothing left** becomes a shoulder-free session, not a rest
+   day.
+4. **Day 4 kettlebell swings** are replaced with broad jumps.
+5. **No extra leg work** on the upper-body days.
+6. **Easing back in:** a week at half the sets was too cautious.
+7. **The program keeps moving** while an area is flagged. There is no pause.
+
+This section is the plan. The milestones at the end implement it.
+
+**Not medical advice, and no clearance.** The app never diagnoses, never
+says an injury has healed, and never tells Ed an area is ready to load
+heavily again. It changes the session while an area is flagged, says when
+to get it checked, and keeps a record. Clearing the flag is Ed's call, and
+the app says so in plain words.
+
+**How it behaves.**
+
+```
+ Settings / Today              Today while flagged                    Clearing the flag
+ ┌───────────────────┐        ┌──────────────────────────────────┐   ┌─────────────────────────┐
+ │ Injury            │──────▶ │ Right shoulder · since 22 Nov    │──▶│ Everything as written   │
+ │ + Add area        │        │ [When to get it checked]         │   │ First session back per  │
+ │ area, side, note  │        │ Avoid   → left out · Add it back │   │ exercise: "pain-free    │
+ └───────────────────┘        │ Swap    → stand-in               │   │ only" + "Half sets      │
+                              │ Caution → "Pain-free only"       │   │ today"                  │
+                              │ Nothing left → area-free session │   └─────────────────────────┘
+                              └──────────────────────────────────┘
+```
+
+1. **Flag an area.** Settings gets an "Injury" section, and Today an
+   "I'm injured" link next to "Safety notes". Ed picks the area, the side
+   (left, right or both) and an optional note. The start is today's real
+   date, never a `?date=` preview. More than one area can be flagged at
+   once; each row then follows the strictest level among them.
+2. **Each exercise is tagged** in `program.json` with how much it loads
+   each area: `avoid`, `caution` or nothing. While an area is flagged:
+   - **Avoid:** left out. The block shows "Left out for your shoulder:
+     Pull-ups · Add it back". Adding it back is for that date only, with
+     "Pain-free only" on the row and the sets halved (the deload rounding,
+     rule 2).
+   - **Stand-in:** where the item has one for that area, it replaces the
+     item, as a no-equipment swap does: same sets, rest and format, logged
+     under the stand-in's exercise id, locked after the first set.
+   - **Caution:** kept as written, with "Pain-free only · stop if it
+     hurts". The existing Skip leaves it out.
+   - **Untagged:** unchanged.
+3. **An area-free session when nothing is left.** If a flag leaves no
+   main block on a training day (Day 3 with the shoulder flagged), Today
+   shows the area's session from the file instead, headed "Shoulder-free
+   session · instead of Day 3 (Upper: push)". It has no leg work (Ed's
+   answer 5). Days 1 and 5 keep their core work and don't get it.
+4. **When to get it checked.** A short sheet, shown in full once when the
+   flag is set, and linked from Today's banner. It reuses the Steady
+   Strength safety-notes sheet. Wording below.
+5. **Clearing the flag.** "My shoulder feels OK" asks nothing medical and
+   says: "The app can't tell whether your shoulder is ready. If a physio or
+   doctor has given you a plan, follow theirs." Everything returns as
+   written at once (Ed's answer 6). The first session in which each
+   left-out exercise comes back, its row says "First time back · pain-free
+   only" and offers "Half sets today", for that date only.
+6. **The record.** Each injury keeps its area, side, start and end dates
+   and note. History marks flagged days and lists what was left out or
+   swapped. The JSON export and import carry the injuries.
+7. **The program keeps moving** (Ed's answer 7). Weeks and days still come
+   from the start date.
+
+**Other screens.**
+
+- *Weekly check-in:* with the shoulder flagged, max pull-ups shows "Skip
+  while your shoulder is flagged" (a blank is already allowed). A broad
+  jump is skipped the same way when a lower-body area that tags it is
+  flagged. After an injury, the 10% warning adds "expected after time
+  off".
+- *Week 8 retest:* with the shoulder flagged, the pull-up and dip retest
+  is held back, and the EMOMs keep week 7's figure, as they already do
+  when no new max is saved (rule 3).
+- *Exercise sheet:* a "Your shoulder" section with the level, what Today
+  does with it, and the stand-in's cues.
+- *No-equipment ticks:* an injury wins. A row that is left out or has an
+  injury stand-in hides its no-equipment tick. Stand-ins are written to
+  need little or no kit (a bag or water jug works as the one-hand weight).
+- *Combine days:* a combined day is filtered the same way.
+- *Unchanged:* the overview, day plans and Steady Strength.
+
+**The shoulder.** "Uninjured side" in a cue means the file never needs to
+know left from right. All levels rest on coaching practice.
+
+Days 1, 3 and 5 (upper body):
+
+| Day | Exercise | Level | Today, while flagged |
+| --- | --- | --- | --- |
+| 1, 5 | YTWI raises | Avoid | Left out |
+| 1, 3 | Pallof press | Caution | Kept, pain-free only |
+| 3, 5 | Lateral raise | Avoid | Left out |
+| 3 | Plate halo | Avoid | Left out |
+| 1 | Med ball slams | Avoid | Left out |
+| 3 | Plyo push-ups | Avoid | Left out |
+| 3 | Rotational wall throws | Avoid | Left out |
+| 5 | Dumbbell push press | Avoid | Left out |
+| 1, 5 | Pull-ups (EMOM, mini-dose) | Avoid | Left out |
+| 1, 3 | Dips (EMOM, mini-dose) | Avoid | Left out |
+| 3, 5 | Overhead press / pike push-up | Avoid | Left out |
+| 1, 5 | Back extension | Caution | Stand-in: bodyweight back extension, arms crossed on the chest, same reps |
+| 1, 5 | Hanging leg raise | Avoid | Stand-in: lying leg raise, at its no-equipment dose |
+| 1 | Side plank | Caution | Stand-in: side plank on the uninjured side only, same holds |
+| 5 | Hollow body hold | Caution | Stand-in: hollow hold with the arms by the sides, same holds |
+| 3 | Crab knee-to-elbow, crab switch and sprawl | Avoid | Left out (loaded shoulder extension) |
+| 3 | On-the-spot crawl | Avoid | Left out (weight on the hands) |
+| 1, 5 | Heavy bag / shadow boxing | Avoid | Left out |
+
+Days 2, 4 and 6 (lower body):
+
+| Day | Exercise | Level | Today, while flagged |
+| --- | --- | --- | --- |
+| 2, 6 | Cossack squat | None | Unchanged |
+| 2, 4 | Hip abduction / adduction | None | Unchanged |
+| 4, 6 | Single-leg hip thrust | Caution | Kept; a cue says to do it with the shoulders on the floor if the bench presses on the shoulder |
+| 2 | Split-squat jumps | None | Unchanged |
+| 6 | Lateral skater bounds | None | Unchanged; arms swing loosely |
+| 4 | Kettlebell swings | Avoid | Stand-in: broad jumps, hands on hips, 8-min EMOM × 3 (Ed's answer 4) |
+| 2, 6 | Zercher Bulgarian split squat | Avoid | Stand-in: suitcase Bulgarian split squat, one weight in the uninjured hand, same reps |
+| 2, 4 | Single-leg RDL | Caution | Stand-in: weight in the uninjured hand only, same reps |
+| 4, 6 | Single-leg calf raise | Caution | Stand-in: weight in the uninjured hand, the other hand lightly on the wall, same reps |
+| 6 | Wall sit | None | Unchanged |
+
+The shoulder-free session (instead of Day 3, about 12 minutes, core only):
+
+| Block | Exercise | Dose |
+| --- | --- | --- |
+| Warm-up | Dead bug, legs only (arms resting on the floor) | 2 × 8 per side |
+| Core (superset) | Lying leg raise | 3 × 10–15, 2–3s lowering |
+| Core (superset) | Hollow hold, arms by the sides | 3 × 20–30s |
+| Core (superset) | Prone back extension, arms by the sides | 3 × 12–15, 2s hold at the top |
+| Core | Side plank, uninjured side only | 2 × 30s |
+
+Rest between core pairs 45s. It follows the deload halving in weeks 4
+and 8, like any block.
+
+**The other areas** (Ed's answer 1) are elbow and wrist, lower back, hip,
+knee and ankle. Each gets its own tables, written and agreed in a short
+design note at the top of its PR, the way the shoulder's are here, and
+its own area-free session where a flag would empty a day. The file format
+and the app don't change for them: an area is a new key in `loads` and
+`injury`.
+
+**"When to get it checked"** (the shoulder's wording; each area gets its
+own red flags):
+
+> This isn't medical advice, and the app can't tell how bad an injury is.
+>
+> Get your shoulder checked by a doctor or physio soon if any of these
+> happen:
+> - You can't lift the arm, or it feels weak or unstable.
+> - It popped, slipped out or changed shape, or you fell on it.
+> - Numbness, tingling or pins and needles run down the arm.
+> - It's very swollen or bruised, or the pain keeps you awake.
+> - It isn't getting better after a week or two.
+>
+> While it's flagged, train only what's pain-free. Mild discomfort that
+> settles straight away is OK. If anything is worse the next morning,
+> drop it again.
+>
+> The app doesn't decide when you're ready to load the shoulder again. A
+> physio's plan beats the app's.
+
+**Code shape.**
+
+```
+ program.json
+   exercises.pull_up.loads   { "shoulder": "avoid" }            new, per exercise
+   item.injury               { "shoulder": { "exercise": "lying_leg_raise",
+                                             "reps": "10-15" } } new, per item
+   injurySessions            { "shoulder": { "name": "Shoulder-free session",
+                                             "blocks": [...] } } new, top level
+        │ parseProgram()  (LoadsWire, InjurySwapWire, InjurySessionWire → internal)
+        ▼
+ "<programId>.injuries"        (InjuriesWire ⇄ Injury[]: area, side, from, to?, note)
+ "<programId>.injury-choices"  (per date: "Add it back", "Half sets today"; pruned
+        │                        after 14 days, like the no-equipment ticks)
+        ▼
+ buildSession(...) ──▶ applyInjuries(session, activeInjuries, choices, log)
+                           │  area-free session if no main block is left,
+                           │  else left out / stand-in / caution per item
+                           ▼
+                      Today, log screen, timers, sheet, History
+```
+
+- `injury.<area>` takes the same fields as `noEquipment` (`exercise`
+  required; optional `reps`, `durationSec`, `load`, `note`, `tempo`) and
+  the same parse errors, so a stand-in keeps the original's sets, rest and
+  format. It reuses `applyNoEquipmentSwap`'s dose rules rather than a copy.
+- `loads` values are `"avoid"` or `"caution"`; an unknown area or level is
+  a parse error naming the path, with the "did you mean" hint.
+- Every stand-in and session exercise is an ordinary `exercises` entry
+  with cues and `"evidence": "coaching practice"`, so History, charts and
+  the CSV export need no special cases.
+- "Left out" isn't written into the log. It's worked out from the injury
+  dates, so it survives an export and import. Logged sets still lock a
+  row, as with the no-equipment ticks: a set logged under the original
+  keeps it as written, whatever the flag.
+- Wire and internal types are separate, with mapping functions, for each
+  new program field and storage key (CLAUDE.md section 6).
+- Per CLAUDE.md section 10, a lower-cost subagent implements each step,
+  I review and commit it, and a new higher-reasoning subagent challenges
+  each PR before it opens.
+
+**Worked examples** (start 2 Nov, max pull-ups 12, max dips 15, right
+shoulder flagged from 22 Nov):
+
+| Date | Week / day | Today shows |
+| --- | --- | --- |
+| 23 Nov | W4 D1 (deload) | Pallof press 2 rounds × 12–15, pain-free only (warm-ups aren't halved); YTWI, slams, pull-up EMOM, dip mini-dose and boxing left out; bodyweight back extension 2 × 12–15; lying leg raise 2 × 10–15; side plank uninjured side 1 × hold |
+| 24 Nov | W4 D2 | Suitcase Bulgarian split squat 2 × 12–15 per leg; single-leg RDL mini-dose, uninjured hand, 1 × easy |
+| 25 Nov | W4 D3 | Shoulder-free session, core sets halved for the deload |
+| 26 Nov | W4 D4 | Broad jumps, 4-min EMOM × 3 (8 min halved) |
+| 23 Nov, "Add it back" on the pull-up EMOM | W4 D1 | Pull-up EMOM, 3 min (the deload's 5, halved and rounded up) × 6 reps (week 3's), pain-free only |
+
+**Alternatives considered.**
+- *A whole "injured" program* swapped in for the real one: simpler, but
+  the lower-body days barely change for a shoulder, and it would split
+  History.
+- *Pre-skipping sets in the log:* would make "left out" survive a change
+  to the tags, but writes data Ed didn't enter and gets wrong if the flag's
+  dates are corrected. Deriving it from the dates avoids both.
+- *A week at half sets after clearing:* Ed found it too cautious.
+
+**Milestones.**
+
+- **Injury 1 — Shoulder tags and stand-ins in the file** *(behavior
+  change)*: `loads`, `injury` and `injurySessions` in the wire types,
+  parser and model; the shoulder data above in `public/program.json`;
+  data tests; the exercise sheet's "Your shoulder" section only. Every
+  session is unchanged. README documents the fields.
+  - Merge point: the doses can be checked on a phone, nothing else moves.
+- **Injury 2 — Flag the shoulder and train around it** *(behavior
+  change)*: the injuries storage key, Settings, the banner and "When to
+  get it checked", left-out, stand-in and caution rows, "Add it back",
+  the shoulder-free session, the log screen and timers. E2E on Day 1,
+  Day 3 and Day 4.
+  - Merge point: Ed can flag the shoulder and train every day of the week.
+- **Injury 3 — Clear the flag, check-in, retest, History and export**
+  *(behavior change)*: "My shoulder feels OK", "First time back" and "Half
+  sets today", the check-in and week 8 changes, History marks, export and
+  import of injuries. E2E.
+  - Merge point: the shoulder feature is complete.
+- **Injury 4 onward — one area per PR** *(behavior change, content
+  mostly)*: elbow and wrist, lower back, hip, knee, ankle, in the order Ed
+  picks. Each starts with its tables for Ed to confirm.
+
+**Open questions for Ed** (with the answer I'm assuming):
+
+1. **"Shoulder chest" in answer 1.** Assumed: build the shoulder first.
+   If "chest" meant a separate area (a pec strain, say), it joins the
+   later areas.
+2. **Broad jump dose.** Assumed: 8-min EMOM × 3 reps, the same minutes
+   as the swings, fewer reps because each jump is a maximal effort.
+3. **The shoulder-free session's content.** Assumed: the core-only list
+   above, with no leg work (answer 5).
+4. **Order of the other areas.** Assumed: lower back, knee, ankle, hip,
+   elbow and wrist, unless Ed prefers another.
+
 ## 6. Worked examples (used as unit-test fixtures)
 
 Start date 2 Nov 2026, max pull-ups 12, max dips 15.
