@@ -2665,7 +2665,7 @@ types change, so there is nothing new to map (CLAUDE.md section 6).
 **Milestones** (one PR each, in this order):
 
 - **History PR 1 — History shows 2 weeks, then "Show older weeks"** *(behavior change)*
-  1. [ ] `groupDatesIntoWeeks(log)` in `src/log/historyWeeks.ts`, by the
+  1. [x] `groupDatesIntoWeeks(log)` in `src/log/historyWeeks.ts`, by the
      rule above. Unit tests: an empty log, one week, a week change, a
      restart at week 1, sessions with no stored week, a gap of 7 days or
      more inside the same stored week, and skip-only days left out.
