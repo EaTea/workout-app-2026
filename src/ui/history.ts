@@ -4,6 +4,7 @@ import { groupSetsByExercise, type ExerciseGroup } from "../log/history";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "../log/model";
 import { deleteSet, editSet, sessionDates, type SetKey } from "../log/operations";
 import { element } from "./dom";
+import { groupDatesIntoWeeks, type HistoryWeek } from "../log/historyWeeks";
 import { formatSetsSummary } from "./format";
 import type { Injury } from "../injury/model";
 import type { TrainingSettings } from "../settings/model";
@@ -16,21 +17,28 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
 
 /**
  * The History screen at `#/history`: one card per logged session, newest
- * first. Each card lists its exercises in block order with a compact summary;
- * tapping an exercise expands its sets, and tapping a set opens the shared
+ * first, for the latest 2 program weeks; a "Show older weeks" button under the
+ * last card adds 2 more weeks at a time. Each card lists its exercises in
+ * block order with a compact summary; tapping an exercise expands its sets, and tapping a set opens the shared
  * edit panel (reps, kg, note, Save, Delete).
  *
  *   renderHistoryScreen(program, log, changeLog)
- *     state: log (own copy) · expandedGroups · editingSet · message
- *     draw() ─▶ for each date (newest first) ─▶ session card
+ *     state: log (own copy) · weeksShown · expandedGroups · editingSet · message
+ *     draw() ─▶ for each date in the first `weeksShown` weeks (newest first) ─▶ session card
  *                 header "9 Nov · Week 2 · Day 1 · Upper: pull"
  *                 exercise row ──tap──▶ expands ─▶ "Set 1 · 6 reps · 6 kg" rows
  *                                                    └─tap─▶ edit panel
+ *               ─▶ [Show older weeks] (only while older weeks remain)
+ *                    tap ─▶ weeksShown += 2 ─▶ draw(first new card's heading)
  *     Save ─▶ editSet ─┐
  *     Delete ─▶ deleteSet ─┴▶ changeLog(op) re-reads, saves (app.ts) ─▶ draw()
  *
  * On a day an area was flagged the card also shows a small tag ("Right
  * shoulder"), what was left out and what was stood in (`historyInjury.ts`).
+ *
+ * The Progress section always covers the whole log, not just the weeks shown.
+ * `weeksShown` lives in this screen's closure, so leaving History and coming
+ * back (app.ts builds a new screen on each visit) starts again at 2 weeks.
  *
  * Deleting the last set of a session removes the session (`deleteSet`), so its
  * card disappears. As on the log screen, a failed save keeps the change in
@@ -45,11 +53,15 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
  *   expand / collapse ─▶ that exercise row      open a set ─▶ the edit panel's first control
  *   Save / Cancel ─▶ the set's row              Delete ─▶ the session card heading
  *                                                          (page heading if the card is gone)
+ *   Show older weeks ─▶ the heading of the first card it added
  */
 
 /** Focus target names that are not per-item (see `draw` in `renderHistoryScreen`). */
 const PAGE_HEADING_FOCUS_NAME = "page-heading";
 const EDITOR_FOCUS_NAME = "editor";
+
+/** How many program weeks History shows at first, and how many more each "Show older weeks" tap adds. */
+const HISTORY_WEEKS_PER_PAGE = 2;
 
 /** Shown on an empty History. */
 export const EMPTY_HISTORY_MESSAGE = "Nothing logged yet. Tap an exercise on Today to log it.";
@@ -70,6 +82,8 @@ export function renderHistoryScreen(
   const screen = element("section", "screen history-screen");
 
   let log = initialLog;
+  /** How many program weeks (newest first, see `groupDatesIntoWeeks`) have cards drawn; grows by HISTORY_WEEKS_PER_PAGE per "Show older weeks" tap. */
+  let weeksShown = HISTORY_WEEKS_PER_PAGE;
   /** Keys (see `groupKey`) of the exercise rows currently expanded. */
   const expandedGroups = new Set<string>();
   /** The one set being edited: its session date and key. */
@@ -126,8 +140,9 @@ export function renderHistoryScreen(
   }
 
   /**
-   * Rebuilds the whole screen from the state above, then moves focus to the
-   * element registered as `focusName` (see the diagram at the top), if any.
+   * Rebuilds the whole screen from the state above (cards only for the first
+   * `weeksShown` weeks), then moves focus to the element registered as
+   * `focusName` (see the diagram at the top), if any.
    */
   function draw(focusName?: string): void {
     focusTargets = new Map();
@@ -151,13 +166,36 @@ export function renderHistoryScreen(
       children.push(element("p", "history-empty", EMPTY_HISTORY_MESSAGE));
     }
 
-    for (const date of dates) {
+    // Only the newest `weeksShown` weeks get cards; `dates` above still covers everything, so "is the log empty" is unaffected.
+    const allWeeks = groupDatesIntoWeeks(log);
+    const shownDates = allWeeks.slice(0, weeksShown).flatMap((week) => week.dates);
+    for (const date of shownDates) {
       const session = log.sessions[date];
       if (session !== undefined) children.push(renderSessionCard(session));
     }
 
+    if (allWeeks.length > weeksShown) children.push(renderShowOlderWeeksButton(allWeeks));
+
     screen.replaceChildren(...children);
     if (focusName !== undefined) focusTargets.get(focusName)?.focus();
+  }
+
+  /**
+   * The "Show older weeks" button, drawn under the last card while older weeks
+   * remain. Tapping it widens the window by HISTORY_WEEKS_PER_PAGE weeks and
+   * sends focus to the heading of the first card that was not shown before
+   * (the button itself is replaced by the redraw).
+   */
+  function renderShowOlderWeeksButton(allWeeks: HistoryWeek[]): HTMLElement {
+    const button = element("button", "history-more-button", "Show older weeks");
+    button.type = "button";
+    button.addEventListener("click", () => {
+      // The first newly shown card is the newest date of the first week not yet drawn.
+      const firstNewDate = allWeeks[weeksShown]?.dates[0];
+      weeksShown += HISTORY_WEEKS_PER_PAGE;
+      draw(firstNewDate === undefined ? undefined : cardFocusName(firstNewDate));
+    });
+    return button;
   }
 
   /** One card: the header line (focusable by script, for after a delete), then a row per exercise in block order. */

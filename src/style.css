@@ -1252,6 +1252,22 @@ body {
   font-weight: 700;
 }
 
+/* "Show older weeks" under the last card. */
+.history-more-button {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .history-exercise-row,
 .history-set-row {
   display: flex;

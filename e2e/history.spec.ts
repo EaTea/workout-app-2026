@@ -194,3 +194,54 @@ test("focus follows each History action, and reps can be added to a set logged w
   await page.reload();
   await expect(exerciseRow(page, "2 Nov", "Pull-ups")).toContainText("1 × 1");
 });
+
+test("History shows 2 weeks at first and 'Show older weeks' adds 2 more at a time", async ({ page }) => {
+  await seedSettings(page);
+
+  // Five program weeks, one session each, on the Monday of each week (start date 2026-11-02).
+  const mondays = ["2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23", "2026-11-30"];
+  const log = {
+    version: 1,
+    sessions: mondays.map((date, index) => ({
+      date, programWeek: index + 1, day: 1,
+      sets: [
+        wireSet("med_ball_slam", 2, 1, 6), wireSet("med_ball_slam", 2, 2, 6),
+        wireSet("pull_up", 3, 1, 5, { loadKg: 8 }),
+      ],
+    })),
+  };
+  await page.addInitScript((seed) => {
+    window.localStorage.setItem("explosive-endurance.log", JSON.stringify(seed));
+  }, log);
+  await page.goto("/?date=2026-12-06#/history");
+
+  const headers = page.locator(".history-session-header");
+  const showOlder = page.getByRole("button", { name: "Show older weeks" });
+
+  // Only weeks 5 and 4 at first, with the button under them; Progress covers the whole log.
+  await expect(headers).toHaveText(["30 Nov · Week 5 · Day 1 · Upper: pull", "23 Nov · Week 4 · Day 1 · Upper: pull"]);
+  await expect(showOlder).toBeVisible();
+  await expect(page.locator(".progress-card")).toBeVisible();
+
+  // Expand a row in a week 4 card, then load 2 more weeks.
+  await exerciseRow(page, "23 Nov", "Med ball slams").locator(".history-exercise-row").click();
+  await expect(page.getByRole("button", { name: /^Set 2 · 6 reps/ })).toBeVisible();
+  await showOlder.click();
+
+  // Weeks 3 and 2 appear below; the expanded row stays expanded; focus is on the first new heading.
+  await expect(headers).toHaveCount(4);
+  await expect(headers.nth(2)).toContainText("Week 3");
+  await expect(headers.nth(3)).toContainText("Week 2");
+  await expect(exerciseRow(page, "23 Nov", "Med ball slams").locator(".history-exercise-row")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: /^Set 2 · 6 reps/ })).toBeVisible();
+  await expect(headers.nth(2)).toBeFocused();
+  await expect(showOlder).toBeVisible();
+
+  // Once more: week 1 appears and nothing older is left, so the button goes.
+  await showOlder.click();
+  await expect(headers).toHaveCount(5);
+  await expect(headers.nth(4)).toContainText("Week 1");
+  await expect(headers.nth(4)).toBeFocused();
+  await expect(showOlder).toHaveCount(0);
+  await expect(page.locator(".progress-card")).toBeVisible();
+});

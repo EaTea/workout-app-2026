@@ -2669,7 +2669,7 @@ types change, so there is nothing new to map (CLAUDE.md section 6).
      rule above. Unit tests: an empty log, one week, a week change, a
      restart at week 1, sessions with no stored week, a gap of 7 days or
      more inside the same stored week, and skip-only days left out.
-  2. [ ] History draws only the shown weeks, with the "Show older weeks"
+  2. [x] History draws only the shown weeks, with the "Show older weeks"
      button and the focus rule above. Progress charts stay on the whole
      log. E2E: seed 5 weeks, see only 2 weeks of cards, tap twice to see
      all, the button goes, an expanded card stays expanded, and the
