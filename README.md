@@ -398,7 +398,8 @@ for now only the exercise sheet shows them (see below), and Today ignores them.
   original exercise's (the shipped "Ab raises" replacing the Pallof press is
   `{ "shoulder": "avoid" }`, so it is left out while the shoulder is flagged
   even though the Pallof press is only "caution"). A swap without `loads`
-  keeps the original's levels. Errors name the path, for example
+  keeps the original's levels; one with `loads` replaces them entirely, so
+  `{}` leaves the rotated warm-up untagged. Errors name the path, for example
   `warmupRotation.swaps[2].loads.shoulder`.
 - `injury` on an item: a stand-in per area, for example
   `{ "shoulder": { "exercise": "lying_leg_raise", "reps": "10-15" } }`. Each

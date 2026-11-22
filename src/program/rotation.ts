@@ -28,7 +28,7 @@ export function isRotatedWeek(week: number, everyWeeks: number): boolean {
 /**
  * The name swapped in for `exerciseId` (the swap's `in`), or undefined when
  * the rotation does not replace that exercise. Called by
- * `applyRotationToBlocks`.
+ * `performedAsName` (the name a logged set was performed as).
  */
 export function rotatedName(exerciseId: string, rotation: WarmupRotation): string | undefined {
   return rotation.swaps.find((swap) => swap.out === exerciseId)?.in;
@@ -37,8 +37,9 @@ export function rotatedName(exerciseId: string, rotation: WarmupRotation): strin
 /**
  * The injury levels an item has this session: the rotated-in swap's own
  * `loads` when it has them, else the exercise's `loads` (a rotated item
- * without `loads` inherits the original's level). Called by `applyInjuries`
- * and `applyReturnToTraining` (injury.ts).
+ * without `loads` inherits the original's level). Called by `strictestLevel`
+ * and `markReturningItem` in injury.ts (behind `applyInjuries` and
+ * `applyReturnToTraining`).
  */
 export function effectiveLoads(item: { exercise: { loads?: Partial<Record<InjuryArea, InjuryLoadLevel>> }; rotatedIn?: { loads?: Partial<Record<InjuryArea, InjuryLoadLevel>> } }) {
   return item.rotatedIn?.loads ?? item.exercise.loads;

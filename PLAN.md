@@ -3085,6 +3085,14 @@ shoulder flagged from 22 Nov):
   1. [x] Wire/model/parser (reusing `parseExerciseLoads`), rotation, injury
      rules, data, README and tests (unit and e2e: W5 flagged, Ab raises left
      out with "Add it back"; week 4 Pallof press still pain-free only).
+  - Known, from its challenger review (low, left as they are): a Pallof
+    press set logged after a clear ends "First time back" for the Ab raises
+    too (they share the `pallof_press` id); a row with sets already logged on
+    a flagged day stays as written with no pain-free cue, as for every avoid
+    item; and "First time back" marks the Ab raises even when the flag only
+    covered weeks without them (the cautious reading, as for other avoid
+    items). A swap's `loads` replaces the original's levels, so `{}` clears
+    them (README says so).
   - Merge point: with the shoulder flagged, week 5 has no hanging raises.
 - **Then: plan the other areas** *(design)*: only after Injury 3 is
   merged. A new design PR picks the areas, their tables and their order.

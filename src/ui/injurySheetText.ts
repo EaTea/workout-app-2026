@@ -36,6 +36,8 @@ export function injurySectionLine(item: Pick<ItemView, "exercise" | "injury" | "
   // An injury wins over the "No equipment" tick: on a ticked row the sheet gets the
   // swap's view, so the level comes from the ORIGINAL exercise (`swappedFrom`), and the
   // stand-in from the `injury` views `applyNoEquipmentChoices` carried over.
+  // Today the ⓘ button isn't shown on rotated warm-up rows (logScreen.ts), so a
+  // rotated swap's own `loads` (effectiveLoads in rotation.ts) never reaches here.
   const level = (item.swappedFrom ?? item.exercise).loads?.[AREA];
   const standIn = item.injury?.[AREA];
   if (level === undefined && standIn === undefined) return undefined;
