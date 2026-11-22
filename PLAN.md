@@ -2922,6 +2922,12 @@ shoulder flagged from 22 Nov):
   parser and model; the shoulder data above in `public/program.json`;
   data tests; the exercise sheet's "Your shoulder" section only. Every
   session is unchanged. README documents the fields.
+  1. [x] File format: `loads`, `injury` (validated by the same function
+     as `noEquipment`) and `injurySessions` in the wire types, parser and
+     model, with unit tests (`src/program/injuryFormat.test.ts`) and README.
+  2. [ ] The shoulder data and stand-in exercises in `public/program.json`,
+     with data tests over the shipped file.
+  3. [ ] The exercise sheet's "Your shoulder" section, with E2E.
   - Merge point: the doses can be checked on a phone, nothing else moves.
 - **Injury 2 — Flag the shoulder and train around it** *(behavior
   change)*: the injuries storage key, Settings, the banner and "When to
@@ -2939,11 +2945,9 @@ shoulder flagged from 22 Nov):
 
 **Open questions for Ed** (with the answer I'm assuming):
 
-1. **The shoulder-free session's content.** Assumed: the core-only list
-   above, with no leg work (answer 5).
-
-Resolved (22 Nov): "shoulder chest" in answer 1 meant shoulder first;
-the broad jump EMOM is 5 reps a minute.
+None left. Resolved (22 Nov): "shoulder chest" in answer 1 meant shoulder
+first; the broad jump EMOM is 5 reps a minute; the shoulder-free session is
+the core-only list above.
 
 ## 6. Worked examples (used as unit-test fixtures)
 

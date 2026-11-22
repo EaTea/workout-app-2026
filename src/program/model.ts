@@ -55,6 +55,22 @@ export type Format = "straight sets" | "emom" | "interval" | "superset";
 /** Where the claim for an exercise comes from. */
 export type Evidence = { kind: "url"; url: string } | { kind: "coachingPractice" };
 
+/**
+ * The body areas an injury can be flagged for. One list so a new area is a
+ * one-line change here: the parser checks `loads`, `injury` and
+ * `injurySessions` keys against it.
+ */
+export const INJURY_AREAS = ["shoulder"] as const;
+
+/** One injured area, e.g. "shoulder". */
+export type InjuryArea = (typeof INJURY_AREAS)[number];
+
+/** The levels an exercise can load an area at; anything else means "not tagged". */
+export const INJURY_LOAD_LEVELS = ["avoid", "caution"] as const;
+
+/** How much an exercise loads an injured area: "avoid" leaves it out, "caution" keeps it as pain-free only. */
+export type InjuryLoadLevel = (typeof INJURY_LOAD_LEVELS)[number];
+
 /** Library entry for one exercise (the top-level `exercises` object). */
 export interface Exercise {
   id: string;
@@ -67,6 +83,8 @@ export interface Exercise {
   progression: string[];
   /** True if the athlete's max reps is tested (pull-ups, dips). */
   maxTested: boolean;
+  /** How much the exercise loads each injured area; undefined when the file tags none. Untagged areas are simply absent. */
+  loads?: Partial<Record<InjuryArea, InjuryLoadLevel>>;
 }
 
 /**
@@ -90,6 +108,14 @@ export interface NoEquipmentSwap {
   note?: string;
   tempo?: string;
 }
+
+/**
+ * An item's stand-in while one area is injured. Same shape and guarantees as
+ * the no-equipment swap (own exercise and dose text; sets, rest and format
+ * kept from the original item), because the parser validates both with one
+ * function.
+ */
+export type InjuryStandIn = NoEquipmentSwap;
 
 /** One exercise inside a block, with its exercise-library entry resolved. */
 export interface BlockItem {
@@ -131,6 +157,8 @@ export interface BlockItem {
   weeklyIncrease?: string;
   /** The item's optional household-kit swap; undefined when the file has none. */
   noEquipment?: NoEquipmentSwap;
+  /** Stand-ins keyed by injured area; undefined when the file has none. */
+  injury?: Partial<Record<InjuryArea, InjuryStandIn>>;
   /**
    * The program weeks this item runs in ("everyWeek" when program.json has no
    * `weeks` on it, which is every item today). The schedule drops the item
@@ -170,6 +198,16 @@ export interface Day {
   day: DayNumber;
   focus: string;
   targetMinutes: number;
+  blocks: Block[];
+}
+
+/**
+ * The session Today shows for an injured area when the flag leaves a training
+ * day with no main block. Its blocks are ordinary `Block`s, but their items
+ * never carry `noEquipment` or `injury` (the parser refuses them).
+ */
+export interface InjurySession {
+  name: string;
   blocks: Block[];
 }
 
@@ -238,6 +276,8 @@ export interface Program {
    * rejected are not here (they are `ProgramWarning`s).
    */
   combinePairs: readonly (readonly [DayNumber, DayNumber])[];
+  /** Area-free sessions keyed by injured area; undefined when the file has no `injurySessions` section. */
+  injurySessions?: Partial<Record<InjuryArea, InjurySession>>;
 }
 
 /**

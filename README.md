@@ -338,6 +338,24 @@ on the item's exercise sheet. The shipped program gives swaps only to items
 that need kit; the swap exercises are ordinary `exercises` entries with
 `"evidence": "coaching practice"`.
 
+Three optional fields let a program cope with an injured body area. The only
+known area for now is `"shoulder"`; an unknown area is an error naming the
+path, with a "did you mean" hint for a near miss. They are read and checked
+but nothing in the app uses them yet.
+
+- `exercises.<id>.loads`: how much the exercise loads an area, for example
+  `{ "shoulder": "avoid" }`. The level is `"avoid"` or `"caution"`; anything
+  else is an error.
+- `injury` on an item: a stand-in per area, for example
+  `{ "shoulder": { "exercise": "lying_leg_raise", "reps": "10-15" } }`. Each
+  stand-in takes exactly the fields and follows exactly the rules of
+  `noEquipment` above (and can't itself carry `noEquipment` or `injury`).
+- Top-level `injurySessions`: a session per area for when the injury leaves a
+  day with nothing to do, for example
+  `{ "shoulder": { "name": "Shoulder-free session", "blocks": [ ... ] } }`.
+  The blocks are written exactly like a day's blocks, except that their items
+  can't have `noEquipment` or `injury`.
+
 ## Warm-up rotation
 
 Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the
