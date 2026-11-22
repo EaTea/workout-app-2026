@@ -7,6 +7,7 @@ import { renderExportSection, type ExportSource } from "./exportSection";
 import { renderProgramOverviewLink } from "./overview";
 import { renderImportSection, type ImportSectionOptions } from "./importSection";
 import { renderSwitchProgramLink } from "./programPicker";
+import { renderInjurySettingsSection, type InjurySettingsOptions } from "./injuryFlagUi";
 
 /**
  * The Settings screen: start date plus one tested-max input per exercise the
@@ -153,7 +154,9 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
  * is full or blocked), in which case the user stays on this screen.
  * `getExportSource`, when given, adds the Export card below the form; it is
  * called when an export button is pressed so the file holds the latest data.
- * `importOptions`, when given, adds the Import card under it.
+ * `importOptions`, when given, adds the Import card under it. `injuryOptions`,
+ * when given, adds the Injury card above the form (only for a program whose
+ * file tags exercises with `loads`; see `injuryFlagUi.ts`).
  */
 export function renderSettingsScreen(
   program: Program,
@@ -162,9 +165,14 @@ export function renderSettingsScreen(
   onSave: (settings: TrainingSettings) => string | null,
   getExportSource?: () => ExportSource,
   importOptions?: ImportSectionOptions,
+  injuryOptions?: InjurySettingsOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   screen.append(element("h1", "screen-title", "Settings"), renderProgramOverviewLink(), renderProgramRow(program.name));
+
+  // Above the form so Today's "I'm injured" link lands on it without scrolling.
+  const injurySection = injuryOptions === undefined ? undefined : renderInjurySettingsSection(program, injuryOptions);
+  if (injurySection !== undefined) screen.append(injurySection);
 
   const form = element("form", "card settings-form");
   form.noValidate = true; // we show our own inline errors

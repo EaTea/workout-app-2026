@@ -1,0 +1,41 @@
+/* Injury rows on Today: left-out lines, "Add it back", and the pain-free line. */
+.item-left-out {
+  gap: 4px 12px;
+  padding: 4px 0;
+}
+
+.item-left-out-text {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  min-width: 0;
+}
+
+.item-left-out .item-name {
+  font-weight: 600;
+}
+
+.item-left-out-line {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.injury-add-back {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.item-pain-free {
+  display: block;
+  color: #f5c451;
+  font-size: 13px;
+}

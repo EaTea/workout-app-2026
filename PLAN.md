@@ -2959,6 +2959,61 @@ shoulder flagged from 22 Nov):
   sheet only while the shoulder is flagged; (d) an injury session with
   `blocks: []` parses but would show empty, so refuse it at parse time or
   handle it.
+  Steps:
+  1. [x] Storage: `<programId>.injuries` and `<programId>.injury-choices`
+     (`src/injury/`: wire types, mappings, tolerant loading, re-read before
+     save, 14-day pruning of choices, `activeInjuriesOn`, `flagInjury`,
+     `clearInjury`), with unit tests. The wire for choices holds a kind per
+     item, so Injury 3 adds "Half sets today" as a second kind.
+  2. [x] Session logic: `applyInjuries` (`src/program/injury.ts`), chained into
+     `buildSwappedSession` / `buildSwappedCombinedSession` (new optional
+     `injuries` and `injuryChoices` parameters) BEFORE the no-equipment swaps,
+     so an injury wins (note a is done there). Left-out items are marked, not
+     removed, and skipped by `isSessionInProgress`. Note (d): the parser
+     refuses an injury session with `blocks: []`. Note (b) holds and is tested
+     (week 5). Unit tests cover the worked examples.
+  3a. [x] UI, the flag: Settings "Injury" section (flag, clear with a plain
+     confirmation, past injuries as lines), Today's "I'm injured" link and
+     banner, and the "When to get it checked" sheet. E2E in `e2e/injury.spec.ts`.
+  3b. [x] UI, the rows: left-out / stand-in / caution rows, "Add it back", the
+     shoulder-free session heading, log screen and timers (including the
+     left-out item's part in the log screen's progress), note (c), and E2E on
+     Day 1, Day 3 and Day 4.
+     Differences: the "Pain-free only" line sits under the name/details, not
+     under the dose; the blocks count in "~N min · M blocks" skips blocks whose
+     items are all left out; a stand-in's sheet says "Instead of <original>"
+     and has no "Your shoulder" section; an added-back row's sheet still uses the
+     "left out" wording; a combined day shows ordinary blocks, with no
+     area-free heading. Injuries are re-read on each render.
+  4. [x] Fixes from the challenger review:
+     1. A combined session reads the flag from the host (training) date for
+        both days; each day's own date only sets its week, deload and blocks.
+     2. Clearing the flag no longer rewrites a session already trained: sets
+        logged under a stand-in's id keep the stand-in, and an area-free
+        session with logged sets stays the area-free session, flagged or not.
+     3. The header's minutes are re-estimated from what is left whenever
+        anything is left out or added back (an added-back row at its halved
+        dose), with the same estimator as the shoulder-free session
+        (`estimatedSessionMinutes`): 23 Nov flagged is about 9 min, not 50.
+     4. "Last time", Progress and the History wording recognise an item's
+        injury stand-in ids, and an area-free session's items through the
+        area session's own blocks (`findLoggedBlockAndItem`).
+     5. A stood-in rotated warm-up says "Instead of <rotated name>" (week 5:
+        "Instead of Reverse fly").
+     6. "Add it back" focuses the first added-back row when several keys come
+        back (boxing has one item, so it already worked; the e2e covers it).
+     Known and deferred:
+     - (i) Clearing ships here, but "First time back" and "Half sets today"
+       come in Injury 3 (stacked next).
+     - (ii) The storage readers drop unknown areas and kinds, so an older app
+       copy would drop a newer choice on save. Acceptable for one user on one
+       phone; revisit if a second area or choice kind is added.
+     - (iii) A Day 3 started before the flag (sets logged under the original
+       day) stays the original day with only what is not left out, so logged
+       sets are not orphaned. By design.
+     - (iv) Open question for Ed: the rotated-in "Ab raises" (instead of
+       Pallof press) and "Kickbacks" (instead of the hip thrust) inherit
+       "caution". If Ab raises are hanging raises they should be "avoid".
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half

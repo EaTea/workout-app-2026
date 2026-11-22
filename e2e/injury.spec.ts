@@ -1,0 +1,223 @@
+import { expect, test, type Page } from "@playwright/test";
+
+// The real "today" is fixed at 22 Nov 2026; the program started on 2 Nov.
+const TODAY = "2026-11-22";
+
+/** Fixes the clock at noon on `TODAY` and seeds Explosive Endurance settings. */
+async function seedExplosiveEndurance(page: Page): Promise<void> {
+  await page.clock.install({ time: new Date(`${TODAY}T12:00:00`) });
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "explosive-endurance.settings",
+      JSON.stringify({ version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} }),
+    );
+  });
+}
+
+/**
+ * Fixes the clock at noon on `date`, seeds Explosive Endurance settings and,
+ * when `flagged`, an open right-shoulder injury that started on 1 Nov (so
+ * every date used below is inside it; flagging in Settings would start it on
+ * the real date, which is the date's own day at best).
+ */
+async function seedOnDate(page: Page, date: string, flagged: boolean): Promise<void> {
+  await page.clock.install({ time: new Date(`${date}T12:00:00`) });
+  await page.addInitScript((isFlagged) => {
+    window.localStorage.setItem(
+      "explosive-endurance.settings",
+      JSON.stringify({ version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} }),
+    );
+    if (isFlagged && window.localStorage.getItem("explosive-endurance.injuries") === null) {
+      window.localStorage.setItem(
+        "explosive-endurance.injuries",
+        JSON.stringify({ version: 1, injuries: [{ area: "shoulder", side: "right", from: "2026-11-01" }] }),
+      );
+    }
+  }, flagged);
+}
+
+/** Flags the right shoulder in Settings and closes the sheet that opens. */
+async function flagRightShoulder(page: Page): Promise<void> {
+  await page.goto("/#/settings");
+  await page.getByLabel("Side").selectOption("right");
+  await page.getByLabel("Note (optional)").fill("Fell on it on a rest day");
+  await page.getByRole("button", { name: "Flag it" }).click();
+
+  const sheet = page.getByRole("dialog", { name: "Get your shoulder checked" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText("It popped, slipped out or changed shape, or you fell on it.");
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toHaveCount(0);
+}
+
+test("flagging the right shoulder shows the sheet, then a banner on Today that survives a reload; clearing removes it", async ({ page }) => {
+  await seedExplosiveEndurance(page);
+  await flagRightShoulder(page);
+
+  // Settings now shows the flag, the note and the way to clear it.
+  await expect(page.locator(".injury-section")).toContainText("Right shoulder · since 22 Nov");
+  await expect(page.locator(".injury-section")).toContainText("Fell on it on a rest day");
+
+  await page.goto("/#/today");
+  const banner = page.locator(".injury-banner");
+  await expect(banner).toContainText("Right shoulder · since 22 Nov");
+  await expect(banner).toContainText("Pain-free only.");
+
+  await page.reload();
+  await expect(page.locator(".injury-banner")).toContainText("Right shoulder · since 22 Nov");
+
+  // The banner's button opens the same sheet.
+  await page.locator(".injury-banner").getByRole("button", { name: "When to get it checked" }).click();
+  await expect(page.getByRole("dialog", { name: "Get your shoulder checked" })).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+
+  // Clearing asks first, in words that make no medical claim.
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "My shoulder feels OK" }).click();
+  await expect(page.locator(".injury-confirm")).toContainText("The app can't tell whether your shoulder is ready.");
+  await page.getByRole("button", { name: "Yes, clear it" }).click();
+
+  await expect(page.locator(".injury-section")).toContainText("Past injuries");
+  await page.goto("/#/today");
+  await expect(page.locator(".injury-banner")).toHaveCount(0);
+});
+
+test("Today's I'm injured link leads to the Injury section", async ({ page }) => {
+  await seedExplosiveEndurance(page);
+  await page.goto("/#/today");
+
+  await page.getByRole("link", { name: "I'm injured" }).click();
+
+  await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.getByRole("heading", { name: "Flag an injury" })).toBeVisible();
+});
+
+test("Steady Strength has no Injury section and no I'm injured link", async ({ page }) => {
+  await page.clock.install({ time: new Date(`${TODAY}T12:00:00`) });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("workout-app.active-program", JSON.stringify({ version: 1, programId: "steady-strength" }));
+    window.localStorage.setItem("steady-strength.settings", JSON.stringify({ version: 2, startDate: "2026-11-02", maxReps: {}, maxSavedOn: {} }));
+  });
+
+  await page.goto("/#/today");
+  await expect(page.locator(".app-main h1, .app-main .card-title").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "I'm injured" })).toHaveCount(0);
+
+  await page.goto("/#/settings");
+  await expect(page.getByLabel("Start date")).toBeVisible();
+  await expect(page.locator(".injury-section")).toHaveCount(0);
+});
+
+
+// 23 Nov is week 4 Day 1 (a deload week), 25 Nov is Day 3 and 26 Nov is Day 4.
+const WEEK_4_DAY_1 = "2026-11-23";
+const WEEK_4_DAY_3 = "2026-11-25";
+const WEEK_4_DAY_4 = "2026-11-26";
+
+test("Day 1 with the shoulder flagged: pull-ups left out, a stand-in, pain-free Pallof press, and Add it back", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  // Left out: one compact line, no controls, no No-equipment tick.
+  const pullUps = page.locator(".item-row", { hasText: "Pull-ups" });
+  await expect(pullUps).toContainText("Left out for your shoulder");
+  await expect(pullUps.getByRole("button", { name: /Start EMOM/ })).toHaveCount(0);
+  await expect(pullUps.getByRole("checkbox")).toHaveCount(0);
+
+  // The boxing block says it is left out instead of asking "Boxing today?".
+  await expect(page.getByText("Boxing left out for your shoulder")).toBeVisible();
+  await expect(page.getByText("Boxing today?")).toHaveCount(0);
+
+  // The stand-in reads like a swapped row, with no No-equipment tick of its own.
+  const lyingLegRaise = page.locator(".item-row", { hasText: "Lying leg raise" });
+  await expect(lyingLegRaise).toContainText("Instead of Hanging leg raise");
+  await expect(lyingLegRaise.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("checkbox", { name: /Hanging leg raise/ })).toHaveCount(0);
+
+  // A kept caution row says pain-free only.
+  await expect(page.locator(".item-row", { hasText: "Pallof press" })).toContainText("Pain-free only");
+
+  // Add it back: the pull-ups come back at the halved dose (the deload week's 5 min, halved) with Start EMOM.
+  const addBack = pullUps.getByRole("button", { name: "Add it back, Pull-ups" });
+  expect(await addBack.boundingBox().then((box) => box?.height ?? 0)).toBeGreaterThanOrEqual(48);
+  await addBack.click();
+
+  const addedBackRow = page.locator(".item-row", { hasText: "Pull-ups" });
+  await expect(addedBackRow).toContainText("3 min");
+  await expect(addedBackRow).toContainText("Pain-free only");
+  await expect(addedBackRow).not.toContainText("Left out");
+  await expect(addedBackRow.getByRole("button", { name: /Start EMOM/ })).toBeVisible();
+
+  // The choice survives a reload.
+  await page.reload();
+  await expect(page.locator(".item-row", { hasText: "Pull-ups" })).toContainText("3 min");
+});
+
+test("a future preview date can't add a left-out item back", async ({ page }) => {
+  await seedOnDate(page, TODAY, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  await expect(page.locator(".item-row", { hasText: "Pull-ups" })).toContainText("Left out for your shoulder");
+  await expect(page.getByRole("button", { name: "Add it back, Pull-ups" })).toHaveCount(0);
+});
+
+test("a left-out item's log screen says there is nothing to log", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/log/${WEEK_4_DAY_1}/3/pull_up`);
+
+  await expect(page.getByText("Nothing to log here")).toBeVisible();
+});
+
+test("Day 3 with the shoulder flagged is the shoulder-free session", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_3, true);
+  await page.goto(`/?date=${WEEK_4_DAY_3}#/today`);
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Shoulder-free session · instead of Day 3 (Upper: push)");
+  await expect(page.locator(".item-row", { hasText: "Dead bug, legs only" })).toBeVisible();
+  await expect(page.getByText("Left out for your shoulder")).toHaveCount(0);
+});
+
+test("Day 4 with the shoulder flagged swaps kettlebell swings for broad jumps, which log and stay after a reload", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_4, true);
+  await page.goto(`/?date=${WEEK_4_DAY_4}#/today`);
+
+  const broadJumps = page.locator(".item-row", { hasText: "Broad jumps, hands on hips" });
+  await expect(broadJumps).toContainText("Instead of Kettlebell swings");
+
+  await broadJumps.locator(".item-open").click();
+  await expect(page.getByRole("heading", { name: "Broad jumps, hands on hips" })).toBeVisible();
+  await page.getByRole("button", { name: /Log set/ }).first().click();
+
+  await page.goto(`/?date=${WEEK_4_DAY_4}#/today`);
+  await page.reload();
+  const afterReload = page.locator(".item-row", { hasText: "Broad jumps, hands on hips" });
+  await expect(afterReload).toContainText("Instead of Kettlebell swings");
+  await expect(afterReload).toContainText("1/");
+});
+
+test("the same dates are unchanged without the flag", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, false);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  await expect(page.locator(".item-row", { hasText: "Pull-ups" })).toContainText("EMOM");
+  await expect(page.getByText("Left out for your shoulder")).toHaveCount(0);
+  await expect(page.getByText("Pain-free only")).toHaveCount(0);
+  await expect(page.locator(".item-row", { hasText: "Hanging leg raise" }).getByRole("checkbox")).toBeVisible();
+  await expect(page.getByText("Boxing today?")).toBeVisible();
+
+  await page.goto(`/?date=${WEEK_4_DAY_3}#/today`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Upper: push");
+});
+
+test("Add it back on the boxing block moves focus to its first added-back row", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  await expect(page.getByText("Boxing left out for your shoulder")).toBeVisible();
+  await page.getByRole("button", { name: /Add it back, Boxing/ }).click();
+
+  // The tapped button is gone; focus lands on the first row of the block that came back.
+  await expect(page.getByText("Boxing left out for your shoulder")).toHaveCount(0);
+  const boxingRow = page.locator(".item-row", { hasText: "Pain-free only" }).filter({ has: page.locator(".item-open") }).last();
+  await expect(boxingRow.locator(".item-open")).toBeFocused();
+});

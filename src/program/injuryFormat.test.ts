@@ -334,6 +334,12 @@ describe("top-level injurySessions", () => {
     );
   });
 
+  it("rejects a session with no blocks (it would show nothing on a day with nothing left)", () => {
+    expect(errorMessageAfter((json) => withSessions(json, { shoulder: { name: "N", blocks: [] } }))).toBe(
+      "injurySessions.shoulder.blocks: an injury session needs at least one block",
+    );
+  });
+
   it("reports block and item errors with the session's path", () => {
     expect(errorMessageAfter((json) => withSessions(json, sessionWith([{ exercise: "nope" }])))).toBe(
       "injurySessions.shoulder.blocks[0].items[0].exercise: unknown exercise \"nope\"",
@@ -352,7 +358,7 @@ describe("top-level injurySessions", () => {
   it("warns about a misspelt key in the session and in the section name", () => {
     const json = readRealProgramJson();
     addStandInExercises(json);
-    json.injurySessions = { shoulder: { name: "N", blocks: [], blocs: [] } };
+    json.injurySessions = { shoulder: { name: "N", blocks: [{ type: "core", items: [{ exercise: "wall_plank" }] }], blocs: [] } };
     json.injurySession = {};
     const { warnings } = parseProgram(json);
 

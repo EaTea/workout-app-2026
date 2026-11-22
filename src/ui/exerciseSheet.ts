@@ -23,8 +23,14 @@ const COACHING_PRACTICE_TEXT = "Based on coaching practice";
 /** Selector for things that can take keyboard focus inside the sheet. */
 const FOCUSABLE = "a[href], button";
 
-/** Opens the sheet for `item`; `opener` regains focus when it closes. */
-export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
+/**
+ * Opens the sheet for `item`; `opener` regains focus when it closes.
+ * `isShoulderFlagged` is whether the shoulder is flagged on the date the log
+ * screen shows: the "Your shoulder" section describes what Today does while
+ * flagged, so it appears only then. A stand-in row says what it stands in for
+ * instead (it is its own exercise, with nothing to say about the shoulder).
+ */
+export function openExerciseSheet(item: ItemView, opener: HTMLElement, isShoulderFlagged: boolean): void {
   const { exercise } = item;
   const content: HTMLElement[] = [];
 
@@ -36,6 +42,7 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
     element("div", "kicker", category),
     title,
     ...(item.swappedFrom !== undefined ? [element("p", "sheet-text", `Instead of ${item.swappedFrom.name}`)] : []),
+    ...(item.injuryStandInFor !== undefined ? [element("p", "sheet-text", `Instead of ${item.injuryStandInFor.original.name}`)] : []),
     element("p", "sheet-summary", formatPrescriptionSummary(item)),
   );
 
@@ -52,9 +59,8 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   if (item.noEquipment) {
     content.push(...renderNoEquipmentSection(item.noEquipment));
   }
-  const injuryLine = injurySectionLine(item);
+  const injuryLine = item.injuryStandInFor === undefined ? injurySectionLine(item, isShoulderFlagged) : undefined;
   if (injuryLine !== undefined) {
-    // Information only: Today does not act on the flag yet (Injury 2).
     content.push(sectionHeading("Your shoulder"), element("p", "sheet-text", injuryLine));
     const standInCues = injuryStandInCues(item);
     if (standInCues.length > 0) {

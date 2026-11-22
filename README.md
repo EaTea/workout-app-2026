@@ -137,6 +137,28 @@ Today's header that opens the same list in the bottom sheet (Back, Close,
 Escape or a tap outside closes it). A program without safety notes (Explosive
 Endurance) shows none of these.
 
+Injuries: in Explosive Endurance (a program whose file tags exercises with
+`loads`; Steady Strength shows nothing), Settings has an "Injury" card, and
+Today an "I'm injured" link to it. Pick the area (the shoulder), the side and
+an optional note, then "Flag it": the "Get your shoulder checked" sheet opens
+once, and Today shows a banner ("Right shoulder · since 22 Nov", "Pain-free
+only.", with a "When to get it checked" button) for as long as it is flagged.
+The flag always starts today's real date, never a `?date=` preview. "My
+shoulder feels OK" asks first ("The app can't tell whether your shoulder is
+ready...") and then clears it; cleared injuries are listed as past injuries.
+The app never says an injury has healed.
+
+While the shoulder is flagged, Today, the log screen and the timers train the
+same injured session. An "avoid" exercise is one line ("Left out for your
+shoulder · Add it back"; an all-left-out Boxing block says "Boxing left out
+for your shoulder") with no Start or Log controls, and it isn't counted.
+"Add it back" brings it back for that date only, at half the sets and "Pain-free
+only · stop if it hurts" (not on a future `?date=` preview). A stand-in shows
+as "Instead of <original>" and logs under its own exercise, with no "No
+equipment" tick. Kept "caution" rows say "Pain-free only". If nothing but the
+warm-up would be left (Day 3) the header reads "Shoulder-free session ·
+instead of Day 3 (Upper: push)".
+
 "Show me": in Steady Strength, a large "▶ Show me" button sits beside each
 exercise that has an animation, on Today, on the day plan, and in the log
 screen's header next to ⓘ. It opens a full-screen 3D mannequin showing one
@@ -367,8 +389,8 @@ by `src/program/injuryData.test.ts`. The exercise sheet shows it: a "Your
 shoulder" section on tagged exercises says what the app will do while the
 shoulder is flagged and gives the stand-in's name, this week's dose and its
 cues (on a row ticked "No equipment" it still describes the original
-exercise, since an injury wins over the tick). Untagged exercises have no such
-section. Today doesn't act on the flag yet.
+exercise, since an injury wins over the tick). The section shows only while the
+shoulder is flagged on the date; untagged exercises never have it.
 
 ## Warm-up rotation
 

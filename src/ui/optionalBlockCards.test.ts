@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { WorkoutLog } from "../log/model";
 import { applySkippedBlocks } from "../optionalBlocks/session";
+import { buildSwappedSession } from "../noEquipment/session";
 import { parseProgram } from "../program/parse";
 import { buildSession } from "../program/schedule";
 import type { TrainingSessionView } from "../program/combine";
@@ -34,6 +35,13 @@ describe("undecidedOptionalBlocks", () => {
 
   it("lists nothing once the block is skipped (Add it back is the way back)", () => {
     expect(undecidedOptionalBlocks(sessionWithSkips(["1:6"]), { sessions: {} }, DATE)).toEqual([]);
+  });
+
+  it("lists nothing while the shoulder is flagged: the block's items are all left out (its own line shows instead)", () => {
+    const flagged = buildSwappedSession(program, settings, { sessions: {} }, new Map(), DATE, new Set(), [{ area: "shoulder", side: "right", from: "2026-11-01" }]).session;
+    if (flagged.kind !== "training") throw new Error("expected training");
+
+    expect(undecidedOptionalBlocks(flagged, { sessions: {} }, DATE)).toEqual([]);
   });
 
   it("lists nothing on a day without an optional block", () => {
