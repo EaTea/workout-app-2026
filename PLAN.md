@@ -2597,6 +2597,109 @@ no deload change, and that Day 3's target can grow.
        `public/program.json`, and extend Day 3's `targetMinutes` from 40 to 47.
 2. [x] Mirror the change in the program document (kept in the project files, not this repo)'s Day 3 row and notes.
 
+### Plan: History loads week by week *(design)*
+
+**The problem.** History gets slow as the log grows. `draw()` in
+`src/ui/history.ts` builds a card for every logged date, and the progress
+charts, and it runs again on every expand, collapse, open set, Cancel, Save
+and Delete. With about a year of daily sessions, each tap takes roughly 0.8
+to 1 s on a slowed phone CPU. Ed asked (18 Nov) for History to load
+progressively, week by week. Startup latency is a separate piece of work,
+so this plan does not touch `src/main.ts` or how `src/log/storage.ts`
+loads the log.
+
+**How it should behave.**
+
+- History first shows the cards for the **latest 2 program weeks**, newest
+  first, as now.
+- Under the last card, a **"Show older weeks"** button adds the next 2
+  weeks below the cards already shown. The cards on screen stay as they
+  are (expanded rows stay expanded), and focus moves to the heading of the
+  first card it added. When nothing older is left, the button goes.
+- The **progress charts still use the whole log**, not only the shown
+  weeks.
+- Leaving History and coming back starts again at 2 weeks.
+- **Taps redraw only what they change.** Expand, collapse, open a set and
+  Cancel redraw only that session's card. Save redraws that card and the
+  progress charts. Delete does the same, or removes the card if it was the
+  session's last set. Focus rules stay as they are today.
+- Nothing about storage changes: no new fields, no new keys.
+
+**What counts as a week.** Program weeks come from the stored
+`programWeek` on each session, which is what the card headers show. Walking
+the dates newest first, a new week starts when the stored week changes, or
+when the date is 7 or more days before the newest date of the current
+week. The second rule keeps two runs of the program apart (week 1 of a
+restart next to week 1 of the first run), and gives old sessions with no
+stored week groups of at most 7 days. A day with only skipped sets has no
+card today, so it isn't counted.
+
+```
+ dates, newest first     stored week    group
+ 2026-11-18                  3          ─┐ week A (shown)
+ 2026-11-16                  3          ─┘
+ 2026-11-11                  2          ─┐ week B (shown)
+ 2026-11-09                  2          ─┘
+ 2026-11-04                  1          ── week C  ◀ "Show older weeks"
+```
+
+**Approach, and alternatives.** A pure function groups the dates into
+weeks, and the screen keeps a count of weeks shown. Each card is built by
+one function and kept in a map by date, so one card can be swapped in
+place. I considered:
+
+- *Paging by a fixed number of sessions* (say 14 cards): simpler, but
+  breaks a program week across the button, while the card headers are all
+  about weeks.
+- *Infinite scroll* (load more near the bottom): no button to tap, but
+  it needs a scroll observer, is harder to test, and is harder to use with
+  a screen reader. A button is enough for one user.
+- *Only per-card redraws, no paging*: fixes taps but not the first draw of
+  a year of cards. Doing both is still small.
+
+**Files.** A new `src/log/historyWeeks.ts` (the grouping, with
+`historyWeeks.test.ts`), `src/ui/history.ts`, `src/style.css` (the
+button), `e2e/history.spec.ts`, `README.md` (History section). No wire
+types change, so there is nothing new to map (CLAUDE.md section 6).
+
+**Milestones** (one PR each, in this order):
+
+- **History PR 1 — History shows 2 weeks, then "Show older weeks"** *(behavior change)*
+  1. [ ] `groupDatesIntoWeeks(log)` in `src/log/historyWeeks.ts`, by the
+     rule above. Unit tests: an empty log, one week, a week change, a
+     restart at week 1, sessions with no stored week, a gap of 7 days or
+     more inside the same stored week, and skip-only days left out.
+  2. [ ] History draws only the shown weeks, with the "Show older weeks"
+     button and the focus rule above. Progress charts stay on the whole
+     log. E2E: seed 5 weeks, see only 2 weeks of cards, tap twice to see
+     all, the button goes, an expanded card stays expanded, and the
+     existing History tests still pass. README updated.
+  - **Merge point:** a long log opens with 2 weeks and the rest is a tap
+    away.
+- **History PR 2 — Redraw only the tapped card** *(internal refactor, with a speed-up)*
+  1. [ ] Build each card through one function and keep it by date; expand,
+     collapse, open a set and Cancel replace only that card. The progress
+     charts are no longer rebuilt on those taps.
+  2. [ ] Save replaces the card and the progress charts; Delete does too,
+     or removes the card, and shows the page message the same way as now.
+  3. [ ] E2E: after expanding a row, the other cards and the charts are
+     the same DOM nodes as before the tap (checked with a marker set in
+     the page), and the focus tests still pass. Before and after timings
+     for a tap, with a year of seeded sessions and the CPU slowed 4×, go
+     in the PR description.
+  - **Merge point:** a tap on History costs one card, not the whole page.
+
+History PR 2 has no visible change apart from speed, so it is kept apart
+from History PR 1's behavior change (CLAUDE.md section 2).
+
+**Open questions for Ed** (with the answers I'm assuming):
+
+1. **How much to show.** Assumed: 2 weeks at first, and 2 more for each
+   tap. 4 at first is an easy change if 2 feels short.
+2. **Week labels.** Assumed: no extra "Week 5" heading between groups,
+   since every card header already names its week.
+3. **Coming back to History.** Assumed: it starts again at 2 weeks rather
+   than remembering how far you went.
 ### Startup time with a long log *(design, then internal refactor: tooling only)*
 
 Ed asked why opening the app (Today) gets slower as the log grows, and for
