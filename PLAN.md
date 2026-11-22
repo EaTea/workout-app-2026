@@ -2975,10 +2975,16 @@ shoulder flagged from 22 Nov):
   3a. [x] UI, the flag: Settings "Injury" section (flag, clear with a plain
      confirmation, past injuries as lines), Today's "I'm injured" link and
      banner, and the "When to get it checked" sheet. E2E in `e2e/injury.spec.ts`.
-  3b. [ ] UI, the rows: left-out / stand-in / caution rows, "Add it back", the
+  3b. [x] UI, the rows: left-out / stand-in / caution rows, "Add it back", the
      shoulder-free session heading, log screen and timers (including the
      left-out item's part in the log screen's progress), note (c), and E2E on
      Day 1, Day 3 and Day 4.
+     Differences: the "Pain-free only" line sits under the name/details, not
+     under the dose; the blocks count in "~N min · M blocks" skips blocks whose
+     items are all left out; a stand-in's sheet says "Instead of <original>"
+     and has no "Your shoulder" section; an added-back row's sheet still uses the
+     "left out" wording; a combined day shows ordinary blocks, with no
+     area-free heading. Injuries are re-read on each render.
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half

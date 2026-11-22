@@ -31,7 +31,8 @@ import { chooseProgramAndReload, renderProgramPickerScreen, renderSwitchProgramL
 import { renderTodayScreen } from "./today";
 import { scrollToNextUnfinishedRow, todayRowKey } from "./returnScroll";
 import { loadTicks, setTick } from "../noEquipment/storage";
-import { loadInjuries } from "../injury/storage";
+import { loadInjuries, loadInjuryChoices, setInjuryChoice } from "../injury/storage";
+import type { InjuryChoices } from "../injury/model";
 import { buildSwappedSessionFor } from "../noEquipment/session";
 import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { OptionalBlockControl } from "./optionalBlockCards";
@@ -255,6 +256,8 @@ export function startApp(
   let combines: CombinesByDate = loadCombines(localStorage, storageKeys.combines);
   /** The optional blocks (boxing) skipped per date (kept in localStorage too; see optionalBlocks/storage.ts). */
   let skippedOptionalBlocks: SkippedBlocksByDate = loadOptionalBlockChoices(localStorage, storageKeys.optionalBlockChoices);
+  /** The per-date injury choices ("Add it back"; kept in localStorage too; see injury/storage.ts). The injuries themselves are re-read on each use, since Settings changes them. */
+  let injuryChoices: InjuryChoices = loadInjuryChoices(localStorage, storageKeys.injuryChoices);
   /** The date "Remind me tomorrow" was tapped on the check-in card (kept in localStorage too), or undefined. */
   let checkInSnoozedDate = loadStoredValue(storageKeys.checkInSnoozed, checkInSnoozedFromWire);
   /** The program week whose drop banner was dismissed (kept in localStorage too), or undefined. */
@@ -304,7 +307,7 @@ export function startApp(
     let isWanted = false;
     if (sessionDate !== undefined && sessionDate === resolveToday(window.location.search)) {
       try {
-        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate(), skippedOptionalBlocks).session, log, sessionDate, new Date());
+        isWanted = isSessionInProgress(buildSwappedSessionFor(program, settings, log, noEquipmentTicks, combines, sessionDate, todayLocalDate(), skippedOptionalBlocks, loadInjuries(localStorage, storageKeys.injuries), injuryChoices).session, log, sessionDate, new Date());
       } catch {
         isWanted = false;
       }
@@ -382,6 +385,34 @@ export function startApp(
     render();
     // The tapped button is gone after the re-render: focus its counterpart, as the No equipment tick does.
     document.querySelector<HTMLElement>(`[data-optional-block-key="${CSS.escape(blockKey)}"][data-optional-block-control="${focusAfter}"]`)?.focus();
+    return null;
+  }
+
+  /**
+   * "Add it back" tapped on a left-out item (or a whole left-out block) on the
+   * shown date: stores the choice for each item key (`setInjuryChoice`; the real
+   * today only decides how old choices are pruned), then re-renders Today so the
+   * rows, the log screen and the timers show the item at half the sets. A future
+   * preview is refused, like logging. Focus moves to the added-back row, since
+   * the tapped button is gone. Returns null on success or the failure message.
+   */
+  function handleAddBackInjuredItems(itemKeys: string[]): string | null {
+    if (shownDate > todayLocalDate()) return "Items can't be added back on a future date.";
+
+    for (const itemKey of itemKeys) {
+      const result = setInjuryChoice(localStorage, storageKeys.injuryChoices, shownDate, itemKey, "addBack", todayLocalDate());
+      if (!result.ok) return result.error;
+      injuryChoices = result.choices;
+    }
+
+    render();
+
+    // An item key is "<position>:<id>" or "<day>.<position>:<id>"; a row key is "<position>:<id>:<day>".
+    const keyParts = /^(?:(\d+)\.)?(\d+:.+)$/.exec(itemKeys[0] ?? "");
+    if (itemKeys.length === 1 && keyParts !== null) {
+      const rowKey = `${keyParts[2]}:${keyParts[1] ?? ""}`;
+      document.querySelector<HTMLElement>(`.item-row[data-row-key="${CSS.escape(rowKey)}"] .item-open`)?.focus();
+    }
     return null;
   }
 
@@ -803,7 +834,7 @@ export function startApp(
         // Coming back to Today should land on the next unfinished exercise after this one (PR 34).
         // Only for the day Today shows: a log link to another date must not scroll that date's Today.
         rowToReturnTo = logTarget.date === shownDate ? todayRowKey(logTarget.blockPosition, logTarget.exerciseId, logTarget.day) : undefined;
-        main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines, skippedOptionalBlocks));
+        main.append(renderLogScreen(program, storageKeys.programId, settings, logTarget.date, logTarget.blockPosition, logTarget.exerciseId, log, changeLog, todayLocalDate(), noEquipmentTicks, logTarget.day, combines, skippedOptionalBlocks, loadInjuries(localStorage, storageKeys.injuries), injuryChoices));
       } else if (route === "history") {
         main.append(renderHistoryScreen(program, log, changeLog, skippedOptionalBlocks));
       } else if (route === "plan" && planTarget !== undefined) {
@@ -858,7 +889,12 @@ export function startApp(
             render();
             window.scrollTo(0, scrollY);
           },
-        }, loadInjuries(localStorage, storageKeys.injuries)));
+        }, {
+          injuries: loadInjuries(localStorage, storageKeys.injuries),
+          choices: injuryChoices,
+          canChoose: shownDate <= todayLocalDate(),
+          onAddBack: handleAddBackInjuredItems,
+        }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.
       root.replaceChildren(main, renderNavigationBar(route === "log" || route === "overview" || route === "plan" ? "today" : route));

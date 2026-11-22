@@ -84,6 +84,8 @@ export function undecidedOptionalBlocks(session: TrainingSessionView | CombinedS
 
   for (const { source, block } of blockSlotsOf(session)) {
     if (block.optional === undefined || block.skipped) continue;
+    // An injury left every item out: the block shows its own "left out" line instead of the question.
+    if (block.items.length > 0 && block.items.every((item) => item.leftOut !== undefined)) continue;
     if (isBlockStarted(log, date, source.day, source.blockPosition, block.items.map((item) => item.exercise.id))) continue;
 
     entries.push({ blockKey: optionalBlockKey(source.day, source.blockPosition), label: block.optional.label, day: source.day });

@@ -14,6 +14,28 @@ async function seedExplosiveEndurance(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Fixes the clock at noon on `date`, seeds Explosive Endurance settings and,
+ * when `flagged`, an open right-shoulder injury that started on 1 Nov (so
+ * every date used below is inside it; flagging in Settings would start it on
+ * the real date, which is the date's own day at best).
+ */
+async function seedOnDate(page: Page, date: string, flagged: boolean): Promise<void> {
+  await page.clock.install({ time: new Date(`${date}T12:00:00`) });
+  await page.addInitScript((isFlagged) => {
+    window.localStorage.setItem(
+      "explosive-endurance.settings",
+      JSON.stringify({ version: 2, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {} }),
+    );
+    if (isFlagged && window.localStorage.getItem("explosive-endurance.injuries") === null) {
+      window.localStorage.setItem(
+        "explosive-endurance.injuries",
+        JSON.stringify({ version: 1, injuries: [{ area: "shoulder", side: "right", from: "2026-11-01" }] }),
+      );
+    }
+  }, flagged);
+}
+
 /** Flags the right shoulder in Settings and closes the sheet that opens. */
 async function flagRightShoulder(page: Page): Promise<void> {
   await page.goto("/#/settings");
@@ -84,4 +106,105 @@ test("Steady Strength has no Injury section and no I'm injured link", async ({ p
   await page.goto("/#/settings");
   await expect(page.getByLabel("Start date")).toBeVisible();
   await expect(page.locator(".injury-section")).toHaveCount(0);
+});
+
+
+// 23 Nov is week 4 Day 1 (a deload week), 25 Nov is Day 3 and 26 Nov is Day 4.
+const WEEK_4_DAY_1 = "2026-11-23";
+const WEEK_4_DAY_3 = "2026-11-25";
+const WEEK_4_DAY_4 = "2026-11-26";
+
+test("Day 1 with the shoulder flagged: pull-ups left out, a stand-in, pain-free Pallof press, and Add it back", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  // Left out: one compact line, no controls, no No-equipment tick.
+  const pullUps = page.locator(".item-row", { hasText: "Pull-ups" });
+  await expect(pullUps).toContainText("Left out for your shoulder");
+  await expect(pullUps.getByRole("button", { name: /Start EMOM/ })).toHaveCount(0);
+  await expect(pullUps.getByRole("checkbox")).toHaveCount(0);
+
+  // The boxing block says it is left out instead of asking "Boxing today?".
+  await expect(page.getByText("Boxing left out for your shoulder")).toBeVisible();
+  await expect(page.getByText("Boxing today?")).toHaveCount(0);
+
+  // The stand-in reads like a swapped row, with no No-equipment tick of its own.
+  const lyingLegRaise = page.locator(".item-row", { hasText: "Lying leg raise" });
+  await expect(lyingLegRaise).toContainText("Instead of Hanging leg raise");
+  await expect(lyingLegRaise.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("checkbox", { name: /Hanging leg raise/ })).toHaveCount(0);
+
+  // A kept caution row says pain-free only.
+  await expect(page.locator(".item-row", { hasText: "Pallof press" })).toContainText("Pain-free only");
+
+  // Add it back: the pull-ups come back at the halved dose (the deload week's 5 min, halved) with Start EMOM.
+  const addBack = pullUps.getByRole("button", { name: "Add it back, Pull-ups" });
+  expect(await addBack.boundingBox().then((box) => box?.height ?? 0)).toBeGreaterThanOrEqual(48);
+  await addBack.click();
+
+  const addedBackRow = page.locator(".item-row", { hasText: "Pull-ups" });
+  await expect(addedBackRow).toContainText("3 min");
+  await expect(addedBackRow).toContainText("Pain-free only");
+  await expect(addedBackRow).not.toContainText("Left out");
+  await expect(addedBackRow.getByRole("button", { name: /Start EMOM/ })).toBeVisible();
+
+  // The choice survives a reload.
+  await page.reload();
+  await expect(page.locator(".item-row", { hasText: "Pull-ups" })).toContainText("3 min");
+});
+
+test("a future preview date can't add a left-out item back", async ({ page }) => {
+  await seedOnDate(page, TODAY, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  await expect(page.locator(".item-row", { hasText: "Pull-ups" })).toContainText("Left out for your shoulder");
+  await expect(page.getByRole("button", { name: "Add it back, Pull-ups" })).toHaveCount(0);
+});
+
+test("a left-out item's log screen says there is nothing to log", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/log/${WEEK_4_DAY_1}/3/pull_up`);
+
+  await expect(page.getByText("Nothing to log here")).toBeVisible();
+});
+
+test("Day 3 with the shoulder flagged is the shoulder-free session", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_3, true);
+  await page.goto(`/?date=${WEEK_4_DAY_3}#/today`);
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Shoulder-free session · instead of Day 3 (Upper: push)");
+  await expect(page.locator(".item-row", { hasText: "Dead bug, legs only" })).toBeVisible();
+  await expect(page.getByText("Left out for your shoulder")).toHaveCount(0);
+});
+
+test("Day 4 with the shoulder flagged swaps kettlebell swings for broad jumps, which log and stay after a reload", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_4, true);
+  await page.goto(`/?date=${WEEK_4_DAY_4}#/today`);
+
+  const broadJumps = page.locator(".item-row", { hasText: "Broad jumps, hands on hips" });
+  await expect(broadJumps).toContainText("Instead of Kettlebell swings");
+
+  await broadJumps.locator(".item-open").click();
+  await expect(page.getByRole("heading", { name: "Broad jumps, hands on hips" })).toBeVisible();
+  await page.getByRole("button", { name: /Log set/ }).first().click();
+
+  await page.goto(`/?date=${WEEK_4_DAY_4}#/today`);
+  await page.reload();
+  const afterReload = page.locator(".item-row", { hasText: "Broad jumps, hands on hips" });
+  await expect(afterReload).toContainText("Instead of Kettlebell swings");
+  await expect(afterReload).toContainText("1/");
+});
+
+test("the same dates are unchanged without the flag", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, false);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  await expect(page.locator(".item-row", { hasText: "Pull-ups" })).toContainText("EMOM");
+  await expect(page.getByText("Left out for your shoulder")).toHaveCount(0);
+  await expect(page.getByText("Pain-free only")).toHaveCount(0);
+  await expect(page.locator(".item-row", { hasText: "Hanging leg raise" }).getByRole("checkbox")).toBeVisible();
+  await expect(page.getByText("Boxing today?")).toBeVisible();
+
+  await page.goto(`/?date=${WEEK_4_DAY_3}#/today`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Upper: push");
 });

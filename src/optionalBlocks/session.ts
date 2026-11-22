@@ -76,15 +76,22 @@ export function applySkippedBlocks(session: SessionView, skippedKeys: ReadonlySe
   return { ...session, blocks, targetMinutes: Math.max(0, session.targetMinutes - minutesSaved) };
 }
 
+/** True for a block that is skipped, or whose every item is left out by an injury. */
+function isBlockNotDone(block: BlockView): boolean {
+  return block.skipped === true || (block.items.length > 0 && block.items.every((item) => item.leftOut !== undefined));
+}
+
 /**
  * How many blocks the header should count: all of a session's blocks except
  * skipped ones. For a combined session an alternate block (two days' parts)
- * counts unless every part is skipped. Used by Today's "~N min · M blocks".
+ * counts unless every part is skipped. A block whose items an injury leaves
+ * out is one line on Today, not a block to do, so it is not counted either.
+ * Used by Today's "~N min · M blocks".
  */
 export function blockCountOf(session: Extract<SessionView, { kind: "training" }> | CombinedSession): number {
   if (session.kind === "combined") {
-    return session.blocks.filter((combinedBlock: CombinedBlock) => combinedBlock.parts.some((part) => !part.block.skipped)).length;
+    return session.blocks.filter((combinedBlock: CombinedBlock) => combinedBlock.parts.some((part) => !isBlockNotDone(part.block))).length;
   }
 
-  return session.blocks.filter((block) => !block.skipped).length;
+  return session.blocks.filter((block) => !isBlockNotDone(block)).length;
 }
