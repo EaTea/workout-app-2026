@@ -40,7 +40,6 @@ import type {
   InjuryLoadLevel,
   InjurySession,
   InjuryStandIn,
-  NoEquipmentSwap,
   ProgressionPhase,
   TimerAdjustments,
   Program,
@@ -108,9 +107,13 @@ const ITEM_KEYS = allowedKeysOf<ItemWire>()([
   "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "gearUpSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment", "injury", "weeks",
 ]);
 const NO_EQUIPMENT_SWAP_KEYS = allowedKeysOf<NoEquipmentSwapWire>()(["exercise", "reps", "durationSec", "load", "note", "tempo"]);
+/** Keys an injury stand-in may set: a swap's own, plus `perSide`. */
+const INJURY_STAND_IN_KEYS = [...NO_EQUIPMENT_SWAP_KEYS, "perSide"];
 const INJURY_SESSION_KEYS = allowedKeysOf<InjurySessionWire>()(["name", "blocks"]);
 /** Item fields a swap may not set because it keeps them from the original (everything but its own keys; includes `noEquipment` and `injury`, so swaps can't nest). Derived so it follows ITEM_KEYS. */
 const KEPT_FROM_ORIGINAL_KEYS = ITEM_KEYS.filter((key) => !NO_EQUIPMENT_SWAP_KEYS.includes(key));
+/** Same, for injury stand-ins, which may also set `perSide`. */
+const KEPT_FROM_ORIGINAL_KEYS_FOR_STAND_IN = ITEM_KEYS.filter((key) => !INJURY_STAND_IN_KEYS.includes(key));
 const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
 const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest", "timerAdjustments"]);
 const TIMER_ADJUSTMENT_KEYS = allowedKeysOf<TimerAdjustmentsWire>()(["intervalWorkSec", "coreRestBetweenPairsSec"]);
@@ -273,6 +276,12 @@ function readFlag(record: UnknownRecord, key: string, path: string): boolean {
   if (value === undefined) return false;
   if (typeof value !== "boolean") fail(child(path, key), `expected true or false but found ${describe(value)}`);
   return value;
+}
+
+/** Reads an optional true/false field: undefined when absent, an error when present but not a boolean. Used where "absent" must differ from "false" (an injury stand-in's `perSide` override). */
+function readOptionalFlag(record: UnknownRecord, key: string, path: string): boolean | undefined {
+  if (record[key] === undefined) return undefined;
+  return readFlag(record, key, path);
 }
 
 /** Reads a required list of strings. */
@@ -475,20 +484,21 @@ function parseItemSwap(
   path: string,
   warnings: ProgramWarning[],
   swapLabel = "a no-equipment swap",
-): NoEquipmentSwap {
+  allowPerSide = false,
+): InjuryStandIn {
   const record = expectRecord(raw, path);
+  const keptKeys = allowPerSide ? KEPT_FROM_ORIGINAL_KEYS_FOR_STAND_IN : KEPT_FROM_ORIGINAL_KEYS;
 
   for (const key of Object.keys(record)) {
     if (key === "gearUpSec") {
       // The schedule drops the original's gear-up for a swap (applyNoEquipmentSwap), so it is never "kept".
       fail(child(path, key), `${swapLabel} has no gear-up break, so it can't be set here`);
     }
-    if (KEPT_FROM_ORIGINAL_KEYS.includes(key)) {
+    if (keptKeys.includes(key)) {
       fail(child(path, key), `a swap keeps "${key}" from the original item, so it can't be set here`);
     }
   }
-  // `InjurySwapWire` is the same type as `NoEquipmentSwapWire`, so this key list serves injury stand-ins too.
-  collectUnknownFields(record, NO_EQUIPMENT_SWAP_KEYS, path, warnings);
+  collectUnknownFields(record, allowPerSide ? INJURY_STAND_IN_KEYS : NO_EQUIPMENT_SWAP_KEYS, path, warnings);
 
   const swapExerciseId = readString(record, "exercise", path);
   const swapExercise = Object.hasOwn(exercises, swapExerciseId) ? exercises[swapExerciseId] : undefined;
@@ -518,6 +528,8 @@ function parseItemSwap(
     load: readOptionalString(record, "load", path),
     note: readOptionalString(record, "note", path),
     tempo: readOptionalString(record, "tempo", path),
+    // Only injury stand-ins may override perSide (a noEquipment swap's perSide is rejected above).
+    perSide: allowPerSide ? readOptionalFlag(record, "perSide", path) : undefined,
   };
 }
 
@@ -540,7 +552,7 @@ function parseInjuryStandIns(
   for (const [area, rawStandIn] of Object.entries(record)) {
     const areaPath = child(path, area);
     failOnUnknownInjuryArea(area, areaPath);
-    standIns[area as InjuryArea] = parseItemSwap(rawStandIn, original, exercises, areaPath, warnings, "an injury stand-in");
+    standIns[area as InjuryArea] = parseItemSwap(rawStandIn, original, exercises, areaPath, warnings, "an injury stand-in", true);
   }
 
   return standIns;

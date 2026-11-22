@@ -2,7 +2,7 @@ import type { ItemView } from "../program/schedule";
 import { closeOnBack } from "./backToClose";
 import { element } from "./dom";
 import { formatPrescriptionSummary } from "./format";
-import { injurySectionLine } from "./injurySheetText";
+import { injuryStandInCues, injurySectionLine } from "./injurySheetText";
 
 /**
  * Bottom sheet with the details for one exercise (cues, alternative,
@@ -56,6 +56,10 @@ export function openExerciseSheet(item: ItemView, opener: HTMLElement): void {
   if (injuryLine !== undefined) {
     // Information only: Today does not act on the flag yet (Injury 2).
     content.push(sectionHeading("Your shoulder"), element("p", "sheet-text", injuryLine));
+    const standInCues = injuryStandInCues(item);
+    if (standInCues.length > 0) {
+      content.push(bulletList(standInCues));
+    }
   }
   if (exercise.progression.length > 0) {
     content.push(sectionHeading("Progression"), bulletList(exercise.progression));

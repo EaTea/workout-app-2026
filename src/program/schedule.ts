@@ -526,10 +526,11 @@ export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
 /**
  * The dose rules shared by "No equipment" swaps and injury stand-ins (both
  * are `NoEquipmentSwap`-shaped, validated by one parser function): see
- * `applyNoEquipmentSwap` for the diagram. The result has neither
+ * `applyNoEquipmentSwap` for the diagram (a stand-in may also set `perSide`;
+ * a swap never does). The result has neither
  * `noEquipment` nor `injury`, so a stand-in is never swapped again.
  */
-export function applyStandIn(item: BlockItem, swap: NoEquipmentSwap): BlockItem {
+export function applyStandIn(item: BlockItem, swap: NoEquipmentSwap & { perSide?: boolean }): BlockItem {
   return {
     ...item,
     exerciseId: swap.exercise.id,
@@ -545,6 +546,8 @@ export function applyStandIn(item: BlockItem, swap: NoEquipmentSwap): BlockItem 
     load: swap.load,
     note: swap.note,
     tempo: swap.tempo,
+    // A stand-in may override perSide (e.g. a side plank done on the uninjured side only).
+    perSide: swap.perSide ?? item.perSide,
     noEquipment: undefined,
     injury: undefined,
   };

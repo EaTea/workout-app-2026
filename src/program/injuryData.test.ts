@@ -10,7 +10,7 @@ import { buildSession } from "./schedule";
  * (PLAN.md, "Plan: train around an injury", milestone Injury 1). They pin
  * the `loads` tags, the `injury.shoulder` stand-ins and the shoulder-free
  * session to the plan's tables, so an accidental edit to the file fails here.
- * Nothing in the app reads these fields yet; the last test proves that.
+ * Today and the log screen don't read these fields yet; the last test proves that.
  */
 
 const rawJson = JSON.parse(readFileSync("public/program.json", "utf-8"));
@@ -42,6 +42,8 @@ const EXPECTED_STAND_INS: Record<string, { exerciseId: string; reps?: string | n
   "5:core:hanging_leg_raise": { exerciseId: "lying_leg_raise", reps: "15-20" },
   "1:core:side_plank": { exerciseId: "side_plank_uninjured_side" },
   "5:core:hollow_hold": { exerciseId: "hollow_hold_arms_by_sides" },
+  "1:warmup:ytwi": { exerciseId: "dead_bug_legs_only", reps: "8 per side" },
+  "5:warmup:ytwi": { exerciseId: "dead_bug_legs_only", reps: "8 per side" },
   "4:explosive:kettlebell_swing": { exerciseId: "broad_jump", reps: 5 },
   "2:mainStrength:zercher_bulgarian_split_squat": { exerciseId: "suitcase_bulgarian_split_squat" },
   "6:miniDose:zercher_bulgarian_split_squat": { exerciseId: "suitcase_bulgarian_split_squat" },
@@ -57,7 +59,6 @@ const EXPECTED_STAND_INS: Record<string, { exerciseId: string; reps?: string | n
  * not listed here must have a stand-in.
  */
 const EXPECTED_TAGGED_WITHOUT_STAND_IN = [
-  "1:warmup:ytwi", "5:warmup:ytwi",
   "1:warmup:pallof_press", "3:warmup:pallof_press",
   "3:warmup:lateral_raise", "5:warmup:lateral_raise",
   "3:warmup:plate_halo",
@@ -111,6 +112,8 @@ describe("shoulder tags in the shipped program", () => {
         expect(standIn?.reps, key).toBeUndefined();
       } else if (typeof expected.reps === "number") {
         expect(standIn?.reps, key).toEqual({ kind: "fixed", count: expected.reps });
+      } else if (!/^\d+-\d+$/.test(expected.reps)) {
+        expect(standIn?.reps, key).toEqual({ kind: "text", text: expected.reps });
       } else {
         const [min, max] = expected.reps.split("-").map(Number);
         expect(standIn?.reps, key).toEqual({ kind: "range", min, max });
@@ -125,7 +128,10 @@ describe("shoulder tags in the shipped program", () => {
     expect(byKey.get("5:core:back_extension")?.note).toBe("Slow; stays bodyweight because Day 4 loads the lower back");
     expect(byKey.get("1:core:hanging_leg_raise")?.tempo).toBe("2-3s lowering");
     expect(byKey.get("5:core:hanging_leg_raise")?.tempo).toBe("2-3s lowering");
-    expect(byKey.get("1:core:side_plank")?.note).toBe("Uninjured side only; rest through the other side's hold");
+    expect(byKey.get("1:core:side_plank")?.note).toBe("Uninjured side only");
+    expect(byKey.get("1:core:side_plank")?.perSide).toBe(false);
+    expect(byKey.get("4:miniDose:single_leg_calf_raise")?.load).toBe("uninjured hand");
+    expect(byKey.get("6:mainStrength:single_leg_calf_raise")?.load).toBe("uninjured hand; first set heavy");
     expect(byKey.get("2:mainStrength:zercher_bulgarian_split_squat")?.note).toBe("Switch legs without rest; rest between rounds");
     expect(byKey.get("4:mainStrength:single_leg_rdl")?.tempo).toBe("3s lowering");
     expect(byKey.get("6:mainStrength:single_leg_calf_raise")?.tempo).toBe("2s pause at the bottom");
@@ -171,6 +177,38 @@ describe("the shoulder-free session", () => {
     expect(core.items.map((item) => item.sets.length)).toEqual([3, 3, 3, 2]);
     expect(core.items[3]?.durationSec).toBe(30);
     expect(core.items[3]?.perSide).toBeFalsy();
+  });
+});
+
+describe("the stand-in views on 23 Nov 2026 (W4 D1, deload; start 2 Nov)", () => {
+  const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} } as TrainingSettings;
+
+  /** The shoulder stand-in view of `exerciseId` in Day 1's session on 23 Nov. */
+  function standInView(exerciseId: string) {
+    const session = buildSession(program, settings, "2026-11-23");
+    if (session.kind !== "training") throw new Error("expected a training day");
+    const item = session.blocks.flatMap((block) => block.items).find((candidate) => candidate.exercise.id === exerciseId);
+    const view = item?.injury?.shoulder;
+    if (view === undefined) throw new Error(`no shoulder stand-in view for ${exerciseId}`);
+    return view;
+  }
+
+  it("bodyweight back extension is 2 × 12–15 at bodyweight", () => {
+    const view = standInView("back_extension");
+
+    expect(view.exercise.id).toBe("bodyweight_back_extension");
+    expect(view.sets).toHaveLength(2);
+    for (const set of view.sets) expect(set.target).toEqual({ kind: "range", min: 12, max: 15 });
+    expect(view.load).toBe("bodyweight");
+  });
+
+  it("side plank on the uninjured side is 1 × 30s and not per side", () => {
+    const view = standInView("side_plank");
+
+    expect(view.exercise.id).toBe("side_plank_uninjured_side");
+    expect(view.sets).toHaveLength(1);
+    expect(view.durationSec).toBe(30);
+    expect(view.perSide).toBe(false);
   });
 });
 

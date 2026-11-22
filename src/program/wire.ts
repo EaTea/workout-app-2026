@@ -67,11 +67,14 @@ export interface NoEquipmentSwapWire {
 
 /**
  * An item's optional stand-in for one injured area (`injury.<area>`). It has
- * exactly the fields, and the parse rules, of a `noEquipment` swap: its own
- * exercise and dose text, with everything structural kept from the original
- * item.
+ * the fields, and the parse rules, of a `noEquipment` swap (its own exercise
+ * and dose text, everything structural kept from the original item), plus an
+ * optional `perSide` that a stand-in may set and a `noEquipment` swap may not.
  */
-export type InjurySwapWire = NoEquipmentSwapWire;
+export interface InjurySwapWire extends NoEquipmentSwapWire {
+  /** Optional: overrides the original item's `perSide` (e.g. false for a side plank done on the uninjured side only). */
+  perSide?: boolean;
+}
 
 /** One exercise inside a block. `exercise` is a key of `exercises`. */
 export interface ItemWire {

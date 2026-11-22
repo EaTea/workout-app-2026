@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { parseProgram } from "../program/parse";
 import type { ItemView } from "../program/schedule";
 import { buildSession } from "../program/schedule";
-import { injurySectionLine } from "./injurySheetText";
+import { applyNoEquipmentChoices, noEquipmentItemKey } from "../program/noEquipment";
+import { injuryStandInCues, injurySectionLine } from "./injurySheetText";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
@@ -17,7 +18,64 @@ function itemOn(date: string, exerciseId: string): ItemView {
   return found;
 }
 
+/** The item for `exerciseId` on `date` with its "No equipment" tick switched on, as the sheet receives it on Today. */
+function tickedItemOn(date: string, exerciseId: string): ItemView {
+  const session = buildSession(program, settings, date);
+  if (session.kind !== "training") throw new Error("not a training day");
+  const block = session.blocks.find((candidate) => candidate.items.some((item) => item.exercise.id === exerciseId));
+  if (!block) throw new Error(`no ${exerciseId} on ${date}`);
+
+  const ticked = applyNoEquipmentChoices(session, new Set([noEquipmentItemKey(block.position, exerciseId)]));
+  if (ticked.kind !== "training") throw new Error("not a training day");
+  const found = ticked.blocks.flatMap((candidate) => candidate.items).find((item) => item.swappedFrom?.id === exerciseId);
+  if (!found) throw new Error(`${exerciseId} was not swapped on ${date}`);
+  return found;
+}
+
+describe("injurySectionLine on a row ticked No equipment (the injury wins: it words the original)", () => {
+  it("ticked kettlebell swing (avoid) still says broad jumps replace it", () => {
+    const item = tickedItemOn("2026-11-05", "kettlebell_swing");
+
+    expect(item.exercise.id).not.toBe("kettlebell_swing");
+    expect(injurySectionLine(item)).toMatch(/^Loads the shoulder\. While your shoulder is flagged, Broad jumps, hands on hips replaces it: 5 \/ min, 8 min/);
+  });
+
+  it("ticked back extension (caution) uses the 'sore shoulder' wording and the bodyweight stand-in", () => {
+    const item = tickedItemOn("2026-11-02", "back_extension");
+
+    expect(item.exercise.id).toBe("prone_back_extension");
+    expect(injurySectionLine(item)).toMatch(/^Can load a sore shoulder\. While your shoulder is flagged, Back extension, arms crossed replaces it: 4 × 12–15/);
+  });
+
+  it("ticked hanging leg raise (avoid) names the lying leg raise with this week's dose", () => {
+    const item = tickedItemOn("2026-11-02", "hanging_leg_raise");
+
+    expect(injurySectionLine(item)).toMatch(/^Loads the shoulder\. While your shoulder is flagged, Lying leg raise replaces it: .*10–15/);
+  });
+
+  it("a ticked row's stand-in cues are still the stand-in's", () => {
+    expect(injuryStandInCues(tickedItemOn("2026-11-05", "kettlebell_swing"))).toContain("Hands on the hips, no arm swing");
+  });
+});
+
+describe("injuryStandInCues", () => {
+  it("lists the shoulder stand-in's cues (Day 4 kettlebell swing)", () => {
+    expect(injuryStandInCues(itemOn("2026-11-05", "kettlebell_swing"))).toContain("Hands on the hips, no arm swing");
+  });
+
+  it("is empty when the item has no stand-in (Day 1 pull-ups)", () => {
+    expect(injuryStandInCues(itemOn("2026-11-02", "pull_up"))).toEqual([]);
+  });
+});
+
 describe("injurySectionLine", () => {
+  it("a stand-in with no level in the file is worded as avoid (the stricter reading)", () => {
+    const item = itemOn("2026-11-05", "kettlebell_swing");
+    const withoutLevel = { ...item, exercise: { ...item.exercise, loads: undefined } };
+
+    expect(injurySectionLine(withoutLevel)).toMatch(/^Loads the shoulder\. While your shoulder is flagged, Broad jumps, hands on hips replaces it:/);
+  });
+
   it("avoid with a stand-in names it and this week's dose (Day 4 kettlebell swing, W1)", () => {
     expect(injurySectionLine(itemOn("2026-11-05", "kettlebell_swing"))).toMatch(
       /^Loads the shoulder\. While your shoulder is flagged, Broad jumps, hands on hips replaces it: 5 \/ min, 8 min/,

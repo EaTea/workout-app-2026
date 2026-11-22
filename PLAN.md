@@ -2782,7 +2782,7 @@ Days 1, 3 and 5 (upper body):
 
 | Day | Exercise | Level | Today, while flagged |
 | --- | --- | --- | --- |
-| 1, 5 | YTWI raises | Avoid | Left out |
+| 1, 5 | YTWI raises | Avoid | Stand-in: dead bug, legs only, 8 per side (so the warm-up isn't empty) |
 | 1, 3 | Pallof press | Caution | Kept, pain-free only |
 | 3, 5 | Lateral raise | Avoid | Left out |
 | 3 | Plate halo | Avoid | Left out |
@@ -2795,7 +2795,7 @@ Days 1, 3 and 5 (upper body):
 | 3, 5 | Overhead press / pike push-up | Avoid | Left out |
 | 1, 5 | Back extension | Caution | Stand-in: bodyweight back extension, arms crossed on the chest, same reps |
 | 1, 5 | Hanging leg raise | Avoid | Stand-in: lying leg raise, at its no-equipment dose |
-| 1 | Side plank | Caution | Stand-in: side plank on the uninjured side only, same holds |
+| 1 | Side plank | Caution | Stand-in: side plank on the uninjured side only, same holds; it no longer shows "per side" (the stand-in sets `perSide: false`) |
 | 5 | Hollow body hold | Caution | Stand-in: hollow hold with the arms by the sides, same holds |
 | 3 | Crab knee-to-elbow, crab switch and sprawl | Avoid | Left out (loaded shoulder extension) |
 | 3 | On-the-spot crawl | Avoid | Left out (weight on the hands) |
@@ -2824,7 +2824,7 @@ The shoulder-free session (instead of Day 3, about 12 minutes, core only):
 | Core (superset) | Lying leg raise | 3 × 10–15, 2–3s lowering |
 | Core (superset) | Hollow hold, arms by the sides | 3 × 20–30s |
 | Core (superset) | Prone back extension, arms by the sides | 3 × 12–15, 2s hold at the top |
-| Core | Side plank, uninjured side only | 2 × 30s |
+| Core (superset, 4th item) | Side plank, uninjured side only | 2 × 30s |
 
 Rest between core pairs 45s. It follows the deload halving in weeks 4
 and 8, like any block.
@@ -2878,8 +2878,9 @@ own red flags):
 
 - `injury.<area>` takes the same fields as `noEquipment` (`exercise`
   required; optional `reps`, `durationSec`, `load`, `note`, `tempo`) and
-  the same parse errors, so a stand-in keeps the original's sets, rest and
-  format. It reuses `applyNoEquipmentSwap`'s dose rules rather than a copy.
+  the same parse errors, plus an optional boolean `perSide` that a stand-in
+  may set (a `noEquipment` swap may not), so a stand-in keeps the original's
+  sets, rest and format. It reuses `applyNoEquipmentSwap`'s dose rules rather than a copy.
 - `loads` values are `"avoid"` or `"caution"`; an unknown area or level is
   a parse error naming the path, with the "did you mean" hint.
 - Every stand-in and session exercise is an ordinary `exercises` entry
@@ -2900,7 +2901,7 @@ shoulder flagged from 22 Nov):
 
 | Date | Week / day | Today shows |
 | --- | --- | --- |
-| 23 Nov | W4 D1 (deload) | Pallof press 2 rounds × 12–15, pain-free only (warm-ups aren't halved); YTWI, slams, pull-up EMOM, dip mini-dose and boxing left out; bodyweight back extension 2 × 12–15; lying leg raise 2 × 10–15; side plank uninjured side 1 × hold |
+| 23 Nov | W4 D1 (deload) | Pallof press 2 rounds × 12–15, pain-free only (warm-ups aren't halved); dead bug, legs only, 8 per side instead of YTWI; slams, pull-up EMOM, dip mini-dose and boxing left out; bodyweight back extension 2 × 12–15; lying leg raise 2 × 10–15; side plank uninjured side 1 × 30s |
 | 24 Nov | W4 D2 | Suitcase Bulgarian split squat 2 × 12–15 per leg; single-leg RDL mini-dose, uninjured hand, 1 × easy |
 | 25 Nov | W4 D3 | Shoulder-free session, core sets halved for the deload |
 | 26 Nov | W4 D4 | Broad jumps, 4-min EMOM × 5 (8 min halved) |
@@ -2929,19 +2930,35 @@ shoulder flagged from 22 Nov):
      with data tests over the shipped file (`src/program/injuryData.test.ts`,
      including every unflagged session matching the program without the
      injury fields). The parser takes one number for `durationSec`, so the
-     session's hollow hold is 30s, not 20–30s. The Day 1 side plank stand-in
-     keeps "per side" (a stand-in can't change it), and its note says to
-     rest through the injured side's hold.
+     session's hollow hold is 30s, not 20–30s. (Step 4 lets a stand-in set
+     `perSide`, so the Day 1 side plank stand-in no longer shows "per side".)
   3. [x] The exercise sheet's "Your shoulder" section, with E2E
      (`e2e/injurySheet.spec.ts`). Stand-in views are built by a new
      `applyStandIn` shared with `applyNoEquipmentSwap`; the EMOM dose reads
      "5 / min, 8 min" (the sheet's usual wording), not "8-min EMOM × 5".
+  4. [x] Fixes from the challenger review: on a row ticked "No equipment"
+     the sheet's "Your shoulder" now describes the original item (level and
+     stand-in; `applyNoEquipmentChoices` carries the `injury` views); the
+     section lists the stand-in's cues; a stand-in may set `perSide` (side
+     plank: `false`, note "Uninjured side only"); data: floor cue for the
+     bodyweight back extension, "uninjured hand" loads on the calf-raise
+     stand-ins, a dead bug stand-in for YTWI raises (Days 1 and 5 keep a
+     warm-up); README corrected; tests for the 23 Nov stand-ins and the
+     no-level branch; one e2e title fixed.
   - Merge point: the doses can be checked on a phone, nothing else moves.
 - **Injury 2 — Flag the shoulder and train around it** *(behavior
   change)*: the injuries storage key, Settings, the banner and "When to
   get it checked", left-out, stand-in and caution rows, "Add it back",
   the shoulder-free session, the log screen and timers. E2E on Day 1,
-  Day 3 and Day 4.
+  Day 3 and Day 4. Notes carried over from the Injury 1 review:
+  (a) while the shoulder is flagged, also hide a row's No-equipment tick
+  when the swap exercise itself is tagged avoid (Pallof press → plank
+  shoulder taps); (b) rotated-in warm-ups (Reverse fly, Ab raises,
+  Kickbacks) follow the level of the item they replace, so check the
+  wording on rotated weeks; (c) consider showing "Your shoulder" on the
+  sheet only while the shoulder is flagged; (d) an injury session with
+  `blocks: []` parses but would show empty, so refuse it at parse time or
+  handle it.
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half

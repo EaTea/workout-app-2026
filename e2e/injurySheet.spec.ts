@@ -23,12 +23,13 @@ async function openSheet(page: Page, date: string, blockPosition: number, exerci
   return sheet;
 }
 
-test("the Day 4 kettlebell swing sheet names the broad jump stand-in with an 8-min EMOM x 5 dose", async ({ page }) => {
+test("the Day 4 kettlebell swing sheet names the broad jump stand-in with its 5 / min, 8 min dose and its cues", async ({ page }) => {
   const sheet = await openSheet(page, WEEK_1_DAY_4, 2, "kettlebell_swing", "Kettlebell swing");
 
   await expect(sheet.getByRole("heading", { name: "Your shoulder" })).toBeVisible();
   await expect(sheet).toContainText("Loads the shoulder. While your shoulder is flagged, Broad jumps, hands on hips replaces it:");
   await expect(sheet).toContainText("5 / min, 8 min");
+  await expect(sheet).toContainText("Hands on the hips, no arm swing");
 });
 
 test("the Day 1 pull-up sheet says it is left out while the shoulder is flagged", async ({ page }) => {

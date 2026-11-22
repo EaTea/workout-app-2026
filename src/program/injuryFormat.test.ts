@@ -189,11 +189,32 @@ describe("an item's injury stand-ins", () => {
   });
 
   it.each([
-    "sets", "restSec", "minutes", "rounds", "workSec", "format", "repsPctOfMax", "perSide", "optional", "sameEveryWeek", "weeklyIncrease", "noEquipment", "injury", "weeks",
+    "sets", "restSec", "minutes", "rounds", "workSec", "format", "repsPctOfMax", "optional", "sameEveryWeek", "weeklyIncrease", "noEquipment", "injury", "weeks",
   ])("rejects %s, which the stand-in keeps from the original", (key) => {
     const message = errorMessageAfter((json) => withSlamsStandIn(json, { exercise: "lying_leg_raise", [key]: 1 }));
     expect(message).toContain(`${slamsPath}.injury.shoulder.${key}:`);
     expect(message).toContain("from the original item");
+  });
+
+  it.each([true, false])("accepts perSide %s on a stand-in and parses it", (perSide) => {
+    const json = readRealProgramJson();
+    withSidePlankStandIn(json, { exercise: "wall_plank", perSide });
+
+    const item = parseProgram(json).program.days[1]?.blocks[4]?.items[2];
+    expect(item?.injury?.shoulder?.perSide).toBe(perSide);
+  });
+
+  it("leaves perSide undefined on a stand-in that doesn't set it", () => {
+    const json = readRealProgramJson();
+    withSidePlankStandIn(json, { exercise: "wall_plank" });
+
+    expect(parseProgram(json).program.days[1]?.blocks[4]?.items[2]?.injury?.shoulder?.perSide).toBeUndefined();
+  });
+
+  it("rejects a perSide that isn't true or false", () => {
+    expect(errorMessageAfter((json) => withSidePlankStandIn(json, { exercise: "wall_plank", perSide: "no" }))).toBe(
+      `${sidePlankPath}.injury.shoulder.perSide: expected true or false but found "no"`,
+    );
   });
 
   it("rejects a gear-up break in a stand-in", () => {

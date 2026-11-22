@@ -113,9 +113,12 @@ export interface NoEquipmentSwap {
  * An item's stand-in while one area is injured. Same shape and guarantees as
  * the no-equipment swap (own exercise and dose text; sets, rest and format
  * kept from the original item), because the parser validates both with one
- * function.
+ * function, plus an optional `perSide` override.
  */
-export type InjuryStandIn = NoEquipmentSwap;
+export interface InjuryStandIn extends NoEquipmentSwap {
+  /** When present, replaces the original item's `perSide` (a stand-in done on one side only sets false). */
+  perSide?: boolean;
+}
 
 /** One exercise inside a block, with its exercise-library entry resolved. */
 export interface BlockItem {

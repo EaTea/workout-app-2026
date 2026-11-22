@@ -25,10 +25,14 @@ const AREA: InjuryArea = "shoulder";
  * `injury.shoulder` stand-in), so the sheet shows no section at all. A
  * stand-in without a level in the file is worded as "avoid", the stricter
  * reading. The dose is the stand-in's own view for this week (built by the
- * schedule, so deloads and weekly increases already apply).
+ * schedule, so deloads and weekly increases already apply). For a ticked
+ * "No equipment" row the words still describe the original item.
  */
-export function injurySectionLine(item: Pick<ItemView, "exercise" | "injury">): string | undefined {
-  const level = item.exercise.loads?.[AREA];
+export function injurySectionLine(item: Pick<ItemView, "exercise" | "injury" | "swappedFrom">): string | undefined {
+  // An injury wins over the "No equipment" tick: on a ticked row the sheet gets the
+  // swap's view, so the level comes from the ORIGINAL exercise (`swappedFrom`), and the
+  // stand-in from the `injury` views `applyNoEquipmentChoices` carried over.
+  const level = (item.swappedFrom ?? item.exercise).loads?.[AREA];
   const standIn = item.injury?.[AREA];
   if (level === undefined && standIn === undefined) return undefined;
 
@@ -41,4 +45,13 @@ export function injurySectionLine(item: Pick<ItemView, "exercise" | "injury">): 
     return `${intro} While your shoulder is flagged, it stays in, pain-free only.`;
   }
   return `${intro} While your shoulder is flagged, it's left out, and you can add it back for a day at half the sets.`;
+}
+
+/**
+ * The stand-in's cues for the "Your shoulder" section (as the "No equipment"
+ * section lists its swap's cues), or an empty list when the item has no
+ * shoulder stand-in. Called by `exerciseSheet.ts` after `injurySectionLine`.
+ */
+export function injuryStandInCues(item: Pick<ItemView, "injury">): string[] {
+  return item.injury?.[AREA]?.exercise.cues ?? [];
 }

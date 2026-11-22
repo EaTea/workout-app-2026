@@ -262,7 +262,7 @@
     "bodyweight_back_extension": {
       "name": "Back extension, arms crossed",
       "category": "core",
-      "cues": ["On the back-extension bench, no plate", "Arms crossed on the chest, not behind the head", "Lift so the extra range comes from the upper back"],
+      "cues": ["On the back-extension bench, no plate", "Arms crossed on the chest, not behind the head", "Lift so the extra range comes from the upper back", "No bench: lie face down on the floor, arms by the sides"],
       "evidence": "coaching practice"
     },
     "hollow_hold_arms_by_sides": {
@@ -328,7 +328,7 @@
       "targetMinutes": 50,
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
-          { "exercise": "ytwi", "reps": "12-15" },
+          { "exercise": "ytwi", "reps": "12-15", "injury": { "shoulder": { "exercise": "dead_bug_legs_only", "reps": "8 per side" } } },
           { "exercise": "pallof_press", "reps": "12-15", "noEquipment": { "exercise": "plank_shoulder_tap", "reps": "12–15 per side" } }
         ]},
         { "type": "explosive", "items": [
@@ -343,7 +343,7 @@
         { "type": "core", "format": "superset", "restSecBetweenPairs": [45, 60], "items": [
           { "exercise": "back_extension", "sets": 4, "reps": "12-15", "load": "hold a plate", "noEquipment": { "exercise": "prone_back_extension", "reps": "15-20", "tempo": "2s hold at the top" }, "injury": { "shoulder": { "exercise": "bodyweight_back_extension", "load": "bodyweight" } } },
           { "exercise": "hanging_leg_raise", "sets": 3, "reps": "6-10", "note": "Wrist straps are fine", "noEquipment": { "exercise": "lying_leg_raise", "reps": "10-15", "tempo": "2-3s lowering" }, "injury": { "shoulder": { "exercise": "lying_leg_raise", "reps": "10-15", "tempo": "2-3s lowering" } } },
-          { "exercise": "side_plank", "sets": 2, "durationSec": 30, "perSide": true, "optional": true, "injury": { "shoulder": { "exercise": "side_plank_uninjured_side", "note": "Uninjured side only; rest through the other side's hold" } } }
+          { "exercise": "side_plank", "sets": 2, "durationSec": 30, "perSide": true, "optional": true, "injury": { "shoulder": { "exercise": "side_plank_uninjured_side", "perSide": false, "note": "Uninjured side only" } } }
         ]},
         { "type": "finisher", "optional": { "label": "Boxing" }, "items": [
           { "exercise": "heavy_bag", "format": "interval", "rounds": [4, 5], "workSec": [20, 30], "restSec": 30, "gearUpSec": 120, "note": "Hard combinations", "noEquipment": { "exercise": "shadow_boxing" } }
@@ -415,7 +415,7 @@
           { "exercise": "single_leg_rdl", "sets": 3, "reps": "10-12", "perSide": true, "tempo": "3s lowering", "noEquipment": { "exercise": "backpack_single_leg_rdl", "reps": "12-15", "load": "backpack or full water jug", "tempo": "3s lowering, 3s hold at the bottom" }, "injury": { "shoulder": { "exercise": "one_hand_single_leg_rdl", "load": "uninjured hand only", "tempo": "3s lowering" } } }
         ]},
         { "type": "miniDose", "items": [
-          { "exercise": "single_leg_calf_raise", "sets": 2, "reps": "easy, ~50% effort", "perSide": true, "noEquipment": { "exercise": "stair_calf_raise" }, "injury": { "shoulder": { "exercise": "one_hand_single_leg_calf_raise" } } }
+          { "exercise": "single_leg_calf_raise", "sets": 2, "reps": "easy, ~50% effort", "perSide": true, "noEquipment": { "exercise": "stair_calf_raise" }, "injury": { "shoulder": { "exercise": "one_hand_single_leg_calf_raise", "load": "uninjured hand" } } }
         ]}
       ]
     },
@@ -425,7 +425,7 @@
       "targetMinutes": 50,
       "blocks": [
         { "type": "warmup", "format": "superset", "rounds": 2, "items": [
-          { "exercise": "ytwi", "reps": "12-15" },
+          { "exercise": "ytwi", "reps": "12-15", "injury": { "shoulder": { "exercise": "dead_bug_legs_only", "reps": "8 per side" } } },
           { "exercise": "lateral_raise", "reps": "12-15", "noEquipment": { "exercise": "bottle_lateral_raise" } }
         ]},
         { "type": "explosive", "items": [
@@ -465,7 +465,7 @@
             { "reps": "15-25", "load": "moderate" },
             { "reps": "15-25", "load": "moderate" }
           ], "tempo": "2s pause at the bottom",
-            "noEquipment": { "exercise": "stair_calf_raise", "reps": "20-30", "load": "backpack on", "note": "Without a heavy weight the heavy first set can't be matched, so every set is the same", "tempo": "2s pause at the bottom" }, "injury": { "shoulder": { "exercise": "one_hand_single_leg_calf_raise", "tempo": "2s pause at the bottom" } } }
+            "noEquipment": { "exercise": "stair_calf_raise", "reps": "20-30", "load": "backpack on", "note": "Without a heavy weight the heavy first set can't be matched, so every set is the same", "tempo": "2s pause at the bottom" }, "injury": { "shoulder": { "exercise": "one_hand_single_leg_calf_raise", "load": "uninjured hand; first set heavy", "tempo": "2s pause at the bottom" } } }
         ]},
         { "type": "miniDose", "items": [
           { "exercise": "zercher_bulgarian_split_squat", "sets": 2, "reps": "easy, ~50% effort", "perSide": true, "noEquipment": { "exercise": "backpack_bulgarian_split_squat" }, "injury": { "shoulder": { "exercise": "suitcase_bulgarian_split_squat", "load": "one weight, uninjured hand" } } }
