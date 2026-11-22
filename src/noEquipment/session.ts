@@ -144,11 +144,13 @@ export function buildSwappedCombinedSession(
 
   /** One day's plain session for `dateOfDay`, with its swaps applied and its locked keys collected. */
   function swappedDay(dateOfDay: string): SessionView {
-    // Each day's flags are those active on its own date; "Add it back" keys are stored under the host date.
+    // The flag comes from the HOST date, the date Ed trains, for both days: a missed day added to
+    // today is trained with today's shoulder. The day's own date only sets its week, deload and blocks.
+    // "Add it back" keys are stored under the host date too.
     const unswapped = applyInjuries(
       buildSession(program, settings, dateOfDay),
       { program, settings, log, logDate: hostDate, sessionDate: dateOfDay },
-      activeAreasOn(injuries, dateOfDay),
+      activeAreasOn(injuries, hostDate),
       addBackKeysOfHostDate,
       true,
     );

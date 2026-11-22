@@ -208,3 +208,16 @@ test("the same dates are unchanged without the flag", async ({ page }) => {
   await page.goto(`/?date=${WEEK_4_DAY_3}#/today`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Upper: push");
 });
+
+test("Add it back on the boxing block moves focus to its first added-back row", async ({ page }) => {
+  await seedOnDate(page, WEEK_4_DAY_1, true);
+  await page.goto(`/?date=${WEEK_4_DAY_1}#/today`);
+
+  await expect(page.getByText("Boxing left out for your shoulder")).toBeVisible();
+  await page.getByRole("button", { name: /Add it back, Boxing/ }).click();
+
+  // The tapped button is gone; focus lands on the first row of the block that came back.
+  await expect(page.getByText("Boxing left out for your shoulder")).toHaveCount(0);
+  const boxingRow = page.locator(".item-row", { hasText: "Pain-free only" }).filter({ has: page.locator(".item-open") }).last();
+  await expect(boxingRow.locator(".item-open")).toBeFocused();
+});

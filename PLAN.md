@@ -2985,6 +2985,35 @@ shoulder flagged from 22 Nov):
      and has no "Your shoulder" section; an added-back row's sheet still uses the
      "left out" wording; a combined day shows ordinary blocks, with no
      area-free heading. Injuries are re-read on each render.
+  4. [x] Fixes from the challenger review:
+     1. A combined session reads the flag from the host (training) date for
+        both days; each day's own date only sets its week, deload and blocks.
+     2. Clearing the flag no longer rewrites a session already trained: sets
+        logged under a stand-in's id keep the stand-in, and an area-free
+        session with logged sets stays the area-free session, flagged or not.
+     3. The header's minutes are re-estimated from what is left whenever
+        anything is left out or added back (an added-back row at its halved
+        dose), with the same estimator as the shoulder-free session
+        (`estimatedSessionMinutes`): 23 Nov flagged is about 9 min, not 50.
+     4. "Last time", Progress and the History wording recognise an item's
+        injury stand-in ids, and an area-free session's items through the
+        area session's own blocks (`findLoggedBlockAndItem`).
+     5. A stood-in rotated warm-up says "Instead of <rotated name>" (week 5:
+        "Instead of Reverse fly").
+     6. "Add it back" focuses the first added-back row when several keys come
+        back (boxing has one item, so it already worked; the e2e covers it).
+     Known and deferred:
+     - (i) Clearing ships here, but "First time back" and "Half sets today"
+       come in Injury 3 (stacked next).
+     - (ii) The storage readers drop unknown areas and kinds, so an older app
+       copy would drop a newer choice on save. Acceptable for one user on one
+       phone; revisit if a second area or choice kind is added.
+     - (iii) A Day 3 started before the flag (sets logged under the original
+       day) stays the original day with only what is not left out, so logged
+       sets are not orphaned. By design.
+     - (iv) Open question for Ed: the rotated-in "Ab raises" (instead of
+       Pallof press) and "Kickbacks" (instead of the hip thrust) inherit
+       "caution". If Ab raises are hanging raises they should be "avoid".
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half

@@ -1,5 +1,5 @@
 import type { DayNumber, Program } from "../program/model";
-import { isExerciseLoggedForItem } from "../program/noEquipment";
+import { findLoggedBlockAndItem } from "../program/noEquipment";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { sessionDates } from "./operations";
 import { setDay } from "./setDay";
@@ -29,7 +29,8 @@ import { setDay } from "./setDay";
  * lookup matches by exercise id, so a swapped item's last time is the swap's
  * earlier sets in the same slot, and an unswapped item never sees them. The
  * block type of a swap's set is the type of the item it replaces
- * (`isExerciseLoggedForItem`).
+ * (`isExerciseLoggedForItem`); an injury stand-in is logged the same way, and an
+ * area-free session (the shoulder-free session) resolves through the area session's own blocks (`findLoggedBlockAndItem`).
  */
 
 /** The most recent earlier session's sets of one exercise. */
@@ -115,9 +116,7 @@ function blockTypeOfLoggedSet(program: Program, session: LoggedSession, set: Log
   const day = setDay(session, set);
   if (day === undefined) return undefined;
 
-  const block = program.days[day]?.blocks[set.blockPosition - 1];
-  const isExerciseInBlock = block?.items.some((item) => isExerciseLoggedForItem(item, set.exerciseId)) ?? false;
-  return isExerciseInBlock ? block?.type : undefined;
+  return findLoggedBlockAndItem(program, day, set.blockPosition, set.exerciseId)?.block.type;
 }
 
 /**

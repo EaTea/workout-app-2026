@@ -393,8 +393,8 @@ export function startApp(
    * shown date: stores the choice for each item key (`setInjuryChoice`; the real
    * today only decides how old choices are pruned), then re-renders Today so the
    * rows, the log screen and the timers show the item at half the sets. A future
-   * preview is refused, like logging. Focus moves to the added-back row, since
-   * the tapped button is gone. Returns null on success or the failure message.
+   * preview is refused, like logging. Focus moves to the added-back row (the first one
+   * when a whole block comes back), since the tapped button is gone. Returns null on success or the failure message.
    */
   function handleAddBackInjuredItems(itemKeys: string[]): string | null {
     if (shownDate > todayLocalDate()) return "Items can't be added back on a future date.";
@@ -408,10 +408,17 @@ export function startApp(
     render();
 
     // An item key is "<position>:<id>" or "<day>.<position>:<id>"; a row key is "<position>:<id>:<day>".
-    const keyParts = /^(?:(\d+)\.)?(\d+:.+)$/.exec(itemKeys[0] ?? "");
-    if (itemKeys.length === 1 && keyParts !== null) {
+    // Several keys (a whole block such as boxing) focus the first added-back row that is on screen.
+    for (const itemKey of itemKeys) {
+      const keyParts = /^(?:(\d+)\.)?(\d+:.+)$/.exec(itemKey);
+      if (keyParts === null) continue;
+
       const rowKey = `${keyParts[2]}:${keyParts[1] ?? ""}`;
-      document.querySelector<HTMLElement>(`.item-row[data-row-key="${CSS.escape(rowKey)}"] .item-open`)?.focus();
+      const openButton = document.querySelector<HTMLElement>(`.item-row[data-row-key="${CSS.escape(rowKey)}"] .item-open`);
+      if (openButton !== null) {
+        openButton.focus();
+        break;
+      }
     }
     return null;
   }

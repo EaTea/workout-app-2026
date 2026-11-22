@@ -5,7 +5,8 @@ import type { LoggedSet, WorkoutLog } from "../log/model";
 import { buildSwappedCombinedSession, buildSwappedSession } from "../noEquipment/session";
 import type { TrainingSettings } from "../settings/model";
 import type { Injury, InjuryChoices } from "../injury/model";
-import { applyInjuries, type InjuryContext } from "./injury";
+import { standInLine } from "../ui/injuryRowText";
+import { applyInjuries, estimatedSessionMinutes, type InjuryContext } from "./injury";
 import { parseProgram } from "./parse";
 import { buildSession, type BlockView, type ItemView, type SessionView } from "./schedule";
 
@@ -33,6 +34,8 @@ const W4D3 = "2026-11-25";
 const W4D4 = "2026-11-26";
 /** W1 D1 (a normal week, 2 Nov). */
 const W1D1 = "2026-11-02";
+/** W1 D3 (4 Nov): the day the flag turns into the shoulder-free session. */
+const W1D3 = "2026-11-04";
 
 type Training = Extract<SessionView, { kind: "training" }>;
 
@@ -130,9 +133,38 @@ describe("23 Nov, W4 D1 (deload), shoulder flagged", () => {
     expect(sidePlank.perSide).toBe(false);
   });
 
-  it("is not a shoulder-free session (core work is left) and the minutes drop by the left-out EMOM", () => {
+  it("is not a shoulder-free session (core work is left)", () => {
     expect(session.areaFreeSession).toBeUndefined();
-    expect(session.targetMinutes).toBeLessThan(buildSession(program, settings, W4D1).kind === "training" ? (buildSession(program, settings, W4D1) as Training).targetMinutes : 0);
+  });
+
+  it("re-estimates the header's minutes from what is left: warm-up, core and no EMOM, about 9 minutes (the file says 50)", () => {
+    // 2 warm-up items x 2 rounds + 5 core sets = 9 items-sets x 45s = 405s, + 2 core rounds x 60s rest = 525s -> 9 min.
+    expect(training(buildSession(program, settings, W4D1)).targetMinutes).toBe(50);
+    expect(session.targetMinutes).toBe(9);
+  });
+});
+
+describe("the header's minutes with anything left out or added back", () => {
+  it("adds an added-back row back at its halved dose: the pull-up EMOM (9 min halved to 5 in a normal week) counts 5 minutes", () => {
+    const leftOut = injuredOn(W1D1);
+    const addedBack = injuredOn(W1D1, { addBack: ["3:pull_up"] });
+
+    expect(addedBack.targetMinutes - leftOut.targetMinutes).toBe(5);
+    expect(estimatedSessionMinutes(addedBack.blocks)).toBe(addedBack.targetMinutes);
+  });
+
+  it("leaves a session where nothing is left out or added back at the file's minutes (stand-ins and caution rows only)", () => {
+    const session = injuredOn(W4D2);
+
+    expect(allItems(session).some(({ item }) => item.leftOut !== undefined)).toBe(false);
+    expect(session.targetMinutes).toBe(30);
+  });
+
+  it("uses the same estimator for the shoulder-free session as for a day with items left out", () => {
+    const areaFree = injuredOn(W1D3);
+
+    expect(areaFree.areaFreeSession).toBeDefined();
+    expect(areaFree.targetMinutes).toBe(estimatedSessionMinutes(areaFree.blocks));
   });
 });
 
@@ -281,12 +313,49 @@ describe("logged sets lock a row", () => {
     expect(allItems(session).some(({ item }) => item.injuryStandInFor?.original.id === "ytwi")).toBe(true);
   });
 
-  it("keeps the stand-in after the flag is cleared when its sets are logged (no area flagged: nothing is applied, as written)", () => {
-    // With no area flagged the session is the plain one; logged stand-in sets are then the caller's concern (Injury 3).
+  it("with no area flagged and nothing logged, the session is returned exactly as built", () => {
     const built = buildSession(program, settings, W4D1);
-    const context: InjuryContext = { program, settings, log: logWithSet(W4D1, 1, "dead_bug_legs_only"), logDate: W4D1, sessionDate: W4D1 };
+    const context: InjuryContext = { program, settings, log: noLog, logDate: W4D1, sessionDate: W4D1 };
 
     expect(applyInjuries(built, context, [], noKeys)).toBe(built);
+  });
+
+  it("keeps the stand-in after the flag is cleared when its sets are logged (26 Nov: broad jumps with the set)", () => {
+    const log = logWithSet(W4D4, 2, "broad_jump", 4);
+    const session = injuredOn(W4D4, { log, areas: [] });
+
+    const row = allItems(session).find(({ item }) => item.exercise.id === "broad_jump")!.item;
+    expect(row.injuryStandInFor?.original.id).toBe("kettlebell_swing");
+    expect(allItems(session).some(({ item }) => item.exercise.id === "kettlebell_swing")).toBe(false);
+  });
+
+  it("with the flag cleared and no stand-in sets logged, the item is as written again", () => {
+    const session = injuredOn(W4D4, { areas: [] });
+
+    expect(allItems(session).some(({ item }) => item.exercise.id === "kettlebell_swing")).toBe(true);
+    expect(allItems(session).some(({ item }) => item.injuryStandInFor !== undefined)).toBe(false);
+  });
+
+  it("keeps the shoulder-free session after the flag is cleared when it was started (25 Nov, a leg raise logged)", () => {
+    const log = logWithSet(W4D3, 2, "lying_leg_raise", 3);
+    const session = injuredOn(W4D3, { log, areas: [] });
+
+    expect(session.areaFreeSession).toEqual({ area: "shoulder", name: "Shoulder-free session", insteadOf: "Upper: push" });
+    expect(session.blocks[1]!.items.map((item) => item.exercise.id)).toContain("lying_leg_raise");
+  });
+
+  it("does not turn a day into the shoulder-free session when only the original's sets are logged and nothing is flagged", () => {
+    const log = logWithSet(W4D3, 1, "pallof_press", 3);
+
+    expect(injuredOn(W4D3, { log, areas: [] }).areaFreeSession).toBeUndefined();
+  });
+
+  it("a Day 1 stand-in dead bug (block 1) never turns Day 1 into the shoulder-free session once the flag is cleared", () => {
+    const log = logWithSet(W4D1, 1, "dead_bug_legs_only", 1);
+    const session = injuredOn(W4D1, { log, areas: [] });
+
+    expect(session.areaFreeSession).toBeUndefined();
+    expect(allItems(session).some(({ item }) => item.injuryStandInFor?.original.id === "ytwi")).toBe(true);
   });
 
   it("does not count a left-out item toward progress: the session is not 'in progress' once everything else is logged", () => {
@@ -360,6 +429,19 @@ describe("rotated warm-ups follow the level of the item they replace (week 5)", 
     expect(standIn.rotatedIn).toBeUndefined();
   });
 
+  it("words the stood-in rotated row 'Instead of Reverse fly', with the original's id kept", () => {
+    const standIn = allItems(session).find(({ item }) => item.injuryStandInFor?.original.id === "ytwi")!.item;
+
+    expect(standIn.injuryStandInFor?.original.name).toBe("Reverse fly");
+    expect(standInLine(standIn)).toBe("Instead of Reverse fly");
+  });
+
+  it("words an unrotated stand-in with the original's own name (week 4 Day 1: Instead of YTWI raises)", () => {
+    const standIn = allItems(injuredOn(W4D1)).find(({ item }) => item.injuryStandInFor?.original.id === "ytwi")!.item;
+
+    expect(standIn.injuryStandInFor?.original.name).toBe(program.exercises["ytwi"]!.name);
+  });
+
   it("the rotated-in Ab raises keeps the Pallof press's caution level: pain-free only, still shown as Ab raises", () => {
     const abRaises = allItems(session).find(({ item }) => item.exercise.id === "pallof_press")!.item;
 
@@ -395,12 +477,24 @@ describe("combined days", () => {
     expect(rows(["2.3:pull_up"]).find((row) => row.item.exercise.id === "pull_up")!.item.addedBack).toBeUndefined();
   });
 
-  it("uses each day's own flag dates: Day 2's date before the flag leaves Day 2 as written", () => {
-    const lateFlag: Injury[] = [{ ...shoulderFlag, from: "2026-11-24" }]; // flagged from Day 2's date, not Day 1's
+  it("takes the flag from the host (training) date for both days: a flag from 24 Nov does not touch a 23 Nov host", () => {
+    const lateFlag: Injury[] = [{ ...shoulderFlag, from: "2026-11-24" }];
     const { session } = buildSwappedCombinedSession(program, settings, noLog, new Map(), hostDate, combine, new Set(), lateFlag, new Map());
     const items = session.blocks.flatMap((block) => block.parts).flatMap((part) => part.block.items.map((item) => ({ day: part.source.day, item })));
 
+    // Host 23 Nov is before the flag, so neither day is changed (Day 2's own date, 24 Nov, no longer decides).
     expect(items.find((row) => row.day === 1 && row.item.exercise.id === "med_ball_slam")!.item.leftOut).toBeUndefined();
+    expect(items.find((row) => row.day === 2 && row.item.injuryStandInFor !== undefined)).toBeUndefined();
+  });
+
+  it("a missed Day 1 added on 24 Nov (flag from 24 Nov) is trained with the shoulder flagged: its slams are left out", () => {
+    const flagFrom24Nov: Injury[] = [{ ...shoulderFlag, from: "2026-11-24" }];
+    const missedDay1Combine = { hostDay: 2, addedDay: 1, addedDate: "2026-11-23" }; // host: 24 Nov's Day 2, plus the missed Day 1
+    const { session } = buildSwappedCombinedSession(program, settings, noLog, new Map(), "2026-11-24", missedDay1Combine, new Set(), flagFrom24Nov, new Map());
+    const items = session.blocks.flatMap((block) => block.parts).flatMap((part) => part.block.items.map((item) => ({ day: part.source.day, item })));
+
+    expect(items.find((row) => row.day === 1 && row.item.exercise.id === "med_ball_slam")!.item.leftOut).toEqual({ area: "shoulder" });
+    expect(items.find((row) => row.day === 1 && row.item.injuryStandInFor?.original.id === "ytwi")).toBeDefined();
     expect(items.find((row) => row.day === 2 && row.item.injuryStandInFor !== undefined)).toBeDefined();
   });
 });
