@@ -60,7 +60,7 @@ test("History lists sessions newest first with summaries and notes", async ({ pa
   const headers = page.locator(".history-session-header");
   await expect(headers).toHaveText(["4 Nov · Week 1 · Day 3 · Upper: push", "2 Nov · Week 1 · Day 1 · Upper: pull"]);
 
-  await expect(exerciseRow(page, "2 Nov", "Med ball slams")).toContainText("6, 6, 5");
+  await expect(exerciseRow(page, "2 Nov", "Med ball slams")).toContainText("6, 6, 5 (17 total)");
   await expect(exerciseRow(page, "2 Nov", "Med ball slams")).toContainText("slowed down");
   await expect(exerciseRow(page, "2 Nov", "Pull-ups")).toContainText("2 × 5 at 8 kg");
   await expect(exerciseRow(page, "4 Nov", "Plyo push-ups")).toContainText("2 × 5");
