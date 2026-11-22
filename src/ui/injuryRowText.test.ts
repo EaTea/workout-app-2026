@@ -67,3 +67,13 @@ describe("areaFreeHeading", () => {
     expect(areaFreeHeading(injuredSession("2026-11-24"))).toBeUndefined();
   });
 });
+
+describe("First time back wording", () => {
+  it("has the plan's lines, and a button name that starts with its visible text", async () => {
+    const { FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, halfSetsTodayButtonName } = await import("./injuryRowText");
+
+    expect(FIRST_TIME_BACK_LINE).toBe("First time back · pain-free only");
+    expect(halfSetsTodayButtonName("Pull-ups")).toBe(`${HALF_SETS_TODAY_LABEL}, Pull-ups`);
+    expect(halfSetsTodayButtonName("Pull-ups").startsWith("Half sets today")).toBe(true);
+  });
+});

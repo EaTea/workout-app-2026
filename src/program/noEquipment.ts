@@ -50,7 +50,8 @@ export function originalExerciseIdOf(item: ItemView): string {
 /**
  * Replaces every item whose tick key is in `swappedKeys` (and that has a
  * swap view) with that swap view, recording the original exercise in
- * `swappedFrom` (its `loads` level) and keeping the original's `injury` views. Keys for items without a swap, or with the wrong block
+ * `swappedFrom` (its `loads` level) and keeping the original's `injury` views
+ * and its "First time back" mark (without the "Half sets today" offer). Keys for items without a swap, or with the wrong block
  * position, are ignored; non-training sessions are returned as they are.
  * Pure: the input session is not mutated. Called on the result of
  * `buildSession` before Today and the log screen render. With
@@ -70,7 +71,9 @@ export function applyNoEquipmentChoices(session: SessionView, swappedKeys: Reado
       if (!swappedKeys.has(noEquipmentItemKey(blockPosition, item.exercise.id, keyDay))) return item;
       // Carry the original's injury stand-ins: an injury wins over the tick, so the
       // exercise sheet words "Your shoulder" from the original (see injurySheetText.ts).
-      return { ...swapView, swappedFrom: item.exercise, injury: item.injury };
+      // A "First time back" row stays one when swapped (the swap is pain-free-only too), but never offers "Half sets today" (that is for the original's dose).
+      const firstTimeBack = item.firstTimeBack === undefined ? undefined : { ...item.firstTimeBack, halfSetsOffered: false };
+      return { ...swapView, swappedFrom: item.exercise, injury: item.injury, firstTimeBack };
     });
     return { ...block, items };
   });

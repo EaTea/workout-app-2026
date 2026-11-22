@@ -182,6 +182,15 @@ export interface ItemView {
   leftOut?: { area: InjuryArea };
   /** True on an item to be done "Pain-free only · stop if it hurts": a "caution" exercise kept as written, or an item added back. */
   painFreeOnly?: boolean;
+  /**
+   * Set on an item that a recently cleared injury would have left out (tagged
+   * "avoid" for `area`) the first time it is back since the clear (see
+   * `applyReturnToTraining` in injury.ts). `halfSetsOffered` is false once a
+   * set is already logged today, so "Half sets today" is not offered mid-row.
+   */
+  firstTimeBack?: { area: InjuryArea; halfSetsOffered: boolean };
+  /** True on a "First time back" item the person halved with "Half sets today": half the sets (deload rounding), for that date only. */
+  halvedForReturn?: boolean;
   /** True on an item the person added back after the injury left it out: half the sets (deload rounding), pain-free only, for that date only. */
   addedBack?: boolean;
   /**

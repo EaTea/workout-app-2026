@@ -34,12 +34,13 @@ export interface Injury {
 /**
  * The kinds of choice the person can make for one item on one date.
  * "addBack": train an item the injury leaves out, at half the sets, pain-free
- * only. Injury 3 adds "halfSets" ("Half sets today") as a second kind.
+ * only. "halfSets": "Half sets today" on an item's "First time back" row
+ * after the injury was cleared (same halving as "addBack").
  */
-export type InjuryChoiceKind = "addBack";
+export type InjuryChoiceKind = "addBack" | "halfSets";
 
 /** Every choice kind, for the wire mapping's check of stored values. */
-export const INJURY_CHOICE_KINDS: readonly InjuryChoiceKind[] = ["addBack"];
+export const INJURY_CHOICE_KINDS: readonly InjuryChoiceKind[] = ["addBack", "halfSets"];
 
 /**
  * The person's choices per calendar date and per item key (see

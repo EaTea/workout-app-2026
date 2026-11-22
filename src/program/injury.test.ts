@@ -137,20 +137,35 @@ describe("23 Nov, W4 D1 (deload), shoulder flagged", () => {
     expect(session.areaFreeSession).toBeUndefined();
   });
 
-  it("re-estimates the header's minutes from what is left: warm-up, core and no EMOM, about 9 minutes (the file says 50)", () => {
-    // 2 warm-up items x 2 rounds + 5 core sets = 9 items-sets x 45s = 405s, + 2 core rounds x 60s rest = 525s -> 9 min.
+  it("scales the file's 50 by the share of estimated work left: 21, not the 9 a whole-day estimate would give", () => {
+    // Left out: slams, pull-up EMOM, dip mini-dose, heavy bag. The estimator reads 12 minutes of them
+    // at their built (deload) dose; the written 50 less that is 38. Never below what remains (9).
     expect(training(buildSession(program, settings, W4D1)).targetMinutes).toBe(50);
-    expect(session.targetMinutes).toBe(9);
+    expect(session.targetMinutes).toBe(21);
+    expect(session.targetMinutes).toBeGreaterThanOrEqual(estimatedSessionMinutes(session.blocks));
   });
 });
 
 describe("the header's minutes with anything left out or added back", () => {
-  it("adds an added-back row back at its halved dose: the pull-up EMOM (9 min halved to 5 in a normal week) counts 5 minutes", () => {
+  it("adds an added-back row back at its halved dose: the pull-up EMOM (9 min halved to 5 in a normal week) takes a flagged Day 1 from 19 to 26 minutes", () => {
     const leftOut = injuredOn(W1D1);
     const addedBack = injuredOn(W1D1, { addBack: ["3:pull_up"] });
 
-    expect(addedBack.targetMinutes - leftOut.targetMinutes).toBe(5);
-    expect(estimatedSessionMinutes(addedBack.blocks)).toBe(addedBack.targetMinutes);
+    // Written 50; left out: 28 (the file's figure less the estimate of the four left-out rows); added back: 28 + 5.
+    expect(leftOut.targetMinutes).toBe(19);
+    expect(addedBack.targetMinutes).toBe(26);
+    expect(addedBack.targetMinutes).toBeGreaterThanOrEqual(estimatedSessionMinutes(addedBack.blocks));
+  });
+
+  it("adds the added-back pull-up EMOM back on the deload week too: 21 left out, 28 with the EMOM at 3 minutes", () => {
+    expect(injuredOn(W4D1, { addBack: ["3:pull_up"] }).targetMinutes).toBe(28);
+  });
+
+  it("never drops below one minute or below the estimator's reading of what remains", () => {
+    const floor = injuredOn(W1D1);
+
+    expect(floor.targetMinutes).toBeGreaterThanOrEqual(estimatedSessionMinutes(floor.blocks));
+    expect(floor.targetMinutes).toBeGreaterThanOrEqual(1);
   });
 
   it("leaves a session where nothing is left out or added back at the file's minutes (stand-ins and caution rows only)", () => {
@@ -160,7 +175,7 @@ describe("the header's minutes with anything left out or added back", () => {
     expect(session.targetMinutes).toBe(30);
   });
 
-  it("uses the same estimator for the shoulder-free session as for a day with items left out", () => {
+  it("keeps the shoulder-free session's own estimate", () => {
     const areaFree = injuredOn(W1D3);
 
     expect(areaFree.areaFreeSession).toBeDefined();

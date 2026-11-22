@@ -98,6 +98,20 @@ export function joinExerciseNames(names: string[]): string {
 }
 
 /**
+ * "Pull-ups and dips aren't retested while your shoulder is flagged or in its
+ * first two weeks back.": the line shown instead of the max fields for the
+ * exercises a flagged (or recently cleared) area holds back. Names come from
+ * the held-back list (program.json). The area is always the shoulder for now
+ * (the only area); a second area would pass its word in.
+ */
+export function retestHeldBackLine(names: string[]): string {
+  const joined = joinExerciseNames(names);
+  const sentenceStart = joined.charAt(0).toUpperCase() + joined.slice(1);
+
+  return `${sentenceStart} aren't retested while your shoulder is flagged or in its first two weeks back.`;
+}
+
+/**
  * Moves focus to the first stepper button of the retest card, if it is still
  * on screen. Called by app.ts after a Save max re-render, because the button
  * that was pressed is gone with its row; returns false when no row is left
@@ -124,25 +138,31 @@ export function focusRetestJumpStepper(): void {
  * Builds the card for the exercises still to retest. `jump` is undefined for
  * a program without a fatigue check: the card then has no broad jump block. Each stepper starts at
  * the draft value if there is one, else the current saved max (undefined
- * shows "—" and the first + gives 1).
+ * shows "—" and the first + gives 1). `heldBack` lists exercises not offered because a flagged injury leaves them out; they show as one line.
  */
 export function renderRetestCard(
   exercises: Exercise[],
   settings: TrainingSettings,
   actions: RetestCardActions,
   jump: RetestJumpContext | undefined,
+  heldBack: Exercise[] = [],
 ): HTMLElement {
   const card = element("section", "card retest-card");
   card.setAttribute("aria-label", "Retest week");
   card.append(
     element("h2", "card-title", "Retest week"),
     element("p", "retest-intro", exercises.length === 0
-      ? "Your maxes are saved. Add your broad jump, or skip it."
+      ? (heldBack.length > 0 ? "Add your broad jump, or skip it." : "Your maxes are saved. Add your broad jump, or skip it.")
       : `Test your max ${joinExerciseNames(exercises.map((exercise) => exercise.name))}, then save them. This week's EMOMs switch to the new numbers.`),
   );
 
   for (const exercise of exercises) {
     card.append(renderRetestRow(exercise, settings, actions));
+  }
+
+  // Held back while a flagged area leaves them out: no stepper, just when to do them.
+  if (heldBack.length > 0) {
+    card.append(element("p", "retest-held-back", retestHeldBackLine(heldBack.map((exercise) => exercise.name))));
   }
 
   // No jump context means the program has no fatigue check, so no broad jump.

@@ -1,5 +1,6 @@
 import { loadCombines, saveCombines } from "../combine/storage";
 import { loadOptionalBlockChoices, saveOptionalBlockChoices } from "../optionalBlocks/storage";
+import { loadInjuries, saveInjuries } from "../injury/storage";
 import { loadFatigueHistory, saveFatigueHistory } from "../fatigue/storage";
 import { loadLog, saveLog } from "../log/storage";
 import { loadSettings, saveSettings } from "../settings/storage";
@@ -17,14 +18,14 @@ import { exportToWire, VERSION_1_PROGRAM_ID } from "./wire";
  *
  *   1. Read what is stored now. If the log or check-ins cannot be read safely
  *      (the loaders' `saveRefusedReason`), stop: nothing is written.
- *   2. Note the raw text of the six data keys (log, check-ins, combines, optional block choices,
+ *   2. Note the raw text of the seven data keys (log, check-ins, combines, optional block choices, injuries,
  *      settings, max history), for step 5.
  *   3. BACKUP FIRST: write the current data as a whole export file (compact
  *      JSON, with the raw texts of step 2 inside) under
  *      `<programId>.import-backup-<ISO timestamp>`. If this fails,
  *      stop; nothing was changed.
  *   4. Write the new data key by key with the existing savers, in this order:
- *      log, check-ins, combines, optional block choices, max history, settings. Each `setItem` either stores the
+ *      log, check-ins, combines, optional block choices, injuries, max history, settings. Each `setItem` either stores the
  *      whole new value or leaves the old one, so every key is old or new.
  *   5. If any write fails, put every key that was already replaced back to the
  *      text noted in step 2, so the result is all old data, and say so. When
@@ -47,9 +48,9 @@ import { exportToWire, VERSION_1_PROGRAM_ID } from "./wire";
 /** Outcome of `applyImport`: the backup key on success, or a readable reason (nothing half-written). */
 export type ApplyImportResult = { ok: true; backupKey: string } | { ok: false; error: string };
 
-/** The six keys of the active program an import replaces, in the order they are written (settings last; `saveSettings` writes max history before it). */
+/** The seven keys of the active program an import replaces, in the order they are written (settings last; `saveSettings` writes max history before it). */
 function replacedKeys(keys: ProgramStorageKeys): string[] {
-  return [keys.log, keys.fatigue, keys.combines, keys.optionalBlockChoices, keys.maxHistory, keys.settings];
+  return [keys.log, keys.fatigue, keys.combines, keys.optionalBlockChoices, keys.injuries, keys.maxHistory, keys.settings];
 }
 
 /** Describes a caught value for a message. */
@@ -115,6 +116,9 @@ export function undoLastImport(
     // Likewise for a backup made before the optional block choices key existed: there were no skips, so remove any current ones.
     const hasChoicesEntry = textsToRestore.some((raw) => raw.storageKey === keys.optionalBlockChoices);
     if (!hasChoicesEntry) textsToRestore.push({ storageKey: keys.optionalBlockChoices, text: null });
+    // And for one made before injuries existed: there were no injuries, so remove any current ones.
+    const hasInjuriesEntry = textsToRestore.some((raw) => raw.storageKey === keys.injuries);
+    if (!hasInjuriesEntry) textsToRestore.push({ storageKey: keys.injuries, text: null });
     return replaceStoredData(storage, keys, now, () => writeRawTexts(storage, textsToRestore));
   }
 
@@ -144,7 +148,7 @@ function backupProgramIdOf(backupText: string): string | null {
   }
 }
 
-/** Writes imported data with the normal savers (log, check-ins, combines, optional block choices, then max history and settings). Throws on failure; the caller rolls back. */
+/** Writes imported data with the normal savers (log, check-ins, combines, optional block choices, injuries, then max history and settings). Throws on failure; the caller rolls back. */
 function writeParsedData(storage: Storage, keys: ProgramStorageKeys, data: ImportedData): void {
   const logResult = saveLog(storage, keys, data.log);
   if (!logResult.ok) throw new Error(logResult.error);
@@ -157,6 +161,12 @@ function writeParsedData(storage: Storage, keys: ProgramStorageKeys, data: Impor
 
   const optionalBlockChoicesResult = saveOptionalBlockChoices(storage, keys.optionalBlockChoices, data.optionalBlockChoices);
   if (!optionalBlockChoicesResult.ok) throw new Error(optionalBlockChoicesResult.error);
+
+  // A file with no injuries section says nothing about injuries: keep what is stored.
+  if (data.injuries !== undefined) {
+    const injuriesResult = saveInjuries(storage, keys.injuries, data.injuries);
+    if (!injuriesResult.ok) throw new Error(injuriesResult.error);
+  }
 
   saveSettings(data.settings, storage, keys); // max history, then settings; throws on failure
 }
@@ -210,6 +220,7 @@ function replaceStoredData(storage: Storage, keys: ProgramStorageKeys, now: Date
       fatigueHistory: currentFatigue.history,
       combines: loadCombines(storage, keys.combines),
       optionalBlockChoices: loadOptionalBlockChoices(storage, keys.optionalBlockChoices),
+      injuries: loadInjuries(storage, keys.injuries),
       // Left out so backups do not nest inside each other; those keys stay in storage untouched.
       corruptLogBackups: [],
       importBackups: [],

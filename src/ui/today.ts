@@ -6,18 +6,19 @@ import { createCuePlayer } from "../timer/cues";
 import { formatClock } from "../timer/engine";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS, shortExerciseName } from "../timer/plans";
 import { element } from "./dom";
-import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
+import { retestExercisesHeldBack, retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
 import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderInjuredLink, renderInjuryBanners } from "./injuryFlagUi";
 import type { Injury, InjuryChoices } from "../injury/model";
-import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
+import { wasAreaInjuredRecently } from "../injury/operations";
+import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
 import "./injuryRows.css";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
-import { checkInWeekToAsk, trainingWeekOf, type CheckInDraft } from "./checkin";
+import { checkInWeekToAsk, shouldSkipPullUps, trainingWeekOf, type CheckInDraft } from "./checkin";
 import { weeklyChecksFor } from "../fatigue/operations";
 import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
@@ -153,6 +154,9 @@ export interface InjuryOptions {
    * choice for the shown date and re-renders; returns null on success or a message to show on the line.
    */
   onAddBack: (itemKeys: string[]) => string | null;
+
+  /** "Half sets today" tapped on a "First time back" row (its item key); stores the choice for the shown date and re-renders; null on success or a message. */
+  onHalfSets: (itemKeys: string[]) => string | null;
 }
 
 /** Placeholder skips for callers (tests) that pass none. */
@@ -207,7 +211,8 @@ export function renderTodayScreen(
     case "training":
     case "combined":
       if (retest !== undefined) {
-        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
+        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate, injury?.injuries ?? []);
+        const exercisesHeldBack = retestExercisesHeldBack(program, settings, date, retest.dismissedDate, injury?.injuries ?? []);
         // The broad jump is part of the fatigue check; a program without one has no jump to ask for.
         const hasJump = program.fatigueCheck !== undefined;
         const jumpOnly = hasJump && exercisesToRetest.length === 0
@@ -216,7 +221,7 @@ export function renderTodayScreen(
           screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, hasJump ? {
             week: trainingWeekOf(program, settings, date) ?? 0,
             history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks),
-          } : undefined));
+          } : undefined, exercisesHeldBack));
         }
       }
       if (checkIn !== undefined) {
@@ -227,6 +232,8 @@ export function renderTodayScreen(
             canSave: checkIn.canSave,
             onSave: checkIn.onSave,
             onSnooze: checkIn.onSnooze,
+            skipPullUps: shouldSkipPullUps(injury?.injuries ?? [], date),
+            recentShoulderInjury: wasAreaInjuredRecently(injury?.injuries ?? [], "shoulder", date),
           }));
         }
       }
@@ -692,6 +699,11 @@ function renderItemRow(
   if (item.painFreeOnly) {
     text.append(element("span", "item-pain-free", PAIN_FREE_ONLY_LINE));
   }
+  // The first session back after a cleared injury: pain-free only, plus (once halved) a line saying so.
+  if (item.firstTimeBack !== undefined) {
+    text.append(element("span", "item-pain-free", FIRST_TIME_BACK_LINE));
+    if (item.halvedForReturn) text.append(element("span", "item-pain-free", HALVED_FOR_RETURN_LINE));
+  }
   const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item), keyDay);
   const isLocked = locked.has(itemKey);
   const noEquipmentLine = noEquipmentLineFor(item, isLocked);
@@ -769,6 +781,11 @@ function renderItemRow(
   }
 
 
+  // "Half sets today" is a sibling button, like Start, so the row button keeps opening the log screen.
+  if (item.firstTimeBack?.halfSetsOffered && !item.halvedForReturn) {
+    row.append(...renderHalfSetsToday(noEquipmentItemKey(blockPosition, item.exercise.id, keyDay), itemDisplayName(item), injury));
+  }
+
   // Items with a swap get the "No equipment" tick on its own line at the bottom of the row.
   // An injury wins: a stand-in or added-back row has no tick (`applyInjuries` already dropped its swap; this is the belt to that brace).
   const hasInjuryChange = item.injuryStandInFor !== undefined || item.addedBack === true;
@@ -801,6 +818,29 @@ function renderAddItBack(itemKeys: string[], subject: string, injury: InjuryOpti
 
   button.addEventListener("click", () => {
     const failure = injury.onAddBack(itemKeys);
+    if (failure !== null) errorLine.textContent = failure;
+  });
+  return [button, errorLine];
+}
+
+/**
+ * The "Half sets today" button of a "First time back" row and its error line,
+ * as a list to append; empty when the choice can't be made (no injury
+ * options, or a future preview date). Tapping saves the choice for the shown
+ * date through `injury.onHalfSets`, which re-renders Today.
+ */
+function renderHalfSetsToday(itemKey: string, subject: string, injury: InjuryOptions | undefined): HTMLElement[] {
+  if (injury === undefined || !injury.canChoose) return [];
+
+  const button = element("button", "injury-add-back injury-half-sets", HALF_SETS_TODAY_LABEL);
+  button.type = "button";
+  button.setAttribute("aria-label", halfSetsTodayButtonName(subject));
+
+  const errorLine = element("p", "field-error");
+  errorLine.setAttribute("role", "alert");
+
+  button.addEventListener("click", () => {
+    const failure = injury.onHalfSets([itemKey]);
     if (failure !== null) errorLine.textContent = failure;
   });
   return [button, errorLine];

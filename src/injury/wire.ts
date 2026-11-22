@@ -30,7 +30,7 @@ export interface InjuriesWireV1 {
   injuries: InjuryWire[];
 }
 
-/** Format v1 of the stored choices: a choice kind per item key per YYYY-MM-DD date. Another kind is added later by widening the kind's values. */
+/** Format v1 of the stored choices: a choice kind per item key per YYYY-MM-DD date. Kinds: "addBack", "halfSets"; an unknown kind is dropped on load. */
 export interface InjuryChoicesWireV1 {
   version: 1;
   choices: Record<string, Record<string, string>>;

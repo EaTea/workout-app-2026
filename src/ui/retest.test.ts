@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseProgram } from "../program/parse";
 import type { TrainingSettings } from "../settings/model";
+import { buildSession } from "../program/schedule";
+import type { Injury } from "../injury/model";
+import { retestExercisesHeldBack } from "./retest";
+import { retestHeldBackLine } from "./retestCard";
 import { applyRetestMax, mergeRetestCheck, retestDismissedFromWire, retestDismissedToWire, retestExercisesToSave, retestJumpSkippedFromWire, retestJumpSkippedToWire, shouldOfferJumpOnly } from "./retest";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
@@ -157,5 +161,59 @@ describe("retest jump skipped mapping", () => {
     expect(retestJumpSkippedFromWire(retestJumpSkippedToWire("2026-12-21"))).toBe("2026-12-21");
     expect(retestJumpSkippedFromWire(null)).toBeUndefined();
     expect(retestJumpSkippedFromWire("soon")).toBeUndefined();
+  });
+});
+
+describe("the retest with the shoulder flagged", () => {
+  const flagged: Injury[] = [{ area: "shoulder", side: "right", from: "2026-12-14" }];
+  const unflagged: Injury[] = [];
+
+  it("does not offer pull-ups or dips, and holds both back", () => {
+    expect(retestExercisesToSave(program, settings, "2026-12-21", undefined, flagged)).toEqual([]);
+    expect(retestExercisesHeldBack(program, settings, "2026-12-21", undefined, flagged).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+  });
+
+  it("offers them as usual when nothing is flagged, or the flag was cleared before the date", () => {
+    expect(retestExercisesToSave(program, settings, "2026-12-21", undefined, unflagged).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+    expect(retestExercisesHeldBack(program, settings, "2026-12-21", undefined, unflagged)).toEqual([]);
+
+    // Cleared long enough ago (28 Nov, 23 days before the 21 Dec retest) to be outside the 14-day return window.
+    const clearedLongAgo: Injury[] = [{ area: "shoulder", side: "right", from: "2026-11-20", to: "2026-11-28" }];
+    expect(retestExercisesToSave(program, settings, "2026-12-21", undefined, clearedLongAgo).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+  });
+
+  it("keeps holding them back through the 14 days after the flag is cleared (flagged 15 Dec, cleared 23 Dec)", () => {
+    const cleared: Injury[] = [{ area: "shoulder", side: "right", from: "2026-12-15", to: "2026-12-23" }];
+    expect(retestExercisesToSave(program, settings, "2026-12-23", undefined, cleared)).toEqual([]);
+    expect(retestExercisesHeldBack(program, settings, "2026-12-23", undefined, cleared).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+
+    // The day before is held back too (the retest week runs 21-27 Dec, inside the window).
+    expect(retestExercisesHeldBack(program, settings, "2026-12-22", undefined, cleared).map((exercise) => exercise.id)).toEqual(["pull_up", "dip"]);
+  });
+
+  it("holds back only what is still outstanding, and nothing outside the retest week or when dismissed", () => {
+    const savedPullUp = { ...settings, maxSavedOn: { pull_up: "2026-12-21" } };
+    expect(retestExercisesHeldBack(program, savedPullUp, "2026-12-22", undefined, flagged).map((exercise) => exercise.id)).toEqual(["dip"]);
+    expect(retestExercisesHeldBack(program, settings, "2026-12-14", undefined, flagged)).toEqual([]);
+    expect(retestExercisesHeldBack(program, settings, "2026-12-21", "2026-12-21", flagged)).toEqual([]);
+  });
+
+  it("is satisfied by the jump or skipping it, so held-back maxes do not keep the card nagging", () => {
+    const noChecks = { checks: [] };
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-21", undefined, noChecks, undefined)).toBe(true);
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-22", undefined, noChecks, "2026-12-21")).toBe(false);
+    const jumpSaved = { checks: [{ date: "2026-12-21", broadJumpMetres: 2.3, savedAt: new Date("2026-12-21T08:00:00.000Z") }] };
+    expect(shouldOfferJumpOnly(program, settings, "2026-12-22", undefined, jumpSaved, undefined)).toBe(false);
+  });
+
+  it("words the held-back line from the exercise names", () => {
+    expect(retestHeldBackLine(["Pull-ups", "Dips"])).toBe("Pull-ups and dips aren't retested while your shoulder is flagged or in its first two weeks back.");
+    expect(retestHeldBackLine(["Dips"])).toBe("Dips aren't retested while your shoulder is flagged or in its first two weeks back.");
+  });
+
+  it("leaves week 8's EMOMs at week 7's figure when no new max is saved (the schedule is unchanged by the flag)", () => {
+    const session = buildSession(program, settings, "2026-12-21");
+    const pullUps = session.kind === "training" ? session.blocks.flatMap((block) => block.items).find((item) => item.exercise.id === "pull_up") : undefined;
+    expect(pullUps?.target).toMatchObject({ kind: "fixed", count: 6, basis: { heldForDeload: true, usesRetestedMax: false, awaitingRetest: true } });
   });
 });
