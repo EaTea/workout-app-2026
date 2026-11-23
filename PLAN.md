@@ -3451,10 +3451,11 @@ Each PR gets its own challenger review before it opens (CLAUDE.md section
 
 **Open questions for Ed** (with the answer I'm assuming):
 
-1. **Keep the levels coupled to the program** (on each exercise), with the
-   area facts in one code table, as recommended above? *Assumed: yes.*
-2. **Broad jumps as caution for the lower back**, added to the proposal's
+1. **Broad jumps as caution for the lower back**, added to the proposal's
    row? *Assumed: yes.*
+
+Resolved (23 Nov): the levels stay coupled to the program, on each
+exercise, with the area facts in one code table (Ed: "let's couple them").
 
 ## 6. Worked examples (used as unit-test fixtures)
 
