@@ -2619,6 +2619,9 @@ loads the log.
 - The **progress charts still use the whole log**, not only the shown
   weeks.
 - Leaving History and coming back starts again at 2 weeks.
+- The window is a number of weeks, not a fixed set of dates: if a Delete
+  removes the only card of a shown week, the next older week moves up into
+  view.
 - **Taps redraw only what they change.** Expand, collapse, open a set and
   Cancel redraw only that session's card. Save redraws that card and the
   progress charts. Delete does the same, or removes the card if it was the
@@ -2665,11 +2668,11 @@ types change, so there is nothing new to map (CLAUDE.md section 6).
 **Milestones** (one PR each, in this order):
 
 - **History PR 1 — History shows 2 weeks, then "Show older weeks"** *(behavior change)*
-  1. [ ] `groupDatesIntoWeeks(log)` in `src/log/historyWeeks.ts`, by the
+  1. [x] `groupDatesIntoWeeks(log)` in `src/log/historyWeeks.ts`, by the
      rule above. Unit tests: an empty log, one week, a week change, a
      restart at week 1, sessions with no stored week, a gap of 7 days or
      more inside the same stored week, and skip-only days left out.
-  2. [ ] History draws only the shown weeks, with the "Show older weeks"
+  2. [x] History draws only the shown weeks, with the "Show older weeks"
      button and the focus rule above. Progress charts stay on the whole
      log. E2E: seed 5 weeks, see only 2 weeks of cards, tap twice to see
      all, the button goes, an expanded card stays expanded, and the

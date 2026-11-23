@@ -35,9 +35,12 @@ tapped to edit or delete (delete asks for a second tap), and Today rows show pro
 is kept in this browser's local storage (nothing is sent anywhere); the
 exercise details sheet is behind the ⓘ button on the log screen. Skip records the current set as skipped: it is not logged, shows as "Skipped", and counts as done for the exercise (Today shows, for example, "✓ 0/6 · 6 skipped"); tapping a skipped set and logging it replaces the skip. A day with only skipped sets has no History card. Coming back from a set scrolls Today to the next exercise that still has a set to do, not to the top of the day (or stays put when none is left). "Last time"
 hints (last week's same day and block type, else the same kind of block on
-another day) show on Today rows and the log screen. The History tab lists every logged
-session, newest first, with a summary per exercise; tap an exercise to see its
-sets and tap a set to edit or delete it. History opens with a Progress card:
+another day) show on Today rows and the log screen. The History tab lists logged
+sessions, newest first, with a summary per exercise. It shows the latest 2
+program weeks, and a "Show older weeks" button under the last card adds 2 more
+at a time. Tap an exercise to see its sets and tap a set to edit or delete
+it. History opens with a Progress card, which always covers the whole log,
+not just the weeks shown:
 pick a strength exercise to see its best reps per session over weeks 1–8 (and
 the heaviest load, when any was logged), with deload weeks shaded and the same
 numbers in a table below. On every week 8 training day Today opens
