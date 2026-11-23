@@ -1,4 +1,4 @@
-import type { Block, BlockItem, Exercise, Format, InjuryArea, NoEquipmentSwap, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
+import type { Block, BlockItem, Exercise, Format, InjuryArea, InjuryLoadLevel, NoEquipmentSwap, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
 import { DAYS_PER_WEEK, INJURY_AREAS, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
 import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
@@ -148,8 +148,10 @@ export interface ItemView {
    * Set on a warm-up item in a rotated week (see rotation.ts): show
    * `displayName` instead of the exercise's name, with "Rotated in for
    * <originalName>". `exercise` stays the original so logging keeps its id.
+   * `loads` is the swap's own injury levels, when the file gives them; they
+   * replace `exercise.loads` for injury rules (see `effectiveLoads`).
    */
-  rotatedIn?: { displayName: string; originalName: string };
+  rotatedIn?: { displayName: string; originalName: string; loads?: Partial<Record<InjuryArea, InjuryLoadLevel>> };
   /**
    * The item's "No equipment" swap as it would be done this week: the same
    * week, deload halving and timer changes applied to the swap's exercise and

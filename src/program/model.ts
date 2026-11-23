@@ -236,10 +236,22 @@ export interface ProgressionPhase {
   timerAdjustments?: TimerAdjustments;
 }
 
+/**
+ * One warm-up swap: exercise id `out` is replaced by the free-text name `in`.
+ * `loads`, when present, are the injury levels of the rotated-in exercise and
+ * replace the original's own `loads` while the swap is in force (a hanging
+ * "Ab raises" replacing the Pallof press is "avoid" for the shoulder).
+ */
+export interface WarmupSwap {
+  out: string;
+  in: string;
+  loads?: Partial<Record<InjuryArea, InjuryLoadLevel>>;
+}
+
 /** Warm-up rotation reminder data. */
 export interface WarmupRotation {
   everyWeeks: number;
-  swaps: { out: string; in: string }[];
+  swaps: WarmupSwap[];
   alsoAvailable: string[];
 }
 

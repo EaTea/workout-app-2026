@@ -130,6 +130,27 @@ describe("exercises.<id>.loads", () => {
   });
 });
 
+describe("warmupRotation.swaps[].loads", () => {
+  it("parses a swap's loads (the shipped Ab raises are avoid for the shoulder) and leaves other swaps without", () => {
+    const { program } = parseProgram(readRealProgramJson());
+
+    expect(program.warmupRotation!.swaps.find((swap) => swap.in === "Ab raises")!.loads).toEqual({ shoulder: "avoid" });
+    expect(program.warmupRotation!.swaps.find((swap) => swap.in === "Reverse fly")!.loads).toBeUndefined();
+  });
+
+  it("names the path for an unknown area, with a hint", () => {
+    expect(errorMessageAfter((json) => { json.warmupRotation.swaps[2].loads = { sholder: "avoid" }; })).toBe(
+      `warmupRotation.swaps[2].loads.sholder: unknown injury area "sholder" (known areas: shoulder) — did you mean "shoulder"?`,
+    );
+  });
+
+  it("names the path for a bad level, with a hint", () => {
+    expect(errorMessageAfter((json) => { json.warmupRotation.swaps[2].loads = { shoulder: "avoidd" }; })).toBe(
+      `warmupRotation.swaps[2].loads.shoulder: expected "avoid" or "caution" but found "avoidd" — did you mean "avoid"?`,
+    );
+  });
+});
+
 describe("an item's injury stand-ins", () => {
   it("maps a valid stand-in: exercise resolved, reps parsed, text copied", () => {
     const json = readRealProgramJson();

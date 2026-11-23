@@ -118,7 +118,7 @@ const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
 const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest", "timerAdjustments"]);
 const TIMER_ADJUSTMENT_KEYS = allowedKeysOf<TimerAdjustmentsWire>()(["intervalWorkSec", "coreRestBetweenPairsSec"]);
 const WARMUP_ROTATION_KEYS = allowedKeysOf<WarmupRotationWire>()(["everyWeeks", "swaps", "alsoAvailable"]);
-const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in"]);
+const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in", "loads"]);
 const FATIGUE_CHECK_KEYS = allowedKeysOf<FatigueCheckWire>()(["frequency", "tests", "rule", "lowerBackRule"]);
 const COMBINING_KEYS = allowedKeysOf<CombiningWire>()(["pairs"]);
 
@@ -421,7 +421,8 @@ function failOnUnknownInjuryArea(area: string, areaPath: string): void {
 /**
  * Converts an exercise's `loads` object ({ "shoulder": "avoid" }) into the
  * model's per-area levels. Unknown areas and levels are errors naming the
- * path, with a "did you mean" hint for near misses. Called by `parseExercise`.
+ * path, with a "did you mean" hint for near misses. Called by `parseExercise`
+ * and `parseWarmupRotation` (a swap's `loads` has the same shape).
  */
 function parseExerciseLoads(raw: unknown, path: string): Partial<Record<InjuryArea, InjuryLoadLevel>> {
   const record = expectRecord(raw, path);
@@ -913,7 +914,11 @@ function parseWarmupRotation(raw: unknown, path: string, warnings: ProgramWarnin
     const swapPath = `${swapsPath}[${index}]`;
     const swapRecord = expectRecord(swap, swapPath);
     collectUnknownFields(swapRecord, WARMUP_SWAP_KEYS, swapPath, warnings);
-    return { out: readString(swapRecord, "out", swapPath), in: readString(swapRecord, "in", swapPath) };
+    return {
+      out: readString(swapRecord, "out", swapPath),
+      in: readString(swapRecord, "in", swapPath),
+      loads: swapRecord.loads === undefined ? undefined : parseExerciseLoads(swapRecord.loads, child(swapPath, "loads")),
+    };
   });
 
   return { everyWeeks: readPositiveInteger(record, "everyWeeks", path), swaps, alsoAvailable: readStringList(record, "alsoAvailable", path) };

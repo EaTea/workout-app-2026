@@ -377,3 +377,12 @@ test("the week 8 retest holds pull-ups and dips back while the shoulder is flagg
   await expect(card.getByText("Best broad jump")).toBeVisible();
   await expect(card.getByRole("button", { name: "Skip jump" })).toBeVisible();
 });
+
+test("week 5 Day 1 with the shoulder flagged: the rotated-in Ab raises (hanging raises) are left out", async ({ page }) => {
+  await seedOnDate(page, "2026-11-30", true);
+  await page.goto("/?date=2026-11-30#/today");
+
+  const abRaises = page.locator(".item-row", { hasText: "Ab raises" });
+  await expect(abRaises).toContainText("Left out for your shoulder");
+  await expect(abRaises.getByRole("button", { name: "Add it back, Ab raises" })).toBeVisible();
+});

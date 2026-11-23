@@ -2901,7 +2901,7 @@ Days 1, 3 and 5 (upper body):
 | Day | Exercise | Level | Today, while flagged |
 | --- | --- | --- | --- |
 | 1, 5 | YTWI raises | Avoid | Stand-in: dead bug, legs only, 8 per side (so the warm-up isn't empty) |
-| 1, 3 | Pallof press | Caution | Kept, pain-free only |
+| 1, 3 | Pallof press | Caution | Kept, pain-free only (weeks 5–8: rotated-in Ab raises, Avoid, left out) |
 | 3, 5 | Lateral raise | Avoid | Left out |
 | 3 | Plate halo | Avoid | Left out |
 | 1 | Med ball slams | Avoid | Left out |
@@ -3129,9 +3129,10 @@ shoulder flagged from 22 Nov):
      - (iii) A Day 3 started before the flag (sets logged under the original
        day) stays the original day with only what is not left out, so logged
        sets are not orphaned. By design.
-     - (iv) Open question for Ed: the rotated-in "Ab raises" (instead of
-       Pallof press) and "Kickbacks" (instead of the hip thrust) inherit
-       "caution". If Ab raises are hanging raises they should be "avoid".
+     - (iv) Decided (Ed, 23 Nov): the rotated-in "Ab raises" (instead of the
+       Pallof press) are hanging raises, so they are left out while the
+       shoulder is flagged. Done in Injury 3b below. "Kickbacks" (instead of
+       the hip thrust) keep inheriting "caution".
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half
@@ -3194,6 +3195,23 @@ shoulder flagged from 22 Nov):
      aren't marked; a corrupt `to` earlier than `from` keeps the flag open (the
      cautious reading).
   - Merge point: the shoulder feature is complete.
+- **Injury 3b — Rotated Ab raises left out** *(behavior change)*: an
+  optional `loads` on a `warmupRotation.swaps` entry replaces the original
+  exercise's levels while that item is rotated in (`rotatedIn.loads`, read by
+  `effectiveLoads` in `applyInjuries` and "First time back"); `program.json`
+  gives the Ab raises swap `{ "shoulder": "avoid" }` (Ed, 23 Nov).
+  1. [x] Wire/model/parser (reusing `parseExerciseLoads`), rotation, injury
+     rules, data, README and tests (unit and e2e: W5 flagged, Ab raises left
+     out with "Add it back"; week 4 Pallof press still pain-free only).
+  - Known, from its challenger review (low, left as they are): a Pallof
+    press set logged after a clear ends "First time back" for the Ab raises
+    too (they share the `pallof_press` id); a row with sets already logged on
+    a flagged day stays as written with no pain-free cue, as for every avoid
+    item; and "First time back" marks the Ab raises even when the flag only
+    covered weeks without them (the cautious reading, as for other avoid
+    items). A swap's `loads` replaces the original's levels, so `{}` clears
+    them (README says so).
+  - Merge point: with the shoulder flagged, week 5 has no hanging raises.
 - **Then: plan the other areas** *(design)*: only after Injury 3 is
   merged. A new design PR picks the areas, their tables and their order.
 

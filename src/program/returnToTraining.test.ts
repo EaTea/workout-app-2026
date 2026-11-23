@@ -68,6 +68,19 @@ function choicesOf(date: string, itemKey: string): InjuryChoices {
 }
 
 describe("First time back", () => {
+  it("treats the rotated-in Ab raises (week 5, hanging raises) as an avoid item", () => {
+    const item = itemOf(sessionOn("2026-12-02", { injuries: [clearedShoulder] }), "pallof_press");
+
+    expect(item.rotatedIn?.displayName).toBe("Ab raises");
+    expect(item.firstTimeBack?.area).toBe("shoulder");
+  });
+
+  it("does not mark the unrotated Pallof press (caution) first time back", () => {
+    const earlyClear: Injury = { ...clearedShoulder, to: "2026-11-21" };
+
+    expect(itemOf(sessionOn("2026-11-23", { injuries: [earlyClear] }), "pallof_press").firstTimeBack).toBeUndefined();
+  });
+
   it("marks the pull-up EMOM on its first session after the clear, pain-free only", () => {
     const item = itemOf(sessionOn(CLEAR_DATE), "pull_up");
 
