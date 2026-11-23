@@ -2949,8 +2949,8 @@ and 8, like any block.
 
 **The other areas** (Ed's answer 1) are planned only after Injury 3 is
 merged, in their own design PR. The format is ready for them (an area is
-a new key in `loads`, `injury` and `injurySessions`), but nothing here
-decides which areas, their tables or their order.
+a new key in `loads`, `injury` and `injurySessions`); the areas, their
+tables and their order are in the next section.
 
 **"When to get it checked"** (the shoulder's wording; each area gets its
 own red flags):
@@ -3212,14 +3212,249 @@ shoulder flagged from 22 Nov):
     items). A swap's `loads` replaces the original's levels, so `{}` clears
     them (README says so).
   - Merge point: with the shoulder flagged, week 5 has no hanging raises.
-- **Then: plan the other areas** *(design)*: only after Injury 3 is
-  merged. A new design PR picks the areas, their tables and their order.
+- **Then: plan the other areas** *(design)*: done; see "Plan: injury
+  management for the other areas" below.
 
 **Open questions for Ed** (with the answer I'm assuming):
 
 None left. Resolved (22 Nov): "shoulder chest" in answer 1 meant shoulder
 first; the broad jump EMOM is 5 reps a minute; the shoulder-free session is
 the core-only list above.
+
+### Plan: injury management for the other areas *(design)*
+
+The shoulder feature is merged (Injury 1 to 3b). Ed asked to plan the other
+areas once it was done, and answered the proposal's questions (23 Nov):
+
+1. **Two passes:** levels and red flags for every area first, then stand-ins
+   and area-free sessions one area at a time.
+2. **Pass 2 order:** lower back, knee, ankle, elbow and wrist, hip.
+3. **Hip** stays one broad area (groin, hip flexor and the joint together).
+4. **Elbow and wrist** are one area: the same exercises load both.
+5. **The level tables** stay as proposed for now. Ed asked whether they
+   should be separate data from the program or stay coupled to it; see
+   "Where the levels live" below.
+
+Everything in "Plan: train around an injury" above still holds (no medical
+advice, no clearance, the program keeps moving, logged sets lock a row). This
+section only adds what a second, third or sixth area needs.
+
+**The areas.** `INJURY_AREAS` becomes, in this order (the order breaks ties,
+for example which banner line comes first):
+
+| Key | Label | Sided | In a sentence | With a side |
+| --- | --- | --- | --- | --- |
+| `shoulder` | Shoulder | yes | your shoulder | Right shoulder / Both shoulders |
+| `lower_back` | Lower back | no | your lower back | Lower back |
+| `knee` | Knee | yes | your knee | Left knee / Both knees |
+| `ankle` | Ankle | yes | your ankle | Right ankle / Both ankles |
+| `elbow_wrist` | Elbow and wrist | yes | your elbow and wrist | Right elbow and wrist / Both elbows and wrists |
+| `hip` | Hip | yes | your hip | Left hip / Both hips |
+
+The lower back has no side: Settings doesn't ask for one, and the stored
+injury leaves `side` out. The `.injuries` wire stays at version 1 with
+`side` optional, accepted as absent only for an area that isn't sided (an
+older copy of the app skips such an entry, which is the cautious way round
+for a backup file). The export carries it the same way.
+
+**Where the levels live** (Ed's question 5). Recommendation: **keep them
+coupled**, as `loads` on each exercise in the program file, and move only the
+*area* facts out of the UI into one table in code.
+
+- *Per exercise, in the program file (coupled).* How much an exercise loads
+  an area depends on how that program writes it: Explosive Endurance's
+  Zercher split squat holds a bar in the elbows, and another program's split
+  squat may not. The stand-ins and area-free sessions have to sit on the
+  program's items and days anyway, so the levels sit next to them. A new
+  exercise is added with its tags in the same place, and the parser already
+  rejects a misspelt area or level.
+- *Per area, in `src/injury/areas.ts` (separate, app-wide).* The label,
+  whether it's sided, its sentence forms, its red flags, and which check-in
+  and retest fields it holds back. These are the same for every program, so
+  they don't belong in `program.json`. Today they are spread as `"shoulder"`
+  literals over the check-in, Today, the exercise sheet and the flag text;
+  one table replaces them.
+- *Alternative considered: a separate levels file* (`injury-levels.json`
+  keyed by exercise id). It reads well as a table, but it can drift: an
+  exercise added to the program and not to the levels file is silently
+  "unchanged" for every area. It would also need its own loader, wire types
+  and checks that every id exists. Not chosen.
+- To get the "one table" view without the drift, a unit test prints every
+  exercise's level for every area as one snapshot table, so a review sees
+  any change in one place, and a missing tag shows up as a blank in it.
+
+**Rules a second area needs** (multi-area cases the shoulder never hit):
+
+1. **Strictest level wins** across flagged areas (already true).
+2. **A stand-in must suit every flagged area.** Today a stand-in replaces
+   the item when every area at the strictest level has one. New: the
+   stand-in's own exercise is checked against the other flagged areas. If
+   it's "avoid" for any of them, the item is left out, with "Add it back".
+   If it's "caution", the stand-in row also says "Pain-free only".
+3. **An area-free session is checked too.** When a flag empties a day, the
+   first flagged area (table order) with a session in the file still wins,
+   but that session's rows then get the other flagged areas' levels, as any
+   day's rows do. If every row is left out, the session is shown with its
+   rows left out and "Add it back", not replaced by a rest day (Ed's answer
+   3 for the shoulder: a day stays a training day).
+4. **Stand-ins and swaps are exercises too.** Every exercise in the file is
+   tagged on its own merits, including the shoulder stand-ins and the
+   no-equipment swaps, so rules 2 and 3 have something to check.
+5. **"Uninjured hand" and "uninjured side"** in the shoulder stand-ins
+   already read correctly for any area; no wording changes.
+
+**Check-in and retest.**
+
+| Field | Held back while flagged, and for 14 days after a clear |
+| --- | --- |
+| Check-in: max pull-ups | shoulder, elbow and wrist |
+| Check-in: broad jump | knee, ankle, hip |
+| Week 8 retest: max pull-ups and dips | shoulder, elbow and wrist |
+
+"A drop is common after time off." (28-day lookback) follows the same
+table: it's added to a pull-up drop after a shoulder or elbow and wrist
+injury, and to a broad jump drop after a knee, ankle or hip injury.
+
+**Pass 1 levels.** As proposed and agreed (23 Nov). *Avoid* is left out
+with "Add it back"; *caution* is kept, pain-free only. An exercise not
+listed for an area is unchanged for it. "Its variants" means the
+no-equipment swap and the shoulder stand-in of that exercise, tagged the
+same unless the pass 1 PR's snapshot table says otherwise (for example the
+backpack swing for the kettlebell swing).
+
+| Area | Avoid | Caution |
+| --- | --- | --- |
+| Lower back | Kettlebell swings, med ball slams, rotational wall throws, back extension (every kind), single-leg RDL, hanging leg raise, crab to base switch and sprawl | Zercher split squat, dumbbell push press, overhead press, split-squat jumps, lateral skater bounds, plyo push-ups, lying leg raise, hollow hold (both kinds), on-the-spot crawl, heavy bag, Cossack squat, single-leg hip thrust, broad jumps |
+| Knee | Split-squat jumps, lateral skater bounds, broad jumps, Zercher split squat and its variants, Cossack squat, wall sit, crab to base switch and sprawl | Single-leg RDL, single-leg hip thrust, kettlebell swings, on-the-spot crawl, crab knee-to-elbow, heavy bag |
+| Ankle | Split-squat jumps, lateral skater bounds, broad jumps, single-leg calf raise and its variants, single-leg RDL and its variants, on-the-spot crawl | Zercher split squat, Cossack squat, kettlebell swings, crab to base switch and sprawl, heavy bag, wall sit |
+| Elbow and wrist | Pull-ups, dips, plyo push-ups, med ball slams, rotational wall throws, plate halo, heavy bag, crab moves, on-the-spot crawl, hanging leg raise, Zercher split squat, and their variants (explosive and table inverted rows, chair dips, pike push-ups); shadow boxing, the heavy bag's swap, is caution | Dumbbell push press, overhead press, kettlebell swings, single-leg RDL, calf raise holding a weight, YTWI raises, lateral raise, Pallof press, side plank (both kinds), back extension with a plate |
+| Hip | Cossack squat, lateral skater bounds, split-squat jumps, crab to base switch and sprawl | Zercher split squat, single-leg RDL, single-leg hip thrust, hip abduction / adduction, kettlebell swings, hanging and lying leg raise, on-the-spot crawl |
+
+Broad jumps (the shoulder's Day 4 stand-in) weren't in the proposal's lower
+back row; they're added as caution, the same as the other jumps there. That's
+the one change, called out for Ed in the pass 1 PR.
+
+**Pass 1 "When to get it checked".** Each area keeps the shoulder sheet's
+frame ("This isn't medical advice…", "While it's flagged, train only what's
+pain-free…", "The app doesn't decide when you're ready…") with its own
+list. Draft wording, for Ed to check in the pass 1 PR:
+
+- **Lower back.** First, on its own line: "**Get urgent medical help
+  straight away** if you have numbness around the groin or buttocks, or new
+  trouble controlling your bladder or bowels." Then, get it checked soon if:
+  pain, numbness or tingling runs down a leg, or a leg feels weak; it
+  started with a fall or a hard knock; you feel unwell or feverish, or it
+  hurts as much lying still as moving; it isn't getting better after a week
+  or two.
+- **Knee.** You can't take weight on it, or it gives way; it locks, catches
+  or won't straighten; it popped and swelled within a few hours, or you fell
+  on it; it's hot, red or very swollen, or the pain keeps you awake; it
+  isn't getting better after a week or two.
+- **Ankle.** You couldn't walk four steps on it straight after, or still
+  can't; it's tender right on the ankle bones or the top of the foot; it
+  popped or changed shape, or the back of the heel snapped; it's very
+  swollen or bruised, or the foot is numb or tingling; it isn't getting
+  better after a week or two.
+- **Elbow and wrist.** It happened in a fall onto your hand, or it popped or
+  changed shape; you can't grip, or can't bend or straighten it fully; the
+  hand or fingers are numb or tingling; it's very swollen or bruised, or the
+  pain keeps you awake; it isn't getting better after a week or two.
+- **Hip.** You can't take weight on the leg, or it happened in a fall; pain
+  in the groin comes with a fever or feeling unwell; numbness, tingling or
+  weakness runs down the leg; the pain is there at rest or keeps you awake;
+  it isn't getting better after a week or two.
+
+**Pass 2, per area** (proposed; each PR shows its tables for Ed to check
+before merge, as the shoulder's did):
+
+- **Lower back:** back extension → bird dog; single-leg RDL → single-leg
+  glute bridge; hanging leg raise → dead bug. No day is emptied, so no
+  area-free session. Day 5's own lower-back rule (cut back extensions to 2
+  sets) stays for days without a flag.
+- **Knee:** no stand-ins proposed; Days 2 and 6 are left with little but a
+  mini-dose, so a **knee-free session** (about 15 minutes, no knee bending
+  under load): glute bridge, side-lying hip raises, straight-leg calf
+  raises, dead bug, side plank.
+- **Ankle:** single-leg RDL → kickstand RDL (both feet down). No day is
+  emptied.
+- **Elbow and wrist:** hanging leg raise → lying leg raise; Zercher split
+  squat → bodyweight Bulgarian split squat. Days 1, 3 and 5 empty out, so an
+  **arm-free session** like the shoulder-free one, with a glute bridge in
+  place of the side plank (a side plank loads the elbow).
+- **Hip:** the levels are broad on purpose; its PR proposes stand-ins once
+  the other four are in and shows them to Ed first.
+
+**Code shape.**
+
+```
+ src/injury/areas.ts  (new: label, sided, sentence forms, red flags, held fields)
+        │
+        ├──▶ injuryFlagText / injuryFlagUi   Settings, banner, "When to get it checked"
+        ├──▶ injurySheetText                 "Your knee" section on the exercise sheet
+        ├──▶ checkin / retest                which fields are held back
+        └──▶ historyInjury                   "Right knee, Lower back"
+
+ program.json loads.<area> ──▶ parse ──▶ applyInjuries (rules 2 and 3 above)
+```
+
+**Worked examples** (start 2 Nov, as above; become unit-test fixtures):
+
+- Knee (left) flagged, W1 D2: the Cossack squat, split-squat jumps and the
+  Zercher split squat are left out; the single-leg RDL is pain-free only;
+  hip abduction / adduction is unchanged.
+- Lower back flagged, W1 D5: the back extension and the hanging leg raise
+  are left out; the push press, overhead press, hollow hold and heavy bag
+  are pain-free only. Day 5 isn't emptied, so no area-free session.
+- Shoulder and knee both flagged, W1 D2: the Zercher split squat's shoulder
+  stand-in (suitcase Bulgarian split squat) is itself "avoid" for the knee,
+  so the item is left out with "Add it back" (rule 2). The single-leg RDL
+  is caution for both and the knee has no stand-in, so it stays as written,
+  pain-free only.
+- Elbow and wrist flagged, W2 check-in: no max pull-ups field; broad jump
+  asked as usual. Knee flagged instead: pull-ups asked, broad jump held.
+
+Exact minutes and row lists are pinned in each PR's tests from the data, as
+the shoulder's were.
+
+**Milestones.**
+
+- **Areas 0 — this plan** *(design)*.
+- **Areas 1 — One table for the area facts** *(internal refactor)*: add
+  `src/injury/areas.ts` with only the shoulder, and read the label, sentence
+  forms, red flags and held check-in and retest fields from it instead of
+  `"shoulder"` literals. No visible change; the existing unit and e2e tests
+  must pass unchanged.
+  - Merge point: the shoulder works exactly as before.
+- **Areas 2 — Pass 1: the five areas, their levels and red flags**
+  *(behavior change)*. Steps, one commit each:
+  1. Sideless areas: optional `side` in the injury wire and model, and
+     Settings hiding the side for the lower back.
+  2. Add the five areas to `INJURY_AREAS` and `areas.ts`, with their red
+     flags and held fields (check-in and retest).
+  3. Rules 2 and 3 (stand-ins and area-free sessions checked against the
+     other flagged areas), with the shoulder-and-knee worked example.
+  4. The levels in `program.json`, with the snapshot table test.
+  5. README and e2e: flag the lower back (no side asked, back extension left
+     out), flag a knee (Day 2 rows, broad jump held at the check-in), and
+     shoulder plus knee together.
+  - Merge point: any of the six areas can be flagged and trains safely,
+    with left-out rows and "pain-free only" but no new stand-ins yet.
+- **Areas 3 to 7 — Pass 2, one PR per area** *(behavior change)*, in Ed's
+  order: lower back, knee, ankle, elbow and wrist, hip. Each adds the new
+  exercises (with their own levels for every area), the stand-ins and, for
+  the knee and the elbow and wrist, the area-free session, with tests, e2e
+  and a screenshot of a flagged day.
+  - Merge point: after each, that area has the full shoulder treatment.
+
+Each PR gets its own challenger review before it opens (CLAUDE.md section
+10).
+
+**Open questions for Ed** (with the answer I'm assuming):
+
+1. **Keep the levels coupled to the program** (on each exercise), with the
+   area facts in one code table, as recommended above? *Assumed: yes.*
+2. **Broad jumps as caution for the lower back**, added to the proposal's
+   row? *Assumed: yes.*
 
 ## 6. Worked examples (used as unit-test fixtures)
 
