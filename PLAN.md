@@ -3416,9 +3416,44 @@ before merge, as the shoulder's did):
 Exact minutes and row lists are pinned in each PR's tests from the data, as
 the shoulder's were.
 
+**A break from training** (added 25 Nov, *proposed, pending Ed's pick*). Ed
+has a neck injury, and a physio advised a week with no training. Flagging an
+area doesn't fit that: it changes sessions but the program keeps moving
+(answer 7 for the shoulder). A break stops the clock instead.
+
+- **Start one** from Settings or Today: "Take a break", for a number of
+  days (default 7) from today, with an optional note ("Physio: rest the
+  neck"). Stored in `<programId>.breaks`, a versioned wire
+  (`{ "version": 1, "breaks": [ { "from", "to", "note"? } ] }`) with its own
+  internal type and mapping functions, like `.injuries`.
+- **The schedule skips it.** A date's week and day count only the days
+  outside breaks since the start date, so the day after a week's break is
+  the day that would have come next. The start date isn't changed, and
+  logged sets keep their own day, so History is untouched.
+- **During a break** Today shows "On a break until 2 Dec" with the note and
+  "End the break today"; nothing to train. History marks the days.
+- **Coming back.** The first session after a break of 7 days or more says
+  "First session back · pain-free only" and offers "Half sets today" for
+  each exercise, for that date only, as after a cleared flag. The check-in's
+  "A drop is common after time off." also follows a break.
+- **Export and import** carry breaks, as they carry injuries.
+- A break and a flag can overlap: the flag still applies when the break
+  ends, until it's cleared.
+
+**The neck** (added 25 Nov) becomes a seventh area once Ed sends the
+physio's list of movements to avoid; its levels come from that list, not
+from a guess. Until then a break covers it.
+
 **Milestones.**
 
 - **Areas 0 — this plan** *(design)*.
+- **Break 1 — Take a break from training** *(behavior change)*, first,
+  if Ed picks it, so it's ready for the next break: storage, the schedule
+  skipping break days, Today and Settings, History, export and import, the
+  first-session-back offer, with unit tests and e2e (start a week's break,
+  see no session, end it, resume at the next day).
+  - Merge point: a break can be taken and ended, and the schedule resumes
+    where it stopped.
 - **Areas 1 — One table for the area facts** *(internal refactor)*: add
   `src/injury/areas.ts` with only the shoulder, and read the label, sentence
   forms, red flags and held check-in and retest fields from it instead of
@@ -3453,6 +3488,9 @@ Each PR gets its own challenger review before it opens (CLAUDE.md section
 
 1. **Broad jumps as caution for the lower back**, added to the proposal's
    row? *Assumed: yes.*
+2. **A "Take a break" feature** (above), or moving the start date by hand
+   after a break? *Assumed: build it (asked 25 Nov).*
+3. **The physio's list for the neck.** *Waiting on Ed.*
 
 Resolved (23 Nov): the levels stay coupled to the program, on each
 exercise, with the area facts in one code table (Ed: "let's couple them").
