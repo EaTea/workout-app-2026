@@ -3416,7 +3416,7 @@ before merge, as the shoulder's did):
 Exact minutes and row lists are pinned in each PR's tests from the data, as
 the shoulder's were.
 
-**A break from training** (added 25 Nov, *proposed, pending Ed's pick*). Ed
+**A break from training** (added 25 Nov; Ed chose to build it). Ed
 has a neck injury, and a physio advised a week with no training. Flagging an
 area doesn't fit that: it changes sessions but the program keeps moving
 (answer 7 for the shoulder). A break stops the clock instead.
@@ -3448,7 +3448,7 @@ from a guess. Until then a break covers it.
 
 - **Areas 0 — this plan** *(design)*.
 - **Break 1 — Take a break from training** *(behavior change)*, first,
-  if Ed picks it, so it's ready for the next break: storage, the schedule
+  so it's ready for the next break: storage, the schedule
   skipping break days, Today and Settings, History, export and import, the
   first-session-back offer, with unit tests and e2e (start a week's break,
   see no session, end it, resume at the next day).
@@ -3488,9 +3488,10 @@ Each PR gets its own challenger review before it opens (CLAUDE.md section
 
 1. **Broad jumps as caution for the lower back**, added to the proposal's
    row? *Assumed: yes.*
-2. **A "Take a break" feature** (above), or moving the start date by hand
-   after a break? *Assumed: build it (asked 25 Nov).*
-3. **The physio's list for the neck.** *Waiting on Ed.*
+2. **The physio's list for the neck.** *Waiting on Ed.*
+
+Resolved (25 Nov): Ed chose to build "Take a break" rather than move the
+start date by hand.
 
 Resolved (23 Nov): the levels stay coupled to the program, on each
 exercise, with the area facts in one code table (Ed: "let's couple them").
