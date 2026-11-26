@@ -22,6 +22,7 @@ describe("storageKeysForProgram", () => {
       optionalBlockChoices: "explosive-endurance.optional-block-choices",
       injuries: "explosive-endurance.injuries",
       injuryChoices: "explosive-endurance.injury-choices",
+      breaks: "explosive-endurance.breaks",
       importBackupPrefix: "explosive-endurance.import-backup-",
     });
   });

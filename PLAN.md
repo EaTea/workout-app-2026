@@ -3455,6 +3455,15 @@ from a guess. Until then a break covers it.
   skipping break days, Today and Settings, History, export and import, the
   first-session-back offer, with unit tests and e2e (start a week's break,
   see no session, end it, resume at the next day).
+  1. [x] Store breaks: `src/break/` model, wire (`.breaks`, v1, `to` is
+     the first day back), operations (`breakOn`, `breakDaysBetween`,
+     `startBreak` up to 28 days with no overlap, `endBreak`,
+     `lastBreakEndedBefore`) and storage, with unit tests.
+  2. [ ] The schedule skips break days (`programStatus` and every
+     week-start date), with unit tests.
+  3. [ ] Today, Settings and History.
+  4. [ ] First session back and the check-in sentence.
+  5. [ ] Export, import, README and e2e.
   - Merge point: a break can be taken and ended, and the schedule resumes
     where it stopped.
 - **Areas 1 — One table for the area facts** *(internal refactor)*: add
