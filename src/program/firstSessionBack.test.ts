@@ -131,6 +131,50 @@ describe("First session back after a break", () => {
     expect(item.firstTimeBack?.reason).toBe("break");
   });
 
+  it("does not let sets logged on the break's first day (before it was taken) cancel the mark", () => {
+    const item = itemOf(sessionOn("2026-12-03", { log: logSwing("2026-11-26") }), "kettlebell_swing");
+
+    expect(item.firstTimeBack?.reason).toBe("break");
+  });
+
+  it("marks nothing on Day 1 after a break that ended on the program's start date", () => {
+    const preStartBreak: TrainingBreak = { from: "2026-10-26", to: "2026-11-02" };
+    const session = sessionOn("2026-11-02", { breaks: [preStartBreak] });
+
+    expect(session.dayNumber).toBe(1);
+    for (const item of mainItems(session)) expect(item.firstTimeBack).toBeUndefined();
+  });
+
+  it("counts a 5-day break followed by a 4-day break as one 9-day break", () => {
+    const breaks: TrainingBreak[] = [{ from: "2026-11-20", to: "2026-11-25" }, { from: "2026-11-25", to: "2026-11-29" }];
+    const items = mainItems(sessionOn("2026-11-29", { breaks }));
+
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) expect(item.firstTimeBack?.reason).toBe("break");
+  });
+
+  it("marks only main blocks: never warm-up, cooldown or walk blocks", () => {
+    const session = sessionOn("2026-12-03");
+    const unmarkedTypes = new Set(["warmup", "cooldown", "walk"]);
+
+    for (const block of session.blocks) {
+      for (const item of block.items) {
+        expect(item.firstTimeBack !== undefined).toBe(!unmarkedTypes.has(block.type));
+      }
+    }
+  });
+
+  it("shows the break mark when an injury was cleared but the exercise was trained after the clearing, before the break", () => {
+    const shoulder: Injury = { area: "shoulder", side: "right", from: "2026-11-16", to: "2026-11-25" };
+    const pullUpSet = { exerciseId: "pull_up", blockPosition: 2, setNumber: 1, reps: 5, loggedAt: new Date("2026-11-25T10:00:00"), day: 1 };
+    const log = { sessions: { "2026-11-25": { date: "2026-11-25", day: 1, sets: [pullUpSet] } } } as unknown as WorkoutLog;
+    const session = sessionOn("2026-12-07", { injuries: [shoulder], log });
+
+    expect(session.week).toBe(5);
+    expect(session.dayNumber).toBe(1);
+    expect(itemOf(session, "pull_up").firstTimeBack).toMatchObject({ reason: "break" });
+  });
+
   it("halves a row with the stored Half sets today choice, as for an injury", () => {
     const choices: InjuryChoices = new Map([["2026-12-03", new Map([["2:kettlebell_swing", "halfSets" as const]])]]);
     const plain = sessionOn("2026-12-03");

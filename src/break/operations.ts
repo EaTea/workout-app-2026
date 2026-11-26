@@ -130,18 +130,48 @@ function isLongBreak(trainingBreak: TrainingBreak): boolean {
 }
 
 /**
- * The long break that "First session back" marks on `date` come from, or
- * undefined. A break counts when it lasted 7 days or more and ended (its
- * `to`) on or before `date` but less than `RETURN_FROM_BREAK_WINDOW_DAYS`
- * days before it. With two such breaks the one that ended last wins (a short
- * break in between does not hide an earlier long one, unlike
- * `lastBreakEndedBefore`). Called by `applyReturnToTraining` (program/injury.ts).
+ * The run of breaks that "First session back" marks on `date` come from, or
+ * undefined. This is the single place that decides. It is a TrainingBreak
+ * whose `from` is the first day of the run and whose `to` is the first day
+ * back, so callers use `to` as "trained since" and as the window start.
+ *
+ *   stored:  [--5 days--)[--4 days--)      touching breaks merge into one run
+ *   run:     [------- 9 days -------)      9 >= 7, so it counts
+ *                                  ^ first day back (the run's `to`)
+ *
+ * Rules, in order:
+ *  - Breaks that ended on or before `programStartDate` are ignored (the
+ *    program had not started, so Day 1 is not a "return").
+ *  - Breaks that touch or overlap are merged into one run; the 7-day
+ *    threshold (`LONG_BREAK_MIN_DAYS`) is measured over the whole run, not
+ *    per stored break.
+ *  - A run counts when it ended (its `to`) on or before `date` but less than
+ *    `RETURN_FROM_BREAK_WINDOW_DAYS` days before it. With two such runs the
+ *    one that ended last wins.
+ *
+ * Called by `applyReturnToTraining` (program/injury.ts).
  */
-export function returnFromBreakOn(breaks: readonly TrainingBreak[], date: string): TrainingBreak | undefined {
+export function returnFromBreakOn(breaks: readonly TrainingBreak[], date: string, programStartDate: string | null = null): TrainingBreak | undefined {
+  const countedBreaks = breaks
+    .filter((trainingBreak) => programStartDate === null || trainingBreak.to > programStartDate)
+    .map((trainingBreak) => ({ from: trainingBreak.from, to: trainingBreak.to }))
+    .sort((first, second) => (first.from < second.from ? -1 : first.from > second.from ? 1 : 0));
+
+  // Merge breaks that touch (next.from <= current.to) or overlap into runs.
+  const runs: { from: string; to: string }[] = [];
+  for (const trainingBreak of countedBreaks) {
+    const currentRun = runs[runs.length - 1];
+    if (currentRun !== undefined && trainingBreak.from <= currentRun.to) {
+      if (trainingBreak.to > currentRun.to) currentRun.to = trainingBreak.to;
+    } else {
+      runs.push(trainingBreak);
+    }
+  }
+
   let latest: TrainingBreak | undefined;
-  for (const trainingBreak of breaks) {
-    const isInWindow = trainingBreak.to <= date && date < addDaysToDate(trainingBreak.to, RETURN_FROM_BREAK_WINDOW_DAYS);
-    if (isInWindow && isLongBreak(trainingBreak) && (latest === undefined || trainingBreak.to > latest.to)) latest = trainingBreak;
+  for (const run of runs) {
+    const isInWindow = run.to <= date && date < addDaysToDate(run.to, RETURN_FROM_BREAK_WINDOW_DAYS);
+    if (isInWindow && isLongBreak(run) && (latest === undefined || run.to > latest.to)) latest = run;
   }
   return latest;
 }

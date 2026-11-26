@@ -254,17 +254,19 @@ function halvingChangesDose(item: ItemView, block: BlockView): boolean {
  *   no set logged under the ORIGINAL's id on a date from `to` up to, not
  *   including, today's date ─────────▶ firstTimeBack { reason "injury", area }  ("First time back · pain-free only")
  *
- *   break of 7+ days, ended `to` ──┬─ same window: `to` .. `to` + 13 days (returnFromBreakOn)
- *   any item of a main block
- *   no set logged on a date from the break's `from` up to, not
+ *   run of breaks of 7+ days (touching breaks merged; ones ending on or
+ *   before the program's start ignored), ended `to` ──┬─ same window: `to` .. `to` + 13 days (returnFromBreakOn)
+ *   any item of a main block (`isMainBlockForReturn`)
+ *   no set logged on a date from the first day back (`to`) up to, not
  *   including, today's date ─────────▶ firstTimeBack { reason "break" }  ("First session back · pain-free only")
  *
  *   + key in `halfSetsKeys` ─────────▶ also halved, halvedForReturn
  *
  * An item already marked for an injury keeps that one marker (the injury
- * wording wins). A warm-up item is never marked for a break (a break's
- * return is about training load, and there is no area tag to single a
- * warm-up out); an injury still marks a warm-up item tagged "avoid".
+ * wording wins), unless the injury's reason is used up (the exercise was
+ * trained since the clearing): then the break reason, if any, applies. Only
+ * main blocks are marked for a break (`isMainBlockForReturn`); an injury
+ * still marks a warm-up item tagged "avoid".
  *
  * Sets logged today (the session's `logDate`) do not end "first time back":
  * the row is still the first session, and halving by choice has to keep
@@ -294,7 +296,7 @@ export function applyReturnToTraining(
 ): SessionView {
   if (session.kind !== "training") return session;
 
-  const returnFromBreak = returnFromBreakOn(context.settings.breaks ?? [], context.logDate);
+  const returnFromBreak = returnFromBreakOn(context.settings.breaks ?? [], context.logDate, context.settings.startDate);
   if (recentlyClearedInjuries.length === 0 && returnFromBreak === undefined) return session;
 
   const keyDay = qualifyKeysWithDay ? session.dayNumber : undefined;
@@ -319,26 +321,42 @@ export function applyReturnToTraining(
 }
 
 /**
- * Why one item is back, and from when to look for training: the date its
- * sets must not have been logged on or after. Undefined when nothing brings
- * it back. An injury wins over a break (one marker, injury wording).
+ * True for the blocks a break's "First session back" marks: main training
+ * blocks. Warm-up, cooldown and walk blocks are not about training load, so
+ * a break leaves them alone. Used by `returnReasonFor`.
+ */
+function isMainBlockForReturn(block: BlockView): boolean {
+  return block.type !== "warmup" && block.type !== "cooldown" && block.type !== "walk";
+}
+
+/**
+ * Why one item is back: the marker to show, and whether it is already used
+ * up. Undefined when nothing brings it back or the reason is used up.
+ * `trainedOnOrAfter(date)` says whether the original exercise has a set
+ * logged from `date` up to (not including) today. An injury wins over a
+ * break (one marker, injury wording), but only while its reason is alive: if
+ * the exercise was trained since the injury's clearing, the break reason is
+ * tried next. A break's reason starts on its first day back (`to`).
  */
 function returnReasonFor(
   item: ItemView,
   block: BlockView,
   recentlyClearedInjuries: readonly Injury[],
   returnFromBreak: TrainingBreak | undefined,
-): { trainedSince: string; makeMarker: (halfSetsOffered: boolean) => FirstTimeBack } | undefined {
+  trainedOnOrAfter: (date: string) => boolean,
+): { makeMarker: (halfSetsOffered: boolean) => FirstTimeBack } | undefined {
   const clearedAreas = recentlyClearedInjuries.filter((injury) => effectiveLoads(item)?.[injury.area] === "avoid");
 
   if (clearedAreas.length > 0) {
     // The newest clearing date among the injuries that would have kept it out.
     const newest = clearedAreas.reduce((latest, injury) => ((injury.to ?? "") > (latest.to ?? "") ? injury : latest));
-    return { trainedSince: newest.to!, makeMarker: (halfSetsOffered) => ({ reason: "injury", area: newest.area, halfSetsOffered }) };
+    if (!trainedOnOrAfter(newest.to!)) {
+      return { makeMarker: (halfSetsOffered) => ({ reason: "injury", area: newest.area, halfSetsOffered }) };
+    }
   }
 
-  if (returnFromBreak !== undefined && block.type !== "warmup") {
-    return { trainedSince: returnFromBreak.from, makeMarker: (halfSetsOffered) => ({ reason: "break", halfSetsOffered }) };
+  if (returnFromBreak !== undefined && isMainBlockForReturn(block) && !trainedOnOrAfter(returnFromBreak.to)) {
+    return { makeMarker: (halfSetsOffered) => ({ reason: "break", halfSetsOffered }) };
   }
 
   return undefined;
@@ -358,17 +376,17 @@ function markReturningItem(
   // An item a flag still changes today (left out, stood in for, added back) is not "back" yet.
   if (item.leftOut !== undefined || item.injuryStandInFor !== undefined || item.addedBack === true) return item;
 
-  const reason = returnReasonFor(item, block, recentlyClearedInjuries, returnFromBreak);
-  if (reason === undefined) return item;
+  // Any set under the original's id from the clearing date (or the first day back) up to (not including) today ends that reason.
+  const trainedOnOrAfter = (since: string): boolean =>
+    Object.entries(context.log.sessions).some(
+      ([date, loggedSession]) =>
+        date >= since &&
+        date < context.logDate &&
+        loggedSession.sets.some((set) => set.exerciseId === item.exercise.id || set.exerciseId === item.noEquipment?.exercise.id),
+    );
 
-  // Any set under the original's id from the clearing date (or the break's start) up to (not including) today ends "first time back".
-  const trainedSinceReturn = Object.entries(context.log.sessions).some(
-    ([date, loggedSession]) =>
-      date >= reason.trainedSince &&
-      date < context.logDate &&
-      loggedSession.sets.some((set) => set.exerciseId === item.exercise.id || set.exerciseId === item.noEquipment?.exercise.id),
-  );
-  if (trainedSinceReturn) return item;
+  const reason = returnReasonFor(item, block, recentlyClearedInjuries, returnFromBreak, trainedOnOrAfter);
+  if (reason === undefined) return item;
 
   // Halving a warm-up or a one-set item changes nothing, so neither the button nor the "halved" marker applies.
   const halvingHelps = halvingChangesDose(item, block);

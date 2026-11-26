@@ -149,8 +149,8 @@ describe("lastBreakEndedBefore", () => {
 describe("returnFromBreakOn", () => {
   it("finds a 7-day break from its end date to 13 days after, not before or after", () => {
     expect(returnFromBreakOn([weekBreak], "2026-12-02")).toBeUndefined();
-    expect(returnFromBreakOn([weekBreak], "2026-12-03")).toBe(weekBreak);
-    expect(returnFromBreakOn([weekBreak], "2026-12-16")).toBe(weekBreak);
+    expect(returnFromBreakOn([weekBreak], "2026-12-03")).toEqual({ from: weekBreak.from, to: weekBreak.to });
+    expect(returnFromBreakOn([weekBreak], "2026-12-16")).toEqual({ from: weekBreak.from, to: weekBreak.to });
     expect(returnFromBreakOn([weekBreak], "2026-12-17")).toBeUndefined();
   });
 
@@ -162,8 +162,36 @@ describe("returnFromBreakOn", () => {
     const longEarlier = { from: "2026-11-10", to: "2026-11-24" };
     const shortLater = { from: "2026-11-30", to: "2026-12-03" };
 
-    expect(returnFromBreakOn([longEarlier, shortLater], "2026-12-03")).toBe(longEarlier);
-    expect(returnFromBreakOn([longEarlier, weekBreak], "2026-12-03")).toBe(weekBreak);
+    expect(returnFromBreakOn([longEarlier, shortLater], "2026-12-03")).toEqual(longEarlier);
+    expect(returnFromBreakOn([longEarlier, weekBreak], "2026-12-03")).toEqual({ from: weekBreak.from, to: weekBreak.to });
+  });
+
+  it("ignores breaks that ended on or before the program's start date, but not ones ending after it", () => {
+    const beforeStart = { from: "2026-10-20", to: "2026-11-02" };
+    const endsAfterStart = { from: "2026-10-20", to: "2026-11-03" };
+
+    expect(returnFromBreakOn([beforeStart], "2026-11-02", "2026-11-02")).toBeUndefined();
+    expect(returnFromBreakOn([beforeStart], "2026-11-02", null)).toEqual(beforeStart);
+    expect(returnFromBreakOn([endsAfterStart], "2026-11-03", "2026-11-02")).toEqual(endsAfterStart);
+  });
+
+  it("merges touching breaks: 5 days then 4 days is a 9-day run from the first from to the last to", () => {
+    const first = { from: "2026-11-20", to: "2026-11-25" };
+    const second = { from: "2026-11-25", to: "2026-11-29" };
+
+    expect(returnFromBreakOn([second, first], "2026-11-29")).toEqual({ from: "2026-11-20", to: "2026-11-29" });
+  });
+
+  it("merges overlapping breaks, and does not merge breaks with a gap day between them", () => {
+    expect(returnFromBreakOn([{ from: "2026-11-20", to: "2026-11-26" }, { from: "2026-11-24", to: "2026-11-29" }], "2026-11-29")).toEqual({ from: "2026-11-20", to: "2026-11-29" });
+    expect(returnFromBreakOn([{ from: "2026-11-20", to: "2026-11-25" }, { from: "2026-11-26", to: "2026-11-30" }], "2026-11-30")).toBeUndefined();
+  });
+
+  it("measures the 14-day window from the end of the merged run", () => {
+    const breaks = [{ from: "2026-11-20", to: "2026-11-25" }, { from: "2026-11-25", to: "2026-11-29" }];
+
+    expect(returnFromBreakOn(breaks, "2026-12-12")).toBeDefined();
+    expect(returnFromBreakOn(breaks, "2026-12-13")).toBeUndefined();
   });
 });
 
