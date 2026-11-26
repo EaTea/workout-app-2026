@@ -3425,7 +3425,9 @@ area doesn't fit that: it changes sessions but the program keeps moving
 (answer 7 for the shoulder). A break stops the clock instead.
 
 - **Start one** from Settings or Today: "Take a break", for a number of
-  days (default 7) from today, with an optional note ("Physio: rest the
+  days (default 7, up to 56) from today, or from tomorrow when today is
+  already trained or was folded into yesterday's combined session, with an
+  optional note ("Physio: rest the
   neck"). Stored in `<programId>.breaks`, a versioned wire
   (`{ "version": 1, "breaks": [ { "from", "to", "note"? } ] }`) with its own
   internal type and mapping functions, like `.injuries`.
@@ -3433,11 +3435,13 @@ area doesn't fit that: it changes sessions but the program keeps moving
   outside breaks since the start date, so the day after a week's break is
   the day that would have come next. The start date isn't changed, and
   logged sets keep their own day, so History is untouched.
-- **During a break** Today shows "On a break until 2 Dec" with the note and
-  "End the break today"; nothing to train. History marks the days.
-- **Coming back.** The first session after a break of 7 days or more says
-  "First session back · pain-free only" and offers "Half sets today" for
-  each exercise, for that date only, as after a cleared flag. The check-in's
+- **During a break** Today shows "On a break" and "Back on 3 Dec with
+  Week 4, Day 4.", the note and "End the break today"; nothing to train.
+  History shows one line per break. A coming break can be cancelled.
+- **Coming back.** For 14 days after a run of breaks totalling 7 days or
+  more, each main-block exercise not yet trained since the first day back
+  says "First session back · pain-free only" and offers "Half sets today",
+  for that date only, as after a cleared flag. The check-in's
   "A drop is common after time off." also follows a break.
 - **Export and import** carry breaks, as they carry injuries.
 - A break and a flag can overlap: the flag still applies when the break
@@ -3484,6 +3488,18 @@ from a guess. Until then a break covers it.
      the version 2 export; a file without one keeps the stored breaks; the
      preview warns when a stored break would be removed or changed; the
      import backup and undo cover them.
+  - Challenger review, all fixed: a cleared injury hid the break's mark;
+    sets on a break's first day cancelled it; a break swallowed a day
+    already trained or combined (now starts tomorrow); short touching
+    breaks never reached 7 days; cool-down and walk rows were marked; the
+    Overview lost the current week; "Starts on" ignored a break over the
+    start date; a wrong preview hint; overlapping imported breaks; no way
+    to cancel a coming break; the cap raised from 28 to 56 days.
+  - Known, left as is: `breaks` is optional on `TrainingSettings`, so a
+    path that builds settings without `withBreaks` would schedule as if
+    there were none (every current path is covered); a break can't be
+    extended in place (end it and start another, which counts as one run
+    for "First session back").
   - Merge point: a break can be taken and ended, and the schedule resumes
     where it stopped.
 - **Areas 1 — One table for the area facts** *(internal refactor)*: add
