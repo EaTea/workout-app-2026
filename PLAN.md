@@ -2680,6 +2680,9 @@ types change, so there is nothing new to map (CLAUDE.md section 6).
   - **Merge point:** a long log opens with 2 weeks and the rest is a tap
     away.
 - **History PR 2 — Redraw only the tapped card** *(internal refactor, with a speed-up)*
+  *Optional follow-up, not started (Ed, 23 Nov). With History PR 1 a tap
+  takes about 31 ms at a year of sessions (was about 0.5 s), so this only
+  helps after many "Show older weeks" taps.*
   1. [ ] Build each card through one function and keep it by date; expand,
      collapse, open a set and Cancel replace only that card. The progress
      charts are no longer rebuilt on those taps.
