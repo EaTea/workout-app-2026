@@ -32,6 +32,7 @@ import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { CombinesByDate } from "../combine/model";
 import { type CombinedBlock, type CombinedSession, type TrainingSessionView } from "../program/combine";
 import { activeCombineOn, activeDonorOn, combineOffersFor } from "../program/combineOffers";
+import type { TrainingBreak } from "../break/model";
 import { programStatus, todayLocalDate } from "../program/calendar";
 import { blockCountOf } from "../optionalBlocks/session";
 import { optionalBlockKey } from "../optionalBlocks/model";
@@ -196,8 +197,8 @@ export function renderTodayScreen(
   screen.append(...renderInjuryBanners(injury?.injuries ?? [], date));
 
   // A date whose day was folded into another date's session shows a card and no session.
-  const donor = activeDonorOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate());
-  const donorStatus = programStatus(settings.startDate, program.lengthWeeks, date);
+  const donor = activeDonorOn(program, settings.startDate, settings.breaks ?? [], date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate());
+  const donorStatus = programStatus(settings.startDate, program.lengthWeeks, date, settings.breaks);
   if (donor !== undefined && donorStatus.kind === "active") {
     screen.append(renderDonorCard(donor, date, donorStatus.week, program.lengthWeeks, program.safety));
     return screen;
@@ -220,14 +221,14 @@ export function renderTodayScreen(
         if (exercisesToRetest.length > 0 || jumpOnly) {
           screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, hasJump ? {
             week: trainingWeekOf(program, settings, date) ?? 0,
-            history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks),
+            history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks, settings.breaks ?? []),
           } : undefined, exercisesHeldBack));
         }
       }
       if (checkIn !== undefined) {
         const weekToAsk = checkInWeekToAsk(program, settings, date, checkIn.history, checkIn.snoozedDate);
         if (weekToAsk !== undefined) {
-          screen.append(renderCheckInCard(weekToAsk, weeklyChecksFor(checkIn.history, settings.startDate, program.lengthWeeks), checkIn.ruleText, {
+          screen.append(renderCheckInCard(weekToAsk, weeklyChecksFor(checkIn.history, settings.startDate, program.lengthWeeks, settings.breaks ?? []), checkIn.ruleText, {
             draft: checkIn.draftForWeek(weekToAsk),
             canSave: checkIn.canSave,
             onSave: checkIn.onSave,
@@ -249,13 +250,13 @@ export function renderTodayScreen(
         program,
         source: setLogging,
         programWeek: session.week,
-        hostDay: activeCombineOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate())?.hostDay,
+        hostDay: activeCombineOn(program, settings.startDate, settings.breaks ?? [], date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate())?.hostDay,
         isCombined: session.kind === "combined",
       };
       if (session.kind === "combined") {
         screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, injury, combine, optionalBlocks, rowTimerLogging));
       } else {
-        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, injury, combine, settings.startDate, optionalBlocks, rowTimerLogging));
+        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, injury, combine, settings.startDate, settings.breaks ?? [], optionalBlocks, rowTimerLogging));
       }
       break;
     default:
@@ -267,7 +268,7 @@ export function renderTodayScreen(
 
 /**
  * A single card for sessions with nothing to train: not started, rest day,
- * finished. Each ends with the small "Program overview" link. The
+ * on a break, finished. Each ends with the small "Program overview" link. The
  * `noStartDate` case is only here to keep the switch exhaustive: app.ts never
  * renders Today without a start date (it shows the Overview), so the card just
  * points there. A program with safety notes keeps the "Safety notes" link on
@@ -300,6 +301,14 @@ function renderMessageCard(
         element("div", "kicker", formatSessionKicker(date, session.week, lengthWeeks, session.dayNumber)),
         element("h2", "card-title", "Rest day"),
         element("p", undefined, `Week ${session.week} · ${session.phase}. Recover today; no training is planned.`),
+      );
+      break;
+
+    case "onBreak":
+      // Minimal for now; the note and "End the break today" button come with Break 1 step 3.
+      card.append(
+        element("h2", "card-title", "On a break"),
+        element("p", undefined, `Back on ${formatShortDate(session.until)} with Week ${session.resumesWeek}, Day ${session.resumesDayNumber}.`),
       );
       break;
 
@@ -340,6 +349,7 @@ function renderTrainingDay(
   injury: InjuryOptions | undefined,
   combine: CombineOptions | undefined,
   startDate: string | null,
+  breaks: readonly TrainingBreak[],
   optionalBlocks: OptionalBlocksOptions | undefined,
   rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement[] {
@@ -364,7 +374,7 @@ function renderTrainingDay(
   // "Short on time? Add Day N to today" and "Add missed Day N to today", right under the header so they are
   // seen without scrolling. Only on the real today, while nothing is logged and the pair is allowed.
   if (combine !== undefined) {
-    const offers = combineOffersFor(program, startDate, date, log, combine.combines, combine.realToday);
+    const offers = combineOffersFor(program, startDate, breaks, date, log, combine.combines, combine.realToday);
     if (offers.length > 0) parts.push(renderCombineOffers(offers, combine.actions));
   }
 

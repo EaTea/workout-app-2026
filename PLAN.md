@@ -3459,9 +3459,17 @@ from a guess. Until then a break covers it.
      the first day back), operations (`breakOn`, `breakDaysBetween`,
      `startBreak` up to 28 days with no overlap, `endBreak`,
      `lastBreakEndedBefore`) and storage, with unit tests.
-  2. [ ] The schedule skips break days (`programStatus` and every
-     week-start date), with unit tests.
-  3. [ ] Today, Settings and History.
+  2. [x] The schedule skips break days: `programStatus(..., breaks)` with
+     an `onBreak` status, its inverse `dateOfProgramDay` for every
+     week/day-to-date site (Day plan, week start and end, retest window,
+     held EMOM dates), breaks on the in-memory `TrainingSettings` (filled by
+     app.ts, never in the settings wire), no combine offer across a break,
+     and a minimal Today card ("Back on 3 Dec with Week 4, Day 4."). Start
+     2 Nov with a break 26 Nov to 3 Dec: 3 Dec is W4 D4, 7 Dec W5 D1, and the
+     program ends 3 Jan.
+  3. [ ] Today, Settings and History. History groups weeks by the stored
+     week plus a 7-day gap rule, so a week with a break inside can split in
+     two; fix that here.
   4. [ ] First session back and the check-in sentence.
   5. [ ] Export, import, README and e2e.
   - Merge point: a break can be taken and ended, and the schedule resumes

@@ -138,6 +138,10 @@ function buildCallToAction(status: ProgramStatus, days: DayOverview[]): CallToAc
       return { kind: "goToToday", label: `Go to today: ${where}`, week: status.week, dayNumber: status.dayNumber };
     }
 
+    case "onBreak":
+      // No session today; the button still leads to Today, which explains the break.
+      return { kind: "goToToday", label: "Go to today: On a break", week: status.week, dayNumber: status.dayNumber };
+
     case "complete":
       return { kind: "setNewStartDate", label: "Set a new start date" };
   }

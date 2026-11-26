@@ -62,7 +62,7 @@ export function checkInWeekToAsk(
 
   const week = trainingWeekOf(program, settings, date);
   if (week === undefined || phaseForWeek(program, week).retest) return undefined;
-  const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks);
+  const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks, settings.breaks ?? []);
   if (checkForWeek(weeklyChecks, week) !== undefined || snoozedDate === date) return undefined;
 
   return week;
@@ -74,7 +74,7 @@ export function checkInWeekToAsk(
  * Shared by the card rule above and the week 8 retest hook in app.ts.
  */
 export function trainingWeekOf(program: Program, settings: TrainingSettings, date: string): number | undefined {
-  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  const status = programStatus(settings.startDate, program.lengthWeeks, date, settings.breaks);
   if (status.kind !== "active" || program.days[status.dayNumber] === undefined) return undefined;
 
   return status.week;
@@ -95,10 +95,10 @@ export function dropWarningForShownDate(
 ): { week: number; warnings: FatigueWarning[]; checkDate?: string } {
   if (program.fatigueCheck === undefined) return { week: 0, warnings: [] };
 
-  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  const status = programStatus(settings.startDate, program.lengthWeeks, date, settings.breaks);
   if (status.kind !== "active") return { week: 0, warnings: [] };
 
-  const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks);
+  const weeklyChecks = weeklyChecksFor(history, settings.startDate, program.lengthWeeks, settings.breaks ?? []);
   const warnings = fatigueWarnings(weeklyChecks, status.week);
   const checkDate = checkForWeek(weeklyChecks, status.week)?.date;
   return warnings.length === 0 || checkDate === undefined ? { week: status.week, warnings } : { week: status.week, warnings, checkDate };

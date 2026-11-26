@@ -234,7 +234,7 @@ describe("applyFatigueChange", () => {
 
   it("applies the change to the fresh stored history and saves it", () => {
     const storage = fakeStorage();
-    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8, []), now);
 
     expect(result.saved).toBe(true);
     expect(loadFatigueHistory(storage, KEYS, now).history.checks).toEqual([weekOne]);
@@ -243,17 +243,17 @@ describe("applyFatigueChange", () => {
   it("two open copies of the app do not wipe each other's checks", () => {
     const storage = fakeStorage();
     const tabBStartupHistory = loadFatigueHistory(storage, KEYS, now).history;
-    applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8, []), now);
 
     expect(tabBStartupHistory.checks).toEqual([]);
-    applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekTwo, "2026-11-09", 8), now);
+    applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekTwo, "2026-11-09", 8, []), now);
 
     expect(loadFatigueHistory(storage, KEYS, now).history.checks.map((entry) => entry.date)).toEqual(["2026-11-09", "2026-11-16"]);
   });
 
   it("refuses, writing nothing, when the stored history cannot be read", () => {
     const storage = blockedReadStorage();
-    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8, []), now);
 
     expect(result).toMatchObject({ saved: false, error: expect.stringContaining("blocked") });
     expect(result).not.toHaveProperty("history");
@@ -262,7 +262,7 @@ describe("applyFatigueChange", () => {
 
   it("refuses when unreadable data could not be backed up, leaving the original in place", () => {
     const storage = fakeStorage({ [KEYS.fatigue]: "{not json" }, true);
-    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8, []), now);
 
     expect(result.saved).toBe(false);
     expect(storage.data.get(KEYS.fatigue)).toBe("{not json");
@@ -270,7 +270,7 @@ describe("applyFatigueChange", () => {
 
   it("after backing up unreadable data it saves the change over it", () => {
     const storage = fakeStorage({ [KEYS.fatigue]: "{not json" });
-    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(storage, KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8, []), now);
 
     expect(result.saved).toBe(true);
     expect(storage.data.get(`${KEYS.fatigueCorruptBackupPrefix}2026-11-09T12:00:00.000Z`)).toBe("{not json");
@@ -278,7 +278,7 @@ describe("applyFatigueChange", () => {
   });
 
   it("keeps the change in the returned history when the write fails", () => {
-    const result = applyFatigueChange(fakeStorage({}, true), KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8), now);
+    const result = applyFatigueChange(fakeStorage({}, true), KEYS, (fresh) => recordCheck(fresh, weekOne, "2026-11-09", 8, []), now);
 
     expect(result.saved).toBe(false);
     expect(result.saved === false && result.error).toContain("QuotaExceededError");

@@ -112,12 +112,12 @@ function renderCombinedNoteFor(
 ): HTMLElement | undefined {
   if (settings.startDate === null) return undefined;
 
-  const date = planDateFor(settings.startDate, week, dayNumber);
+  const date = planDateFor(settings.startDate, settings.breaks ?? [], week, dayNumber);
 
-  const hostCombine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
+  const hostCombine = activeCombineOn(program, settings.startDate, settings.breaks ?? [], date, combines, log, realToday);
   if (hostCombine !== undefined) return renderCombinedNote(hostCombine.addedDay, hostCombine.addedDate);
 
-  const donor = activeDonorOn(program, settings.startDate, date, combines, log, realToday);
+  const donor = activeDonorOn(program, settings.startDate, settings.breaks ?? [], date, combines, log, realToday);
   if (donor !== undefined) return renderCombinedNote(donor.hostDay, donor.hostDate);
 
   return undefined;

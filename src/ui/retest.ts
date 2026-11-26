@@ -1,6 +1,6 @@
-import type { Exercise, Program } from "../program/model";
+import { DAYS_PER_WEEK, type Exercise, type Program } from "../program/model";
 import { retestWeekStartDate, wasMaxSavedDuringWeek } from "../program/schedule";
-import { toDayNumber } from "../program/calendar";
+import { dateOfProgramDay, toDayNumber } from "../program/calendar";
 import type { Injury } from "../injury/model";
 import { activeAreasOn, recentlyClearedInjuriesOn } from "../injury/operations";
 import type { TrainingSettings } from "../settings/model";
@@ -29,12 +29,16 @@ import { stampMaxSavedDates, updateMaxHistory } from "./settings";
  */
 function outstandingRetestExercises(program: Program, settings: TrainingSettings, date: string, dismissedDate: string | undefined): Exercise[] {
   const weekStartDate = retestWeekStartDate(program, settings, date);
-  if (weekStartDate === undefined || dismissedDate === date) {
+  const week = trainingWeekOf(program, settings, date);
+  if (weekStartDate === undefined || week === undefined || dismissedDate === date) {
     return [];
   }
 
+  // Day 7's date, not start + 6: a break inside the retest week stretches it.
+  const weekEndDate = dateOfProgramDay(settings.startDate as string, settings.breaks ?? [], week, DAYS_PER_WEEK);
+
   return Object.values(program.exercises).filter(
-    (exercise) => exercise.maxTested && !wasMaxSavedDuringWeek(settings, exercise.id, weekStartDate),
+    (exercise) => exercise.maxTested && !wasMaxSavedDuringWeek(settings, exercise.id, weekStartDate, weekEndDate),
   );
 }
 
@@ -113,7 +117,7 @@ export function shouldOfferJumpOnly(
   if (weekStartDate === undefined || week === undefined || dismissedDate === date) return false;
   if (skippedWeekStart === weekStartDate) return false;
 
-  const savedCheck = checkForWeek(weeklyChecksFor(history, settings.startDate, program.lengthWeeks), week);
+  const savedCheck = checkForWeek(weeklyChecksFor(history, settings.startDate, program.lengthWeeks, settings.breaks ?? []), week);
   return savedCheck?.broadJumpMetres === undefined;
 }
 

@@ -1,5 +1,6 @@
 import type { Combine, CombinesByDate } from "../combine/model";
 import type { WorkoutLog } from "../log/model";
+import type { TrainingBreak } from "../break/model";
 import { addDaysToDate, programStatus } from "./calendar";
 import type { DayNumber, Program } from "./model";
 
@@ -68,11 +69,13 @@ export interface DonorInfo {
  *    not part of an ACTIVE combine (a stale or lapsed one is ignored, so a
  *    day whose host never got trained can be caught up again). "addMissed"
  *    also requires the missed date to be before `realToday`.
- * `startDate` is the settings' start date (null when not set: no offers).
+ * `startDate` is the settings' start date (null when not set: no offers);
+ * `breaks` are the settings' breaks (a break day is not "active", so no offers there).
  */
 export function combineOffersFor(
   program: Program,
   startDate: string | null,
+  breaks: readonly TrainingBreak[],
   today: string,
   log: WorkoutLog,
   combines: CombinesByDate,
@@ -81,10 +84,10 @@ export function combineOffersFor(
   // Combining is "on the day": no buttons on a preview of any other date.
   if (today !== realToday) return [];
 
-  const status = programStatus(startDate, program.lengthWeeks, today);
+  const status = programStatus(startDate, program.lengthWeeks, today, breaks);
   if (status.kind !== "active") return [];
 
-  const activeCombines = activeCombinesOf(program, startDate, combines, log, realToday);
+  const activeCombines = activeCombinesOf(program, startDate, breaks, combines, log, realToday);
 
   const todayDay = status.dayNumber;
   const todayIsFree = program.days[todayDay] !== undefined && !hasLoggedSets(log, today) && !isPartOfCombine(activeCombines, today);
@@ -95,7 +98,8 @@ export function combineOffersFor(
   const nextDay = todayDay + 1;
   if (isAllowedPair(program, todayDay, nextDay)) {
     const nextDate = addDaysToDate(today, 1);
-    if (canBeAdded(log, activeCombines, nextDate)) {
+    // A break starting tomorrow means tomorrow is not Day N+1 (it is on a break).
+    if (isProgramDay(program, startDate, breaks, nextDate, nextDay) && canBeAdded(log, activeCombines, nextDate)) {
       offers.push({ kind: "addNext", day: nextDay, date: nextDate, combine: { hostDay: todayDay, addedDay: nextDay, addedDate: nextDate } });
     }
   }
@@ -103,7 +107,7 @@ export function combineOffersFor(
   const previousDay = todayDay - 1;
   if (isAllowedPair(program, previousDay, todayDay)) {
     const previousDate = addDaysToDate(today, -1);
-    if (previousDate < realToday && canBeAdded(log, activeCombines, previousDate)) {
+    if (previousDate < realToday && isProgramDay(program, startDate, breaks, previousDate, previousDay) && canBeAdded(log, activeCombines, previousDate)) {
       offers.push({ kind: "addMissed", day: previousDay, date: previousDate, combine: { hostDay: todayDay, addedDay: previousDay, addedDate: previousDate } });
     }
   }
@@ -141,6 +145,7 @@ export function donorOnDate(combines: CombinesByDate, date: string): DonorInfo |
 export function activeCombineOn(
   program: Program,
   startDate: string | null,
+  breaks: readonly TrainingBreak[],
   date: string,
   combines: CombinesByDate,
   log: WorkoutLog,
@@ -150,7 +155,7 @@ export function activeCombineOn(
   if (combine === undefined) return undefined;
   if (isLapsedCombine(date, log, realToday)) return undefined;
 
-  const status = programStatus(startDate, program.lengthWeeks, date);
+  const status = programStatus(startDate, program.lengthWeeks, date, breaks);
   if (status.kind !== "active" || status.dayNumber !== combine.hostDay) return undefined;
 
   const earlierDay = Math.min(combine.hostDay, combine.addedDay);
@@ -171,6 +176,7 @@ export function activeCombineOn(
 export function activeDonorOn(
   program: Program,
   startDate: string | null,
+  breaks: readonly TrainingBreak[],
   date: string,
   combines: CombinesByDate,
   log: WorkoutLog,
@@ -179,9 +185,9 @@ export function activeDonorOn(
   const donor = donorOnDate(combines, date);
   if (donor === undefined) return undefined;
 
-  const status = programStatus(startDate, program.lengthWeeks, date);
+  const status = programStatus(startDate, program.lengthWeeks, date, breaks);
   if (status.kind !== "active" || status.dayNumber !== donor.day) return undefined;
-  if (activeCombineOn(program, startDate, donor.hostDate, combines, log, realToday) === undefined) return undefined;
+  if (activeCombineOn(program, startDate, breaks, donor.hostDate, combines, log, realToday) === undefined) return undefined;
 
   return donor;
 }
@@ -201,16 +207,22 @@ export function isLapsedCombine(hostDate: string, log: WorkoutLog, realToday: st
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** True when `date` is, in the schedule as it is now (breaks skipped), program day `dayNumber` of an active week. */
+function isProgramDay(program: Program, startDate: string | null, breaks: readonly TrainingBreak[], date: string, dayNumber: DayNumber): boolean {
+  const status = programStatus(startDate, program.lengthWeeks, date, breaks);
+  return status.kind === "active" && status.dayNumber === dayNumber;
+}
+
 /** True when [earlierDay, laterDay] is one of the program's allowed pairs. */
 function isAllowedPair(program: Program, earlierDay: DayNumber, laterDay: DayNumber): boolean {
   return program.combinePairs.some(([allowedEarlier, allowedLater]) => allowedEarlier === earlierDay && allowedLater === laterDay);
 }
 
 /** The stored combines that are active (valid for the program and not lapsed); the offers only look at these. */
-function activeCombinesOf(program: Program, startDate: string | null, combines: CombinesByDate, log: WorkoutLog, realToday: string): CombinesByDate {
+function activeCombinesOf(program: Program, startDate: string | null, breaks: readonly TrainingBreak[], combines: CombinesByDate, log: WorkoutLog, realToday: string): CombinesByDate {
   const active: CombinesByDate = new Map();
   for (const hostDate of combines.keys()) {
-    const combine = activeCombineOn(program, startDate, hostDate, combines, log, realToday);
+    const combine = activeCombineOn(program, startDate, breaks, hostDate, combines, log, realToday);
     if (combine !== undefined) active.set(hostDate, combine);
   }
   return active;

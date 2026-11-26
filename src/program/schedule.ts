@@ -1,7 +1,8 @@
 import type { Block, BlockItem, Exercise, Format, InjuryArea, InjuryLoadLevel, NoEquipmentSwap, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
 import { DAYS_PER_WEEK, INJURY_AREAS, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
 import { applyRotationToBlocks } from "./rotation";
-import { addDaysToDate, programStatus } from "./calendar";
+import { dateOfProgramDay, programStatus } from "./calendar";
+import type { TrainingBreak } from "../break/model";
 import type { TrainingSettings } from "../settings/model";
 import { maxInEffectOn } from "../settings/maxHistory";
 
@@ -86,6 +87,8 @@ interface WeekContext {
   retestHeldOffset: number;
   timerAdjustments?: TimerAdjustments;
   weekStartDate: string;
+  /** Date of the week's Day 7 (later than weekStartDate + 6 when a break falls inside the week). */
+  weekEndDate: string;
   heldEmomDates: Record<string, string>;
 }
 
@@ -240,6 +243,8 @@ export type SessionView =
   | { kind: "noStartDate" }
   | { kind: "notStarted"; startsOn: string }
   | { kind: "complete" }
+  /** The date is inside a break from training: no session. Training resumes on `until` with the given week and day. */
+  | { kind: "onBreak"; until: string; resumesWeek: number; resumesDayNumber: number }
   | { kind: "rest"; week: number; dayNumber: number; phase: string }
   | {
       kind: "training";
@@ -270,7 +275,12 @@ export type SessionView =
  * left with no items is dropped; the remaining blocks keep their positions.
  */
 export function buildSession(program: Program, settings: TrainingSettings, date: string): SessionView {
-  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  const status = programStatus(settings.startDate, program.lengthWeeks, date, settings.breaks);
+
+  // A date inside a break has no session (Today shows "On a break").
+  if (status.kind === "onBreak") {
+    return { kind: "onBreak", until: status.until, resumesWeek: status.week, resumesDayNumber: status.dayNumber };
+  }
 
   if (status.kind !== "active") {
     return status;
@@ -307,7 +317,7 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
  * when the date is not an active program date.
  */
 export function buildBlocksForDate(program: Program, settings: TrainingSettings, date: string, blocks: Block[]): BlockView[] | undefined {
-  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  const status = programStatus(settings.startDate, program.lengthWeeks, date, settings.breaks);
   if (status.kind !== "active") return undefined;
 
   const weekContext = buildWeekContext(program, settings, status.week, phaseForWeek(program, status.week));
@@ -328,8 +338,10 @@ function buildWeekContext(program: Program, settings: TrainingSettings, week: nu
     // deload (the shipped program only sets it on weeks 5-7, which are not).
     timerAdjustments: phase.timerAdjustments,
     // settings.startDate is non-null here: programStatus was "active".
-    weekStartDate: addDaysToDate(settings.startDate as string, (week - 1) * DAYS_PER_WEEK),
-    heldEmomDates: isRetest && week > 1 ? lastEmomDatesOfWeek(program, settings.startDate as string, week - 1) : {},
+    // Week boundaries come from the schedule (skipping breaks), not start + 7n.
+    weekStartDate: dateOfProgramDay(settings.startDate as string, settings.breaks ?? [], week, 1),
+    weekEndDate: dateOfProgramDay(settings.startDate as string, settings.breaks ?? [], week, DAYS_PER_WEEK),
+    heldEmomDates: isRetest && week > 1 ? lastEmomDatesOfWeek(program, settings.startDate as string, settings.breaks ?? [], week - 1) : {},
   };
 }
 
@@ -338,10 +350,10 @@ function buildWeekContext(program: Program, settings: TrainingSettings, week: nu
  * training day, the calendar date of the LAST day of program week `week` whose
  * session contains it. Used for the retest week's hold: the held reps must
  * match what that last EMOM showed, i.e. the max in effect on that date.
- * `startDate` is the program's Day 1.
+ * `startDate` is the program's Day 1; `breaks` are skipped (each day's date
+ * is where the schedule really put it).
  */
-function lastEmomDatesOfWeek(program: Program, startDate: string, week: number): Record<string, string> {
-  const weekStartDate = addDaysToDate(startDate, (week - 1) * DAYS_PER_WEEK);
+function lastEmomDatesOfWeek(program: Program, startDate: string, breaks: readonly TrainingBreak[], week: number): Record<string, string> {
   const dates: Record<string, string> = {};
 
   // Days are visited in order, so a later day overwrites an earlier one.
@@ -353,7 +365,7 @@ function lastEmomDatesOfWeek(program: Program, startDate: string, week: number):
     for (const block of day.blocks) {
       for (const item of block.items) {
         if (item.weeklyIncrease !== undefined) {
-          dates[item.exerciseId] = addDaysToDate(weekStartDate, dayNumber - 1);
+          dates[item.exerciseId] = dateOfProgramDay(startDate, breaks, week, dayNumber);
         }
       }
     }
@@ -638,7 +650,7 @@ function chooseIncrease(item: BlockItem, settings: TrainingSettings, week: WeekC
   }
 
   if (week.isRetest) {
-    const retested = wasMaxSavedDuringWeek(settings, item.exerciseId, week.weekStartDate);
+    const retested = wasMaxSavedDuringWeek(settings, item.exerciseId, week.weekStartDate, week.weekEndDate);
 
     return retested
       ? { increase: week.offset, heldForDeload: false, usesRetestedMax: true, awaitingRetest: false }
@@ -671,7 +683,8 @@ function heldMaxFor(exerciseId: string, settings: TrainingSettings, week: WeekCo
 
 /**
  * True when the exercise's max was saved on a date inside the week that starts
- * on `weekStartDate`: Day 1 to Day 7 inclusive. This is THE "retested during
+ * on `weekStartDate`: Day 1 to Day 7 inclusive (`weekEndDate` is Day 7's
+ * date; a break inside the week makes it later than start + 6). This is THE "retested during
  * the retest week" check: `chooseIncrease` uses it to switch EMOMs to the new
  * max, and the Today retest card (ui/retest.ts) uses it to know which maxes
  * are still to save. The window has an end as well as a start so that moving
@@ -680,9 +693,8 @@ function heldMaxFor(exerciseId: string, settings: TrainingSettings, week: WeekCo
  * ISO dates compare correctly as strings; a max with no known save date
  * counts as not saved.
  */
-export function wasMaxSavedDuringWeek(settings: TrainingSettings, exerciseId: string, weekStartDate: string): boolean {
+export function wasMaxSavedDuringWeek(settings: TrainingSettings, exerciseId: string, weekStartDate: string, weekEndDate: string): boolean {
   const savedOn = settings.maxSavedOn[exerciseId];
-  const weekEndDate = addDaysToDate(weekStartDate, DAYS_PER_WEEK - 1);
   return savedOn !== undefined && savedOn >= weekStartDate && savedOn <= weekEndDate;
 }
 
@@ -693,7 +705,7 @@ export function wasMaxSavedDuringWeek(settings: TrainingSettings, exerciseId: st
  * decide whether to appear and which saved dates count as "retested" (see `wasMaxSavedDuringWeek`).
  */
 export function retestWeekStartDate(program: Program, settings: TrainingSettings, date: string): string | undefined {
-  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  const status = programStatus(settings.startDate, program.lengthWeeks, date, settings.breaks);
   if (status.kind !== "active") {
     return undefined;
   }
@@ -705,7 +717,7 @@ export function retestWeekStartDate(program: Program, settings: TrainingSettings
   }
 
   // settings.startDate is non-null here: programStatus was "active".
-  return addDaysToDate(settings.startDate as string, (status.week - 1) * DAYS_PER_WEEK);
+  return dateOfProgramDay(settings.startDate as string, settings.breaks ?? [], status.week, 1);
 }
 
 /** Halves a count, rounding up (5 -> 3, 2 -> 1). */

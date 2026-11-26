@@ -143,11 +143,11 @@ export function renderLogScreen(
   // The swapped session, so a swapped item is found under the swap's id (the one in the address)
   // and logs, pre-fills and shows "last time" as the swap. A combined date gives the merged session.
   const { session } = buildSwappedSessionFor(program, settings, initialLog, noEquipmentTicks, combines, date, realToday, skippedOptionalBlocks, injuries, injuryChoices);
-  const combine = activeCombineOn(program, settings.startDate, date, combines, initialLog, realToday);
+  const combine = activeCombineOn(program, settings.startDate, settings.breaks ?? [], date, combines, initialLog, realToday);
 
   // A donor date (its day was folded into another date) shows "Day N done with ..." on Today and no
   // rows, so a direct link to it must not save a set that Today would then hide.
-  if (activeDonorOn(program, settings.startDate, date, combines, initialLog, realToday) !== undefined) {
+  if (activeDonorOn(program, settings.startDate, settings.breaks ?? [], date, combines, initialLog, realToday) !== undefined) {
     screen.append(renderNothingToLogCard());
     return screen;
   }

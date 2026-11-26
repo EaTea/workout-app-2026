@@ -36,11 +36,11 @@ function training(session: SessionView | undefined) {
 
 describe("planDateFor", () => {
   it("Day 1 of week 4 is 23 Nov", () => {
-    expect(planDateFor("2026-11-02", 4, 1)).toBe("2026-11-23");
+    expect(planDateFor("2026-11-02", [], 4, 1)).toBe("2026-11-23");
   });
 
   it("Day 6 of week 1 is 7 Nov", () => {
-    expect(planDateFor("2026-11-02", 1, 6)).toBe("2026-11-07");
+    expect(planDateFor("2026-11-02", [], 1, 6)).toBe("2026-11-07");
   });
 });
 

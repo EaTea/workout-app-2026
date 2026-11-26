@@ -1,4 +1,5 @@
 import type { FatigueCheck, FatigueField, FatigueHistory, WeeklyFatigueCheck, WeeklyFatigueHistory } from "./model";
+import type { TrainingBreak } from "../break/model";
 import { programStatus } from "../program/calendar";
 
 /**
@@ -47,10 +48,10 @@ export interface FatigueWarning {
 /**
  * The program week (1-8) that `date` falls in for the given start date, or
  * undefined when there is no start date, the date is before it, or it is
- * after the last week. The single place a check's week is worked out.
+ * after the last week (or on a break: no session, no week). The single place a check's week is worked out.
  */
-export function programWeekOfDate(date: string, startDate: string | null, lengthWeeks: number): number | undefined {
-  const status = programStatus(startDate, lengthWeeks, date);
+export function programWeekOfDate(date: string, startDate: string | null, lengthWeeks: number, breaks: readonly TrainingBreak[]): number | undefined {
+  const status = programStatus(startDate, lengthWeeks, date, breaks);
   return status.kind === "active" ? status.week : undefined;
 }
 
@@ -62,11 +63,11 @@ export function programWeekOfDate(date: string, startDate: string | null, length
  * (e.g. after the start date moved) the newest by date is kept, so "one per
  * week" holds. Called by the UI layer on every render and before every save.
  */
-export function weeklyChecksFor(history: FatigueHistory, startDate: string | null, lengthWeeks: number): WeeklyFatigueHistory {
+export function weeklyChecksFor(history: FatigueHistory, startDate: string | null, lengthWeeks: number, breaks: readonly TrainingBreak[]): WeeklyFatigueHistory {
   const newestPerWeek = new Map<number, WeeklyFatigueCheck>();
 
   for (const check of history.checks) {
-    const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks);
+    const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks, breaks);
     if (programWeek === undefined) continue;
 
     const alreadyThere = newestPerWeek.get(programWeek);
@@ -92,18 +93,18 @@ export function weeklyChecksFor(history: FatigueHistory, startDate: string | nul
  * Called by the check-in and retest saves in app.ts, through
  * `applyFatigueChange`.
  */
-export function recordCheck(history: FatigueHistory, check: FatigueCheck, startDate: string | null, lengthWeeks: number): FatigueHistory {
+export function recordCheck(history: FatigueHistory, check: FatigueCheck, startDate: string | null, lengthWeeks: number, breaks: readonly TrainingBreak[]): FatigueHistory {
   const otherDates = history.checks.filter((existing) => existing.date !== check.date);
 
   return {
-    checks: [...otherDates, check].map((stored) => withCurrentSavedWeek(stored, startDate, lengthWeeks)),
+    checks: [...otherDates, check].map((stored) => withCurrentSavedWeek(stored, startDate, lengthWeeks, breaks)),
   };
 }
 
 /** Copy of `check` whose `savedProgramWeek` is its week under `startDate`, or absent when the date is outside the program. */
-function withCurrentSavedWeek(check: FatigueCheck, startDate: string | null, lengthWeeks: number): FatigueCheck {
+function withCurrentSavedWeek(check: FatigueCheck, startDate: string | null, lengthWeeks: number, breaks: readonly TrainingBreak[]): FatigueCheck {
   const { savedProgramWeek: _outOfDateWeek, ...rest } = check;
-  const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks);
+  const programWeek = programWeekOfDate(check.date, startDate, lengthWeeks, breaks);
 
   return programWeek === undefined ? rest : { ...rest, savedProgramWeek: programWeek };
 }

@@ -1,6 +1,7 @@
 import type { Program, Range } from "./model";
 import { DAYS_PER_WEEK } from "./model";
-import { addDaysToDate } from "./calendar";
+import { dateOfProgramDay } from "./calendar";
+import type { TrainingBreak } from "../break/model";
 import type { BlockView, ItemView, RepTarget, SessionView } from "./schedule";
 import { buildSession } from "./schedule";
 import { itemDisplayName } from "./rotation";
@@ -59,11 +60,12 @@ export interface DayPlanChanges {
 
 /**
  * The calendar date of program `week` (1-based) and `dayNumber` (1-7) for a
- * program that starts on `startDate`: start + (week-1)*7 + (day-1). Used by
+ * program that starts on `startDate`, skipping `breaks` (see
+ * `dateOfProgramDay`; no breaks: start + (week-1)*7 + (day-1)). Used by
  * `buildDayPlan` to ask the schedule what that day looks like.
  */
-export function planDateFor(startDate: string, week: number, dayNumber: number): string {
-  return addDaysToDate(startDate, (week - 1) * DAYS_PER_WEEK + (dayNumber - 1));
+export function planDateFor(startDate: string, breaks: readonly TrainingBreak[], week: number, dayNumber: number): string {
+  return dateOfProgramDay(startDate, breaks, week, dayNumber);
 }
 
 /**
@@ -90,7 +92,7 @@ export function buildDayPlan(program: Program, settings: TrainingSettings, week:
   // A copy, never the caller's object: the stand-in must not leak into saved settings.
   const effectiveSettings: TrainingSettings = settings.startDate === null ? { ...settings, startDate: today } : settings;
 
-  return buildSession(program, effectiveSettings, planDateFor(effectiveSettings.startDate as string, week, dayNumber));
+  return buildSession(program, effectiveSettings, planDateFor(effectiveSettings.startDate as string, effectiveSettings.breaks ?? [], week, dayNumber));
 }
 
 /**

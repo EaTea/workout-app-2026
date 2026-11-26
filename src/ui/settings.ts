@@ -247,7 +247,8 @@ export function renderSettingsScreen(
 
     const maxSavedOn = stampMaxSavedDates(current, result.settings.maxReps, editedExerciseIds, today);
     const maxHistory = updateMaxHistory(current, result.settings.maxReps, editedExerciseIds, today);
-    saveError.textContent = onSave({ ...result.settings, maxSavedOn, maxHistory }) ?? "";
+    // `breaks` is not edited here (and is not part of the settings wire); carry it over so the saved settings keep the schedule's breaks.
+    saveError.textContent = onSave({ ...result.settings, maxSavedOn, maxHistory, breaks: current.breaks }) ?? "";
   });
 
   screen.append(form);
