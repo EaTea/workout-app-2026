@@ -233,6 +233,16 @@ body {
   text-decoration: none;
 }
 
+/* The full-screen nav entry is a button, so it drops the browser's button look to match the links. */
+button.full-screen-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  /* Only the family is inherited: `font` would also reset the 12px size that .nav-item sets. */
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .nav-item i {
   font-style: normal;
   font-size: 22px;

@@ -57,6 +57,7 @@ import {
   type CheckInDraft,
 } from "./checkin";
 import { renderDropBanner } from "./checkinCard";
+import { FULL_SCREEN_REFUSED_MESSAGE, HOME_SCREEN_HINT, nextFullScreenStep, readFullScreenEnvironment, type FullScreenEnvironment } from "./fullScreen";
 import { focusMainHeading, renderWarningBanner } from "./warningBanner";
 
 /**
@@ -994,7 +995,10 @@ function renderLogWarningBanner(warningText: string, onDismiss: () => void): HTM
   return banner;
 }
 
-/** Bottom nav: Today, History and Settings. */
+/**
+ * Bottom nav: Today, History and Settings, plus the Full screen button when the
+ * app is not already a Home Screen app (see `renderFullScreenButton`).
+ */
 function renderNavigationBar(activeRoute: Route): HTMLElement {
   const nav = element("nav", "bottom-nav");
   nav.setAttribute("aria-label", "Main");
@@ -1006,7 +1010,76 @@ function renderNavigationBar(activeRoute: Route): HTMLElement {
   const settingsLink = navigationLink("⚙", "Settings", "#/settings", activeRoute === "settings");
 
   nav.append(todayLink, historyLink, settingsLink);
+  const fullScreenButton = renderFullScreenButton();
+  if (fullScreenButton !== undefined) nav.append(fullScreenButton);
   return nav;
+}
+
+/** Reads the browser's full-screen facts now, for the nav button and its tap. */
+function currentFullScreenEnvironment(): FullScreenEnvironment {
+  return readFullScreenEnvironment({
+    fullscreenEnabled: document.fullscreenEnabled,
+    fullscreenElement: document.fullscreenElement,
+    matchMedia: (query) => window.matchMedia(query),
+    // iPhone Safari reports Home Screen apps through this non-standard flag.
+    standaloneFlag: (navigator as Navigator & { standalone?: boolean }).standalone,
+  });
+}
+
+/** The nav label for the full-screen button: it says what a tap will do. */
+function fullScreenLabel(environment: FullScreenEnvironment): string {
+  return environment.isFullScreen ? "Exit full screen" : "Full screen";
+}
+
+/**
+ * The "Full screen" nav button (PR 36). Undefined when the app is already a
+ * Home Screen app, which has no browser bars to remove. The tap re-reads the
+ * browser state, so a stale label cannot pick the wrong step.
+ */
+function renderFullScreenButton(): HTMLButtonElement | undefined {
+  const environment = currentFullScreenEnvironment();
+  if (nextFullScreenStep(environment) === "hideButton") return undefined;
+
+  const button = element("button", "nav-item full-screen-button");
+  button.type = "button";
+  setFullScreenButtonLabel(button, fullScreenLabel(environment));
+  button.addEventListener("click", handleFullScreenTap);
+  installFullScreenLabelSync();
+  return button;
+}
+
+/** Sets a full-screen button's text, keeping the same icon as the other nav entries. */
+function setFullScreenButtonLabel(button: HTMLElement, label: string): void {
+  button.replaceChildren(element("i", undefined, "⛶"), label);
+}
+
+/** Enters or leaves full screen, or explains why the browser cannot (see `fullScreen.ts`). */
+function handleFullScreenTap(): void {
+  const step = nextFullScreenStep(currentFullScreenEnvironment());
+  if (step === "enter") {
+    document.documentElement.requestFullscreen().catch(() => showToast(FULL_SCREEN_REFUSED_MESSAGE));
+  } else if (step === "exit") {
+    document.exitFullscreen().catch(() => undefined);
+  } else if (step === "showHomeScreenHint") {
+    showToast(HOME_SCREEN_HINT);
+  }
+}
+
+/** True once the fullscreenchange listener is installed; it is added once per page, not per render. */
+let fullScreenListenerInstalled = false;
+
+/**
+ * Keeps every full-screen button's label in step when the browser enters or
+ * leaves full screen (including Escape). Installed on the first button render,
+ * so importing this module does not touch `document` (the unit tests run without one).
+ */
+function installFullScreenLabelSync(): void {
+  if (fullScreenListenerInstalled) return;
+  fullScreenListenerInstalled = true;
+  document.addEventListener("fullscreenchange", () => {
+    const label = fullScreenLabel(currentFullScreenEnvironment());
+    for (const button of document.querySelectorAll<HTMLElement>(".full-screen-button")) setFullScreenButtonLabel(button, label);
+  });
 }
 
 /** One tappable nav entry with an icon above its label. */
