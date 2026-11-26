@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FakeStorage } from "../export/testStorage";
 import { storageKeysForProgram } from "../storage/programKeys";
 import type { TrainingBreak } from "./model";
-import { endBreakAndSave, loadBreaks, saveBreaks, startBreakAndSave } from "./storage";
+import { cancelBreakAndSave, endBreakAndSave, loadBreaks, saveBreaks, startBreakAndSave } from "./storage";
 
 const keys = storageKeysForProgram("explosive-endurance");
 const weekBreak: TrainingBreak = { from: "2026-11-26", to: "2026-12-03", note: "Physio" };
@@ -63,7 +63,7 @@ describe("startBreakAndSave", () => {
     const writesBefore = storage.writeLog.length;
 
     expect(startBreakAndSave(storage, keys.breaks, { from: "2026-11-28", days: 2 }).ok).toBe(false);
-    expect(startBreakAndSave(storage, keys.breaks, { from: "2026-12-10", days: 40 }).ok).toBe(false);
+    expect(startBreakAndSave(storage, keys.breaks, { from: "2026-12-10", days: 60 }).ok).toBe(false);
 
     expect(storage.writeLog.length).toBe(writesBefore);
     expect(loadBreaks(storage, keys.breaks)).toEqual([weekBreak]);
@@ -87,5 +87,15 @@ describe("endBreakAndSave", () => {
     endBreakAndSave(storage, keys.breaks, "2026-11-26");
 
     expect(loadBreaks(storage, keys.breaks)).toEqual([]);
+  });
+});
+
+describe("cancelBreakAndSave", () => {
+  it("removes the break starting on that date from storage", () => {
+    const storage = new FakeStorage();
+    saveBreaks(storage, keys.breaks, [weekBreak, { from: "2026-12-10", to: "2026-12-14" }]);
+
+    expect(cancelBreakAndSave(storage, keys.breaks, "2026-12-10").ok).toBe(true);
+    expect(loadBreaks(storage, keys.breaks)).toEqual([weekBreak]);
   });
 });

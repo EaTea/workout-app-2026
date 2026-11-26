@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TrainingBreak } from "./model";
+import { breakOn, endBreak } from "./operations";
 import { breaksFromWire, breaksToWire } from "./wire";
 
 describe("breaks wire mapping", () => {
@@ -79,5 +80,37 @@ describe("breaks wire mapping", () => {
     };
 
     expect(breaksFromWire(wire).map((trainingBreak) => trainingBreak.from)).toEqual(["2026-01-01", "2026-06-01"]);
+  });
+
+  it("merges overlapping entries into one, keeping the first entry's note, and leaves touching ones apart", () => {
+    const wire = {
+      version: 1,
+      breaks: [
+        { from: "2026-11-24", to: "2026-12-03", note: "second" },
+        { from: "2026-11-20", to: "2026-12-05", note: "first" },
+        { from: "2026-12-05", to: "2026-12-08" },
+      ],
+    };
+
+    expect(breaksFromWire(wire)).toEqual([
+      { from: "2026-11-20", to: "2026-12-05", note: "first" },
+      { from: "2026-12-05", to: "2026-12-08" },
+    ]);
+  });
+
+  it("lets endBreak end a long imported stretch: [1 Jan-31 Dec, 20 Nov-5 Dec, 24 Nov-3 Dec] ended on 26 Nov is not a break on 26 Nov", () => {
+    const loaded = breaksFromWire({
+      version: 1,
+      breaks: [
+        { from: "2026-01-01", to: "2026-12-31" },
+        { from: "2026-11-20", to: "2026-12-05" },
+        { from: "2026-11-24", to: "2026-12-03" },
+      ],
+    });
+    const ended = endBreak(loaded, "2026-11-26");
+
+    expect(loaded).toEqual([{ from: "2026-01-01", to: "2026-12-31" }]);
+    expect(breakOn(ended, "2026-11-26")).toBeUndefined();
+    expect(breakOn(ended, "2026-11-25")).toBeDefined();
   });
 });

@@ -41,7 +41,7 @@ export function breaksToWire(breaks: readonly TrainingBreak[]): BreaksWireV1 {
  * Converts untrusted parsed JSON to internal breaks, sorted by `from`. Never
  * throws. An entry is skipped when a date is not real, `to` is not after
  * `from`, or `note` is present but not text. A note is trimmed and dropped
- * when empty.
+ * when empty. Overlapping entries are merged (`mergeOverlappingBreaks`).
  */
 export function breaksFromWire(wire: unknown): TrainingBreak[] {
   if (!isRecord(wire) || wire.version !== 1 || !Array.isArray(wire.breaks)) return [];
@@ -63,7 +63,35 @@ export function breaksFromWire(wire: unknown): TrainingBreak[] {
     breaks.push(trainingBreak);
   }
 
-  return breaks.sort((first, second) => (first.from < second.from ? -1 : first.from > second.from ? 1 : 0));
+  breaks.sort((first, second) => (first.from < second.from ? -1 : first.from > second.from ? 1 : 0));
+  return mergeOverlappingBreaks(breaks);
+}
+
+/**
+ * Merges breaks that overlap into one (earliest `from`, latest `to`), so a
+ * date is never covered by two stored breaks and "End the break today" ends
+ * the whole stretch. Breaks that only touch (one's `to` is the next's `from`)
+ * stay separate. The merged break keeps the first entry's note (or, if that
+ * has none, the next note found). Expects `sortedBreaks` sorted by `from`.
+ *
+ *   [-------- A --------)
+ *        [---- B ----)           ──▶  one break: A.from .. A.to, A's note
+ */
+function mergeOverlappingBreaks(sortedBreaks: readonly TrainingBreak[]): TrainingBreak[] {
+  const merged: TrainingBreak[] = [];
+
+  for (const trainingBreak of sortedBreaks) {
+    const previous = merged[merged.length - 1];
+    if (previous === undefined || trainingBreak.from >= previous.to) {
+      merged.push({ ...trainingBreak });
+      continue;
+    }
+
+    if (trainingBreak.to > previous.to) previous.to = trainingBreak.to;
+    if (previous.note === undefined && trainingBreak.note !== undefined) previous.note = trainingBreak.note;
+  }
+
+  return merged;
 }
 
 /** True for a plain JSON object (not null, not an array). */

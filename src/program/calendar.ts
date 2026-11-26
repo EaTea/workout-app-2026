@@ -103,8 +103,11 @@ export function programStatus(startDate: string | null, lengthWeeks: number, tod
 
   const daysSinceStart = toDayNumber(today) - toDayNumber(startDate);
 
-  if (daysSinceStart < 0) {
-    return { kind: "notStarted", startsOn: startDate };
+  // A break can cover the start date, so Day 1 is really the first date training happens, not `startDate`.
+  // Before it the program has not started, even on dates between `startDate` and Day 1 that sit inside the break.
+  const realDayOne = dateOfProgramDay(startDate, breaks, 1, 1);
+  if (today < realDayOne) {
+    return { kind: "notStarted", startsOn: realDayOne };
   }
 
   const coveringBreak = breaks.find((trainingBreak) => trainingBreak.from <= today && today < trainingBreak.to);

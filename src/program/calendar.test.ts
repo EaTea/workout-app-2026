@@ -104,7 +104,8 @@ describe("programStatus with breaks (worked example: start 2 Nov, break 26 Nov t
   it("counts only the part of a break after the start date when it spans the start date", () => {
     const spanning: TrainingBreak = { from: "2026-10-30", to: "2026-11-05" };
 
-    expect(programStatus(START, 8, "2026-11-03", [spanning])).toEqual({ kind: "onBreak", until: "2026-11-05", week: 1, dayNumber: 1 });
+    // Before the real Day 1 (5 Nov) the program has not started, even between the start date and the first day back.
+    expect(programStatus(START, 8, "2026-11-03", [spanning])).toEqual({ kind: "notStarted", startsOn: "2026-11-05" });
     expect(programStatus(START, 8, "2026-11-05", [spanning])).toEqual({ kind: "active", week: 1, dayNumber: 1 });
     expect(programStatus(START, 8, "2026-11-06", [spanning])).toEqual({ kind: "active", week: 1, dayNumber: 2 });
   });
@@ -200,3 +201,20 @@ describe("dateOfProgramDay", () => {
     }
   });
 });
+
+describe("programStatus when a break covers the start date", () => {
+  const breaks: TrainingBreak[] = [{ from: "2026-11-26", to: "2026-12-03" }];
+
+  it("is not started, starting on the real Day 1 (3 Dec), before that day, inside and before the break", () => {
+    const notStarted = { kind: "notStarted", startsOn: "2026-12-03" };
+
+    expect(programStatus("2026-11-30", 8, "2026-11-27", breaks)).toEqual(notStarted);
+    expect(programStatus("2026-11-30", 8, "2026-11-30", breaks)).toEqual(notStarted);
+    expect(programStatus("2026-11-30", 8, "2026-12-02", breaks)).toEqual(notStarted);
+  });
+
+  it("is week 1 day 1 on 3 Dec", () => {
+    expect(programStatus("2026-11-30", 8, "2026-12-03", breaks)).toEqual({ kind: "active", week: 1, dayNumber: 1 });
+  });
+});
+

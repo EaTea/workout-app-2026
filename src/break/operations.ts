@@ -9,8 +9,8 @@ import type { TrainingBreak } from "./model";
  * correctly as strings.
  */
 
-/** Longest break `startBreak` accepts, in days. */
-export const MAX_BREAK_DAYS = 28;
+/** Longest break `startBreak` accepts, in days (8 weeks: a physio's rest can run longer than a month). */
+export const MAX_BREAK_DAYS = 56;
 
 /** Input to `startBreak`: the first day of the break, how many days, and an optional note. */
 export interface StartBreakRequest {
@@ -65,7 +65,7 @@ export function breakDaysBetween(breaks: readonly TrainingBreak[], fromDate: str
 
 /**
  * Adds a break of `days` days starting on `from`. Fails (nothing added) when
- * `days` is not a whole number from 1 to 28 or the new break would overlap an
+ * `days` is not a whole number from 1 to 56 or the new break would overlap an
  * existing one. Called by "Take a break" in Settings and Today.
  */
 export function startBreak(breaks: readonly TrainingBreak[], request: StartBreakRequest): StartBreakResult {
@@ -90,17 +90,39 @@ export function startBreak(breaks: readonly TrainingBreak[], request: StartBreak
 }
 
 /**
- * Ends the break covering `date`, so `date` is its first day back (to = date).
- * A break ended on the day it started is removed entirely. With no break
- * covering `date` the list is returned unchanged. Called by "End the break today".
+ * Ends every break covering `date`, so `date` is its first day back (to =
+ * date). Normally one break covers a date (`breaksFromWire` merges overlapping
+ * entries), but every covering one is ended so a stray overlap can never keep
+ * the date on a break. A break ended on the day it started is removed
+ * entirely. With no break covering `date` the list is returned unchanged.
+ * Called by "End the break today".
  */
 export function endBreak(breaks: readonly TrainingBreak[], date: string): TrainingBreak[] {
-  const covering = breakOn(breaks, date);
-  if (!covering) return [...breaks];
+  const covers = (trainingBreak: TrainingBreak): boolean => trainingBreak.from <= date && date < trainingBreak.to;
 
-  if (covering.from === date) return breaks.filter((trainingBreak) => trainingBreak !== covering);
+  return breaks
+    .filter((trainingBreak) => !(covers(trainingBreak) && trainingBreak.from === date))
+    .map((trainingBreak) => (covers(trainingBreak) ? { ...trainingBreak, to: date } : trainingBreak));
+}
 
-  return breaks.map((trainingBreak) => (trainingBreak === covering ? { ...trainingBreak, to: date } : trainingBreak));
+/**
+ * Removes the break that starts on `from`, for "Cancel" on a coming break in
+ * Settings (the caller only offers it for breaks that start after today).
+ * With no such break the list is returned unchanged.
+ */
+export function cancelBreak(breaks: readonly TrainingBreak[], from: string): TrainingBreak[] {
+  return breaks.filter((trainingBreak) => trainingBreak.from !== from);
+}
+
+/**
+ * True when `shownDate` and the real `realToday` are inside the same break
+ * stretch. A `?date=` preview of a break day uses it to decide whether to
+ * hint "Go back to today to end the break." (only then does ending it from
+ * today make sense). Called by app.ts for Today's break card.
+ */
+export function isSameBreakRunning(breaks: readonly TrainingBreak[], shownDate: string, realToday: string): boolean {
+  const shownBreak = breakOn(breaks, shownDate);
+  return shownBreak !== undefined && shownBreak === breakOn(breaks, realToday);
 }
 
 /**

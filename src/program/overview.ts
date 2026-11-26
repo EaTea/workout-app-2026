@@ -153,7 +153,8 @@ function buildCallToAction(status: ProgramStatus, days: DayOverview[]): CallToAc
  * render; has no side effects.
  */
 export function buildProgramOverview(program: Program, status: ProgramStatus): ProgramOverview {
-  const currentWeek = status.kind === "active" ? status.week : undefined;
+  // During a break the week it resumes in stays highlighted, so the phase and "typical week" figures do not vanish.
+  const currentWeek = status.kind === "active" || status.kind === "onBreak" ? status.week : undefined;
 
   const phases: PhaseOverview[] = program.progression.map((phase) => ({
     name: phase.phase,

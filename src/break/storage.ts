@@ -1,5 +1,5 @@
 import type { TrainingBreak } from "./model";
-import { endBreak, startBreak, type StartBreakRequest } from "./operations";
+import { cancelBreak, endBreak, startBreak, type StartBreakRequest } from "./operations";
 import { breaksFromWire, breaksToWire } from "./wire";
 
 /**
@@ -54,4 +54,9 @@ export function startBreakAndSave(storage: BreakStorage, key: string, request: S
 /** Ends the break covering `date` and saves, re-reading first. Called by "End the break today". */
 export function endBreakAndSave(storage: BreakStorage, key: string, date: string): SaveBreaksResult {
   return saveBreaks(storage, key, endBreak(loadBreaks(storage, key), date));
+}
+
+/** Cancels the break starting on `from` and saves, re-reading first. Called by "Cancel" on a coming break in Settings. */
+export function cancelBreakAndSave(storage: BreakStorage, key: string, from: string): SaveBreaksResult {
+  return saveBreaks(storage, key, cancelBreak(loadBreaks(storage, key), from));
 }

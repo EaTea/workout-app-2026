@@ -319,7 +319,8 @@ function renderMessageCard(
         element("p", undefined, `${backOnText(session.until)} with Week ${session.resumesWeek}, Day ${session.resumesDayNumber}.`),
       );
       if (coveringBreak?.note !== undefined) card.append(element("p", "break-note-line", coveringBreak.note));
-      if (breakOptions !== undefined) card.append(renderEndBreakControl(breakOptions));
+      const endControl = breakOptions === undefined ? undefined : renderEndBreakControl(breakOptions);
+      if (endControl !== undefined) card.append(endControl);
       break;
     }
 

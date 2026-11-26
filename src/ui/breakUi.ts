@@ -1,6 +1,6 @@
 import type { TrainingBreak } from "../break/model";
 import { breakOn, MAX_BREAK_DAYS } from "../break/operations";
-import { endBreakAndSave, loadBreaks, startBreakAndSave, type BreakStorage } from "../break/storage";
+import { cancelBreakAndSave, endBreakAndSave, loadBreaks, startBreakAndSave, type BreakStorage } from "../break/storage";
 import type { BreakStartDecision } from "../break/startDate";
 import { element } from "./dom";
 import {
@@ -10,6 +10,7 @@ import {
   DEFAULT_BREAK_DAYS,
   END_BREAK_LABEL,
   START_BREAK_LABEL,
+  breakRangeText,
   breakStartNote,
   TAKE_A_BREAK_LABEL,
   parseBreakDays,
@@ -63,6 +64,9 @@ export interface BreakTodayOptions {
   /** True only when the shown date is the real today (a `?date=` preview saves nothing). */
   canEnd: boolean;
 
+  /** In a preview: true when the real today is inside the same break, so "Go back to today to end the break." makes sense. */
+  showPreviewHint: boolean;
+
   /** Ends the break today and redraws Today; returns null on success or a message to show under the button. */
   onEnd: () => string | null;
 }
@@ -81,10 +85,12 @@ export function renderTakeBreakLink(): HTMLAnchorElement {
 /**
  * The "End the break today" button for the break card on Today, with room for
  * an inline error. On a `?date=` preview (`canEnd` false) there is no button,
- * only a hint, because ending a break saves and a preview never saves.
+ * because ending a break saves and a preview never saves; there is a hint
+ * only when the real today is inside the same break (`showPreviewHint`),
+ * otherwise nothing (undefined).
  */
-export function renderEndBreakControl(options: BreakTodayOptions): HTMLElement {
-  if (!options.canEnd) return element("p", "field-hint", BREAK_PREVIEW_MESSAGE);
+export function renderEndBreakControl(options: BreakTodayOptions): HTMLElement | undefined {
+  if (!options.canEnd) return options.showPreviewHint ? element("p", "field-hint", BREAK_PREVIEW_MESSAGE) : undefined;
 
   const wrapper = element("div", "break-end");
   const error = element("p", "field-error");
@@ -120,7 +126,7 @@ export function renderBreakSettingsSection(options: BreakSettingsOptions): HTMLE
     section.replaceChildren(element("h2", "card-title", BREAK_SECTION_TITLE));
     section.append(runningBreak === undefined ? buildTakeBreakStart() : buildRunningView(runningBreak));
 
-    appendBreakList(section, "Coming up", comingBreaks);
+    appendComingBreaks(section, comingBreaks);
     appendBreakList(section, "Past breaks", pastBreaks);
   }
 
@@ -217,6 +223,28 @@ export function renderBreakSettingsSection(options: BreakSettingsOptions): HTMLE
 
     view.append(error, endButton);
     return view;
+  }
+
+  /** "Coming up": each break as a line with a Cancel button that removes it (real today only; Settings always uses it). */
+  function appendComingBreaks(parent: HTMLElement, breaks: readonly TrainingBreak[]): void {
+    if (breaks.length === 0) return;
+
+    const list = element("ul", "break-list");
+    for (const trainingBreak of breaks) {
+      const cancelButton = element("button", "injury-secondary-button", "Cancel");
+      cancelButton.type = "button";
+      cancelButton.setAttribute("aria-label", `Cancel the break ${breakRangeText(trainingBreak)}`);
+      cancelButton.addEventListener("click", () => {
+        cancelBreakAndSave(options.storage, options.storageKey, trainingBreak.from);
+        draw();
+        options.onChanged();
+      });
+
+      const item = element("li", undefined, pastBreakLine(trainingBreak));
+      item.append(" ", cancelButton);
+      list.append(item);
+    }
+    parent.append(element("h3", "break-list-title", "Coming up"), list);
   }
 
   draw();

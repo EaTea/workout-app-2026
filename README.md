@@ -189,7 +189,7 @@ logged sets still get no card.
 
 Taking a break: Settings has a "Break from training" card, and Today a "Take a
 break" link to it. A break starts today (never a `?date=` preview) and lasts 1
-to 28 days, with an optional note ("Physio: rest the neck"). While it runs the
+to 56 days, with an optional note ("Physio: rest the neck"). While it runs the
 schedule stops: Today says "On a break" with the note and the day training
 resumes, and the program picks up on the next day, so a week's break moves
 everything after it a week later (the break days are not counted as program

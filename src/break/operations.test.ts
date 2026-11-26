@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TrainingBreak } from "./model";
-import { breakDaysBetween, breakOn, endBreak, lastBreakEndedBefore, returnFromBreakOn, startBreak, wasOnLongBreakRecently } from "./operations";
+import { breakDaysBetween, cancelBreak, isSameBreakRunning, breakOn, endBreak, lastBreakEndedBefore, returnFromBreakOn, startBreak, wasOnLongBreakRecently } from "./operations";
 
 const weekBreak: TrainingBreak = { from: "2026-11-26", to: "2026-12-03", note: "Physio" };
 
@@ -81,16 +81,16 @@ describe("startBreak", () => {
     expect(result.ok && result.breaks.map((trainingBreak) => trainingBreak.from)).toEqual(["2026-11-01", "2026-11-26"]);
   });
 
-  it.each([0, -1, 29, 1.5, Number.NaN])("rejects %s days", (days) => {
+  it.each([0, -1, 57, 1.5, Number.NaN])("rejects %s days", (days) => {
     const result = startBreak([], { from: "2026-11-26", days });
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("1 to 28");
+    if (!result.ok) expect(result.error).toContain("1 to 56");
   });
 
-  it("accepts the limits 1 and 28", () => {
+  it("accepts the limits 1 and 56", () => {
     expect(startBreak([], { from: "2026-11-26", days: 1 }).ok).toBe(true);
-    expect(startBreak([], { from: "2026-11-26", days: 28 }).ok).toBe(true);
+    expect(startBreak([], { from: "2026-11-26", days: 56 }).ok).toBe(true);
   });
 
   it("rejects a break overlapping an existing one, from either side or inside it", () => {
@@ -124,6 +124,37 @@ describe("endBreak", () => {
     const earlier: TrainingBreak = { from: "2026-10-01", to: "2026-10-05" };
 
     expect(endBreak([earlier, weekBreak], "2026-11-27")).toEqual([earlier, { ...weekBreak, to: "2026-11-27" }]);
+  });
+});
+
+describe("endBreak with several covering breaks", () => {
+  it("ends every break covering the date, removing those that start on it", () => {
+    const covering = [{ from: "2026-11-20", to: "2026-12-05" }, { from: "2026-11-24", to: "2026-12-03" }, { from: "2026-11-26", to: "2026-12-01" }];
+
+    expect(endBreak(covering, "2026-11-26")).toEqual([{ from: "2026-11-20", to: "2026-11-26" }, { from: "2026-11-24", to: "2026-11-26" }]);
+  });
+});
+
+describe("cancelBreak", () => {
+  it("removes the break starting on that date and leaves the others", () => {
+    const coming: TrainingBreak = { from: "2026-12-10", to: "2026-12-14" };
+
+    expect(cancelBreak([weekBreak, coming], "2026-12-10")).toEqual([weekBreak]);
+  });
+
+  it("returns the list unchanged when no break starts on that date", () => {
+    expect(cancelBreak([weekBreak], "2026-11-27")).toEqual([weekBreak]);
+  });
+});
+
+describe("isSameBreakRunning", () => {
+  it("is true only when the shown date and the real today are in the same break", () => {
+    const other: TrainingBreak = { from: "2026-12-10", to: "2026-12-14" };
+
+    expect(isSameBreakRunning([weekBreak, other], "2026-11-28", "2026-11-30")).toBe(true);
+    expect(isSameBreakRunning([weekBreak, other], "2026-11-28", "2026-12-11")).toBe(false);
+    expect(isSameBreakRunning([weekBreak, other], "2026-11-28", "2026-12-05")).toBe(false);
+    expect(isSameBreakRunning([weekBreak], "2026-11-20", "2026-11-20")).toBe(false);
   });
 });
 

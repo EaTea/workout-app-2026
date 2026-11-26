@@ -39,6 +39,7 @@ import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/mo
 import type { OptionalBlockControl } from "./optionalBlockCards";
 import { loadOptionalBlockChoices, setBlockSkipped } from "../optionalBlocks/storage";
 import type { Combine, CombinesByDate } from "../combine/model";
+import { isSameBreakRunning } from "../break/operations";
 import { breakStartDate, type BreakStartDecision } from "../break/startDate";
 import { activeCombineOn, activeDonorOn } from "../program/combineOffers";
 import { addCombine, loadCombines, removeCombine } from "../combine/storage";
@@ -968,6 +969,7 @@ export function startApp(
         }, {
           // Ending a break saves, so only on the real today (a `?date=` preview never saves).
           canEnd: canSaveOnShownDate(),
+          showPreviewHint: isSameBreakRunning(settings.breaks ?? [], shownDate, todayLocalDate()),
           onEnd: handleEndBreak,
         }));
       }

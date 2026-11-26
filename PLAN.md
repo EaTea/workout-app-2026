@@ -3457,7 +3457,7 @@ from a guess. Until then a break covers it.
   see no session, end it, resume at the next day).
   1. [x] Store breaks: `src/break/` model, wire (`.breaks`, v1, `to` is
      the first day back), operations (`breakOn`, `breakDaysBetween`,
-     `startBreak` up to 28 days with no overlap, `endBreak`,
+     `startBreak` up to 56 days with no overlap, `endBreak`,
      `lastBreakEndedBefore`) and storage, with unit tests.
   2. [x] The schedule skips break days: `programStatus(..., breaks)` with
      an `onBreak` status, its inverse `dateOfProgramDay` for every
@@ -3468,7 +3468,7 @@ from a guess. Until then a break covers it.
      2 Nov with a break 26 Nov to 3 Dec: 3 Dec is W4 D4, 7 Dec W5 D1, and the
      program ends 3 Jan.
   3. [x] Today, Settings and History: a "Break from training" card in
-     Settings (take a break for 1 to 28 days with a note, end it today,
+     Settings (take a break for 1 to 56 days with a note, end it today,
      past and coming breaks), a "Take a break" link on Today, the note and
      "End the break today" on Today's break card (not in a `?date=`
      preview), a line per break in History, and History's week grouping

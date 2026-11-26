@@ -52,7 +52,7 @@ async function seedTodayWithoutBreak(page: Page): Promise<void> {
 async function startWeekBreakFromSettings(page: Page): Promise<void> {
   await page.goto("/#/settings");
   await page.getByRole("button", { name: "Take a break" }).click();
-  await expect(page.getByLabel("Number of days (1 to 28)")).toHaveValue("7");
+  await expect(page.getByLabel("Number of days (1 to 56)")).toHaveValue("7");
   await page.getByLabel("Note for the break (optional)").fill("Physio: rest the neck");
   await page.getByRole("button", { name: "Start break" }).click();
 }
@@ -75,10 +75,10 @@ test("the start form shows an inline error for too many days", async ({ page }) 
   await seedTodayWithoutBreak(page);
   await page.goto("/#/settings");
   await page.getByRole("button", { name: "Take a break" }).click();
-  await page.getByLabel("Number of days (1 to 28)").fill("40");
+  await page.getByLabel("Number of days (1 to 56)").fill("60");
   await page.getByRole("button", { name: "Start break" }).click();
 
-  await expect(page.locator(".break-section")).toContainText("A break must be a whole number of days from 1 to 28.");
+  await expect(page.locator(".break-section")).toContainText("A break must be a whole number of days from 1 to 56.");
 });
 
 test("Today's Take a break link goes to the Settings section", async ({ page }) => {
@@ -306,4 +306,19 @@ test("with nothing done today the form has no tomorrow note and the break starts
   await page.getByRole("button", { name: "Take a break" }).click();
 
   await expect(page.locator(".break-start-note")).toHaveCount(0);
+});
+
+test("a coming break can be cancelled from the Coming up list", async ({ page }) => {
+  await page.clock.install({ time: new Date(`${TODAY}T12:00:00`) });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("explosive-endurance.settings", JSON.stringify({ version: 1, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 } }));
+    window.localStorage.setItem("explosive-endurance.breaks", JSON.stringify({ version: 1, breaks: [{ from: "2026-11-27", to: "2026-12-04" }] }));
+  });
+  await page.goto("/#/settings");
+
+  await expect(page.locator(".break-section")).toContainText("Coming up");
+  await page.getByRole("button", { name: "Cancel the break 27 Nov to 3 Dec" }).click();
+
+  await expect(page.locator(".break-section")).not.toContainText("Coming up");
+  await expect(page.locator(".break-list")).toHaveCount(0);
 });
