@@ -108,6 +108,11 @@ export interface SetView {
   load?: string;
 }
 
+/** Why a row is marked "back" and whether "Half sets today" is still offered on it; see `ItemView.firstTimeBack`. */
+export type FirstTimeBack =
+  | { reason: "injury"; area: InjuryArea; halfSetsOffered: boolean }
+  | { reason: "break"; halfSetsOffered: boolean };
+
 /** One exercise in a session, with all numbers already computed for the date. */
 export interface ItemView {
   exercise: Exercise;
@@ -188,12 +193,14 @@ export interface ItemView {
   /** True on an item to be done "Pain-free only · stop if it hurts": a "caution" exercise kept as written, or an item added back. */
   painFreeOnly?: boolean;
   /**
-   * Set on an item that a recently cleared injury would have left out (tagged
-   * "avoid" for `area`) the first time it is back since the clear (see
-   * `applyReturnToTraining` in injury.ts). `halfSetsOffered` is false once a
-   * set is already logged today, so "Half sets today" is not offered mid-row.
+   * Set on an item the first time it is back: after a recently cleared injury
+   * that would have left it out (reason "injury", tagged "avoid" for `area`),
+   * or after a break of 7 days or more (reason "break"); see
+   * `applyReturnToTraining` in injury.ts. The reason picks the row's wording
+   * ("First time back" or "First session back"). `halfSetsOffered` is false
+   * once a set is already logged today, so "Half sets today" is not offered mid-row.
    */
-  firstTimeBack?: { area: InjuryArea; halfSetsOffered: boolean };
+  firstTimeBack?: FirstTimeBack;
   /** True on a "First time back" item the person halved with "Half sets today": half the sets (deload rounding), for that date only. */
   halvedForReturn?: boolean;
   /** True on an item the person added back after the injury left it out: half the sets (deload rounding), pain-free only, for that date only. */

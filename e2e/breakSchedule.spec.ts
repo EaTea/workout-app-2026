@@ -153,3 +153,49 @@ test("a ?date= preview offers no way to end the break", async ({ page }) => {
   await expect(page.getByRole("button", { name: "End the break today" })).toHaveCount(0);
   await expect(page.getByText("Go back to today to end the break.")).toBeVisible();
 });
+
+// ---- Break 1 step 4: first session back ----
+
+/** Fixes the clock at noon on `date` and seeds settings plus the 26 Nov to 3 Dec break. */
+async function seedEndedBreakOn(page: Page, date: string): Promise<void> {
+  await page.clock.install({ time: new Date(`${date}T12:00:00`) });
+  await seedSettingsAndBreak(page);
+}
+
+test("the first day back after a 7-day break marks the rows 'First session back' and offers Half sets today", async ({ page }) => {
+  await seedEndedBreakOn(page, "2026-12-03");
+  await page.goto("/#/today");
+
+  const swings = page.locator(".item-row", { hasText: "Kettlebell swings" });
+  await expect(swings).toContainText("First session back · pain-free only");
+  await expect(page.getByText("First time back")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Half sets today, Kettlebell swings" })).toBeVisible();
+  await expect(page.locator(".item-row", { hasText: "Single-leg RDL" })).toContainText("First session back · pain-free only");
+});
+
+test("Half sets today on the first session back halves the row, as it does after an injury, and survives a reload", async ({ page }) => {
+  await seedEndedBreakOn(page, "2026-12-03");
+  await page.goto("/#/today");
+
+  const swings = page.locator(".item-row", { hasText: "Kettlebell swings" });
+  await expect(swings).toContainText("4 min");
+
+  await swings.getByRole("button", { name: "Half sets today, Kettlebell swings" }).click();
+
+  const halved = page.locator(".item-row", { hasText: "Kettlebell swings" });
+  await expect(halved).toContainText("2 min");
+  await expect(halved).toContainText("First session back · pain-free only");
+  await expect(halved).toContainText("Sets halved today");
+  await expect(halved.getByRole("button", { name: "Half sets today, Kettlebell swings" })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator(".item-row", { hasText: "Kettlebell swings" })).toContainText("2 min");
+});
+
+test("more than 14 days after the break no row says First session back", async ({ page }) => {
+  await seedEndedBreakOn(page, "2026-12-18");
+  await page.goto("/#/today");
+
+  await expect(page.locator(".item-row").first()).toBeVisible();
+  await expect(page.getByText("First session back")).toHaveCount(0);
+});

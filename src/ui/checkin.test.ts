@@ -190,14 +190,32 @@ describe("shoulder wording on the check-in", () => {
   });
 
   it("adds the time-off sentence to a pull-up drop after an active or recent shoulder injury", () => {
-    expect(timeOffExplanation(pullUpDrop, flagged, "2026-11-16")).toBe(EXPECTED_AFTER_TIME_OFF_SENTENCE);
-    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, "2026-11-16")).toBe("A drop is common after time off.");
+    expect(timeOffExplanation(pullUpDrop, flagged, [], "2026-11-16")).toBe(EXPECTED_AFTER_TIME_OFF_SENTENCE);
+    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, [], "2026-11-16")).toBe("A drop is common after time off.");
   });
 
   it("adds nothing for a broad jump drop alone, an old injury or none", () => {
-    expect(timeOffExplanation(jumpDrop, flagged, "2026-11-16")).toBeUndefined();
-    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, "2026-12-20")).toBeUndefined();
-    expect(timeOffExplanation(pullUpDrop, [], "2026-11-16")).toBeUndefined();
+    expect(timeOffExplanation(jumpDrop, flagged, [], "2026-11-16")).toBeUndefined();
+    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, [], "2026-12-20")).toBeUndefined();
+    expect(timeOffExplanation(pullUpDrop, [], [], "2026-11-16")).toBeUndefined();
+  });
+
+  it("adds the sentence to ANY drop (a broad jump too) when a 7-day break is under way or ended within 28 days", () => {
+    const weekBreak = { from: "2026-11-26", to: "2026-12-03" };
+
+    expect(timeOffExplanation(jumpDrop, [], [weekBreak], "2026-11-30")).toBe(EXPECTED_AFTER_TIME_OFF_SENTENCE); // during
+    expect(timeOffExplanation(jumpDrop, [], [weekBreak], "2026-12-03")).toBe(EXPECTED_AFTER_TIME_OFF_SENTENCE); // first day back
+    expect(timeOffExplanation(pullUpDrop, [], [weekBreak], "2026-12-31")).toBe(EXPECTED_AFTER_TIME_OFF_SENTENCE); // 28 days after
+  });
+
+  it("adds nothing for a short break, an old break, a break that has not begun, or no drop", () => {
+    const weekBreak = { from: "2026-11-26", to: "2026-12-03" };
+    const threeDays = { from: "2026-11-30", to: "2026-12-03" };
+
+    expect(timeOffExplanation(jumpDrop, [], [threeDays], "2026-12-04")).toBeUndefined();
+    expect(timeOffExplanation(jumpDrop, [], [weekBreak], "2027-01-01")).toBeUndefined(); // 29 days after
+    expect(timeOffExplanation(jumpDrop, [], [weekBreak], "2026-11-25")).toBeUndefined();
+    expect(timeOffExplanation([], [], [weekBreak], "2026-12-04")).toBeUndefined();
   });
 
   it("dropWarningForShownDate gives the saved check's date with a drop", () => {

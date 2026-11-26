@@ -2,6 +2,8 @@ import type { Program } from "../program/model";
 import { programStatus, toDayNumber } from "../program/calendar";
 import { phaseForWeek } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
+import type { TrainingBreak } from "../break/model";
+import { wasOnLongBreakRecently } from "../break/operations";
 import type { Injury } from "../injury/model";
 import { activeAreasOn, wasAreaInjuredRecently } from "../injury/operations";
 import type { FatigueField, FatigueHistory } from "../fatigue/model";
@@ -107,7 +109,7 @@ export function dropWarningForShownDate(
 /** Shown in place of the "Max pull-ups" field while the shoulder is flagged on the shown date. */
 export const PULL_UPS_SKIPPED_LINE = "Skip while your shoulder is flagged";
 
-/** Added to a pull-up drop warning when the shoulder was recently injured. */
+/** Added to a drop warning when recent time off (a shoulder injury or a long break) explains it. */
 export const EXPECTED_AFTER_TIME_OFF_SENTENCE = "A drop is common after time off.";
 
 /**
@@ -120,15 +122,24 @@ export function shouldSkipPullUps(injuries: readonly Injury[], date: string): bo
 }
 
 /**
- * The extra sentence for a drop warning, or undefined. It applies only when
- * pull-ups are among the `drops` and a shoulder injury was active, or cleared
- * in the 28 days before `checkDate` (the date of the check being judged).
+ * The extra sentence for a drop warning, or undefined. It applies to a
+ * pull-up drop when a shoulder injury was active, or cleared in the 28 days
+ * before `checkDate` (the date of the check being judged), and to ANY drop
+ * (pull-ups or broad jump) when a break of 7 days or more is under way on
+ * `checkDate` or ended in the 28 days before it (`wasOnLongBreakRecently`).
  * Used by the check-in card and Today's drop banner.
  */
-export function timeOffExplanation(drops: readonly FatigueWarning[], injuries: readonly Injury[], checkDate: string): string | undefined {
-  if (!drops.some((drop) => drop.field === "maxPullUps")) return undefined;
+export function timeOffExplanation(
+  drops: readonly FatigueWarning[],
+  injuries: readonly Injury[],
+  breaks: readonly TrainingBreak[],
+  checkDate: string,
+): string | undefined {
+  if (drops.length === 0) return undefined;
+  if (wasOnLongBreakRecently(breaks, checkDate)) return EXPECTED_AFTER_TIME_OFF_SENTENCE;
 
-  return wasAreaInjuredRecently(injuries, "shoulder", checkDate) ? EXPECTED_AFTER_TIME_OFF_SENTENCE : undefined;
+  const hasPullUpDrop = drops.some((drop) => drop.field === "maxPullUps");
+  return hasPullUpDrop && wasAreaInjuredRecently(injuries, "shoulder", checkDate) ? EXPECTED_AFTER_TIME_OFF_SENTENCE : undefined;
 }
 
 /** What the card's two steppers hold before saving; undefined is a blank field (never saved as a number). */

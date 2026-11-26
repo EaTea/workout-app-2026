@@ -10,7 +10,6 @@ import {
   MAXIMUM_PULL_UPS,
   MINIMUM_BROAD_JUMP_METRES,
   PREVIEW_SAVING_OFF_MESSAGE,
-  EXPECTED_AFTER_TIME_OFF_SENTENCE,
   PULL_UPS_SKIPPED_LINE,
   describeDrops,
   formatBestRecent,
@@ -68,8 +67,13 @@ export interface CheckInCardActions {
   /** True while the shoulder is flagged on the shown date: the pull-up field is replaced by a "Skip" line and no pull-up value is saved. */
   skipPullUps?: boolean;
 
-  /** True when a shoulder injury was active or cleared in the 28 days before the shown date: a pull-up drop warning then adds "expected after time off". */
-  recentShoulderInjury?: boolean;
+  /**
+   * The "expected after time off" sentence for these drops, or undefined (Today
+   * builds it from `timeOffExplanation` with the injuries, breaks and shown
+   * date). Called each time the warning is refreshed, so it sees the drops as
+   * the steppers change.
+   */
+  explainDrops?: (drops: readonly FatigueWarning[]) => string | undefined;
 }
 
 /** Broad jump stepper rules: two decimals, 0.01 to 5 m, typed text up to two decimals. */
@@ -130,9 +134,8 @@ export function renderCheckInCard(
     warning.replaceChildren();
     if (drops.length > 0) {
       warning.append(element("strong", undefined, `⚠ ${describeDrops(drops)}`), " ", ruleText);
-      if (actions.recentShoulderInjury === true && drops.some((drop) => drop.field === "maxPullUps")) {
-        warning.append(" ", EXPECTED_AFTER_TIME_OFF_SENTENCE);
-      }
+      const explanation = actions.explainDrops?.(drops);
+      if (explanation !== undefined) warning.append(" ", explanation);
     }
 
     saveButton.disabled = !actions.canSave || (draft.broadJumpMetres === undefined && draft.maxPullUps === undefined);

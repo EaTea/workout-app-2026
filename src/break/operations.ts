@@ -114,3 +114,45 @@ export function lastBreakEndedBefore(breaks: readonly TrainingBreak[], date: str
   }
   return latest;
 }
+
+/** A break must last at least this many days (to − from) to mark a "First session back" or explain a check-in drop. */
+export const LONG_BREAK_MIN_DAYS = 7;
+
+/** How many days after a long break ends its "First session back" marks can still show (same as the injury return window, 14). */
+export const RETURN_FROM_BREAK_WINDOW_DAYS = 14;
+
+/** How far back (in days) a long break still explains a dip in a check-in ("expected after time off"). */
+export const RECENT_BREAK_LOOKBACK_DAYS = 28;
+
+/** True when the break lasted `LONG_BREAK_MIN_DAYS` or more (`to` is the first day back, so to − from is its length in days). */
+function isLongBreak(trainingBreak: TrainingBreak): boolean {
+  return toDayNumber(trainingBreak.to) - toDayNumber(trainingBreak.from) >= LONG_BREAK_MIN_DAYS;
+}
+
+/**
+ * The long break that "First session back" marks on `date` come from, or
+ * undefined. A break counts when it lasted 7 days or more and ended (its
+ * `to`) on or before `date` but less than `RETURN_FROM_BREAK_WINDOW_DAYS`
+ * days before it. With two such breaks the one that ended last wins (a short
+ * break in between does not hide an earlier long one, unlike
+ * `lastBreakEndedBefore`). Called by `applyReturnToTraining` (program/injury.ts).
+ */
+export function returnFromBreakOn(breaks: readonly TrainingBreak[], date: string): TrainingBreak | undefined {
+  let latest: TrainingBreak | undefined;
+  for (const trainingBreak of breaks) {
+    const isInWindow = trainingBreak.to <= date && date < addDaysToDate(trainingBreak.to, RETURN_FROM_BREAK_WINDOW_DAYS);
+    if (isInWindow && isLongBreak(trainingBreak) && (latest === undefined || trainingBreak.to > latest.to)) latest = trainingBreak;
+  }
+  return latest;
+}
+
+/**
+ * True when a long break (7 days or more) is under way on `date` or ended
+ * within the `RECENT_BREAK_LOOKBACK_DAYS` days before it (the end date
+ * counts, 28 days earlier does too). Used by the weekly check-in to add "A
+ * drop is common after time off." to any drop warning; pure.
+ */
+export function wasOnLongBreakRecently(breaks: readonly TrainingBreak[], date: string): boolean {
+  const windowStart = addDaysToDate(date, -RECENT_BREAK_LOOKBACK_DAYS);
+  return breaks.some((trainingBreak) => isLongBreak(trainingBreak) && trainingBreak.from <= date && trainingBreak.to >= windowStart);
+}

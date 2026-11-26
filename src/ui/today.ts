@@ -16,12 +16,11 @@ import { breakOn } from "../break/operations";
 import { renderEndBreakControl, renderTakeBreakLink, type BreakTodayOptions } from "./breakUi";
 import { backOnText, ON_A_BREAK_TITLE } from "./breakText";
 import type { Injury, InjuryChoices } from "../injury/model";
-import { wasAreaInjuredRecently } from "../injury/operations";
-import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
+import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, firstTimeBackLine, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
 import "./injuryRows.css";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
-import { checkInWeekToAsk, shouldSkipPullUps, trainingWeekOf, type CheckInDraft } from "./checkin";
+import { checkInWeekToAsk, shouldSkipPullUps, timeOffExplanation, trainingWeekOf, type CheckInDraft } from "./checkin";
 import { weeklyChecksFor } from "../fatigue/operations";
 import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
@@ -238,7 +237,7 @@ export function renderTodayScreen(
             onSave: checkIn.onSave,
             onSnooze: checkIn.onSnooze,
             skipPullUps: shouldSkipPullUps(injury?.injuries ?? [], date),
-            recentShoulderInjury: wasAreaInjuredRecently(injury?.injuries ?? [], "shoulder", date),
+            explainDrops: (drops) => timeOffExplanation(drops, injury?.injuries ?? [], settings.breaks ?? [], date),
           }));
         }
       }
@@ -727,7 +726,7 @@ function renderItemRow(
   }
   // The first session back after a cleared injury: pain-free only, plus (once halved) a line saying so.
   if (item.firstTimeBack !== undefined) {
-    text.append(element("span", "item-pain-free", FIRST_TIME_BACK_LINE));
+    text.append(element("span", "item-pain-free", firstTimeBackLine(item.firstTimeBack)));
     if (item.halvedForReturn) text.append(element("span", "item-pain-free", HALVED_FOR_RETURN_LINE));
   }
   const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item), keyDay);

@@ -870,7 +870,7 @@ export function startApp(
         rowToReturnTo = undefined;
         const drop = dropWarningForShownDate(program, settings, shownDate, fatigueHistory);
         if (program.fatigueCheck !== undefined && drop.warnings.length > 0 && dropBannerDismissedWeek !== drop.week) {
-          main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week), drop.checkDate === undefined ? undefined : timeOffExplanation(drop.warnings, loadInjuries(localStorage, storageKeys.injuries), drop.checkDate)));
+          main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week), drop.checkDate === undefined ? undefined : timeOffExplanation(drop.warnings, loadInjuries(localStorage, storageKeys.injuries), settings.breaks ?? [], drop.checkDate)));
         }
       }
       const logTarget = parseLogRoute(window.location.hash);

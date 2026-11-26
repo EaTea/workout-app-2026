@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TrainingBreak } from "./model";
-import { breakDaysBetween, breakOn, endBreak, lastBreakEndedBefore, startBreak } from "./operations";
+import { breakDaysBetween, breakOn, endBreak, lastBreakEndedBefore, returnFromBreakOn, startBreak, wasOnLongBreakRecently } from "./operations";
 
 const weekBreak: TrainingBreak = { from: "2026-11-26", to: "2026-12-03", note: "Physio" };
 
@@ -143,5 +143,39 @@ describe("lastBreakEndedBefore", () => {
     expect(lastBreakEndedBefore([weekBreak], "2026-12-02")).toBeUndefined();
     expect(lastBreakEndedBefore([weekBreak], "2026-11-01")).toBeUndefined();
     expect(lastBreakEndedBefore([], "2026-12-10")).toBeUndefined();
+  });
+});
+
+describe("returnFromBreakOn", () => {
+  it("finds a 7-day break from its end date to 13 days after, not before or after", () => {
+    expect(returnFromBreakOn([weekBreak], "2026-12-02")).toBeUndefined();
+    expect(returnFromBreakOn([weekBreak], "2026-12-03")).toBe(weekBreak);
+    expect(returnFromBreakOn([weekBreak], "2026-12-16")).toBe(weekBreak);
+    expect(returnFromBreakOn([weekBreak], "2026-12-17")).toBeUndefined();
+  });
+
+  it("ignores a break shorter than 7 days", () => {
+    expect(returnFromBreakOn([{ from: "2026-11-27", to: "2026-12-03" }], "2026-12-03")).toBeUndefined();
+  });
+
+  it("takes the long break that ended last, even when a short one ended after it", () => {
+    const longEarlier = { from: "2026-11-10", to: "2026-11-24" };
+    const shortLater = { from: "2026-11-30", to: "2026-12-03" };
+
+    expect(returnFromBreakOn([longEarlier, shortLater], "2026-12-03")).toBe(longEarlier);
+    expect(returnFromBreakOn([longEarlier, weekBreak], "2026-12-03")).toBe(weekBreak);
+  });
+});
+
+describe("wasOnLongBreakRecently", () => {
+  it("is true during the break and up to 28 days after it ended", () => {
+    expect(wasOnLongBreakRecently([weekBreak], "2026-11-26")).toBe(true);
+    expect(wasOnLongBreakRecently([weekBreak], "2026-12-31")).toBe(true);
+    expect(wasOnLongBreakRecently([weekBreak], "2027-01-01")).toBe(false);
+  });
+
+  it("is false before the break starts and for a break under 7 days", () => {
+    expect(wasOnLongBreakRecently([weekBreak], "2026-11-25")).toBe(false);
+    expect(wasOnLongBreakRecently([{ from: "2026-11-27", to: "2026-12-03" }], "2026-12-03")).toBe(false);
   });
 });

@@ -3473,7 +3473,13 @@ from a guess. Until then a break covers it.
      "End the break today" on Today's break card (not in a `?date=`
      preview), a line per break in History, and History's week grouping
      ignoring break days so a week with a break inside stays one group.
-  4. [ ] First session back and the check-in sentence.
+  4. [x] First session back and the check-in sentence: within 14 days
+     after a break of 7+ days, each main-block exercise not yet trained
+     since the break starts is marked "First session back · pain-free only"
+     with "Half sets today" (the injury return's marker, now carrying its
+     reason; an injury's wording wins; warm-ups aren't marked). "A drop is
+     common after time off." is added to any check-in drop during or up to
+     28 days after such a break.
   5. [ ] Export, import, README and e2e.
   - Merge point: a break can be taken and ended, and the schedule resumes
     where it stopped.

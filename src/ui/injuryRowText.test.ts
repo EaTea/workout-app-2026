@@ -4,7 +4,7 @@ import { buildSwappedSession } from "../noEquipment/session";
 import { parseProgram } from "../program/parse";
 import type { ItemView } from "../program/schedule";
 import type { Injury } from "../injury/model";
-import { addItBackButtonName, areaFreeHeading, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
+import { addItBackButtonName, areaFreeHeading, firstTimeBackLine, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 const settings = { startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 }, maxSavedOn: {}, maxHistory: {} };
@@ -75,5 +75,12 @@ describe("First time back wording", () => {
     expect(FIRST_TIME_BACK_LINE).toBe("First time back · pain-free only");
     expect(halfSetsTodayButtonName("Pull-ups")).toBe(`${HALF_SETS_TODAY_LABEL}, Pull-ups`);
     expect(halfSetsTodayButtonName("Pull-ups").startsWith("Half sets today")).toBe(true);
+  });
+});
+
+describe("firstTimeBackLine", () => {
+  it("words a break return as the first session back and an injury return as first time back", () => {
+    expect(firstTimeBackLine({ reason: "break", halfSetsOffered: true })).toBe("First session back · pain-free only");
+    expect(firstTimeBackLine({ reason: "injury", area: "shoulder", halfSetsOffered: true })).toBe("First time back · pain-free only");
   });
 });
