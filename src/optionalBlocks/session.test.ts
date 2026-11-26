@@ -8,6 +8,7 @@ import { blockSlotsOf } from "../program/combine";
 import { parseProgram } from "../program/parse";
 import { buildSession, type BlockView, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
+import type { Injury } from "../injury/model";
 import { optionalBlockKey } from "./model";
 import { applySkippedBlocks, blockCountOf, estimatedBlockMinutes } from "./session";
 
@@ -53,6 +54,15 @@ describe("applySkippedBlocks", () => {
   it("changes nothing when nothing is skipped", () => {
     const plain = buildSession(program, settings, WEEK_2_DAY_1);
     expect(applySkippedBlocks(plain, new Set())).toBe(plain);
+  });
+
+  it("W2 D1 with the shoulder flagged: blocks whose every item is left out (power, pull-ups, dips, boxing) are not counted; the warm-up and core remain", () => {
+    const injuries: Injury[] = [{ area: "shoulder", side: "right", from: "2026-11-01" }];
+    const flagged = buildSwappedSession(program, settings, noSets, new Map(), WEEK_2_DAY_1, new Set(), injuries).session;
+    if (flagged.kind !== "training") throw new Error("expected training");
+
+    expect(finisherOf(flagged).items.every((item) => item.leftOut !== undefined)).toBe(true);
+    expect(blockCountOf(flagged)).toBe(2);
   });
 
   it("W2 D1: marks the boxing block, keeps its position, drops 7 minutes and one block (50 to 43, 6 to 5)", () => {

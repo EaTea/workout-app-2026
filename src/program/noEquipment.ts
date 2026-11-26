@@ -1,4 +1,4 @@
-import type { BlockItem } from "./model";
+import { INJURY_AREAS, type Block, type BlockItem, type Program } from "./model";
 import type { ItemView, SessionView } from "./schedule";
 
 /*
@@ -50,7 +50,8 @@ export function originalExerciseIdOf(item: ItemView): string {
 /**
  * Replaces every item whose tick key is in `swappedKeys` (and that has a
  * swap view) with that swap view, recording the original exercise in
- * `swappedFrom`. Keys for items without a swap, or with the wrong block
+ * `swappedFrom` (its `loads` level) and keeping the original's `injury` views
+ * and its "First time back" mark (without the "Half sets today" offer). Keys for items without a swap, or with the wrong block
  * position, are ignored; non-training sessions are returned as they are.
  * Pure: the input session is not mutated. Called on the result of
  * `buildSession` before Today and the log screen render. With
@@ -68,7 +69,11 @@ export function applyNoEquipmentChoices(session: SessionView, swappedKeys: Reado
       if (swapView === undefined) return item;
       const keyDay = qualifyKeysWithDay ? session.dayNumber : undefined;
       if (!swappedKeys.has(noEquipmentItemKey(blockPosition, item.exercise.id, keyDay))) return item;
-      return { ...swapView, swappedFrom: item.exercise };
+      // Carry the original's injury stand-ins: an injury wins over the tick, so the
+      // exercise sheet words "Your shoulder" from the original (see injurySheetText.ts).
+      // A "First time back" row stays one when swapped (the swap is pain-free-only too), but never offers "Half sets today" (that is for the original's dose).
+      const firstTimeBack = item.firstTimeBack === undefined ? undefined : { ...item.firstTimeBack, halfSetsOffered: false };
+      return { ...swapView, swappedFrom: item.exercise, injury: item.injury, firstTimeBack };
     });
     return { ...block, items };
   });
@@ -78,12 +83,42 @@ export function applyNoEquipmentChoices(session: SessionView, swappedKeys: Reado
 
 /**
  * True when a set logged under `loggedExerciseId` belongs to this program
- * item: the item's own exercise, or the id of its "No equipment" swap (swapped
- * sets are logged under the swap's id, in the item's normal block position).
+ * item: the item's own exercise, the id of its "No equipment" swap (swapped
+ * sets are logged under the swap's id, in the item's normal block position),
+ * or the id of one of its injury stand-ins (a stand-in's sets are logged
+ * under its own id in the item's block position too).
  * Shared by the "last time", Progress and History lookups, which find a
  * logged set's program item. Note it says nothing about whether the item was
- * swapped that day; callers that care use `noEquipmentChoices` (via `buildSwappedSession`).
+ * swapped or stood in for that day; callers that care use `noEquipmentChoices` (via `buildSwappedSession`).
  */
-export function isExerciseLoggedForItem(item: Pick<BlockItem, "exerciseId" | "noEquipment">, loggedExerciseId: string): boolean {
-  return item.exerciseId === loggedExerciseId || item.noEquipment?.exercise.id === loggedExerciseId;
+export function isExerciseLoggedForItem(item: Pick<BlockItem, "exerciseId" | "noEquipment" | "injury">, loggedExerciseId: string): boolean {
+  if (item.exerciseId === loggedExerciseId || item.noEquipment?.exercise.id === loggedExerciseId) return true;
+
+  return INJURY_AREAS.some((area) => item.injury?.[area]?.exercise.id === loggedExerciseId);
+}
+
+/**
+ * Finds the program block and item a logged set belongs to, from the set's
+ * day, block position and exercise id: first the day's own block at that
+ * position (the item itself, its no-equipment swap or an injury stand-in),
+ * then, for sets logged in an area-free session (the shoulder-free session
+ * replaces a whole day, with its own block positions), the area sessions'
+ * blocks at that position. Undefined when nothing matches.
+ *
+ * Used by the "last time", Progress and History lookups so an area-free
+ * session's sets find the block type and item they were done as. The day's
+ * own block always wins, so a set that fits both keeps its normal meaning.
+ */
+export function findLoggedBlockAndItem(program: Program, day: number, blockPosition: number, loggedExerciseId: string): { block: Block; item: BlockItem } | undefined {
+  const dayBlock = program.days[day]?.blocks[blockPosition - 1];
+  const dayItem = dayBlock?.items.find((item) => isExerciseLoggedForItem(item, loggedExerciseId));
+  if (dayBlock !== undefined && dayItem !== undefined) return { block: dayBlock, item: dayItem };
+
+  for (const area of INJURY_AREAS) {
+    const areaBlock = program.injurySessions?.[area]?.blocks[blockPosition - 1];
+    const areaItem = areaBlock?.items.find((item) => item.exerciseId === loggedExerciseId);
+    if (areaBlock !== undefined && areaItem !== undefined) return { block: areaBlock, item: areaItem };
+  }
+
+  return undefined;
 }

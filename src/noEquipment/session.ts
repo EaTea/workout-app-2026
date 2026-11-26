@@ -8,12 +8,22 @@ import { applyNoEquipmentChoices } from "../program/noEquipment";
 import type { Program } from "../program/model";
 import { buildSession, type SessionView } from "../program/schedule";
 import type { TrainingSettings } from "../settings/model";
+import { activeAreasOn, recentlyClearedInjuriesOn } from "../injury/operations";
+import type { Injury, InjuryChoices } from "../injury/model";
+import { addBackKeysForDate, halfSetsKeysForDate } from "../injury/storage";
+import { applyInjuries, applyReturnToTraining } from "../program/injury";
 import { noEquipmentChoices } from "./choices";
 import type { NoEquipmentTicks } from "./model";
 import { ticksForDate } from "./storage";
 
 /** "Nothing skipped": the default for callers that don't pass the date's skipped optional blocks. */
 const NO_SKIPPED_BLOCKS: ReadonlySet<OptionalBlockKey> = new Set();
+
+/** "Nothing flagged": the default for callers that don't pass injuries. */
+const NO_INJURIES: readonly Injury[] = [];
+
+/** "No injury choices": the default for callers that don't pass them. */
+const NO_INJURY_CHOICES: InjuryChoices = new Map();
 
 /** A date's session with its "No equipment" choices applied, plus which choices logged sets have locked. */
 export interface SwappedSession {
@@ -29,9 +39,20 @@ export interface SwappedSession {
  * sets must: buildSession, then decide swapped/locked items from the log and
  * the ticks, then apply the swaps.
  *
- *   buildSession ─▶ noEquipmentChoices(log, ticks of date) ─▶ applyNoEquipmentChoices ─▶ Today,
- *                                      └─ locked ───────────────────────────────────▶   log screen,
- *                                                                                       wake lock
+ *   buildSession
+ *        │
+ *        ▼
+ *   applyInjuries ─▶ applyReturnToTraining ─▶ noEquipmentChoices(log, ticks of date)
+ *                                                  │
+ *                                                  ├─ swapped ─▶ applyNoEquipmentChoices ─▶ Today,
+ *                                                  │                                        log screen,
+ *                                                  └─ locked ──────────────────────────────▶ wake lock
+ *
+ *
+ * With flagged `injuries`, `applyInjuries` (program/injury.ts) runs right after
+ * buildSession and BEFORE the swaps, so an injury wins: a row it leaves out or
+ * stands in for loses its swap, and the choices below are worked out from the
+ * injured session.
  *
  * Used by Today, the log screen and app.ts's wake-lock check, so they agree
  * on which exercise id an item's sets belong to. The day plan and overview
@@ -47,12 +68,26 @@ export function buildSwappedSession(
   ticks: NoEquipmentTicks,
   date: string,
   skippedBlockKeys: ReadonlySet<OptionalBlockKey> = NO_SKIPPED_BLOCKS,
+  injuries: readonly Injury[] = NO_INJURIES,
+  injuryChoices: InjuryChoices = NO_INJURY_CHOICES,
 ): SwappedSession {
-  const unswappedSession = buildSession(program, settings, date);
-  const choices = noEquipmentChoices(unswappedSession, log, date, ticksForDate(ticks, date));
+  const injuryContext = { program, settings, log, logDate: date, sessionDate: date };
+  const flaggedSession = applyInjuries(
+    buildSession(program, settings, date),
+    injuryContext,
+    activeAreasOn(injuries, date),
+    addBackKeysForDate(injuryChoices, date),
+  );
+  const injuredSession = applyReturnToTraining(
+    flaggedSession,
+    injuryContext,
+    recentlyClearedInjuriesOn(injuries, date),
+    halfSetsKeysForDate(injuryChoices, date),
+  );
+  const choices = noEquipmentChoices(injuredSession, log, date, ticksForDate(ticks, date));
 
   return {
-    session: applySkippedBlocks(applyNoEquipmentChoices(unswappedSession, choices.swapped), skippedBlockKeys, log, date),
+    session: applySkippedBlocks(applyNoEquipmentChoices(injuredSession, choices.swapped), skippedBlockKeys, log, date),
     locked: choices.locked,
   };
 }
@@ -113,13 +148,29 @@ export function buildSwappedCombinedSession(
   hostDate: string,
   combine: Combine,
   skippedBlockKeys: ReadonlySet<OptionalBlockKey> = NO_SKIPPED_BLOCKS,
+  injuries: readonly Injury[] = NO_INJURIES,
+  injuryChoices: InjuryChoices = NO_INJURY_CHOICES,
 ): SwappedCombinedSession {
   const locked = new Set<string>();
   const ticksOfHostDate = withHostDayTicksQualified(ticksForDate(ticks, hostDate), combine.hostDay);
+  const addBackKeysOfHostDate = withHostDayTicksQualified(addBackKeysForDate(injuryChoices, hostDate), combine.hostDay);
+  const halfSetsKeysOfHostDate = withHostDayTicksQualified(halfSetsKeysForDate(injuryChoices, hostDate), combine.hostDay);
+  const recentlyClearedInjuries = recentlyClearedInjuriesOn(injuries, hostDate);
 
   /** One day's plain session for `dateOfDay`, with its swaps applied and its locked keys collected. */
   function swappedDay(dateOfDay: string): SessionView {
-    const unswapped = buildSession(program, settings, dateOfDay);
+    // The flag comes from the HOST date, the date Ed trains, for both days: a missed day added to
+    // today is trained with today's shoulder. The day's own date only sets its week, deload and blocks.
+    // "Add it back" keys are stored under the host date too.
+    const injuryContext = { program, settings, log, logDate: hostDate, sessionDate: dateOfDay };
+    const flagged = applyInjuries(
+      buildSession(program, settings, dateOfDay),
+      injuryContext,
+      activeAreasOn(injuries, hostDate),
+      addBackKeysOfHostDate,
+      true,
+    );
+    const unswapped = applyReturnToTraining(flagged, injuryContext, recentlyClearedInjuries, halfSetsKeysOfHostDate, true);
     const choices = noEquipmentChoices(unswapped, log, hostDate, ticksOfHostDate, true);
     for (const key of choices.locked) locked.add(key);
     return applySkippedBlocks(applyNoEquipmentChoices(unswapped, choices.swapped, true), skippedBlockKeys, log, hostDate);
@@ -161,11 +212,13 @@ export function buildSwappedSessionFor(
   date: string,
   realToday: string,
   skippedBlocks: SkippedBlocksByDate = new Map(),
+  injuries: readonly Injury[] = NO_INJURIES,
+  injuryChoices: InjuryChoices = NO_INJURY_CHOICES,
 ): SessionForDate {
   const skippedBlockKeys = skippedBlocks.get(date) ?? NO_SKIPPED_BLOCKS;
 
   const combine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
-  if (combine !== undefined) return buildSwappedCombinedSession(program, settings, log, ticks, date, combine, skippedBlockKeys);
+  if (combine !== undefined) return buildSwappedCombinedSession(program, settings, log, ticks, date, combine, skippedBlockKeys, injuries, injuryChoices);
 
-  return buildSwappedSession(program, settings, log, ticks, date, skippedBlockKeys);
+  return buildSwappedSession(program, settings, log, ticks, date, skippedBlockKeys, injuries, injuryChoices);
 }

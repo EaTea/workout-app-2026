@@ -1,6 +1,7 @@
 import "./export.css";
-import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, parseImport, wrongProgramMessage, type ImportSummary, type ProgramNames } from "../export/import";
+import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, injuryReplacementWarning, parseImport, wrongProgramMessage, type ImportSummary, type ProgramNames } from "../export/import";
 import { applyImport, undoLastImport } from "../export/importApply";
+import { loadInjuries } from "../injury/storage";
 import { listImportBackups } from "../export/importBackup";
 import { todayLocalDate } from "../program/calendar";
 import type { ProgramStorageKeys } from "../storage/programKeys";
@@ -89,6 +90,11 @@ export function summaryLines(summary: ImportSummary): string[] {
   }
 
   lines.push(summary.startDate === null ? "Start date: not set" : `Start date: ${summary.startDate}`);
+  lines.push(
+    summary.injuryCount === undefined
+      ? "Injuries: none in the file (yours are kept)"
+      : `Injuries: ${summary.injuryCount} (replace yours)`,
+  );
   return lines;
 }
 
@@ -215,6 +221,9 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
     }
     preview.append(list);
     preview.append(element("p", "import-message", `You have ${countLabel(options.currentSessionCount(), "session")} now.`));
+
+    const injuryWarning = injuryReplacementWarning(result.data.injuries, loadInjuries(options.storage, options.storageKeys.injuries));
+    if (injuryWarning !== null) preview.append(element("p", "import-message import-injury-warning", injuryWarning));
 
     if (result.problems.length > 0) {
       const shown = result.problems.slice(0, MAX_PROBLEMS_SHOWN);

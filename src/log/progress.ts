@@ -1,5 +1,5 @@
 import type { DayNumber, Program } from "../program/model";
-import { isExerciseLoggedForItem } from "../program/noEquipment";
+import { findLoggedBlockAndItem } from "../program/noEquipment";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "./model";
 import { sessionDates } from "./operations";
 import { setDay } from "./setDay";
@@ -94,9 +94,7 @@ function blockTypeOfLoggedSet(program: Program, session: LoggedSession, set: Log
   const day = setDay(session, set);
   if (day === undefined) return undefined;
 
-  const block = program.days[day]?.blocks[set.blockPosition - 1];
-  const isExerciseInBlock = block?.items.some((item) => isExerciseLoggedForItem(item, set.exerciseId)) ?? false;
-  return isExerciseInBlock ? block?.type : undefined;
+  return findLoggedBlockAndItem(program, day, set.blockPosition, set.exerciseId)?.block.type;
 }
 
 /** The charted block type a set was done in, or undefined when it is not in a charted block. Shared by the picker list and the series. */

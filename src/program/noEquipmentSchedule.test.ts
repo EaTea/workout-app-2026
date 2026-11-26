@@ -298,3 +298,42 @@ describe("applyNoEquipmentSwap", () => {
     expect(applyNoEquipmentSwap(withoutSwap)).toBe(withoutSwap);
   });
 });
+
+describe("injury stand-in views (Injury 1, step 3)", () => {
+  /** The shoulder stand-in view of an item, or fails. */
+  function standInOn(date: string, blockType: string, exerciseId: string): ItemView {
+    const view = itemOn(date, blockType, exerciseId).injury?.shoulder;
+    if (!view) throw new Error(`${exerciseId} has no shoulder stand-in on ${date}`);
+    return view;
+  }
+
+  it("26 Nov W4 D4 (deload): the kettlebell swing's broad jump stand-in is a 4-min EMOM x 5", () => {
+    const view = standInOn("2026-11-26", "explosive", "kettlebell_swing");
+    expect(view.exercise.name).toBe("Broad jumps, hands on hips");
+    expect(view.format).toBe("emom");
+    expect(view.minutes).toBe(4);
+    expect(view.target).toEqual({ kind: "fixed", count: 5 });
+  });
+
+  it("5 Nov W1 D4: the same stand-in is an 8-min EMOM x 5", () => {
+    expect(standInOn("2026-11-05", "explosive", "kettlebell_swing").minutes).toBe(8);
+  });
+
+  it("24 Nov W4 D2 (deload): the suitcase split squat stand-in is 2 x 12-15 per side", () => {
+    const view = standInOn("2026-11-24", "mainStrength", "zercher_bulgarian_split_squat");
+    expect(view.sets).toHaveLength(2);
+    expect(view.sets[0]?.target).toEqual({ kind: "range", min: 12, max: 15 });
+    expect(view.perSide).toBe(true);
+  });
+
+  it("2 Nov W1 D1: the lying leg raise stand-in is 3 x 10-15", () => {
+    const view = standInOn("2026-11-02", "core", "hanging_leg_raise");
+    expect(view.exercise.id).toBe("lying_leg_raise");
+    expect(view.sets).toHaveLength(3);
+    expect(view.sets[0]?.target).toEqual({ kind: "range", min: 10, max: 15 });
+  });
+
+  it("items without a stand-in have no injury views, and the original view is unchanged", () => {
+    expect(itemOn("2026-11-02", "explosive", "med_ball_slam").injury).toBeUndefined();
+  });
+});
