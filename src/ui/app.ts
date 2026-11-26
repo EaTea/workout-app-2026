@@ -3,7 +3,7 @@ import { programStatus, toDayNumber, todayLocalDate } from "../program/calendar"
 import { readExportSource } from "../export/source";
 import { rotationBlockStartWeek } from "../program/rotation";
 import type { TrainingSettings } from "../settings/model";
-import { loadBreaks } from "../break/storage";
+import { endBreakAndSave, loadBreaks } from "../break/storage";
 import { loadSettings, saveSettings } from "../settings/storage";
 import type { ProgramStorageKeys } from "../storage/programKeys";
 import { retestJumpSkippedFromWire, retestJumpSkippedToWire, applyRetestMax, mergeRetestCheck, retestDismissedFromWire, retestDismissedToWire } from "./retest";
@@ -498,6 +498,34 @@ export function startApp(
   }
 
   /**
+   * Called by the Settings "Break from training" card after it started or
+   * ended a break and saved it. Reloads the breaks into the in-memory settings
+   * (`withBreaks`) so the schedule follows at once, redraws, and puts focus on
+   * the page heading (the card's button was replaced).
+   */
+  function handleBreaksChanged(): void {
+    settings = withBreaks(settings);
+    render();
+    focusMainHeading();
+  }
+
+  /**
+   * "End the break today" on Today's break card. Refuses on a `?date=` preview;
+   * otherwise ends the break covering the REAL today (so today is the first
+   * day back), reloads the breaks and redraws Today, which then shows that
+   * day's session. Returns null on success or a message to show under the button.
+   */
+  function handleEndBreak(): string | null {
+    if (!canSaveOnShownDate()) return PREVIEW_SAVING_OFF_MESSAGE;
+
+    const result = endBreakAndSave(localStorage, storageKeys.breaks, todayLocalDate());
+    if (!result.ok) return result.error;
+
+    handleBreaksChanged();
+    return null;
+  }
+
+  /**
    * Called by the Import card after `applyImport` or `undoLastImport`
    * replaced the stored data. Reloads the in-memory settings, log and
    * check-ins from storage (so what is shown is what was stored, not what was
@@ -854,7 +882,8 @@ export function startApp(
           programNames,
           currentSessionCount: () => Object.keys(log.sessions).length,
           onImported: handleImported,
-        }, { storage: localStorage, storageKey: storageKeys.injuries, today: todayLocalDate() }));
+        }, { storage: localStorage, storageKey: storageKeys.injuries, today: todayLocalDate() },
+        { storage: localStorage, storageKey: storageKeys.breaks, today: todayLocalDate(), onChanged: handleBreaksChanged }));
       } else if (route === "programs") {
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
@@ -923,6 +952,10 @@ export function startApp(
           canChoose: shownDate <= todayLocalDate(),
           onAddBack: handleAddBackInjuredItems,
           onHalfSets: handleHalfSetsToday,
+        }, {
+          // Ending a break saves, so only on the real today (a `?date=` preview never saves).
+          canEnd: canSaveOnShownDate(),
+          onEnd: handleEndBreak,
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.

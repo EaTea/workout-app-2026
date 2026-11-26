@@ -3467,9 +3467,12 @@ from a guess. Until then a break covers it.
      and a minimal Today card ("Back on 3 Dec with Week 4, Day 4."). Start
      2 Nov with a break 26 Nov to 3 Dec: 3 Dec is W4 D4, 7 Dec W5 D1, and the
      program ends 3 Jan.
-  3. [ ] Today, Settings and History. History groups weeks by the stored
-     week plus a 7-day gap rule, so a week with a break inside can split in
-     two; fix that here.
+  3. [x] Today, Settings and History: a "Break from training" card in
+     Settings (take a break for 1 to 28 days with a note, end it today,
+     past and coming breaks), a "Take a break" link on Today, the note and
+     "End the break today" on Today's break card (not in a `?date=`
+     preview), a line per break in History, and History's week grouping
+     ignoring break days so a week with a break inside stays one group.
   4. [ ] First session back and the check-in sentence.
   5. [ ] Export, import, README and e2e.
   - Merge point: a break can be taken and ended, and the schedule resumes

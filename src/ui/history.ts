@@ -7,7 +7,10 @@ import { deleteSet, editSet, type SetKey } from "../log/operations";
 import { element } from "./dom";
 import { formatSetsSummary } from "./format";
 import type { Injury } from "../injury/model";
+import type { TrainingBreak } from "../break/model";
+import "./break.css";
 import type { TrainingSettings } from "../settings/model";
+import { breakNoteLines, interleaveBreaks } from "./historyBreaks";
 import { injuryNoteForDate, leftOutSummaryLine } from "./historyInjury";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { formatSessionHeader, loggedSetLabel, skippedBlockLines, loggedSetNoun, loggedSetShowsRepsAndLoad, performedExerciseName } from "./historyText";
@@ -33,6 +36,10 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
  *                    tap ─▶ weeksShown += 2 ─▶ draw(first new card's heading)
  *     Save ─▶ editSet ─┐
  *     Delete ─▶ deleteSet ─┴▶ changeLog(op) re-reads, saves (app.ts) ─▶ draw()
+ *
+ * Each break from training is one line ("On a break · 26 Nov to 2 Dec", with
+ * its note) in its place among the cards (`historyBreaks.ts`); the weeks are
+ * grouped with break days left out of the 7-day gap rule.
  *
  * On a day an area was flagged the card also shows a small tag ("Right
  * shoulder"), what was left out and what was stood in (`historyInjury.ts`).
@@ -153,7 +160,8 @@ export function renderHistoryScreen(
     // Every date that has a card, grouped into program weeks, newest first.
     // groupDatesIntoWeeks leaves out days with only skipped sets: they have
     // nothing to list, so they get no card and do not make the page non-empty.
-    const allWeeks = groupDatesIntoWeeks(log);
+    const breaks = injuryContext?.settings.breaks ?? [];
+    const allWeeks = groupDatesIntoWeeks(log, breaks);
     const hasCards = allWeeks.length > 0;
     const pageHeading = element("h1", "screen-title", "History");
     pageHeading.tabIndex = -1;
@@ -176,12 +184,18 @@ export function renderHistoryScreen(
 
     // Only the newest `weeksShown` weeks get cards.
     const shownDates = allWeeks.slice(0, weeksShown).flatMap((week) => week.dates);
-    for (const date of shownDates) {
-      const session = log.sessions[date];
+    const hasOlderWeeks = allWeeks.length > weeksShown;
+    for (const entry of interleaveBreaks(shownDates, breaks, hasOlderWeeks)) {
+      if (entry.kind === "break") {
+        children.push(renderBreakLine(entry.trainingBreak));
+        continue;
+      }
+
+      const session = log.sessions[entry.date];
       if (session !== undefined) children.push(renderSessionCard(session));
     }
 
-    if (allWeeks.length > weeksShown) children.push(renderShowOlderWeeksButton(allWeeks));
+    if (hasOlderWeeks) children.push(renderShowOlderWeeksButton(allWeeks));
 
     screen.replaceChildren(...children);
     if (focusName !== undefined) focusTargets.get(focusName)?.focus();
@@ -203,6 +217,15 @@ export function renderHistoryScreen(
       draw(firstNewDate === undefined ? undefined : cardFocusName(firstNewDate));
     });
     return button;
+  }
+
+  /** One break from training as a muted line: "On a break · 26 Nov to 2 Dec" and its note (see `historyBreaks.ts`). */
+  function renderBreakLine(trainingBreak: TrainingBreak): HTMLElement {
+    const [titleText, noteText] = breakNoteLines(trainingBreak);
+    const line = element("div", "history-break");
+    line.append(element("p", "history-break-title", titleText));
+    if (noteText !== undefined) line.append(element("p", "history-break-note", noteText));
+    return line;
   }
 
   /** One card: the header line (focusable by script, for after a delete), then a row per exercise in block order. */

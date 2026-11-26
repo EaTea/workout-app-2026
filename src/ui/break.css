@@ -1,0 +1,53 @@
+/* Break from training: the Settings card and Today's break card. */
+.break-section .field input {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.break-running-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.break-running-note {
+  margin: 4px 0 8px;
+  line-height: 1.4;
+}
+
+.break-list-title {
+  margin: 12px 0 8px;
+  font-size: 16px;
+}
+
+.break-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.break-note-line {
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.break-end {
+  margin-top: 8px;
+}
+
+/* History: a break sits among the day cards as one muted line. */
+.history-break {
+  margin: 8px 0;
+  padding: 8px 16px;
+  border-left: 3px solid var(--accent-text);
+  color: var(--muted);
+}
+
+.history-break-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.history-break-note {
+  margin: 4px 0 0;
+}

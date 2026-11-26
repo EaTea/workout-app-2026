@@ -12,6 +12,9 @@ import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderInjuredLink, renderInjuryBanners } from "./injuryFlagUi";
+import { breakOn } from "../break/operations";
+import { renderEndBreakControl, renderTakeBreakLink, type BreakTodayOptions } from "./breakUi";
+import { backOnText, ON_A_BREAK_TITLE } from "./breakText";
 import type { Injury, InjuryChoices } from "../injury/model";
 import { wasAreaInjuredRecently } from "../injury/operations";
 import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
@@ -190,6 +193,7 @@ export function renderTodayScreen(
   optionalBlocks?: OptionalBlocksOptions,
   setLogging?: TimerSetLoggingSource,
   injury?: InjuryOptions,
+  breakOptions?: BreakTodayOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
 
@@ -260,7 +264,7 @@ export function renderTodayScreen(
       }
       break;
     default:
-      screen.append(renderMessageCard(session, program, date));
+      screen.append(renderMessageCard(session, program, date, settings.breaks ?? [], breakOptions));
   }
 
   return screen;
@@ -269,6 +273,8 @@ export function renderTodayScreen(
 /**
  * A single card for sessions with nothing to train: not started, rest day,
  * on a break, finished. Each ends with the small "Program overview" link. The
+ * on-a-break card also shows the break's note (looked up in `breaks`) and, when
+ * `breakOptions` is given, "End the break today" (or a hint in a preview). The
  * `noStartDate` case is only here to keep the switch exhaustive: app.ts never
  * renders Today without a start date (it shows the Overview), so the card just
  * points there. A program with safety notes keeps the "Safety notes" link on
@@ -279,6 +285,8 @@ function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
   program: Program,
   date: string,
+  breaks: readonly TrainingBreak[],
+  breakOptions: BreakTodayOptions | undefined,
 ): HTMLElement {
   const lengthWeeks = program.lengthWeeks;
   const safetyNotes = program.safety;
@@ -304,13 +312,17 @@ function renderMessageCard(
       );
       break;
 
-    case "onBreak":
-      // Minimal for now; the note and "End the break today" button come with Break 1 step 3.
+    case "onBreak": {
+      // The break's note (if any) and, on the real today, a way to end it: the first day back is today.
+      const coveringBreak = breakOn(breaks, date);
       card.append(
-        element("h2", "card-title", "On a break"),
-        element("p", undefined, `Back on ${formatShortDate(session.until)} with Week ${session.resumesWeek}, Day ${session.resumesDayNumber}.`),
+        element("h2", "card-title", ON_A_BREAK_TITLE),
+        element("p", undefined, `${backOnText(session.until)} with Week ${session.resumesWeek}, Day ${session.resumesDayNumber}.`),
       );
+      if (coveringBreak?.note !== undefined) card.append(element("p", "break-note-line", coveringBreak.note));
+      if (breakOptions !== undefined) card.append(renderEndBreakControl(breakOptions));
       break;
+    }
 
     case "complete":
       card.append(
@@ -327,6 +339,8 @@ function renderMessageCard(
   }
   const injuredLink = renderInjuredLink(program);
   if (injuredLink !== undefined) card.append(injuredLink);
+  // Already on a break: the card has its own "End the break today"; a second "Take a break" would be noise.
+  if (session.kind !== "onBreak") card.append(renderTakeBreakLink());
   return card;
 }
 
@@ -368,6 +382,7 @@ function renderTrainingDay(
   // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
   const injuredLink = renderInjuredLink(program);
   if (injuredLink !== undefined) header.append(injuredLink);
+  header.append(renderTakeBreakLink());
 
   const parts: HTMLElement[] = [header];
 
@@ -438,6 +453,7 @@ function renderCombinedDay(
   // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
   const injuredLink = renderInjuredLink(program);
   if (injuredLink !== undefined) header.append(injuredLink);
+  header.append(renderTakeBreakLink());
 
   const parts: HTMLElement[] = [header];
 

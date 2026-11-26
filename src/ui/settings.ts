@@ -7,6 +7,7 @@ import { renderExportSection, type ExportSource } from "./exportSection";
 import { renderProgramOverviewLink } from "./overview";
 import { renderImportSection, type ImportSectionOptions } from "./importSection";
 import { renderSwitchProgramLink } from "./programPicker";
+import { renderBreakSettingsSection, type BreakSettingsOptions } from "./breakUi";
 import { renderInjurySettingsSection, type InjurySettingsOptions } from "./injuryFlagUi";
 
 /**
@@ -156,7 +157,8 @@ export function validateSettingsForm(values: SettingsFormValues): SettingsValida
  * called when an export button is pressed so the file holds the latest data.
  * `importOptions`, when given, adds the Import card under it. `injuryOptions`,
  * when given, adds the Injury card above the form (only for a program whose
- * file tags exercises with `loads`; see `injuryFlagUi.ts`).
+ * file tags exercises with `loads`; see `injuryFlagUi.ts`). `breakOptions`,
+ * when given, adds the "Break from training" card under it (see `breakUi.ts`).
  */
 export function renderSettingsScreen(
   program: Program,
@@ -166,6 +168,7 @@ export function renderSettingsScreen(
   getExportSource?: () => ExportSource,
   importOptions?: ImportSectionOptions,
   injuryOptions?: InjurySettingsOptions,
+  breakOptions?: BreakSettingsOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
   screen.append(element("h1", "screen-title", "Settings"), renderProgramOverviewLink(), renderProgramRow(program.name));
@@ -173,6 +176,9 @@ export function renderSettingsScreen(
   // Above the form so Today's "I'm injured" link lands on it without scrolling.
   const injurySection = injuryOptions === undefined ? undefined : renderInjurySettingsSection(program, injuryOptions);
   if (injurySection !== undefined) screen.append(injurySection);
+
+  // Under the Injury card for the same reason: Today's "Take a break" link lands here.
+  if (breakOptions !== undefined) screen.append(renderBreakSettingsSection(breakOptions));
 
   const form = element("form", "card settings-form");
   form.noValidate = true; // we show our own inline errors

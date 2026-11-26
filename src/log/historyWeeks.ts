@@ -18,10 +18,16 @@
  * stored week at 7 days. Days with only skipped sets have no card, so they
  * are left out.
  *
+ * Break days do not count towards the 7 days: a program week with a break
+ * inside it (25 Nov and 3 Dec around a 26 Nov to 2 Dec break, both stored as
+ * week 4) is one group, because the program itself paused in between.
+ *
  * Used by src/ui/history.ts to decide which cards to draw. Internal types
  * only: nothing here crosses a storage or network boundary.
  */
 
+import { breakDaysBetween } from "../break/operations";
+import type { TrainingBreak } from "../break/model";
 import { toDayNumber } from "../program/calendar";
 import { DAYS_PER_WEEK } from "../program/model";
 import type { WorkoutLog } from "./model";
@@ -37,11 +43,12 @@ export interface HistoryWeek {
  * each week's dates newest first. History calls this on every draw to learn
  * which dates fall into the weeks it should currently show.
  *
- * Only sessions with at least one logged set count (skip-only days draw no
+ * `breaks` (default none) are the breaks from training; the 7-day gap rule
+ * ignores their days. Only sessions with at least one logged set count (skip-only days draw no
  * card). Relies on `sessionDates` for the newest-first order, and on
  * `toDayNumber` for DST-safe day differences.
  */
-export function groupDatesIntoWeeks(log: WorkoutLog): HistoryWeek[] {
+export function groupDatesIntoWeeks(log: WorkoutLog, breaks: readonly TrainingBreak[] = []): HistoryWeek[] {
   const weeks: HistoryWeek[] = [];
 
   // Both describe the week currently being filled (the last one in `weeks`).
@@ -58,7 +65,7 @@ export function groupDatesIntoWeeks(log: WorkoutLog): HistoryWeek[] {
     const startsNewWeek =
       currentWeek === undefined ||
       session.programWeek !== currentWeekStoredProgramWeek ||
-      isSevenOrMoreDaysBefore(date, currentWeekNewestDate);
+      isSevenOrMoreDaysBefore(date, currentWeekNewestDate, breaks);
 
     if (startsNewWeek) {
       weeks.push({ dates: [date] });
@@ -78,7 +85,10 @@ export function groupDatesIntoWeeks(log: WorkoutLog): HistoryWeek[] {
  * newest date even when the stored week stays the same: that keeps a restart's
  * week 1 apart from the first run's, and limits sessions with no stored week
  * to 7-day groups. Compares whole UTC day numbers, so DST cannot skew the count.
+ * Days inside `breaks` are subtracted first: the program did not run then.
  */
-function isSevenOrMoreDaysBefore(earlierDate: string, laterDate: string): boolean {
-  return toDayNumber(laterDate) - toDayNumber(earlierDate) >= DAYS_PER_WEEK;
+function isSevenOrMoreDaysBefore(earlierDate: string, laterDate: string, breaks: readonly TrainingBreak[]): boolean {
+  const calendarDays = toDayNumber(laterDate) - toDayNumber(earlierDate);
+  const programDays = calendarDays - breakDaysBetween(breaks, earlierDate, laterDate);
+  return programDays >= DAYS_PER_WEEK;
 }
