@@ -1,6 +1,7 @@
 import type { TrainingBreak } from "../break/model";
 import { breakOn, MAX_BREAK_DAYS } from "../break/operations";
 import { endBreakAndSave, loadBreaks, startBreakAndSave, type BreakStorage } from "../break/storage";
+import type { BreakStartDecision } from "../break/startDate";
 import { element } from "./dom";
 import {
   BREAK_NOTE_PLACEHOLDER,
@@ -9,6 +10,7 @@ import {
   DEFAULT_BREAK_DAYS,
   END_BREAK_LABEL,
   START_BREAK_LABEL,
+  breakStartNote,
   TAKE_A_BREAK_LABEL,
   parseBreakDays,
   pastBreakLine,
@@ -28,8 +30,10 @@ import "./break.css";
  *                 other breaks as plain lines underneath
  *                 after each save ─▶ onChanged ─▶ app.ts reloads the breaks and redraws
  *
- * A break always starts and ends on the REAL date (`today`, never a `?date=`
- * preview), like the injury flag and the other saves.
+ * A break starts on the REAL date (`today`, never a `?date=` preview) and ends
+ * on it, like the injury flag and the other saves. The one exception: when
+ * today is already done (sets logged, or a combine's donor date) it starts
+ * tomorrow, and the form says so (`breakStartDate`).
  */
 
 /** What the Settings section needs from the app shell. */
@@ -42,6 +46,13 @@ export interface BreakSettingsOptions {
 
   /** The real local date: the first day of a new break and the first day back of an ended one. */
   today: string;
+
+  /**
+   * Where a new break starts and why (`breakStartDate`, worked out by app.ts
+   * from the log and the combines). Asked each time the form opens, so it
+   * reflects sets logged since Settings was drawn.
+   */
+  startDecision: () => BreakStartDecision;
 
   /** Called after a break was started or ended and saved, so app.ts can refresh the schedule and redraw. */
   onChanged: () => void;
@@ -128,10 +139,14 @@ export function renderBreakSettingsSection(options: BreakSettingsOptions): HTMLE
     return wrapper;
   }
 
-  /** The form: number of days, an optional note and "Start break". Starts today. */
+  /** The form: number of days, an optional note and "Start break". Starts today, or tomorrow with a line saying why (`startDecision`). */
   function buildStartForm(): HTMLElement {
     const form = element("form", "break-form");
     form.noValidate = true;
+
+    // Decided once per form, so the sentence shown is the start date that gets saved.
+    const startDecision = options.startDecision();
+    const startNote = breakStartNote(startDecision);
 
     const daysInput = element("input");
     daysInput.type = "text";
@@ -152,6 +167,7 @@ export function renderBreakSettingsSection(options: BreakSettingsOptions): HTMLE
     startButton.type = "submit";
 
     form.append(
+      ...(startNote === undefined ? [] : [element("p", "field-hint break-start-note", startNote)]),
       buildLabelledField(`Number of days (1 to ${MAX_BREAK_DAYS})`, daysInput),
       buildLabelledField("Note for the break (optional)", noteInput),
       error,
@@ -162,7 +178,7 @@ export function renderBreakSettingsSection(options: BreakSettingsOptions): HTMLE
       event.preventDefault();
 
       const result = startBreakAndSave(options.storage, options.storageKey, {
-        from: options.today,
+        from: startDecision.from,
         days: parseBreakDays(daysInput.value),
         note: noteInput.value,
       });

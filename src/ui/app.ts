@@ -39,7 +39,8 @@ import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/mo
 import type { OptionalBlockControl } from "./optionalBlockCards";
 import { loadOptionalBlockChoices, setBlockSkipped } from "../optionalBlocks/storage";
 import type { Combine, CombinesByDate } from "../combine/model";
-import { activeCombineOn } from "../program/combineOffers";
+import { breakStartDate, type BreakStartDecision } from "../break/startDate";
+import { activeCombineOn, activeDonorOn } from "../program/combineOffers";
 import { addCombine, loadCombines, removeCombine } from "../combine/storage";
 import type { NoEquipmentTicks } from "../noEquipment/model";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
@@ -498,6 +499,18 @@ export function startApp(
   }
 
   /**
+   * Where a new break would start now: tomorrow when the real today has
+   * logged sets or is an active combine's donor date, else today. Handed to
+   * the Settings break card, which shows the reason before "Start break".
+   */
+  function currentBreakStartDecision(): BreakStartDecision {
+    const realToday = todayLocalDate();
+    const hasLoggedToday = (log.sessions[realToday]?.sets.length ?? 0) > 0;
+    const isDonorToday = activeDonorOn(program, settings.startDate, settings.breaks ?? [], realToday, combines, log, realToday) !== undefined;
+    return breakStartDate(realToday, hasLoggedToday, isDonorToday);
+  }
+
+  /**
    * Called by the Settings "Break from training" card after it started or
    * ended a break and saved it. Reloads the breaks into the in-memory settings
    * (`withBreaks`) so the schedule follows at once, redraws, and puts focus on
@@ -883,7 +896,7 @@ export function startApp(
           currentSessionCount: () => Object.keys(log.sessions).length,
           onImported: handleImported,
         }, { storage: localStorage, storageKey: storageKeys.injuries, today: todayLocalDate() },
-        { storage: localStorage, storageKey: storageKeys.breaks, today: todayLocalDate(), onChanged: handleBreaksChanged }));
+        { storage: localStorage, storageKey: storageKeys.breaks, today: todayLocalDate(), startDecision: currentBreakStartDecision, onChanged: handleBreaksChanged }));
       } else if (route === "programs") {
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));

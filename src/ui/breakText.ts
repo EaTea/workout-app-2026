@@ -1,5 +1,6 @@
 import type { TrainingBreak } from "../break/model";
 import { addDaysToDate } from "../program/calendar";
+import type { BreakStartDecision } from "../break/startDate";
 import { formatShortDate } from "./format";
 
 /*
@@ -85,4 +86,17 @@ export function parseBreakDays(typedText: string): number {
   const trimmed = typedText.trim();
   if (!/^\d+$/.test(trimmed)) return Number.NaN;
   return Number(trimmed);
+}
+
+/**
+ * The sentence the Break form shows before "Start break" when the break
+ * cannot start today ("You've trained today, so the break starts tomorrow
+ * (27 Nov)."), or undefined when it starts today. Words only; the decision is
+ * `breakStartDate` (break/startDate.ts).
+ */
+export function breakStartNote(decision: BreakStartDecision): string | undefined {
+  const startDay = formatShortDate(decision.from);
+  if (decision.reason === "trainedToday") return `You've trained today, so the break starts tomorrow (${startDay}).`;
+  if (decision.reason === "donorToday") return `Today's day was done yesterday, so the break starts tomorrow (${startDay}).`;
+  return undefined;
 }

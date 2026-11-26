@@ -273,3 +273,37 @@ test("importing a file without a breaks section keeps the stored break", async (
   const storedBreaks = await page.evaluate(() => JSON.parse(window.localStorage.getItem("explosive-endurance.breaks") ?? "null"));
   expect(storedBreaks.breaks).toEqual([{ from: TODAY, to: "2026-12-03", note: "Physio: rest the neck" }]);
 });
+
+test("after logging a set today, a break starts tomorrow: Today keeps the trained session and Settings says so", async ({ page }) => {
+  await seedTodayWithoutBreak(page);
+  await page.goto("/");
+
+  // Log one set of the first row, so today has a logged set.
+  await page.locator(".item-row .item-open").first().click();
+  await page.getByRole("button", { name: /^✓ Log set/ }).click();
+  await page.getByRole("link", { name: "Back to Today" }).click();
+
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "Take a break" }).click();
+  await expect(page.locator(".break-start-note")).toHaveText("You've trained today, so the break starts tomorrow (27 Nov).");
+  await page.getByRole("button", { name: "Start break" }).click();
+
+  // The break is only "Coming up": it has not started, so it is not the running view.
+  await expect(page.locator(".break-section")).toContainText("Coming up");
+  await expect(page.locator(".break-section")).toContainText("27 Nov to 3 Dec");
+  await expect(page.locator(".break-section")).not.toContainText("On a break ·");
+
+  // Today still shows today's trained session (Week 4 Day 4).
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "On a break" })).toHaveCount(0);
+  await expect(page.getByText("26 Nov · Week 4 of 8 · Day 4", { exact: true })).toBeVisible();
+  await expect(page.locator(".item-row .item-progress").first()).toHaveText(/^1\//);
+});
+
+test("with nothing done today the form has no tomorrow note and the break starts today", async ({ page }) => {
+  await seedTodayWithoutBreak(page);
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "Take a break" }).click();
+
+  await expect(page.locator(".break-start-note")).toHaveCount(0);
+});

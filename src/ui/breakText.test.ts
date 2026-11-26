@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   backOnText,
   breakRangeText,
+  breakStartNote,
   historyBreakLine,
   parseBreakDays,
   pastBreakLine,
@@ -39,5 +40,19 @@ describe("break wording", () => {
     expect(parseBreakDays("2.5")).toBeNaN();
     expect(parseBreakDays("abc")).toBeNaN();
     expect(parseBreakDays("-3")).toBeNaN();
+  });
+});
+
+describe("breakStartNote", () => {
+  it("says the break starts tomorrow after training today", () => {
+    expect(breakStartNote({ from: "2026-11-27", reason: "trainedToday" })).toBe("You've trained today, so the break starts tomorrow (27 Nov).");
+  });
+
+  it("says the break starts tomorrow when today's day was done yesterday", () => {
+    expect(breakStartNote({ from: "2026-11-27", reason: "donorToday" })).toBe("Today's day was done yesterday, so the break starts tomorrow (27 Nov).");
+  });
+
+  it("says nothing when the break starts today", () => {
+    expect(breakStartNote({ from: "2026-11-26", reason: "today" })).toBeUndefined();
   });
 });

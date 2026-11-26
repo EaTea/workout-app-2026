@@ -295,3 +295,23 @@ test("a No equipment tick made before combining survives Add Day 2, and Undo sti
   await page.getByRole("button", { name: "Undo combine" }).click();
   await expect(page.getByRole("checkbox", { name: "No equipment, Pull-ups" })).toBeChecked();
 });
+
+test("on the donor date of a combine, a break starts tomorrow so the folded-in day does not repeat", async ({ page }) => {
+  // 9 Nov: Day 1 + Day 2 with a set logged (so the combine is not lapsed).
+  await seedAt(page, "2026-11-09");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Short on time? Add Day 2 to today" }).click();
+  await row(page, "Split-squat jumps").locator(".item-open").click();
+  await page.getByRole("button", { name: /^✓ Log set/ }).click();
+
+  // Move the clock to 10 Nov, Day 2's own date (the donor date), and open Settings.
+  await page.clock.setFixedTime(new Date("2026-11-10T12:00:00"));
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "Take a break" }).click();
+  await expect(page.locator(".break-start-note")).toHaveText("Today's day was done yesterday, so the break starts tomorrow (11 Nov).");
+  await page.getByRole("button", { name: "Start break" }).click();
+
+  await expect(page.locator(".break-section")).toContainText("Coming up");
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Day 2 done with Day 1 on 9 Nov" })).toBeVisible();
+});
