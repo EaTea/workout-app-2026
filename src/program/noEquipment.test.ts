@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { TrainingSettings } from "../settings/model";
-import { applyNoEquipmentChoices, hasNoEquipmentSwap, noEquipmentItemKey, originalExerciseIdOf } from "./noEquipment";
+import { applyNoEquipmentChoices, findLoggedBlockAndItem, hasNoEquipmentSwap, isExerciseLoggedForItem, noEquipmentItemKey, originalExerciseIdOf } from "./noEquipment";
 import { parseProgram } from "./parse";
 import type { ItemView, SessionView } from "./schedule";
 import { buildSession } from "./schedule";
@@ -160,5 +160,25 @@ describe("noEquipmentItemKey and the item helpers", () => {
     expect(hasNoEquipmentSwap(plain)).toBe(false);
     expect(originalExerciseIdOf(normal)).toBe("pull_up");
     expect(originalExerciseIdOf(swapped)).toBe("pull_up");
+  });
+});
+
+describe("isExerciseLoggedForItem and findLoggedBlockAndItem (injury stand-ins and area-free sessions)", () => {
+  it("recognises the original, the no-equipment swap and the injury stand-in ids of an item", () => {
+    const zercher = program.days[2]!.blocks[2]!.items[0]!;
+
+    expect(isExerciseLoggedForItem(zercher, "zercher_bulgarian_split_squat")).toBe(true);
+    expect(isExerciseLoggedForItem(zercher, "suitcase_bulgarian_split_squat")).toBe(true);
+    expect(isExerciseLoggedForItem(zercher, "lying_leg_raise")).toBe(false);
+  });
+
+  it("finds the day's own block for a stand-in id, and an area session's block for an area-free id", () => {
+    expect(findLoggedBlockAndItem(program, 2, 3, "suitcase_bulgarian_split_squat")?.block.type).toBe("mainStrength");
+
+    const areaFree = findLoggedBlockAndItem(program, 3, 2, "lying_leg_raise");
+    expect(areaFree?.block.type).toBe("core");
+    expect(areaFree?.item.exerciseId).toBe("lying_leg_raise");
+
+    expect(findLoggedBlockAndItem(program, 3, 2, "no_such_exercise")).toBeUndefined();
   });
 });

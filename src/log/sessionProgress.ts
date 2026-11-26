@@ -50,6 +50,9 @@ export function isSessionInProgress(session: SessionView | CombinedSession, log:
     if (block.skipped) continue;
 
     for (const item of block.items) {
+      // An item the injury leaves out is not part of the session: nothing to log, nothing left to do.
+      if (item.leftOut !== undefined) continue;
+
       const loggedCount = setsForItem(log, date, source.blockPosition, item.exercise.id, source.day).length;
       totalLoggedSets += loggedCount;
       // A skipped set is done for the item, so it no longer leaves the session with sets to log.

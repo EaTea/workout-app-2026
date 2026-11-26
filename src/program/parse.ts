@@ -18,7 +18,9 @@
  *   unknown ──parseProgram──▶ { program: Program, warnings: ProgramWarning[] }
  *               ├─ parseExercise  (per library entry)
  *               ├─ parseDay ─ parseBlock ─ parseItem (resolves exercise ids)
- *               │                              └─ parseNoEquipmentSwap (the item's optional swap)
+ *               │                              ├─ parseItemSwap (the item's optional noEquipment swap)
+ *               │                              └─ parseInjuryStandIns (the item's optional per-area stand-ins, via parseItemSwap)
+ *               ├─ parseInjurySessions (area-free sessions; their blocks go through parseBlock)
  *               ├─ parseCombining (the allowed day pairs; bad pairs become warnings)
  *               └─ progression / warmupRotation / fatigueCheck
  *   every parse* function ──unknown key──▶ collectUnknownFields ──▶ warnings
@@ -34,7 +36,10 @@ import type {
   Exercise,
   FatigueCheck,
   Format,
-  NoEquipmentSwap,
+  InjuryArea,
+  InjuryLoadLevel,
+  InjurySession,
+  InjuryStandIn,
   ProgressionPhase,
   TimerAdjustments,
   Program,
@@ -44,7 +49,7 @@ import type {
   SetPrescription,
   WarmupRotation,
 } from "./model";
-import { DAYS_PER_WEEK, MAX_GEAR_UP_SECONDS } from "./model";
+import { DAYS_PER_WEEK, INJURY_AREAS, INJURY_LOAD_LEVELS, MAX_GEAR_UP_SECONDS } from "./model";
 import type {
   BlockWire,
   OptionalBlockWire,
@@ -53,6 +58,7 @@ import type {
   EvidenceWire,
   ExerciseWire,
   FatigueCheckWire,
+  InjurySessionWire,
   ItemWire,
   NoEquipmentSwapWire,
   NumberOrRangeWire,
@@ -91,23 +97,28 @@ function allowedKeysOf<WireType>() {
   ): readonly string[] => keys;
 }
 
-const ROOT_KEYS = allowedKeysOf<ProgramWire>()(["program", "exercises", "days", "progression", "coreProgressions", "warmupRotation", "fatigueCheck", "combining"]);
+const ROOT_KEYS = allowedKeysOf<ProgramWire>()(["program", "exercises", "days", "progression", "coreProgressions", "warmupRotation", "fatigueCheck", "combining", "injurySessions"]);
 const PROGRAM_INFO_KEYS = allowedKeysOf<ProgramInfoWire>()(["name", "goal", "lengthWeeks", "restDay", "sessionOrder", "rules", "safety"]);
-const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues", "alternative", "evidence", "progression", "maxTested"]);
+const EXERCISE_KEYS = allowedKeysOf<ExerciseWire>()(["name", "category", "cues", "alternative", "evidence", "progression", "maxTested", "loads"]);
 const DAY_KEYS = allowedKeysOf<DayWire>()(["day", "focus", "targetMinutes", "blocks"]);
 const BLOCK_KEYS = allowedKeysOf<BlockWire>()(["type", "format", "rounds", "minutes", "restSecBetweenPairs", "optional", "items"]);
 const OPTIONAL_BLOCK_KEYS = allowedKeysOf<OptionalBlockWire>()(["label"]);
 const ITEM_KEYS = allowedKeysOf<ItemWire>()([
-  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "gearUpSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment", "weeks",
+  "exercise", "format", "sets", "reps", "repsPctOfMax", "restSec", "minutes", "rounds", "workSec", "gearUpSec", "durationSec", "perSide", "optional", "sameEveryWeek", "load", "note", "tempo", "weeklyIncrease", "noEquipment", "injury", "weeks",
 ]);
 const NO_EQUIPMENT_SWAP_KEYS = allowedKeysOf<NoEquipmentSwapWire>()(["exercise", "reps", "durationSec", "load", "note", "tempo"]);
-/** Item fields a swap may not set because it keeps them from the original (everything but its own keys; includes `noEquipment`, so swaps can't nest). Derived so it follows ITEM_KEYS. */
+/** Keys an injury stand-in may set: a swap's own, plus `perSide`. */
+const INJURY_STAND_IN_KEYS = [...NO_EQUIPMENT_SWAP_KEYS, "perSide"];
+const INJURY_SESSION_KEYS = allowedKeysOf<InjurySessionWire>()(["name", "blocks"]);
+/** Item fields a swap may not set because it keeps them from the original (everything but its own keys; includes `noEquipment` and `injury`, so swaps can't nest). Derived so it follows ITEM_KEYS. */
 const KEPT_FROM_ORIGINAL_KEYS = ITEM_KEYS.filter((key) => !NO_EQUIPMENT_SWAP_KEYS.includes(key));
+/** Same, for injury stand-ins, which may also set `perSide`. */
+const KEPT_FROM_ORIGINAL_KEYS_FOR_STAND_IN = ITEM_KEYS.filter((key) => !INJURY_STAND_IN_KEYS.includes(key));
 const SET_KEYS = allowedKeysOf<SetWire>()(["reps", "load"]);
 const PROGRESSION_PHASE_KEYS = allowedKeysOf<ProgressionPhaseWire>()(["weeks", "phase", "changes", "retest", "timerAdjustments"]);
 const TIMER_ADJUSTMENT_KEYS = allowedKeysOf<TimerAdjustmentsWire>()(["intervalWorkSec", "coreRestBetweenPairsSec"]);
 const WARMUP_ROTATION_KEYS = allowedKeysOf<WarmupRotationWire>()(["everyWeeks", "swaps", "alsoAvailable"]);
-const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in"]);
+const WARMUP_SWAP_KEYS = allowedKeysOf<WarmupSwapWire>()(["out", "in", "loads"]);
 const FATIGUE_CHECK_KEYS = allowedKeysOf<FatigueCheckWire>()(["frequency", "tests", "rule", "lowerBackRule"]);
 const COMBINING_KEYS = allowedKeysOf<CombiningWire>()(["pairs"]);
 
@@ -267,6 +278,12 @@ function readFlag(record: UnknownRecord, key: string, path: string): boolean {
   return value;
 }
 
+/** Reads an optional true/false field: undefined when absent, an error when present but not a boolean. Used where "absent" must differ from "false" (an injury stand-in's `perSide` override). */
+function readOptionalFlag(record: UnknownRecord, key: string, path: string): boolean | undefined {
+  if (record[key] === undefined) return undefined;
+  return readFlag(record, key, path);
+}
+
 /** Reads a required list of strings. */
 function readStringList(record: UnknownRecord, key: string, path: string): string[] {
   const listPath = child(path, key);
@@ -385,6 +402,48 @@ function parseFormat(record: UnknownRecord, path: string): Format {
   return fail(child(path, "format"), `expected "emom", "interval" or "superset" but found ${describe(value)}`);
 }
 
+/**
+ * Fails for an injury area the app doesn't know (anything outside
+ * `INJURY_AREAS`), naming the path of the bad key and, when it is close to a
+ * known area, a "did you mean" hint (the same matching as misspelt fields).
+ * An unknown area is an error rather than a warning because ignoring it
+ * would silently leave an exercise untagged. Called by `parseExerciseLoads`,
+ * `parseInjuryStandIns` and `parseInjurySessions` for every area key.
+ */
+function failOnUnknownInjuryArea(area: string, areaPath: string): void {
+  if ((INJURY_AREAS as readonly string[]).includes(area)) return;
+
+  const suggestion = suggestKnownKey(area, INJURY_AREAS);
+  const hint = suggestion === undefined ? "" : ` — did you mean ${JSON.stringify(suggestion)}?`;
+  fail(areaPath, `unknown injury area ${JSON.stringify(area)} (known areas: ${INJURY_AREAS.join(", ")})${hint}`);
+}
+
+/**
+ * Converts an exercise's `loads` object ({ "shoulder": "avoid" }) into the
+ * model's per-area levels. Unknown areas and levels are errors naming the
+ * path, with a "did you mean" hint for near misses. Called by `parseExercise`
+ * and `parseWarmupRotation` (a swap's `loads` has the same shape).
+ */
+function parseExerciseLoads(raw: unknown, path: string): Partial<Record<InjuryArea, InjuryLoadLevel>> {
+  const record = expectRecord(raw, path);
+  const loads: Partial<Record<InjuryArea, InjuryLoadLevel>> = {};
+
+  for (const [area, rawLevel] of Object.entries(record)) {
+    const areaPath = child(path, area);
+    failOnUnknownInjuryArea(area, areaPath);
+
+    const level = INJURY_LOAD_LEVELS.find((knownLevel) => knownLevel === rawLevel);
+    if (level === undefined) {
+      const suggestion = typeof rawLevel === "string" ? suggestKnownKey(rawLevel, INJURY_LOAD_LEVELS) : undefined;
+      const hint = suggestion === undefined ? "" : ` — did you mean ${JSON.stringify(suggestion)}?`;
+      fail(areaPath, `expected ${INJURY_LOAD_LEVELS.map((knownLevel) => JSON.stringify(knownLevel)).join(" or ")} but found ${describe(rawLevel)}${hint}`);
+    }
+    loads[area as InjuryArea] = level;
+  }
+
+  return loads;
+}
+
 /** Converts one entry of the exercise library. */
 function parseExercise(id: string, raw: unknown, path: string, warnings: ProgramWarning[]): Exercise {
   const record = expectRecord(raw, path);
@@ -399,12 +458,16 @@ function parseExercise(id: string, raw: unknown, path: string, warnings: Program
     evidence: parseEvidence(record.evidence ?? fail(child(path, "evidence"), "field is missing"), child(path, "evidence")),
     progression: record.progression === undefined ? [] : readStringList(record, "progression", path),
     maxTested: readFlag(record, "maxTested", path),
+    loads: record.loads === undefined ? undefined : parseExerciseLoads(record.loads, child(path, "loads")),
   };
 }
 
 /**
- * Converts an item's optional `noEquipment` swap (called by `parseItem`, which
- * passes what it already worked out about the original). Keys the swap must
+ * Converts an item's optional `noEquipment` swap, or one of its `injury`
+ * stand-ins (called by `parseItem` and `parseInjuryStandIns`, which pass what
+ * `parseItem` already worked out about the original). Both have the same
+ * fields and the same rules, so they share this function; `swapLabel` only
+ * words the gear-up message ("a no-equipment swap" or "an injury stand-in"). Keys the swap must
  * keep from the original are errors, because silently ignoring them would let
  * a swap look like it changes the dose when it can't. Other unknown keys are
  * warnings with a "did you mean" hint, like everywhere else.
@@ -415,25 +478,28 @@ function parseExercise(id: string, raw: unknown, path: string, warnings: Program
  * independently, so mixing them would silently keep the original's other
  * figure (a "2 × 30s" plank swapped for "10" reps would still be timed).
  */
-function parseNoEquipmentSwap(
+function parseItemSwap(
   raw: unknown,
   original: { exerciseId: string; isMaxBased: boolean; isTimed: boolean },
   exercises: Record<string, Exercise>,
   path: string,
   warnings: ProgramWarning[],
-): NoEquipmentSwap {
+  swapLabel = "a no-equipment swap",
+  allowPerSide = false,
+): InjuryStandIn {
   const record = expectRecord(raw, path);
+  const keptKeys = allowPerSide ? KEPT_FROM_ORIGINAL_KEYS_FOR_STAND_IN : KEPT_FROM_ORIGINAL_KEYS;
 
   for (const key of Object.keys(record)) {
     if (key === "gearUpSec") {
       // The schedule drops the original's gear-up for a swap (applyNoEquipmentSwap), so it is never "kept".
-      fail(child(path, key), "a no-equipment swap has no gear-up break, so it can't be set here");
+      fail(child(path, key), `${swapLabel} has no gear-up break, so it can't be set here`);
     }
-    if (KEPT_FROM_ORIGINAL_KEYS.includes(key)) {
+    if (keptKeys.includes(key)) {
       fail(child(path, key), `a swap keeps "${key}" from the original item, so it can't be set here`);
     }
   }
-  collectUnknownFields(record, NO_EQUIPMENT_SWAP_KEYS, path, warnings);
+  collectUnknownFields(record, allowPerSide ? INJURY_STAND_IN_KEYS : NO_EQUIPMENT_SWAP_KEYS, path, warnings);
 
   const swapExerciseId = readString(record, "exercise", path);
   const swapExercise = Object.hasOwn(exercises, swapExerciseId) ? exercises[swapExerciseId] : undefined;
@@ -463,7 +529,34 @@ function parseNoEquipmentSwap(
     load: readOptionalString(record, "load", path),
     note: readOptionalString(record, "note", path),
     tempo: readOptionalString(record, "tempo", path),
+    // Only injury stand-ins may override perSide (a noEquipment swap's perSide is rejected above).
+    perSide: allowPerSide ? readOptionalFlag(record, "perSide", path) : undefined,
   };
+}
+
+/**
+ * Converts an item's optional `injury` object ({ "shoulder": { "exercise":
+ * "lying_leg_raise" } }) into stand-ins keyed by area. Each stand-in is
+ * validated exactly like a `noEquipment` swap (`parseItemSwap`); an unknown
+ * area is an error. Called by `parseItem`.
+ */
+function parseInjuryStandIns(
+  raw: unknown,
+  original: { exerciseId: string; isMaxBased: boolean; isTimed: boolean },
+  exercises: Record<string, Exercise>,
+  path: string,
+  warnings: ProgramWarning[],
+): Partial<Record<InjuryArea, InjuryStandIn>> {
+  const record = expectRecord(raw, path);
+  const standIns: Partial<Record<InjuryArea, InjuryStandIn>> = {};
+
+  for (const [area, rawStandIn] of Object.entries(record)) {
+    const areaPath = child(path, area);
+    failOnUnknownInjuryArea(area, areaPath);
+    standIns[area as InjuryArea] = parseItemSwap(rawStandIn, original, exercises, areaPath, warnings, "an injury stand-in", true);
+  }
+
+  return standIns;
 }
 
 /**
@@ -559,16 +652,11 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, lengthWeek
 
   // An item is max-based when its reps (item-level, or in any set) are a percentage of the tested max.
   const isMaxBased = [reps, ...sets.map((set) => set.reps)].some((setReps) => setReps?.kind === "percentOfMax");
+  const originalFacts = { exerciseId, isMaxBased, isTimed: record.durationSec !== undefined };
   const noEquipment =
-    record.noEquipment === undefined
-      ? undefined
-      : parseNoEquipmentSwap(
-          record.noEquipment,
-          { exerciseId, isMaxBased, isTimed: record.durationSec !== undefined },
-          exercises,
-          child(path, "noEquipment"),
-          warnings,
-        );
+    record.noEquipment === undefined ? undefined : parseItemSwap(record.noEquipment, originalFacts, exercises, child(path, "noEquipment"), warnings);
+  const injury =
+    record.injury === undefined ? undefined : parseInjuryStandIns(record.injury, originalFacts, exercises, child(path, "injury"), warnings);
 
   return {
     exerciseId,
@@ -591,6 +679,7 @@ function parseItem(raw: unknown, exercises: Record<string, Exercise>, lengthWeek
     tempo: readOptionalString(record, "tempo", path),
     weeklyIncrease: readOptionalString(record, "weeklyIncrease", path),
     noEquipment,
+    injury,
     runsInWeeks: readRunsInWeeks(record, path, lengthWeeks),
   };
 }
@@ -721,6 +810,56 @@ function parseDay(raw: unknown, exercises: Record<string, Exercise>, lengthWeeks
   };
 }
 
+/**
+ * Converts the optional top-level `injurySessions` object into one
+ * `InjurySession` per area. Blocks are parsed by `parseBlock`, exactly like a
+ * day's blocks, but an item in them may not carry `noEquipment` or `injury`
+ * (the session is already the injury answer, and nesting would make Today's
+ * rules ambiguous). An unknown area is an error. Called by `parseProgram`.
+ */
+function parseInjurySessions(
+  raw: unknown,
+  exercises: Record<string, Exercise>,
+  lengthWeeks: number,
+  path: string,
+  warnings: ProgramWarning[],
+): Partial<Record<InjuryArea, InjurySession>> {
+  const record = expectRecord(raw, path);
+  const sessions: Partial<Record<InjuryArea, InjurySession>> = {};
+
+  for (const [area, rawSession] of Object.entries(record)) {
+    const sessionPath = child(path, area);
+    failOnUnknownInjuryArea(area, sessionPath);
+
+    const sessionRecord = expectRecord(rawSession, sessionPath);
+    collectUnknownFields(sessionRecord, INJURY_SESSION_KEYS, sessionPath, warnings);
+
+    const name = readString(sessionRecord, "name", sessionPath);
+    if (name.trim() === "") fail(child(sessionPath, "name"), "must not be empty");
+
+    const blocksPath = child(sessionPath, "blocks");
+    const rawBlocks = expectArray(sessionRecord.blocks ?? fail(blocksPath, "field is missing"), blocksPath);
+    // An empty session would show nothing at all, so a day with nothing left would be blank.
+    if (rawBlocks.length === 0) fail(blocksPath, "an injury session needs at least one block");
+
+    const blocks = rawBlocks.map((rawBlock, blockIndex) => {
+      const blockPath = `${blocksPath}[${blockIndex}]`;
+      const block = parseBlock(rawBlock, exercises, lengthWeeks, blockPath, warnings);
+
+      block.items.forEach((item, itemIndex) => {
+        const itemPath = `${blockPath}.items[${itemIndex}]`;
+        if (item.noEquipment !== undefined) fail(child(itemPath, "noEquipment"), "an injury session's items can't have a no-equipment swap");
+        if (item.injury !== undefined) fail(child(itemPath, "injury"), "an injury session's items can't have injury stand-ins");
+      });
+      return block;
+    });
+
+    sessions[area as InjuryArea] = { name, blocks };
+  }
+
+  return sessions;
+}
+
 /** Reads an optional whole-number field (negative allowed); a missing key is 0. */
 function readOptionalWholeSeconds(record: UnknownRecord, key: string, path: string): number {
   const value = record[key];
@@ -775,7 +914,11 @@ function parseWarmupRotation(raw: unknown, path: string, warnings: ProgramWarnin
     const swapPath = `${swapsPath}[${index}]`;
     const swapRecord = expectRecord(swap, swapPath);
     collectUnknownFields(swapRecord, WARMUP_SWAP_KEYS, swapPath, warnings);
-    return { out: readString(swapRecord, "out", swapPath), in: readString(swapRecord, "in", swapPath) };
+    return {
+      out: readString(swapRecord, "out", swapPath),
+      in: readString(swapRecord, "in", swapPath),
+      loads: swapRecord.loads === undefined ? undefined : parseExerciseLoads(swapRecord.loads, child(swapPath, "loads")),
+    };
   });
 
   return { everyWeeks: readPositiveInteger(record, "everyWeeks", path), swaps, alsoAvailable: readStringList(record, "alsoAvailable", path) };
@@ -956,6 +1099,7 @@ export function parseProgram(json: unknown): ParseResult {
   const rawWarmupRotation = optionalSection(root, "warmupRotation");
   const rawFatigueCheck = optionalSection(root, "fatigueCheck");
   const rawCombining = optionalSection(root, "combining");
+  const rawInjurySessions = optionalSection(root, "injurySessions");
 
   const progression = expectArray(requireSection(root, "progression"), "progression").map((phase, index) =>
     parseProgressionPhase(phase, `progression[${index}]`, warnings),
@@ -977,6 +1121,7 @@ export function parseProgram(json: unknown): ParseResult {
     warmupRotation: rawWarmupRotation === undefined ? undefined : parseWarmupRotation(rawWarmupRotation, "warmupRotation", warnings),
     fatigueCheck: rawFatigueCheck === undefined ? undefined : parseFatigueCheck(rawFatigueCheck, "fatigueCheck", warnings),
     combinePairs: rawCombining === undefined ? [] : parseCombining(rawCombining, days, "combining", warnings),
+    injurySessions: rawInjurySessions === undefined ? undefined : parseInjurySessions(rawInjurySessions, exercises, lengthWeeks, "injurySessions", warnings),
   };
 
   return { program, warnings };

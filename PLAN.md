@@ -2598,6 +2598,115 @@ no deload change, and that Day 3's target can grow.
        `public/program.json`, and extend Day 3's `targetMinutes` from 40 to 47.
 2. [x] Mirror the change in the program document (kept in the project files, not this repo)'s Day 3 row and notes.
 
+### Plan: History loads week by week *(design)*
+
+**The problem.** History gets slow as the log grows. `draw()` in
+`src/ui/history.ts` builds a card for every logged date, and the progress
+charts, and it runs again on every expand, collapse, open set, Cancel, Save
+and Delete. With about a year of daily sessions, each tap takes roughly 0.8
+to 1 s on a slowed phone CPU. Ed asked (18 Nov) for History to load
+progressively, week by week. Startup latency is a separate piece of work,
+so this plan does not touch `src/main.ts` or how `src/log/storage.ts`
+loads the log.
+
+**How it should behave.**
+
+- History first shows the cards for the **latest 2 program weeks**, newest
+  first, as now.
+- Under the last card, a **"Show older weeks"** button adds the next 2
+  weeks below the cards already shown. The cards on screen stay as they
+  are (expanded rows stay expanded), and focus moves to the heading of the
+  first card it added. When nothing older is left, the button goes.
+- The **progress charts still use the whole log**, not only the shown
+  weeks.
+- Leaving History and coming back starts again at 2 weeks.
+- The window is a number of weeks, not a fixed set of dates: if a Delete
+  removes the only card of a shown week, the next older week moves up into
+  view.
+- **Taps redraw only what they change.** Expand, collapse, open a set and
+  Cancel redraw only that session's card. Save redraws that card and the
+  progress charts. Delete does the same, or removes the card if it was the
+  session's last set. Focus rules stay as they are today.
+- Nothing about storage changes: no new fields, no new keys.
+
+**What counts as a week.** Program weeks come from the stored
+`programWeek` on each session, which is what the card headers show. Walking
+the dates newest first, a new week starts when the stored week changes, or
+when the date is 7 or more days before the newest date of the current
+week. The second rule keeps two runs of the program apart (week 1 of a
+restart next to week 1 of the first run), and gives old sessions with no
+stored week groups of at most 7 days. A day with only skipped sets has no
+card today, so it isn't counted.
+
+```
+ dates, newest first     stored week    group
+ 2026-11-18                  3          ─┐ week A (shown)
+ 2026-11-16                  3          ─┘
+ 2026-11-11                  2          ─┐ week B (shown)
+ 2026-11-09                  2          ─┘
+ 2026-11-04                  1          ── week C  ◀ "Show older weeks"
+```
+
+**Approach, and alternatives.** A pure function groups the dates into
+weeks, and the screen keeps a count of weeks shown. Each card is built by
+one function and kept in a map by date, so one card can be swapped in
+place. I considered:
+
+- *Paging by a fixed number of sessions* (say 14 cards): simpler, but
+  breaks a program week across the button, while the card headers are all
+  about weeks.
+- *Infinite scroll* (load more near the bottom): no button to tap, but
+  it needs a scroll observer, is harder to test, and is harder to use with
+  a screen reader. A button is enough for one user.
+- *Only per-card redraws, no paging*: fixes taps but not the first draw of
+  a year of cards. Doing both is still small.
+
+**Files.** A new `src/log/historyWeeks.ts` (the grouping, with
+`historyWeeks.test.ts`), `src/ui/history.ts`, `src/style.css` (the
+button), `e2e/history.spec.ts`, `README.md` (History section). No wire
+types change, so there is nothing new to map (CLAUDE.md section 6).
+
+**Milestones** (one PR each, in this order):
+
+- **History PR 1 — History shows 2 weeks, then "Show older weeks"** *(behavior change)*
+  1. [x] `groupDatesIntoWeeks(log)` in `src/log/historyWeeks.ts`, by the
+     rule above. Unit tests: an empty log, one week, a week change, a
+     restart at week 1, sessions with no stored week, a gap of 7 days or
+     more inside the same stored week, and skip-only days left out.
+  2. [x] History draws only the shown weeks, with the "Show older weeks"
+     button and the focus rule above. Progress charts stay on the whole
+     log. E2E: seed 5 weeks, see only 2 weeks of cards, tap twice to see
+     all, the button goes, an expanded card stays expanded, and the
+     existing History tests still pass. README updated.
+  - **Merge point:** a long log opens with 2 weeks and the rest is a tap
+    away.
+- **History PR 2 — Redraw only the tapped card** *(internal refactor, with a speed-up)*
+  *Optional follow-up, not started (Ed, 23 Nov). With History PR 1 a tap
+  takes about 31 ms at a year of sessions (was about 0.5 s), so this only
+  helps after many "Show older weeks" taps.*
+  1. [ ] Build each card through one function and keep it by date; expand,
+     collapse, open a set and Cancel replace only that card. The progress
+     charts are no longer rebuilt on those taps.
+  2. [ ] Save replaces the card and the progress charts; Delete does too,
+     or removes the card, and shows the page message the same way as now.
+  3. [ ] E2E: after expanding a row, the other cards and the charts are
+     the same DOM nodes as before the tap (checked with a marker set in
+     the page), and the focus tests still pass. Before and after timings
+     for a tap, with a year of seeded sessions and the CPU slowed 4×, go
+     in the PR description.
+  - **Merge point:** a tap on History costs one card, not the whole page.
+
+History PR 2 has no visible change apart from speed, so it is kept apart
+from History PR 1's behavior change (CLAUDE.md section 2).
+
+**Open questions for Ed** (with the answers I'm assuming):
+
+1. **How much to show.** Assumed: 2 weeks at first, and 2 more for each
+   tap. 4 at first is an easy change if 2 feels short.
+2. **Week labels.** Assumed: no extra "Week 5" heading between groups,
+   since every card header already names its week.
+3. **Coming back to History.** Assumed: it starts again at 2 weeks rather
+   than remembering how far you went.
 ### Startup time with a long log *(design, then internal refactor: tooling only)*
 
 Ed asked why opening the app (Today) gets slower as the log grows, and for
@@ -2648,18 +2757,30 @@ follow-up only if Ed wants it.
 What this milestone does instead is make startup measurable, so a future
 change (or the History week-by-week work) is judged on real numbers:
 
-1. [ ] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
+1. [x] A long-log generator (`src/bench/longLog.ts`): builds a stored-format
        (wire) log of N days from the program file, a session a day with every
-       set logged. Unit-tested (set counts, dates, valid under `logFromWire`).
-2. [ ] `npm run bench:startup`: builds, starts `vite preview`, and for an
+       set logged (the rest day has no session, as in the measurements above). Unit-tested (set counts, dates, valid under `logFromWire`).
+2. [x] `npm run bench:startup`: builds, starts `vite preview`, and for an
        empty log, 1 year and 2 years writes the log into storage on a
        throwaway page, then times opening Today with the CPU slowed 4×
        (11 runs, prints min, median and max). Not run in CI: timings on
-       shared runners are too noisy to gate on.
-3. [ ] README: a "Measuring startup time" section with the command, what it
+       shared runners are too noisy to gate on. After the challenger review it
+       times inside the page (Playwright's polling had added 75 to 95 ms to
+       every figure), anchors the fake log's day cycle to the program start
+       date (7,398 and 14,815 sets for 1 and 2 years), and refuses to report
+       a run unless Today showed with the log read cleanly ("Last time"
+       hints present, no warning, no corrupt-log backup). Two runs gave
+       0.21 to 0.22 s empty, 0.25 to 0.26 s at 1 year and 0.31 to 0.33 s at
+       2 years: still about 0.1 s for two years of log.
+3. [x] README: a "Measuring startup time" section with the command, what it
        measures, and the init-script trap above.
 
 Merge point: one PR for steps 1 to 3. No app behavior changes.
+
+Follow-up for Ed to decide (from the challenger review): nothing runs the
+benchmark automatically, so a change to Today's markup or the storage keys
+could break `npm run bench:startup` unnoticed. A one-run smoke check with no
+time limits, in CI or the E2E suite, would catch that.
 
 ### PR 37 — Plan: total reps for uneven rep lists *(design)*
 
@@ -2783,8 +2904,8 @@ Days 1, 3 and 5 (upper body):
 
 | Day | Exercise | Level | Today, while flagged |
 | --- | --- | --- | --- |
-| 1, 5 | YTWI raises | Avoid | Left out |
-| 1, 3 | Pallof press | Caution | Kept, pain-free only |
+| 1, 5 | YTWI raises | Avoid | Stand-in: dead bug, legs only, 8 per side (so the warm-up isn't empty) |
+| 1, 3 | Pallof press | Caution | Kept, pain-free only (weeks 5–8: rotated-in Ab raises, Avoid, left out) |
 | 3, 5 | Lateral raise | Avoid | Left out |
 | 3 | Plate halo | Avoid | Left out |
 | 1 | Med ball slams | Avoid | Left out |
@@ -2796,7 +2917,7 @@ Days 1, 3 and 5 (upper body):
 | 3, 5 | Overhead press / pike push-up | Avoid | Left out |
 | 1, 5 | Back extension | Caution | Stand-in: bodyweight back extension, arms crossed on the chest, same reps |
 | 1, 5 | Hanging leg raise | Avoid | Stand-in: lying leg raise, at its no-equipment dose |
-| 1 | Side plank | Caution | Stand-in: side plank on the uninjured side only, same holds |
+| 1 | Side plank | Caution | Stand-in: side plank on the uninjured side only, same holds; it no longer shows "per side" (the stand-in sets `perSide: false`) |
 | 5 | Hollow body hold | Caution | Stand-in: hollow hold with the arms by the sides, same holds |
 | 3 | Crab knee-to-elbow, crab switch and sprawl | Avoid | Left out (loaded shoulder extension) |
 | 3 | On-the-spot crawl | Avoid | Left out (weight on the hands) |
@@ -2825,15 +2946,15 @@ The shoulder-free session (instead of Day 3, about 12 minutes, core only):
 | Core (superset) | Lying leg raise | 3 × 10–15, 2–3s lowering |
 | Core (superset) | Hollow hold, arms by the sides | 3 × 20–30s |
 | Core (superset) | Prone back extension, arms by the sides | 3 × 12–15, 2s hold at the top |
-| Core | Side plank, uninjured side only | 2 × 30s |
+| Core (superset, 4th item) | Side plank, uninjured side only | 2 × 30s |
 
 Rest between core pairs 45s. It follows the deload halving in weeks 4
 and 8, like any block.
 
 **The other areas** (Ed's answer 1) are planned only after Injury 3 is
 merged, in their own design PR. The format is ready for them (an area is
-a new key in `loads`, `injury` and `injurySessions`), but nothing here
-decides which areas, their tables or their order.
+a new key in `loads`, `injury` and `injurySessions`); the areas, their
+tables and their order are in the next section.
 
 **"When to get it checked"** (the shoulder's wording; each area gets its
 own red flags):
@@ -2879,8 +3000,9 @@ own red flags):
 
 - `injury.<area>` takes the same fields as `noEquipment` (`exercise`
   required; optional `reps`, `durationSec`, `load`, `note`, `tempo`) and
-  the same parse errors, so a stand-in keeps the original's sets, rest and
-  format. It reuses `applyNoEquipmentSwap`'s dose rules rather than a copy.
+  the same parse errors, plus an optional boolean `perSide` that a stand-in
+  may set (a `noEquipment` swap may not), so a stand-in keeps the original's
+  sets, rest and format. It reuses `applyNoEquipmentSwap`'s dose rules rather than a copy.
 - `loads` values are `"avoid"` or `"caution"`; an unknown area or level is
   a parse error naming the path, with the "did you mean" hint.
 - Every stand-in and session exercise is an ordinary `exercises` entry
@@ -2901,7 +3023,7 @@ shoulder flagged from 22 Nov):
 
 | Date | Week / day | Today shows |
 | --- | --- | --- |
-| 23 Nov | W4 D1 (deload) | Pallof press 2 rounds × 12–15, pain-free only (warm-ups aren't halved); YTWI, slams, pull-up EMOM, dip mini-dose and boxing left out; bodyweight back extension 2 × 12–15; lying leg raise 2 × 10–15; side plank uninjured side 1 × hold |
+| 23 Nov | W4 D1 (deload) | Pallof press 2 rounds × 12–15, pain-free only (warm-ups aren't halved); dead bug, legs only, 8 per side instead of YTWI; slams, pull-up EMOM, dip mini-dose and boxing left out; bodyweight back extension 2 × 12–15; lying leg raise 2 × 10–15; side plank uninjured side 1 × 30s |
 | 24 Nov | W4 D2 | Suitcase Bulgarian split squat 2 × 12–15 per leg; single-leg RDL mini-dose, uninjured hand, 1 × easy |
 | 25 Nov | W4 D3 | Shoulder-free session, core sets halved for the deload |
 | 26 Nov | W4 D4 | Broad jumps, 4-min EMOM × 5 (8 min halved) |
@@ -2923,28 +3045,460 @@ shoulder flagged from 22 Nov):
   parser and model; the shoulder data above in `public/program.json`;
   data tests; the exercise sheet's "Your shoulder" section only. Every
   session is unchanged. README documents the fields.
+  1. [x] File format: `loads`, `injury` (validated by the same function
+     as `noEquipment`) and `injurySessions` in the wire types, parser and
+     model, with unit tests (`src/program/injuryFormat.test.ts`) and README.
+  2. [x] The shoulder data and stand-in exercises in `public/program.json`,
+     with data tests over the shipped file (`src/program/injuryData.test.ts`,
+     including every unflagged session matching the program without the
+     injury fields). The parser takes one number for `durationSec`, so the
+     session's hollow hold is 30s, not 20–30s. (Step 4 lets a stand-in set
+     `perSide`, so the Day 1 side plank stand-in no longer shows "per side".)
+  3. [x] The exercise sheet's "Your shoulder" section, with E2E
+     (`e2e/injurySheet.spec.ts`). Stand-in views are built by a new
+     `applyStandIn` shared with `applyNoEquipmentSwap`; the EMOM dose reads
+     "5 / min, 8 min" (the sheet's usual wording), not "8-min EMOM × 5".
+  4. [x] Fixes from the challenger review: on a row ticked "No equipment"
+     the sheet's "Your shoulder" now describes the original item (level and
+     stand-in; `applyNoEquipmentChoices` carries the `injury` views); the
+     section lists the stand-in's cues; a stand-in may set `perSide` (side
+     plank: `false`, note "Uninjured side only"); data: floor cue for the
+     bodyweight back extension, "uninjured hand" loads on the calf-raise
+     stand-ins, a dead bug stand-in for YTWI raises (Days 1 and 5 keep a
+     warm-up); README corrected; tests for the 23 Nov stand-ins and the
+     no-level branch; one e2e title fixed.
   - Merge point: the doses can be checked on a phone, nothing else moves.
 - **Injury 2 — Flag the shoulder and train around it** *(behavior
   change)*: the injuries storage key, Settings, the banner and "When to
   get it checked", left-out, stand-in and caution rows, "Add it back",
   the shoulder-free session, the log screen and timers. E2E on Day 1,
-  Day 3 and Day 4.
+  Day 3 and Day 4. Notes carried over from the Injury 1 review:
+  (a) while the shoulder is flagged, also hide a row's No-equipment tick
+  when the swap exercise itself is tagged avoid (Pallof press → plank
+  shoulder taps); (b) rotated-in warm-ups (Reverse fly, Ab raises,
+  Kickbacks) follow the level of the item they replace, so check the
+  wording on rotated weeks; (c) consider showing "Your shoulder" on the
+  sheet only while the shoulder is flagged; (d) an injury session with
+  `blocks: []` parses but would show empty, so refuse it at parse time or
+  handle it.
+  Steps:
+  1. [x] Storage: `<programId>.injuries` and `<programId>.injury-choices`
+     (`src/injury/`: wire types, mappings, tolerant loading, re-read before
+     save, 14-day pruning of choices, `activeInjuriesOn`, `flagInjury`,
+     `clearInjury`), with unit tests. The wire for choices holds a kind per
+     item, so Injury 3 adds "Half sets today" as a second kind.
+  2. [x] Session logic: `applyInjuries` (`src/program/injury.ts`), chained into
+     `buildSwappedSession` / `buildSwappedCombinedSession` (new optional
+     `injuries` and `injuryChoices` parameters) BEFORE the no-equipment swaps,
+     so an injury wins (note a is done there). Left-out items are marked, not
+     removed, and skipped by `isSessionInProgress`. Note (d): the parser
+     refuses an injury session with `blocks: []`. Note (b) holds and is tested
+     (week 5). Unit tests cover the worked examples.
+  3a. [x] UI, the flag: Settings "Injury" section (flag, clear with a plain
+     confirmation, past injuries as lines), Today's "I'm injured" link and
+     banner, and the "When to get it checked" sheet. E2E in `e2e/injury.spec.ts`.
+  3b. [x] UI, the rows: left-out / stand-in / caution rows, "Add it back", the
+     shoulder-free session heading, log screen and timers (including the
+     left-out item's part in the log screen's progress), note (c), and E2E on
+     Day 1, Day 3 and Day 4.
+     Differences: the "Pain-free only" line sits under the name/details, not
+     under the dose; the blocks count in "~N min · M blocks" skips blocks whose
+     items are all left out; a stand-in's sheet says "Instead of <original>"
+     and has no "Your shoulder" section; an added-back row's sheet still uses the
+     "left out" wording; a combined day shows ordinary blocks, with no
+     area-free heading. Injuries are re-read on each render.
+  4. [x] Fixes from the challenger review:
+     1. A combined session reads the flag from the host (training) date for
+        both days; each day's own date only sets its week, deload and blocks.
+     2. Clearing the flag no longer rewrites a session already trained: sets
+        logged under a stand-in's id keep the stand-in, and an area-free
+        session with logged sets stays the area-free session, flagged or not.
+     3. The header's minutes are re-estimated from what is left whenever
+        anything is left out or added back (an added-back row at its halved
+        dose), with the same estimator as the shoulder-free session
+        (`estimatedSessionMinutes`): 23 Nov flagged is about 9 min, not 50.
+     4. "Last time", Progress and the History wording recognise an item's
+        injury stand-in ids, and an area-free session's items through the
+        area session's own blocks (`findLoggedBlockAndItem`).
+     5. A stood-in rotated warm-up says "Instead of <rotated name>" (week 5:
+        "Instead of Reverse fly").
+     6. "Add it back" focuses the first added-back row when several keys come
+        back (boxing has one item, so it already worked; the e2e covers it).
+     Known and deferred:
+     - (i) Clearing ships here, but "First time back" and "Half sets today"
+       come in Injury 3 (stacked next).
+     - (ii) The storage readers drop unknown areas and kinds, so an older app
+       copy would drop a newer choice on save. Acceptable for one user on one
+       phone; revisit if a second area or choice kind is added.
+     - (iii) A Day 3 started before the flag (sets logged under the original
+       day) stays the original day with only what is not left out, so logged
+       sets are not orphaned. By design.
+     - (iv) Decided (Ed, 23 Nov): the rotated-in "Ab raises" (instead of the
+       Pallof press) are hanging raises, so they are left out while the
+       shoulder is flagged. Done in Injury 3b below. "Kickbacks" (instead of
+       the hip thrust) keep inheriting "caution".
   - Merge point: Ed can flag the shoulder and train every day of the week.
 - **Injury 3 — Clear the flag, check-in, retest, History and export**
   *(behavior change)*: "My shoulder feels OK", "First time back" and "Half
   sets today", the check-in and week 8 changes, History marks, export and
   import of injuries. E2E.
+  Steps:
+  1. [x] "First time back" and "Half sets today" after the flag is cleared:
+     `applyReturnToTraining` (`src/program/injury.ts`) after `applyInjuries` in
+     both builders; the "halfSets" choice kind; the row line and button on Today
+     (the log screen and timers read the same builders). Window choice: only an
+     injury cleared in the last 14 days marks rows (the clearing date and the 13
+     days after it, `RETURN_TO_TRAINING_WINDOW_DAYS`), so an old clear never
+     keeps marking. "First time back" ends when any set under the original's id
+     is logged on a date from the clearing date up to (not including) the shown
+     date; sets under a stand-in's id don't count; today's own sets keep the
+     mark but hide the button. A ticked No-equipment swap replaces the marked row.
+  2. [x] Weekly check-in, week 8 retest, History marks, export and import of
+     injuries. Decisions: the check-in drops the pull-up field (and saves no
+     pull-up value) while the shoulder is flagged on the shown date, and a
+     pull-up drop adds "expected after time off" when a shoulder injury was
+     active or cleared in the 28 days before the check's date (card and Today
+     banner); the retest holds back exercises a flagged area tags "avoid"
+     (pull-ups, dips) behind one line, the jump stays, and the card's done
+     condition is the jump or "Skip jump"; History derives the tag and the
+     left-out/stand-in lists from the injury dates with `buildSwappedSession`
+     (nothing stored; a combined day shows the tag only); the JSON export adds
+     an optional `injuries` field to version 2 (no bump, like `optionalBlockChoices`),
+     an older file without it leaves the stored injuries alone (a file with the
+     section replaces them; changed by step 3 below), Undo
+     restores the previous injuries, and injury choices are not exported. The
+     broad-jump skip for lower-body areas waits for those areas.
+  3. [x] Fixes from the challenger review:
+     (1) "Half sets today" is offered, and "Sets halved today" shown, only where
+     halving changes the dose (not warm-ups or one-set items);
+     (2) the header's minutes are the file's written minutes scaled by the
+     share of estimated work left after rows are left out, added back or
+     halved (subtracting the removed estimate left a flagged deload Day 1 at 38
+     of 50 min), never below the estimator's reading of what remains or 1, for
+     both the Injury 2 path and half sets (W5 D1 halved 44, W4 D1 flagged 21,
+     W1 D1 flagged 19 and 26 with the pull-up EMOM added back); the
+     area-free session keeps its own estimate;
+     (3) the week 8 retest keeps holding back max-tested exercises for the 14
+     days after a clear (the line now reads "Pull-ups and dips aren't retested
+     while your shoulder is flagged or in its first two weeks back.");
+     (4) import: a file with no `injuries` section keeps the stored injuries, one
+     with the section replaces them (the preview says so and warns about an
+     open flag that would go), and an unreadable section is a listed problem
+     that keeps the stored ones; this replaces the earlier "an older file
+     imports as no injuries" decision;
+     (5) History names "Shoulder-free session instead of Day 3 (Upper: push)"
+     on an area-free day;
+     (6) sets logged under the no-equipment swap id also end "First time back",
+     and a swapped row keeps the line (without the Half sets button);
+     (7) the check-in sentence is "A drop is common after time off.";
+     (8) readability in `noEquipment/session.ts` and the test helper;
+     (9) a unit test for "First time back" with "Half sets today" on a combined
+     day.
+     Deferred / known: an "avoid" item is marked first-time-back even if the flag
+     only covered days it didn't appear (e.g. a rest day); caution stand-ins
+     aren't marked; a corrupt `to` earlier than `from` keeps the flag open (the
+     cautious reading).
   - Merge point: the shoulder feature is complete.
-- **Then: plan the other areas** *(design)*: only after Injury 3 is
-  merged. A new design PR picks the areas, their tables and their order.
+- **Injury 3b — Rotated Ab raises left out** *(behavior change)*: an
+  optional `loads` on a `warmupRotation.swaps` entry replaces the original
+  exercise's levels while that item is rotated in (`rotatedIn.loads`, read by
+  `effectiveLoads` in `applyInjuries` and "First time back"); `program.json`
+  gives the Ab raises swap `{ "shoulder": "avoid" }` (Ed, 23 Nov).
+  1. [x] Wire/model/parser (reusing `parseExerciseLoads`), rotation, injury
+     rules, data, README and tests (unit and e2e: W5 flagged, Ab raises left
+     out with "Add it back"; week 4 Pallof press still pain-free only).
+  - Known, from its challenger review (low, left as they are): a Pallof
+    press set logged after a clear ends "First time back" for the Ab raises
+    too (they share the `pallof_press` id); a row with sets already logged on
+    a flagged day stays as written with no pain-free cue, as for every avoid
+    item; and "First time back" marks the Ab raises even when the flag only
+    covered weeks without them (the cautious reading, as for other avoid
+    items). A swap's `loads` replaces the original's levels, so `{}` clears
+    them (README says so).
+  - Merge point: with the shoulder flagged, week 5 has no hanging raises.
+- **Then: plan the other areas** *(design)*: done; see "Plan: injury
+  management for the other areas" below.
 
 **Open questions for Ed** (with the answer I'm assuming):
 
-1. **The shoulder-free session's content.** Assumed: the core-only list
-   above, with no leg work (answer 5).
+None left. Resolved (22 Nov): "shoulder chest" in answer 1 meant shoulder
+first; the broad jump EMOM is 5 reps a minute; the shoulder-free session is
+the core-only list above.
 
-Resolved (22 Nov): "shoulder chest" in answer 1 meant shoulder first;
-the broad jump EMOM is 5 reps a minute.
+### Plan: injury management for the other areas *(design)*
+
+The shoulder feature is merged (Injury 1 to 3b). Ed asked to plan the other
+areas once it was done, and answered the proposal's questions (23 Nov):
+
+1. **Two passes:** levels and red flags for every area first, then stand-ins
+   and area-free sessions one area at a time.
+2. **Pass 2 order:** lower back, knee, ankle, elbow and wrist, hip.
+3. **Hip** stays one broad area (groin, hip flexor and the joint together).
+4. **Elbow and wrist** are one area: the same exercises load both.
+5. **The level tables** stay as proposed for now. Ed asked whether they
+   should be separate data from the program or stay coupled to it; see
+   "Where the levels live" below.
+
+Everything in "Plan: train around an injury" above still holds (no medical
+advice, no clearance, the program keeps moving, logged sets lock a row). This
+section only adds what a second, third or sixth area needs.
+
+**The areas.** `INJURY_AREAS` becomes, in this order (the order breaks ties,
+for example which banner line comes first):
+
+| Key | Label | Sided | In a sentence | With a side |
+| --- | --- | --- | --- | --- |
+| `shoulder` | Shoulder | yes | your shoulder | Right shoulder / Both shoulders |
+| `lower_back` | Lower back | no | your lower back | Lower back |
+| `knee` | Knee | yes | your knee | Left knee / Both knees |
+| `ankle` | Ankle | yes | your ankle | Right ankle / Both ankles |
+| `elbow_wrist` | Elbow and wrist | yes | your elbow and wrist | Right elbow and wrist / Both elbows and wrists |
+| `hip` | Hip | yes | your hip | Left hip / Both hips |
+
+The lower back has no side: Settings doesn't ask for one, and the stored
+injury leaves `side` out. The `.injuries` wire stays at version 1 with
+`side` optional, accepted as absent only for an area that isn't sided (an
+older copy of the app skips such an entry, which is the cautious way round
+for a backup file). The export carries it the same way.
+
+**Where the levels live** (Ed's question 5). Recommendation: **keep them
+coupled**, as `loads` on each exercise in the program file, and move only the
+*area* facts out of the UI into one table in code.
+
+- *Per exercise, in the program file (coupled).* How much an exercise loads
+  an area depends on how that program writes it: Explosive Endurance's
+  Zercher split squat holds a bar in the elbows, and another program's split
+  squat may not. The stand-ins and area-free sessions have to sit on the
+  program's items and days anyway, so the levels sit next to them. A new
+  exercise is added with its tags in the same place, and the parser already
+  rejects a misspelt area or level.
+- *Per area, in `src/injury/areas.ts` (separate, app-wide).* The label,
+  whether it's sided, its sentence forms, its red flags, and which check-in
+  and retest fields it holds back. These are the same for every program, so
+  they don't belong in `program.json`. Today they are spread as `"shoulder"`
+  literals over the check-in, Today, the exercise sheet and the flag text;
+  one table replaces them.
+- *Alternative considered: a separate levels file* (`injury-levels.json`
+  keyed by exercise id). It reads well as a table, but it can drift: an
+  exercise added to the program and not to the levels file is silently
+  "unchanged" for every area. It would also need its own loader, wire types
+  and checks that every id exists. Not chosen.
+- To get the "one table" view without the drift, a unit test prints every
+  exercise's level for every area as one snapshot table, so a review sees
+  any change in one place, and a missing tag shows up as a blank in it.
+
+**Rules a second area needs** (multi-area cases the shoulder never hit):
+
+1. **Strictest level wins** across flagged areas (already true).
+2. **A stand-in must suit every flagged area.** Today a stand-in replaces
+   the item when every area at the strictest level has one. New: the
+   stand-in's own exercise is checked against the other flagged areas. If
+   it's "avoid" for any of them, the item is left out, with "Add it back".
+   If it's "caution", the stand-in row also says "Pain-free only".
+3. **An area-free session is checked too.** When a flag empties a day, the
+   first flagged area (table order) with a session in the file still wins,
+   but that session's rows then get the other flagged areas' levels, as any
+   day's rows do. If every row is left out, the session is shown with its
+   rows left out and "Add it back", not replaced by a rest day (Ed's answer
+   3 for the shoulder: a day stays a training day).
+4. **Stand-ins and swaps are exercises too.** Every exercise in the file is
+   tagged on its own merits, including the shoulder stand-ins and the
+   no-equipment swaps, so rules 2 and 3 have something to check.
+5. **"Uninjured hand" and "uninjured side"** in the shoulder stand-ins
+   already read correctly for any area; no wording changes.
+
+**Check-in and retest.**
+
+| Field | Held back while flagged, and for 14 days after a clear |
+| --- | --- |
+| Check-in: max pull-ups | shoulder, elbow and wrist |
+| Check-in: broad jump | knee, ankle, hip |
+| Week 8 retest: max pull-ups and dips | shoulder, elbow and wrist |
+
+"A drop is common after time off." (28-day lookback) follows the same
+table: it's added to a pull-up drop after a shoulder or elbow and wrist
+injury, and to a broad jump drop after a knee, ankle or hip injury.
+
+**Pass 1 levels.** As proposed and agreed (23 Nov). *Avoid* is left out
+with "Add it back"; *caution* is kept, pain-free only. An exercise not
+listed for an area is unchanged for it. "Its variants" means the
+no-equipment swap and the shoulder stand-in of that exercise, tagged the
+same unless the pass 1 PR's snapshot table says otherwise (for example the
+backpack swing for the kettlebell swing).
+
+| Area | Avoid | Caution |
+| --- | --- | --- |
+| Lower back | Kettlebell swings, med ball slams, rotational wall throws, back extension (every kind), single-leg RDL, hanging leg raise, crab to base switch and sprawl | Zercher split squat, dumbbell push press, overhead press, split-squat jumps, lateral skater bounds, plyo push-ups, lying leg raise, hollow hold (both kinds), on-the-spot crawl, heavy bag, Cossack squat, single-leg hip thrust, broad jumps |
+| Knee | Split-squat jumps, lateral skater bounds, broad jumps, Zercher split squat and its variants, Cossack squat, wall sit, crab to base switch and sprawl | Single-leg RDL, single-leg hip thrust, kettlebell swings, on-the-spot crawl, crab knee-to-elbow, heavy bag |
+| Ankle | Split-squat jumps, lateral skater bounds, broad jumps, single-leg calf raise and its variants, single-leg RDL and its variants, on-the-spot crawl | Zercher split squat, Cossack squat, kettlebell swings, crab to base switch and sprawl, heavy bag, wall sit |
+| Elbow and wrist | Pull-ups, dips, plyo push-ups, med ball slams, rotational wall throws, plate halo, heavy bag, crab moves, on-the-spot crawl, hanging leg raise, Zercher split squat, and their variants (explosive and table inverted rows, chair dips, pike push-ups); shadow boxing, the heavy bag's swap, is caution | Dumbbell push press, overhead press, kettlebell swings, single-leg RDL, calf raise holding a weight, YTWI raises, lateral raise, Pallof press, side plank (both kinds), back extension with a plate |
+| Hip | Cossack squat, lateral skater bounds, split-squat jumps, crab to base switch and sprawl | Zercher split squat, single-leg RDL, single-leg hip thrust, hip abduction / adduction, kettlebell swings, hanging and lying leg raise, on-the-spot crawl |
+
+Broad jumps (the shoulder's Day 4 stand-in) weren't in the proposal's lower
+back row; they're added as caution, the same as the other jumps there. That's
+the one change, called out for Ed in the pass 1 PR.
+
+**Pass 1 "When to get it checked".** Each area keeps the shoulder sheet's
+frame ("This isn't medical advice…", "While it's flagged, train only what's
+pain-free…", "The app doesn't decide when you're ready…") with its own
+list. Draft wording, for Ed to check in the pass 1 PR:
+
+- **Lower back.** First, on its own line: "**Get urgent medical help
+  straight away** if you have numbness around the groin or buttocks, or new
+  trouble controlling your bladder or bowels." Then, get it checked soon if:
+  pain, numbness or tingling runs down a leg, or a leg feels weak; it
+  started with a fall or a hard knock; you feel unwell or feverish, or it
+  hurts as much lying still as moving; it isn't getting better after a week
+  or two.
+- **Knee.** You can't take weight on it, or it gives way; it locks, catches
+  or won't straighten; it popped and swelled within a few hours, or you fell
+  on it; it's hot, red or very swollen, or the pain keeps you awake; it
+  isn't getting better after a week or two.
+- **Ankle.** You couldn't walk four steps on it straight after, or still
+  can't; it's tender right on the ankle bones or the top of the foot; it
+  popped or changed shape, or the back of the heel snapped; it's very
+  swollen or bruised, or the foot is numb or tingling; it isn't getting
+  better after a week or two.
+- **Elbow and wrist.** It happened in a fall onto your hand, or it popped or
+  changed shape; you can't grip, or can't bend or straighten it fully; the
+  hand or fingers are numb or tingling; it's very swollen or bruised, or the
+  pain keeps you awake; it isn't getting better after a week or two.
+- **Hip.** You can't take weight on the leg, or it happened in a fall; pain
+  in the groin comes with a fever or feeling unwell; numbness, tingling or
+  weakness runs down the leg; the pain is there at rest or keeps you awake;
+  it isn't getting better after a week or two.
+
+**Pass 2, per area** (proposed; each PR shows its tables for Ed to check
+before merge, as the shoulder's did):
+
+- **Lower back:** back extension → bird dog; single-leg RDL → single-leg
+  glute bridge; hanging leg raise → dead bug. No day is emptied, so no
+  area-free session. Day 5's own lower-back rule (cut back extensions to 2
+  sets) stays for days without a flag.
+- **Knee:** no stand-ins proposed; Days 2 and 6 are left with little but a
+  mini-dose, so a **knee-free session** (about 15 minutes, no knee bending
+  under load): glute bridge, side-lying hip raises, straight-leg calf
+  raises, dead bug, side plank.
+- **Ankle:** single-leg RDL → kickstand RDL (both feet down). No day is
+  emptied.
+- **Elbow and wrist:** hanging leg raise → lying leg raise; Zercher split
+  squat → bodyweight Bulgarian split squat. Days 1, 3 and 5 empty out, so an
+  **arm-free session** like the shoulder-free one, with a glute bridge in
+  place of the side plank (a side plank loads the elbow).
+- **Hip:** the levels are broad on purpose; its PR proposes stand-ins once
+  the other four are in and shows them to Ed first.
+
+**Code shape.**
+
+```
+ src/injury/areas.ts  (new: label, sided, sentence forms, red flags, held fields)
+        │
+        ├──▶ injuryFlagText / injuryFlagUi   Settings, banner, "When to get it checked"
+        ├──▶ injurySheetText                 "Your knee" section on the exercise sheet
+        ├──▶ checkin / retest                which fields are held back
+        └──▶ historyInjury                   "Right knee, Lower back"
+
+ program.json loads.<area> ──▶ parse ──▶ applyInjuries (rules 2 and 3 above)
+```
+
+**Worked examples** (start 2 Nov, as above; become unit-test fixtures):
+
+- Knee (left) flagged, W1 D2: the Cossack squat, split-squat jumps and the
+  Zercher split squat are left out; the single-leg RDL is pain-free only;
+  hip abduction / adduction is unchanged.
+- Lower back flagged, W1 D5: the back extension and the hanging leg raise
+  are left out; the push press, overhead press, hollow hold and heavy bag
+  are pain-free only. Day 5 isn't emptied, so no area-free session.
+- Shoulder and knee both flagged, W1 D2: the Zercher split squat's shoulder
+  stand-in (suitcase Bulgarian split squat) is itself "avoid" for the knee,
+  so the item is left out with "Add it back" (rule 2). The single-leg RDL
+  is caution for both and the knee has no stand-in, so it stays as written,
+  pain-free only.
+- Elbow and wrist flagged, W2 check-in: no max pull-ups field; broad jump
+  asked as usual. Knee flagged instead: pull-ups asked, broad jump held.
+
+Exact minutes and row lists are pinned in each PR's tests from the data, as
+the shoulder's were.
+
+**A break from training** (added 25 Nov; Ed chose to build it). Ed
+has a neck injury, and a physio advised a week with no training. Flagging an
+area doesn't fit that: it changes sessions but the program keeps moving
+(answer 7 for the shoulder). A break stops the clock instead.
+
+- **Start one** from Settings or Today: "Take a break", for a number of
+  days (default 7) from today, with an optional note ("Physio: rest the
+  neck"). Stored in `<programId>.breaks`, a versioned wire
+  (`{ "version": 1, "breaks": [ { "from", "to", "note"? } ] }`) with its own
+  internal type and mapping functions, like `.injuries`.
+- **The schedule skips it.** A date's week and day count only the days
+  outside breaks since the start date, so the day after a week's break is
+  the day that would have come next. The start date isn't changed, and
+  logged sets keep their own day, so History is untouched.
+- **During a break** Today shows "On a break until 2 Dec" with the note and
+  "End the break today"; nothing to train. History marks the days.
+- **Coming back.** The first session after a break of 7 days or more says
+  "First session back · pain-free only" and offers "Half sets today" for
+  each exercise, for that date only, as after a cleared flag. The check-in's
+  "A drop is common after time off." also follows a break.
+- **Export and import** carry breaks, as they carry injuries.
+- A break and a flag can overlap: the flag still applies when the break
+  ends, until it's cleared.
+
+**The neck** (added 25 Nov) becomes a seventh area once Ed sends the
+physio's list of movements to avoid; its levels come from that list, not
+from a guess. Until then a break covers it.
+
+**Milestones.**
+
+- **Areas 0 — this plan** *(design)*.
+- **Break 1 — Take a break from training** *(behavior change)*, first,
+  so it's ready for the next break: storage, the schedule
+  skipping break days, Today and Settings, History, export and import, the
+  first-session-back offer, with unit tests and e2e (start a week's break,
+  see no session, end it, resume at the next day).
+  - Merge point: a break can be taken and ended, and the schedule resumes
+    where it stopped.
+- **Areas 1 — One table for the area facts** *(internal refactor)*: add
+  `src/injury/areas.ts` with only the shoulder, and read the label, sentence
+  forms, red flags and held check-in and retest fields from it instead of
+  `"shoulder"` literals. No visible change; the existing unit and e2e tests
+  must pass unchanged.
+  - Merge point: the shoulder works exactly as before.
+- **Areas 2 — Pass 1: the five areas, their levels and red flags**
+  *(behavior change)*. Steps, one commit each:
+  1. Sideless areas: optional `side` in the injury wire and model, and
+     Settings hiding the side for the lower back.
+  2. Add the five areas to `INJURY_AREAS` and `areas.ts`, with their red
+     flags and held fields (check-in and retest).
+  3. Rules 2 and 3 (stand-ins and area-free sessions checked against the
+     other flagged areas), with the shoulder-and-knee worked example.
+  4. The levels in `program.json`, with the snapshot table test.
+  5. README and e2e: flag the lower back (no side asked, back extension left
+     out), flag a knee (Day 2 rows, broad jump held at the check-in), and
+     shoulder plus knee together.
+  - Merge point: any of the six areas can be flagged and trains safely,
+    with left-out rows and "pain-free only" but no new stand-ins yet.
+- **Areas 3 to 7 — Pass 2, one PR per area** *(behavior change)*, in Ed's
+  order: lower back, knee, ankle, elbow and wrist, hip. Each adds the new
+  exercises (with their own levels for every area), the stand-ins and, for
+  the knee and the elbow and wrist, the area-free session, with tests, e2e
+  and a screenshot of a flagged day.
+  - Merge point: after each, that area has the full shoulder treatment.
+
+Each PR gets its own challenger review before it opens (CLAUDE.md section
+10).
+
+**Open questions for Ed** (with the answer I'm assuming):
+
+1. **Broad jumps as caution for the lower back**, added to the proposal's
+   row? *Assumed: yes.*
+2. **The physio's list for the neck.** *Waiting on Ed.*
+
+Resolved (25 Nov): Ed chose to build "Take a break" rather than move the
+start date by hand.
+
+Resolved (23 Nov): the levels stay coupled to the program, on each
+exercise, with the area facts in one code table (Ed: "let's couple them").
 
 ## 6. Worked examples (used as unit-test fixtures)
 

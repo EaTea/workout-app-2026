@@ -46,6 +46,10 @@ export interface ProgramStorageKeys {
   combines: string;
   /** Which optional blocks (boxing) were skipped on which dates (exported and imported with the rest). */
   optionalBlockChoices: string;
+  /** The injuries the person has flagged, with their dates (`injury/storage.ts`). */
+  injuries: string;
+  /** Per-date injury choices such as "Add it back" (throwaway, pruned after 14 days, not exported). */
+  injuryChoices: string;
   /** Prefix of the backups an import keeps of the data it replaces (followed by an ISO timestamp). */
   importBackupPrefix: string;
 }
@@ -74,6 +78,8 @@ export function storageKeysForProgram(programId: string): ProgramStorageKeys {
     noEquipment: `${programId}.no-equipment`,
     combines: `${programId}.combines`,
     optionalBlockChoices: `${programId}.optional-block-choices`,
+    injuries: `${programId}.injuries`,
+    injuryChoices: `${programId}.injury-choices`,
     importBackupPrefix: `${programId}.import-backup-`,
   };
 }

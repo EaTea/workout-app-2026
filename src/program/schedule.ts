@@ -1,5 +1,5 @@
-import type { Block, BlockItem, Exercise, Format, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
-import { DAYS_PER_WEEK, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
+import type { Block, BlockItem, Exercise, Format, InjuryArea, InjuryLoadLevel, NoEquipmentSwap, OptionalBlock, Program, ProgressionPhase, Range, Reps, TimerAdjustments } from "./model";
+import { DAYS_PER_WEEK, INJURY_AREAS, MAX_INTERVAL_WORK_SECONDS, MAX_REST_SECONDS, MIN_TIMER_SECONDS } from "./model";
 import { applyRotationToBlocks } from "./rotation";
 import { addDaysToDate, programStatus } from "./calendar";
 import type { TrainingSettings } from "../settings/model";
@@ -148,8 +148,10 @@ export interface ItemView {
    * Set on a warm-up item in a rotated week (see rotation.ts): show
    * `displayName` instead of the exercise's name, with "Rotated in for
    * <originalName>". `exercise` stays the original so logging keeps its id.
+   * `loads` is the swap's own injury levels, when the file gives them; they
+   * replace `exercise.loads` for injury rules (see `effectiveLoads`).
    */
-  rotatedIn?: { displayName: string; originalName: string };
+  rotatedIn?: { displayName: string; originalName: string; loads?: Partial<Record<InjuryArea, InjuryLoadLevel>> };
   /**
    * The item's "No equipment" swap as it would be done this week: the same
    * week, deload halving and timer changes applied to the swap's exercise and
@@ -159,6 +161,40 @@ export interface ItemView {
    * switches a row over to it.
    */
   noEquipment?: ItemView;
+  /**
+   * The item's stand-in for each injured area as it would be done this week
+   * (same week arithmetic as `noEquipment`, built through `applyStandIn`).
+   * Present only on items whose program entry has an `injury` stand-in. The
+   * exercise sheet's "Your shoulder" section reads it; Today ignores it.
+   */
+  injury?: Partial<Record<InjuryArea, ItemView>>;
+  /**
+   * Set when this view is an injury stand-in (see `applyInjuries` in
+   * injury.ts): the area that is flagged and the original item's exercise, so
+   * Today can say "Instead of <original> for your <area>". Absent on every
+   * normal view. The sets are logged under this view's own exercise id.
+   */
+  injuryStandInFor?: { area: InjuryArea; original: Exercise };
+  /**
+   * Set when a flagged area leaves this item out (an "avoid" exercise with no
+   * stand-in). The item stays in the session data, at its position, so Today
+   * can draw one "Left out for your <area>: <name> · Add it back" line;
+   * progress, completion and the minutes ignore it (set by `applyInjuries`).
+   */
+  leftOut?: { area: InjuryArea };
+  /** True on an item to be done "Pain-free only · stop if it hurts": a "caution" exercise kept as written, or an item added back. */
+  painFreeOnly?: boolean;
+  /**
+   * Set on an item that a recently cleared injury would have left out (tagged
+   * "avoid" for `area`) the first time it is back since the clear (see
+   * `applyReturnToTraining` in injury.ts). `halfSetsOffered` is false once a
+   * set is already logged today, so "Half sets today" is not offered mid-row.
+   */
+  firstTimeBack?: { area: InjuryArea; halfSetsOffered: boolean };
+  /** True on a "First time back" item the person halved with "Half sets today": half the sets (deload rounding), for that date only. */
+  halvedForReturn?: boolean;
+  /** True on an item the person added back after the injury left it out: half the sets (deload rounding), pain-free only, for that date only. */
+  addedBack?: boolean;
   /**
    * Set when this view is a ticked "No equipment" swap (see
    * `applyNoEquipmentChoices` in noEquipment.ts): the original item's
@@ -215,6 +251,12 @@ export type SessionView =
       focus: string;
       targetMinutes: number;
       blocks: BlockView[];
+      /**
+       * Set when an injury left the day with no main work and its blocks were
+       * replaced by the area's own session (`applyInjuries`): `insteadOf` is the
+       * day's focus ("Upper: push"). Absent on every normal session.
+       */
+      areaFreeSession?: { area: InjuryArea; name: string; insteadOf: string };
     };
 
 // ---------------------------------------------------------------------------
@@ -236,15 +278,48 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
 
   const { week, dayNumber } = status;
   const phase = phaseForWeek(program, week);
-  const isDeload = isDeloadPhase(phase);
-  const isRetest = phase.retest;
   const day = program.days[dayNumber];
 
   if (!day) {
     return { kind: "rest", week, dayNumber, phase: phase.phase };
   }
 
-  const weekContext: WeekContext = {
+  const weekContext = buildWeekContext(program, settings, week, phase);
+
+  return {
+    kind: "training",
+    week,
+    dayNumber,
+    phase: phase.phase,
+    isDeload: weekContext.isDeload,
+    focus: day.focus,
+    targetMinutes: day.targetMinutes,
+    blocks: applyRotationToBlocks(buildBlocksForWeek(day.blocks, settings, weekContext, week), week, program.warmupRotation),
+  };
+}
+
+/**
+ * Builds `blocks` (not one of the program's days; an injury session's blocks)
+ * for the week `date` falls in, through the very same path as a day's blocks:
+ * items outside their `weeks` are dropped, a deload halves sets and minutes
+ * (warm-ups never), and the phase's timer changes apply. No warm-up rotation.
+ * Used by `applyInjuries` to build an area-free session. Returns undefined
+ * when the date is not an active program date.
+ */
+export function buildBlocksForDate(program: Program, settings: TrainingSettings, date: string, blocks: Block[]): BlockView[] | undefined {
+  const status = programStatus(settings.startDate, program.lengthWeeks, date);
+  if (status.kind !== "active") return undefined;
+
+  const weekContext = buildWeekContext(program, settings, status.week, phaseForWeek(program, status.week));
+  return buildBlocksForWeek(blocks, settings, weekContext, status.week);
+}
+
+/** The week's deload/retest/increase facts every item of that week is built with. `settings.startDate` must be set (the caller saw an active status). */
+function buildWeekContext(program: Program, settings: TrainingSettings, week: number, phase: ProgressionPhase): WeekContext {
+  const isDeload = isDeloadPhase(phase);
+  const isRetest = phase.retest;
+
+  return {
     isDeload,
     isRetest,
     offset: weeklyIncreaseOffsetForWeek(program, week),
@@ -255,17 +330,6 @@ export function buildSession(program: Program, settings: TrainingSettings, date:
     // settings.startDate is non-null here: programStatus was "active".
     weekStartDate: addDaysToDate(settings.startDate as string, (week - 1) * DAYS_PER_WEEK),
     heldEmomDates: isRetest && week > 1 ? lastEmomDatesOfWeek(program, settings.startDate as string, week - 1) : {},
-  };
-
-  return {
-    kind: "training",
-    week,
-    dayNumber,
-    phase: phase.phase,
-    isDeload,
-    focus: day.focus,
-    targetMinutes: day.targetMinutes,
-    blocks: applyRotationToBlocks(buildBlocksForWeek(day.blocks, settings, weekContext, week), week, program.warmupRotation),
   };
 }
 
@@ -417,13 +481,31 @@ function shiftRange(range: Range, seconds: number, ceiling: number): Range {
 function buildItem(item: BlockItem, settings: TrainingSettings, blockHalve: boolean, week: WeekContext): ItemView {
   const view = buildItemView(item, settings, blockHalve, week);
 
-  if (item.noEquipment === undefined) {
+  if (item.noEquipment === undefined && item.injury === undefined) {
     return view;
   }
 
+  const result: ItemView = { ...view };
+
   // The swap goes through exactly the same week arithmetic (halving, weekly
   // increase, timer changes) as the original, via its effective item.
-  return { ...view, noEquipment: buildItemView(applyNoEquipmentSwap(item), settings, blockHalve, week) };
+  if (item.noEquipment !== undefined) {
+    result.noEquipment = buildItemView(applyNoEquipmentSwap(item), settings, blockHalve, week);
+  }
+
+  // Injury stand-ins take the very same route, one view per injured area.
+  if (item.injury !== undefined) {
+    const injuryViews: Partial<Record<InjuryArea, ItemView>> = {};
+    for (const area of INJURY_AREAS) {
+      const standIn = item.injury[area];
+      if (standIn !== undefined) {
+        injuryViews[area] = buildItemView(applyStandIn(item, standIn), settings, blockHalve, week);
+      }
+    }
+    result.injury = injuryViews;
+  }
+
+  return result;
 }
 
 /**
@@ -495,6 +577,17 @@ export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
     return item;
   }
 
+  return applyStandIn(item, swap);
+}
+
+/**
+ * The dose rules shared by "No equipment" swaps and injury stand-ins (both
+ * are `NoEquipmentSwap`-shaped, validated by one parser function): see
+ * `applyNoEquipmentSwap` for the diagram (a stand-in may also set `perSide`;
+ * a swap never does). The result has neither
+ * `noEquipment` nor `injury`, so a stand-in is never swapped again.
+ */
+export function applyStandIn(item: BlockItem, swap: NoEquipmentSwap & { perSide?: boolean }): BlockItem {
   return {
     ...item,
     exerciseId: swap.exercise.id,
@@ -510,7 +603,10 @@ export function applyNoEquipmentSwap(item: BlockItem): BlockItem {
     load: swap.load,
     note: swap.note,
     tempo: swap.tempo,
+    // A stand-in may override perSide (e.g. a side plank done on the uninjured side only).
+    perSide: swap.perSide ?? item.perSide,
     noEquipment: undefined,
+    injury: undefined,
   };
 }
 

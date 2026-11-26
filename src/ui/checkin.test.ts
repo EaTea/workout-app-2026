@@ -17,7 +17,12 @@ import {
   formatPercentChange,
   parseBroadJumpInput,
   roundToTwoDecimals,
+  EXPECTED_AFTER_TIME_OFF_SENTENCE,
+  PULL_UPS_SKIPPED_LINE,
+  shouldSkipPullUps,
+  timeOffExplanation,
 } from "./checkin";
+import type { Injury } from "../injury/model";
 
 const program = parseProgram(JSON.parse(readFileSync("public/program.json", "utf-8"))).program;
 
@@ -164,5 +169,39 @@ describe("storage mapping", () => {
     for (const text of [null, "x", "{}", '{"week":"3"}', '{"week":0}', '{"week":1.5}', "null"]) {
       expect(fatigueWarningDismissedFromWire(text), String(text)).toBeUndefined();
     }
+  });
+});
+
+describe("shoulder wording on the check-in", () => {
+  const flagged: Injury[] = [{ area: "shoulder", side: "right", from: "2026-11-10" }];
+  const clearedOn1Nov: Injury[] = [{ area: "shoulder", side: "right", from: "2026-10-20", to: "2026-11-01" }];
+  const pullUpDrop = [{ field: "maxPullUps" as const, value: 8, best: 12, percentChange: -33 }];
+  const jumpDrop = [{ field: "broadJumpMetres" as const, value: 2, best: 2.5, percentChange: -20 }];
+
+  it("says what replaces the pull-up field", () => {
+    expect(PULL_UPS_SKIPPED_LINE).toBe("Skip while your shoulder is flagged");
+  });
+
+  it("skips pull-ups only while the shoulder is flagged on the shown date", () => {
+    expect(shouldSkipPullUps(flagged, "2026-11-16")).toBe(true);
+    expect(shouldSkipPullUps(flagged, "2026-11-09")).toBe(false);
+    expect(shouldSkipPullUps(clearedOn1Nov, "2026-11-16")).toBe(false);
+    expect(shouldSkipPullUps([], "2026-11-16")).toBe(false);
+  });
+
+  it("adds the time-off sentence to a pull-up drop after an active or recent shoulder injury", () => {
+    expect(timeOffExplanation(pullUpDrop, flagged, "2026-11-16")).toBe(EXPECTED_AFTER_TIME_OFF_SENTENCE);
+    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, "2026-11-16")).toBe("A drop is common after time off.");
+  });
+
+  it("adds nothing for a broad jump drop alone, an old injury or none", () => {
+    expect(timeOffExplanation(jumpDrop, flagged, "2026-11-16")).toBeUndefined();
+    expect(timeOffExplanation(pullUpDrop, clearedOn1Nov, "2026-12-20")).toBeUndefined();
+    expect(timeOffExplanation(pullUpDrop, [], "2026-11-16")).toBeUndefined();
+  });
+
+  it("dropWarningForShownDate gives the saved check's date with a drop", () => {
+    const history = { checks: [check(1, { maxPullUps: 12 }), check(3, { maxPullUps: 8 })] };
+    expect(dropWarningForShownDate(program, settings, "2026-11-18", history).checkDate).toBe("2026-11-16");
   });
 });

@@ -35,9 +35,12 @@ tapped to edit or delete (delete asks for a second tap), and Today rows show pro
 is kept in this browser's local storage (nothing is sent anywhere); the
 exercise details sheet is behind the ⓘ button on the log screen. Skip records the current set as skipped: it is not logged, shows as "Skipped", and counts as done for the exercise (Today shows, for example, "✓ 0/6 · 6 skipped"); tapping a skipped set and logging it replaces the skip. A day with only skipped sets has no History card. Coming back from a set scrolls Today to the next exercise that still has a set to do, not to the top of the day (or stays put when none is left). "Last time"
 hints (last week's same day and block type, else the same kind of block on
-another day) show on Today rows and the log screen. The History tab lists every logged
-session, newest first, with a summary per exercise; tap an exercise to see its
-sets and tap a set to edit or delete it. History opens with a Progress card:
+another day) show on Today rows and the log screen. The History tab lists logged
+sessions, newest first, with a summary per exercise. It shows the latest 2
+program weeks, and a "Show older weeks" button under the last card adds 2 more
+at a time. Tap an exercise to see its sets and tap a set to edit or delete
+it. History opens with a Progress card, which always covers the whole log,
+not just the weeks shown:
 pick a strength exercise to see its best reps per session over weeks 1–8 (and
 the heaviest load, when any was logged), with deload weeks shaded and the same
 numbers in a table below. On every week 8 training day Today opens
@@ -60,7 +63,15 @@ program's `fatigueCheck.rule` text as a warning on the card, and after saving
 as a dismissible banner on Today for the rest of that week. "Remind me
 tomorrow" hides the card for that date only. Saving the week 8 retest of
 pull-ups and/or the broad jump records them as that week's check, whichever is
-saved first, the other merging into it later. Checks are stored in
+saved first, the other merging into it later. With the shoulder flagged on
+the shown date the check-in replaces "Max pull-ups" with "Skip while your
+shoulder is flagged" (a blank is saved as no pull-up value), and the retest
+holds pull-ups and dips back while it is flagged and for the 14 days after it is
+cleared ("Pull-ups and dips aren't retested while your shoulder is flagged or in
+its first two weeks back."; the jump stays, and the EMOMs keep week 7's figure as
+when no max is saved). A pull-up drop of more than 10% adds "A drop is common after
+time off." when a shoulder injury was active or cleared in the 28
+days before that check. Checks are stored in
 `localStorage` under `<programId>.fatigue` (`explosive-endurance.fatigue` for Explosive Endurance). It is a static site
 (Vite + TypeScript, no UI framework).
 
@@ -70,8 +81,10 @@ under keys that start with its id from `programs.json`: `<programId>.settings`,
 `.fatigue-warning-dismissed`, `.rotation-dismissed`, `.retest-dismissed`,
 `.retest-jump-skipped`, `.no-equipment` (swap ticks per date, pruned after
 14 days, not exported), `.combines` (days combined into another day's session)
-and `.optional-block-choices` (optional blocks such as boxing skipped on a
-date; both are exported and imported), plus the backup keys `.log.corrupt-<time>`,
+`.optional-block-choices` (optional blocks such as boxing skipped on a
+date) and `.injuries` (the flagged and cleared injuries; all three are exported
+and imported), `.injury-choices` ("Add it back" and "Half sets today" per date,
+pruned after 14 days, not exported), plus the backup keys `.log.corrupt-<time>`,
 `.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
 (`explosive-endurance`) these are the keys the app has always used. One key is
 app-wide: `workout-app.active-program` (JSON `{"version":1,"programId":"..."}`)
@@ -137,6 +150,43 @@ Today's header that opens the same list in the bottom sheet (Back, Close,
 Escape or a tap outside closes it). A program without safety notes (Explosive
 Endurance) shows none of these.
 
+Injuries: in Explosive Endurance (a program whose file tags exercises with
+`loads`; Steady Strength shows nothing), Settings has an "Injury" card, and
+Today an "I'm injured" link to it. Pick the area (the shoulder), the side and
+an optional note, then "Flag it": the "Get your shoulder checked" sheet opens
+once, and Today shows a banner ("Right shoulder · since 22 Nov", "Pain-free
+only.", with a "When to get it checked" button) for as long as it is flagged.
+The flag always starts today's real date, never a `?date=` preview. "My
+shoulder feels OK" asks first ("The app can't tell whether your shoulder is
+ready...") and then clears it; cleared injuries are listed as past injuries.
+The app never says an injury has healed.
+
+While the shoulder is flagged, Today, the log screen and the timers train the
+same injured session. An "avoid" exercise is one line ("Left out for your
+shoulder · Add it back"; an all-left-out Boxing block says "Boxing left out
+for your shoulder") with no Start or Log controls, and it isn't counted.
+"Add it back" brings it back for that date only, at half the sets and "Pain-free
+only · stop if it hurts" (not on a future `?date=` preview). A stand-in shows
+as "Instead of <original>" and logs under its own exercise, with no "No
+equipment" tick. Kept "caution" rows say "Pain-free only". If nothing but the
+warm-up would be left (Day 3) the header reads "Shoulder-free session ·
+instead of Day 3 (Upper: push)".
+
+After the flag is cleared everything is as written. For 14 days after the
+clearing date, each exercise the injury would have kept out (an "avoid" one,
+left out or stood in for) says "First time back · pain-free only" in the first
+session it appears in, until a set of it is logged on a later date (the
+clearing date counts). That row offers "Half sets today": the "Add it back"
+halving (warm-ups never halved), for that date only, and the header minutes
+are re-estimated.
+
+History marks a day an area was flagged: its card shows a small tag ("Right
+shoulder"), "Left out: Pull-ups, ..." and each stand-in ("Lying leg raise
+instead of Hanging leg raise"). These are worked out from the injury dates and
+the program when the card is drawn, never stored (a combined day shows only the
+tag; exercises added back and logged count as done, not left out). Days with no
+logged sets still get no card.
+
 "Show me": in Steady Strength, a large "▶ Show me" button sits beside each
 exercise that has an animation, on Today, on the day plan, and in the log
 screen's header next to ⓘ. It opens a full-screen 3D mannequin showing one
@@ -190,6 +240,28 @@ npm run test:e2e   # end-to-end tests (Playwright, iPhone 13 profile)
 The E2E run builds the app and serves it with `vite preview` automatically.
 It needs a Playwright Chromium browser installed (`npx playwright install chromium`).
 CI runs the same suite; see "Deployment" below.
+
+## Measuring startup time
+
+```sh
+npm run bench:startup
+```
+
+This builds the app, serves it with `vite preview` on port 4174, and times
+how long Today takes to appear with an empty log, a year of daily sessions
+and two years of them. It uses Chromium with the iPhone 13 viewport and the
+CPU slowed 4×, measures from navigation start until the first Today row is in the page
+(timed inside the page), and prints the min, median and max of 11 runs per size. The fake logs come from
+`src/bench/longLog.ts`. Like the E2E suite, it needs the Playwright Chromium
+browser. Run it from the repo root through npm (it reads `public/program.json`
+and `node_modules/.bin/vite` by relative path), with Node 22.18 or later (the
+script is TypeScript run directly by Node's type stripping). It isn't run in CI, because timings on shared runners vary too much.
+
+If you write your own timing test, seed storage before the timed page load,
+for example with `page.evaluate` on another page of the site. Don't seed with
+`page.addInitScript`. That script runs at the start of every page load on the
+slowed CPU, so writing a multi-megabyte log gets timed as if it were the app.
+In our runs it added about 0.1 s at two years, and the extra grows with the size of the log.
 
 ## Checking the drawings
 
@@ -338,6 +410,46 @@ on the item's exercise sheet. The shipped program gives swaps only to items
 that need kit; the swap exercises are ordinary `exercises` entries with
 `"evidence": "coaching practice"`.
 
+Three optional fields let a program cope with an injured body area. The only
+known area for now is `"shoulder"`; an unknown area is an error naming the
+path, with a "did you mean" hint for a near miss. They are read and checked;
+for now only the exercise sheet shows them (see below), and Today ignores them.
+
+- `exercises.<id>.loads`: how much the exercise loads an area, for example
+  `{ "shoulder": "avoid" }`. The level is `"avoid"` or `"caution"`; anything
+  else is an error.
+- `warmupRotation.swaps[].loads` (optional): the same shape, for the
+  rotated-in warm-up. While that swap is in force its levels replace the
+  original exercise's (the shipped "Ab raises" replacing the Pallof press is
+  `{ "shoulder": "avoid" }`, so it is left out while the shoulder is flagged
+  even though the Pallof press is only "caution"). A swap without `loads`
+  keeps the original's levels; one with `loads` replaces them entirely, so
+  `{}` leaves the rotated warm-up untagged. Errors name the path, for example
+  `warmupRotation.swaps[2].loads.shoulder`.
+- `injury` on an item: a stand-in per area, for example
+  `{ "shoulder": { "exercise": "lying_leg_raise", "reps": "10-15" } }`. Each
+  stand-in takes the fields and follows the rules of `noEquipment` above (and
+  can't itself carry `noEquipment` or `injury`), and may also set `perSide`
+  (true or false) to override the original item's; for example a side plank
+  stand-in done on the uninjured side only sets `"perSide": false`. A
+  `noEquipment` swap can't set `perSide`.
+- Top-level `injurySessions`: a session per area for when the injury leaves a
+  day with nothing to do, for example
+  `{ "shoulder": { "name": "Shoulder-free session", "blocks": [ ... ] } }`.
+  The blocks are written exactly like a day's blocks, except that their items
+  can't have `noEquipment` or `injury`.
+
+The shipped Explosive Endurance program tags the exercises that load the
+shoulder (`avoid` or `caution`; the rest are untagged), gives stand-ins to the items that have one (for
+example lying leg raise for the hanging leg raise, broad jumps for the
+kettlebell swings) and carries a "Shoulder-free session". The data is checked
+by `src/program/injuryData.test.ts`. The exercise sheet shows it: a "Your
+shoulder" section on tagged exercises says what the app will do while the
+shoulder is flagged and gives the stand-in's name, this week's dose and its
+cues (on a row ticked "No equipment" it still describes the original
+exercise, since an injury wins over the tick). The section shows only while the
+shoulder is flagged on the date; untagged exercises never have it.
+
 ## Warm-up rotation
 
 Every `warmupRotation.everyWeeks` weeks the warm-ups alternate between the
@@ -384,7 +496,9 @@ UTF-8 byte order mark so Excel reads it correctly. The export reads what is
 stored at the moment you tap the button.
 "Export everything as JSON" gives the log, the weekly checks, your
 settings, the max history (every max you saved, under `maxHistory`), the
-combined days and the skipped optional blocks in a
+combined days, the skipped optional blocks and the injuries (`injuries`, an
+optional field of the same version 2; the per-date injury choices are not
+exported) in a
 versioned file (`"format": "explosive-endurance-export"`, `"version": 2`, and
 `"programId"`, the catalogue id of the program the data belongs to),
 plus `corruptLogBackups` if the app ever had to set aside unreadable log text,
@@ -417,7 +531,12 @@ replace my data"); "Cancel" leaves everything as it was.
   left out. Files exported before the max history was added (no `maxHistory`)
   and files with older settings versions still import.
 - Importing replaces the log, weekly checks, settings, max history, combined
-  days and skipped optional blocks (boxing). Before
+  days, skipped optional blocks (boxing) and injuries. A file with an `injuries`
+  section replaces the stored injuries (the preview says so, and warns when an
+  open flag would be removed or changed); a file without one (made before
+  injuries were exported) leaves them as they are, and an `injuries` section
+  that cannot be read is listed as a problem and leaves them as they are.
+  Undo puts the previous injuries back. Before
   anything is written, the current data is saved as a backup in the browser
   (key `<programId>.import-backup-<time>`), itself a complete export
   file (written compactly, with the exact stored text of each key inside). The

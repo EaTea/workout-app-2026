@@ -1,5 +1,7 @@
 import type { CombinesByDate } from "../combine/model";
 import { combinesFromWire } from "../combine/wire";
+import type { Injury } from "../injury/model";
+import { injuriesFromWire } from "../injury/wire";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { optionalBlockChoicesFromWire } from "../optionalBlocks/wire";
 import type { FatigueHistory } from "../fatigue/model";
@@ -23,7 +25,8 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  *                                    ├─ log ───────▶ logFromWire ──────▶ WorkoutLog
  *                                    ├─ fatigueChecks ▶ fatigueHistoryFromWire ▶ FatigueHistory
  *                                    ├─ combines (optional) ▶ combinesFromWire ▶ CombinesByDate
- *                                    └─ optionalBlockChoices (optional) ▶ optionalBlockChoicesFromWire ▶ SkippedBlocksByDate
+ *                                    ├─ optionalBlockChoices (optional) ▶ optionalBlockChoicesFromWire ▶ SkippedBlocksByDate
+ *                                    └─ injuries (optional) ▶ injuriesFromWire ▶ Injury[]
  *
  * What is refused (nothing is read at all): text that is not JSON, a file
  * that is not our format, a version other than 1 or 2, a version 2 file whose `programId` is not a valid
@@ -37,7 +40,13 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  * `combines` section is optional (files from before PR 25 have none and import
  * as no combines) and never refuses a file: unusable entries are dropped, as
  * the loader does. The `optionalBlockChoices` section is optional in the same way
- * (files from before PR 29 import as no skips). Parsing never
+ * (files from before PR 29 import as no skips). The `injuries` section is optional too, but
+ * differently: a file without one (made before Injury 3) leaves the stored
+ * injuries alone (`ImportedData.injuries` is undefined), because it says nothing
+ * about them and wiping an open flag silently would be the worse mistake; a file
+ * with one replaces them. A section that cannot be read (not version 1, not a
+ * list) is listed in `problems` and treated as absent, so the stored injuries
+ * are kept; bad single entries are dropped by the loader's rules. Parsing never
  * throws: anything unexpected becomes "could not be read".
  * `corruptLogBackups` and `importBackups` in the file are ignored: they are
  * not part of the data an import restores.
@@ -68,6 +77,12 @@ export interface ImportedData {
   combines: CombinesByDate;
   /** The file's skipped optional blocks; empty when the file has none (an older export). */
   optionalBlockChoices: SkippedBlocksByDate;
+  /**
+   * The file's injuries, which replace the stored ones. Undefined when the file
+   * has no readable `injuries` section (an older export): the stored injuries
+   * are then left as they are.
+   */
+  injuries?: Injury[];
 }
 
 /** What the confirmation step shows about the file. Dates are "YYYY-MM-DD"; the session dates are absent for an empty log. `exportedAt` is the file's ISO timestamp, absent when the file's is not a real date. */
@@ -79,6 +94,8 @@ export interface ImportSummary {
   firstSessionDate?: string;
   lastSessionDate?: string;
   startDate: string | null;
+  /** How many injuries the file holds; undefined when it has no readable injuries section (the stored ones are then kept). */
+  injuryCount?: number;
 }
 
 /** Outcome of `parseImport`: refused with a message for the athlete, or readable data plus anything left out. */
@@ -168,8 +185,49 @@ function parseImportUnguarded(fileText: string): ImportParseResult {
   // Absent in files from before optional blocks existed: the same as an empty store.
   const optionalBlockChoices = optionalBlockChoicesFromWire(parsed.optionalBlockChoices);
 
-  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory, combines, optionalBlockChoices };
+  // Absent in files from before injuries existed: undefined, so the stored injuries are kept.
+  const injuries = readInjuries(parsed.injuries, problems);
+
+  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory, combines, optionalBlockChoices, injuries };
   return { ok: true, data, summary: summarize(data, parsed.exportedAt), problems };
+}
+
+/**
+ * Reads the file's optional `injuries` section. Undefined when it is absent
+ * (an older export) or cannot be read; the latter is also added to `problems`
+ * so the preview says the injuries were left out. Undefined means the import
+ * keeps the stored injuries (see the file comment). Only
+ * `parseImportUnguarded` calls it.
+ */
+function readInjuries(wire: unknown, problems: string[]): Injury[] | undefined {
+  if (wire === undefined) return undefined;
+
+  const isReadable = isRecord(wire) && wire.version === 1 && Array.isArray(wire.injuries);
+  if (!isReadable) {
+    problems.push("The injuries section could not be read, so your current injuries will be kept.");
+    return undefined;
+  }
+
+  return injuriesFromWire(wire);
+}
+
+/**
+ * The preview's warning when importing `importedInjuries` would remove or
+ * change a flag that is open now (no end date): the sentence to show, or null
+ * when no open flag is touched (the file has no injuries section, or it still
+ * holds every open flag as it is). Used by `ui/importSection.ts` with the
+ * injuries currently stored.
+ */
+export function injuryReplacementWarning(importedInjuries: readonly Injury[] | undefined, storedInjuries: readonly Injury[]): string | null {
+  if (importedInjuries === undefined) return null;
+
+  const openFlagsNow = storedInjuries.filter((injury) => injury.to === undefined);
+  const isKeptAsIs = (stored: Injury): boolean =>
+    importedInjuries.some((imported) => imported.to === undefined && imported.area === stored.area && imported.side === stored.side && imported.from === stored.from);
+  const touched = openFlagsNow.filter((stored) => !isKeptAsIs(stored));
+  if (touched.length === 0) return null;
+
+  return `This file's injuries replace yours: ${touched.length === 1 ? "your open flag" : `${touched.length} open flags`} would be removed or changed. Cancel to keep ${touched.length === 1 ? "it" : "them"}.`;
 }
 
 /**
@@ -256,5 +314,6 @@ function summarize(data: ImportedData, exportedAtWire: unknown): ImportSummary {
     firstSessionDate: sessionDates[0],
     lastSessionDate: sessionDates[sessionDates.length - 1],
     startDate: data.settings.startDate,
+    injuryCount: data.injuries?.length,
   };
 }

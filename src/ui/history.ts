@@ -2,9 +2,13 @@ import type { Program } from "../program/model";
 import { formatLoggedSet } from "../log/itemSets";
 import { groupSetsByExercise, type ExerciseGroup } from "../log/history";
 import type { LoggedSession, LoggedSet, WorkoutLog } from "../log/model";
-import { deleteSet, editSet, sessionDates, type SetKey } from "../log/operations";
+import { groupDatesIntoWeeks, type HistoryWeek } from "../log/historyWeeks";
+import { deleteSet, editSet, type SetKey } from "../log/operations";
 import { element } from "./dom";
 import { formatSetsSummary } from "./format";
+import type { Injury } from "../injury/model";
+import type { TrainingSettings } from "../settings/model";
+import { injuryNoteForDate, leftOutSummaryLine } from "./historyInjury";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { formatSessionHeader, loggedSetLabel, skippedBlockLines, loggedSetNoun, loggedSetShowsRepsAndLoad, performedExerciseName } from "./historyText";
 import type { ChangeLog } from "./logChange";
@@ -13,18 +17,29 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
 
 /**
  * The History screen at `#/history`: one card per logged session, newest
- * first. Each card lists its exercises in block order with a compact summary;
- * tapping an exercise expands its sets, and tapping a set opens the shared
- * edit panel (reps, kg, note, Save, Delete).
+ * first, for the latest 2 program weeks; a "Show older weeks" button under the
+ * last card adds 2 more weeks at a time. Each card lists its exercises in
+ * block order with a compact summary; tapping an exercise expands its sets,
+ * and tapping a set opens the shared edit panel (reps, kg, note, Save,
+ * Delete).
  *
  *   renderHistoryScreen(program, log, changeLog)
- *     state: log (own copy) · expandedGroups · editingSet · message
- *     draw() ─▶ for each date (newest first) ─▶ session card
+ *     state: log (own copy) · weeksShown · expandedGroups · editingSet · message
+ *     draw() ─▶ for each date in the first `weeksShown` weeks (newest first) ─▶ session card
  *                 header "9 Nov · Week 2 · Day 1 · Upper: pull"
  *                 exercise row ──tap──▶ expands ─▶ "Set 1 · 6 reps · 6 kg" rows
  *                                                    └─tap─▶ edit panel
+ *               ─▶ [Show older weeks] (only while older weeks remain)
+ *                    tap ─▶ weeksShown += 2 ─▶ draw(first new card's heading)
  *     Save ─▶ editSet ─┐
  *     Delete ─▶ deleteSet ─┴▶ changeLog(op) re-reads, saves (app.ts) ─▶ draw()
+ *
+ * On a day an area was flagged the card also shows a small tag ("Right
+ * shoulder"), what was left out and what was stood in (`historyInjury.ts`).
+ *
+ * The Progress section always covers the whole log, not just the weeks shown.
+ * `weeksShown` lives in this screen's closure, so leaving History and coming
+ * back (app.ts builds a new screen on each visit) starts again at 2 weeks.
  *
  * Deleting the last set of a session removes the session (`deleteSet`), so its
  * card disappears. As on the log screen, a failed save keeps the change in
@@ -39,11 +54,15 @@ import { renderSetEditor, type SetEditorValues } from "./setEditor";
  *   expand / collapse ─▶ that exercise row      open a set ─▶ the edit panel's first control
  *   Save / Cancel ─▶ the set's row              Delete ─▶ the session card heading
  *                                                          (page heading if the card is gone)
+ *   Show older weeks ─▶ the heading of the first card it added
  */
 
 /** Focus target names that are not per-item (see `draw` in `renderHistoryScreen`). */
 const PAGE_HEADING_FOCUS_NAME = "page-heading";
 const EDITOR_FOCUS_NAME = "editor";
+
+/** How many program weeks History shows at first, and how many more each "Show older weeks" tap adds. */
+const HISTORY_WEEKS_PER_PAGE = 2;
 
 /** Shown on an empty History. */
 export const EMPTY_HISTORY_MESSAGE = "Nothing logged yet. Tap an exercise on Today to log it.";
@@ -59,10 +78,16 @@ export function renderHistoryScreen(
   initialLog: WorkoutLog,
   changeLog: ChangeLog,
   skippedOptionalBlocks: SkippedBlocksByDate = new Map(),
+  injuryContext?: { settings: TrainingSettings; injuries: readonly Injury[] },
 ): HTMLElement {
   const screen = element("section", "screen history-screen");
 
   let log = initialLog;
+  /**
+   * How many program weeks (newest first, see `groupDatesIntoWeeks`) have
+   * cards drawn; grows by HISTORY_WEEKS_PER_PAGE per "Show older weeks" tap.
+   */
+  let weeksShown = HISTORY_WEEKS_PER_PAGE;
   /** Keys (see `groupKey`) of the exercise rows currently expanded. */
   const expandedGroups = new Set<string>();
   /** The one set being edited: its session date and key. */
@@ -119,20 +144,25 @@ export function renderHistoryScreen(
   }
 
   /**
-   * Rebuilds the whole screen from the state above, then moves focus to the
-   * element registered as `focusName` (see the diagram at the top), if any.
+   * Rebuilds the whole screen from the state above (cards only for the first
+   * `weeksShown` weeks), then moves focus to the element registered as
+   * `focusName` (see the diagram at the top), if any.
    */
   function draw(focusName?: string): void {
     focusTargets = new Map();
-    // A day with only skipped sets has nothing to list, so it gets no card (and does not make the page non-empty).
-    const dates = sessionDates(log).filter((date) => (log.sessions[date]?.sets.length ?? 0) > 0);
+    // Every date that has a card, grouped into program weeks, newest first.
+    // groupDatesIntoWeeks leaves out days with only skipped sets: they have
+    // nothing to list, so they get no card and do not make the page non-empty.
+    const allWeeks = groupDatesIntoWeeks(log);
+    const hasCards = allWeeks.length > 0;
     const pageHeading = element("h1", "screen-title", "History");
     pageHeading.tabIndex = -1;
     focusTargets.set(PAGE_HEADING_FOCUS_NAME, pageHeading);
     const children: HTMLElement[] = [pageHeading];
 
     // Progress charts come first; they are rebuilt with the log on every redraw.
-    if (dates.length > 0) children.push(renderProgressSection(program, log));
+    // They read the whole log, not only the weeks shown.
+    if (hasCards) children.push(renderProgressSection(program, log));
 
     if (message !== undefined) {
       const alert = element("p", "field-error", message);
@@ -140,17 +170,39 @@ export function renderHistoryScreen(
       children.push(alert);
     }
 
-    if (dates.length === 0) {
+    if (!hasCards) {
       children.push(element("p", "history-empty", EMPTY_HISTORY_MESSAGE));
     }
 
-    for (const date of dates) {
+    // Only the newest `weeksShown` weeks get cards.
+    const shownDates = allWeeks.slice(0, weeksShown).flatMap((week) => week.dates);
+    for (const date of shownDates) {
       const session = log.sessions[date];
       if (session !== undefined) children.push(renderSessionCard(session));
     }
 
+    if (allWeeks.length > weeksShown) children.push(renderShowOlderWeeksButton(allWeeks));
+
     screen.replaceChildren(...children);
     if (focusName !== undefined) focusTargets.get(focusName)?.focus();
+  }
+
+  /**
+   * The "Show older weeks" button, drawn under the last card while older weeks
+   * remain. Tapping it widens the window by HISTORY_WEEKS_PER_PAGE weeks and
+   * sends focus to the heading of the first card that was not shown before
+   * (the button itself is replaced by the redraw).
+   */
+  function renderShowOlderWeeksButton(allWeeks: HistoryWeek[]): HTMLElement {
+    const button = element("button", "history-more-button", "Show older weeks");
+    button.type = "button";
+    button.addEventListener("click", () => {
+      // The first newly shown card is the newest date of the first week not yet drawn.
+      const firstNewDate = allWeeks[weeksShown]?.dates[0];
+      weeksShown += HISTORY_WEEKS_PER_PAGE;
+      draw(firstNewDate === undefined ? undefined : cardFocusName(firstNewDate));
+    });
+    return button;
   }
 
   /** One card: the header line (focusable by script, for after a delete), then a row per exercise in block order. */
@@ -160,6 +212,16 @@ export function renderHistoryScreen(
     header.tabIndex = -1;
     focusTargets.set(cardFocusName(session.date), header);
     card.append(header);
+
+    // On a day an area was flagged: a small tag, what was left out and what was stood in (derived, see historyInjury.ts).
+    const injuryNote = injuryContext === undefined ? undefined : injuryNoteForDate(program, injuryContext.settings, log, injuryContext.injuries, session.date);
+    if (injuryNote !== undefined) {
+      card.append(element("p", "history-injury-tag", injuryNote.tag));
+      if (injuryNote.areaFreeLine !== undefined) card.append(element("p", "history-exercise-note", injuryNote.areaFreeLine));
+      const leftOutLine = leftOutSummaryLine(injuryNote);
+      if (leftOutLine !== undefined) card.append(element("p", "history-exercise-note", leftOutLine));
+      for (const standInLine of injuryNote.standIns) card.append(element("p", "history-exercise-note", standInLine));
+    }
 
     // "Boxing skipped" for each optional block the athlete skipped that day, so the unlogged bag isn't a mystery.
     for (const line of skippedBlockLines(program, skippedOptionalBlocks.get(session.date), session)) {

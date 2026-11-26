@@ -38,6 +38,12 @@ export interface ExerciseWire {
   evidence: EvidenceWire;
   progression?: string[];
   maxTested?: boolean;
+  /**
+   * Optional: how much the exercise loads each injured area, keyed by area
+   * ("shoulder") with the value "avoid" or "caution". An exercise that
+   * loads no area leaves it out. The parser rejects unknown areas and levels.
+   */
+  loads?: Record<string, string>;
 }
 
 /**
@@ -57,6 +63,17 @@ export interface NoEquipmentSwapWire {
   load?: string;
   note?: string;
   tempo?: string;
+}
+
+/**
+ * An item's optional stand-in for one injured area (`injury.<area>`). It has
+ * the fields, and the parse rules, of a `noEquipment` swap (its own exercise
+ * and dose text, everything structural kept from the original item), plus an
+ * optional `perSide` that a stand-in may set and a `noEquipment` swap may not.
+ */
+export interface InjurySwapWire extends NoEquipmentSwapWire {
+  /** Optional: overrides the original item's `perSide` (e.g. false for a side plank done on the uninjured side only). */
+  perSide?: boolean;
 }
 
 /** One exercise inside a block. `exercise` is a key of `exercises`. */
@@ -84,6 +101,8 @@ export interface ItemWire {
   weeklyIncrease?: string;
   /** Optional household-kit swap for this item; see `NoEquipmentSwapWire`. */
   noEquipment?: NoEquipmentSwapWire;
+  /** Optional stand-ins while an area is injured, keyed by area ("shoulder"); see `InjurySwapWire`. */
+  injury?: Record<string, InjurySwapWire>;
   /**
    * The program weeks the item runs in: a non-empty list of whole numbers
    * from 1 to `program.lengthWeeks`, no repeats. Absent means every week.
@@ -160,6 +179,8 @@ export interface ProgramInfoWire {
 export interface WarmupSwapWire {
   out: string;
   in: string;
+  /** Optional: injury levels of the rotated-in exercise, same shape as an exercise's `loads`; they replace the original's while rotated in. */
+  loads?: Record<string, string>;
 }
 
 /** Warm-up rotation reminder data. */
@@ -187,6 +208,17 @@ export interface CombiningWire {
   pairs: unknown[];
 }
 
+/**
+ * One entry of the top-level `injurySessions` object: the session Today shows
+ * instead of a training day when an injured area leaves that day with no main
+ * block. `blocks` are written exactly like a day's blocks, except that their
+ * items can't carry `noEquipment` or `injury` of their own.
+ */
+export interface InjurySessionWire {
+  name: string;
+  blocks: BlockWire[];
+}
+
 /** The whole `program.json` document. */
 export interface ProgramWire {
   program: ProgramInfoWire;
@@ -201,4 +233,6 @@ export interface ProgramWire {
   fatigueCheck?: FatigueCheckWire;
   /** Optional: omitted by programs that never offer combining two days (Steady Strength). */
   combining?: CombiningWire;
+  /** Optional: area-free sessions keyed by injured area ("shoulder"). Omitted by programs with no injury support. */
+  injurySessions?: Record<string, InjurySessionWire>;
 }

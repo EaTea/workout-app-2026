@@ -6,14 +6,19 @@ import { createCuePlayer } from "../timer/cues";
 import { formatClock } from "../timer/engine";
 import { buildEmomPlan, buildIntervalPlan, defaultIntervalSettings, INTERVAL_LIMITS, shortExerciseName } from "../timer/plans";
 import { element } from "./dom";
-import { retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
+import { retestExercisesHeldBack, retestExercisesToSave, shouldOfferJumpOnly } from "./retest";
 import "./rotation.css";
 import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
+import { renderInjuredLink, renderInjuryBanners } from "./injuryFlagUi";
+import type { Injury, InjuryChoices } from "../injury/model";
+import { wasAreaInjuredRecently } from "../injury/operations";
+import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
+import "./injuryRows.css";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
-import { checkInWeekToAsk, trainingWeekOf, type CheckInDraft } from "./checkin";
+import { checkInWeekToAsk, shouldSkipPullUps, trainingWeekOf, type CheckInDraft } from "./checkin";
 import { weeklyChecksFor } from "../fatigue/operations";
 import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
@@ -132,6 +137,28 @@ export interface CombineOptions {
   actions: CombineActions;
 }
 
+/** What Today needs for the injury rows; supplied by app.ts, which owns the stored injuries and choices. */
+export interface InjuryOptions {
+  /** All stored injuries (Today reads the ones active on the shown date). */
+  injuries: readonly Injury[];
+
+  /** All stored per-date choices ("Add it back"). */
+  choices: InjuryChoices;
+
+  /** False on a date after the real today, like logging: no "Add it back". */
+  canChoose: boolean;
+
+  /**
+   * "Add it back" tapped for these item keys (`noEquipmentItemKey`, one per
+   * left-out item; a whole left-out block gives all of its items). Stores the
+   * choice for the shown date and re-renders; returns null on success or a message to show on the line.
+   */
+  onAddBack: (itemKeys: string[]) => string | null;
+
+  /** "Half sets today" tapped on a "First time back" row (its item key); stores the choice for the shown date and re-renders; null on success or a message. */
+  onHalfSets: (itemKeys: string[]) => string | null;
+}
+
 /** Placeholder skips for callers (tests) that pass none. */
 const NO_SKIPS: SkippedBlocksByDate = new Map();
 
@@ -161,8 +188,12 @@ export function renderTodayScreen(
   combine?: CombineOptions,
   optionalBlocks?: OptionalBlocksOptions,
   setLogging?: TimerSetLoggingSource,
+  injury?: InjuryOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
+
+  // While an area is flagged on the shown date, its banner leads the screen (above every card).
+  screen.append(...renderInjuryBanners(injury?.injuries ?? [], date));
 
   // A date whose day was folded into another date's session shows a card and no session.
   const donor = activeDonorOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate());
@@ -174,13 +205,14 @@ export function renderTodayScreen(
 
   // The swapped session: ticked (or already logged) swaps show as their own exercise.
   // A combined date gives the merged session of both days.
-  const { session, locked } = buildSwappedSessionFor(program, settings, log, noEquipment?.ticks ?? NO_TICKS, combine?.combines ?? NO_COMBINES, date, combine?.realToday ?? todayLocalDate(), optionalBlocks?.skippedByDate ?? NO_SKIPS);
+  const { session, locked } = buildSwappedSessionFor(program, settings, log, noEquipment?.ticks ?? NO_TICKS, combine?.combines ?? NO_COMBINES, date, combine?.realToday ?? todayLocalDate(), optionalBlocks?.skippedByDate ?? NO_SKIPS, injury?.injuries, injury?.choices);
 
   switch (session.kind) {
     case "training":
     case "combined":
       if (retest !== undefined) {
-        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate);
+        const exercisesToRetest = retestExercisesToSave(program, settings, date, retest.dismissedDate, injury?.injuries ?? []);
+        const exercisesHeldBack = retestExercisesHeldBack(program, settings, date, retest.dismissedDate, injury?.injuries ?? []);
         // The broad jump is part of the fatigue check; a program without one has no jump to ask for.
         const hasJump = program.fatigueCheck !== undefined;
         const jumpOnly = hasJump && exercisesToRetest.length === 0
@@ -189,7 +221,7 @@ export function renderTodayScreen(
           screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, hasJump ? {
             week: trainingWeekOf(program, settings, date) ?? 0,
             history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks),
-          } : undefined));
+          } : undefined, exercisesHeldBack));
         }
       }
       if (checkIn !== undefined) {
@@ -200,6 +232,8 @@ export function renderTodayScreen(
             canSave: checkIn.canSave,
             onSave: checkIn.onSave,
             onSnooze: checkIn.onSnooze,
+            skipPullUps: shouldSkipPullUps(injury?.injuries ?? [], date),
+            recentShoulderInjury: wasAreaInjuredRecently(injury?.injuries ?? [], "shoulder", date),
           }));
         }
       }
@@ -219,13 +253,13 @@ export function renderTodayScreen(
         isCombined: session.kind === "combined",
       };
       if (session.kind === "combined") {
-        screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, combine, optionalBlocks, rowTimerLogging));
+        screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, injury, combine, optionalBlocks, rowTimerLogging));
       } else {
-        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, combine, settings.startDate, optionalBlocks, rowTimerLogging));
+        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, injury, combine, settings.startDate, optionalBlocks, rowTimerLogging));
       }
       break;
     default:
-      screen.append(renderMessageCard(session, program.lengthWeeks, date, program.safety));
+      screen.append(renderMessageCard(session, program, date));
   }
 
   return screen;
@@ -242,10 +276,11 @@ export function renderTodayScreen(
  */
 function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
-  lengthWeeks: number,
+  program: Program,
   date: string,
-  safetyNotes: string[],
 ): HTMLElement {
+  const lengthWeeks = program.lengthWeeks;
+  const safetyNotes = program.safety;
   const card = element("div", "card message-card");
 
   switch (session.kind) {
@@ -281,6 +316,8 @@ function renderMessageCard(
   if (safetyNotes.length > 0) {
     card.append(renderSafetyNotesLink(safetyNotes));
   }
+  const injuredLink = renderInjuredLink(program);
+  if (injuredLink !== undefined) card.append(injuredLink);
   return card;
 }
 
@@ -300,6 +337,7 @@ function renderTrainingDay(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  injury: InjuryOptions | undefined,
   combine: CombineOptions | undefined,
   startDate: string | null,
   optionalBlocks: OptionalBlocksOptions | undefined,
@@ -308,7 +346,8 @@ function renderTrainingDay(
   const header = element("header", "today-header");
   header.append(
     element("div", "kicker", formatSessionKicker(date, session.week, program.lengthWeeks, session.dayNumber)),
-    element("h1", "today-title", session.focus),
+    // An area-free day ("Shoulder-free session · instead of Day 3 (Upper: push)") names itself and what it replaces.
+    element("h1", "today-title", areaFreeHeading(session) ?? session.focus),
     element("div", "today-subtitle", `~${session.targetMinutes} min · ${blockCountOf(session)} blocks`),
     renderProgramOverviewLink(),
   );
@@ -316,6 +355,9 @@ function renderTrainingDay(
   if (program.safety.length > 0) {
     header.append(renderSafetyNotesLink(program.safety));
   }
+  // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
+  const injuredLink = renderInjuredLink(program);
+  if (injuredLink !== undefined) header.append(injuredLink);
 
   const parts: HTMLElement[] = [header];
 
@@ -343,7 +385,7 @@ function renderTrainingDay(
   // Blocks are numbered by their place in the program day, which a block left out this week doesn't shift.
   session.blocks.forEach((block) => {
     const slot: RowSlot = { day: session.dayNumber, blockPosition: block.position, isCombined: false };
-    parts.push(renderBlockCard(program, programId, block, block.position, slot, session.phase, date, log, locked, noEquipment, optionalBlocks, rowTimerLogging));
+    parts.push(renderBlockCard(program, programId, block, block.position, slot, session.phase, date, log, locked, noEquipment, injury, optionalBlocks, rowTimerLogging));
   });
 
   return parts;
@@ -368,6 +410,7 @@ function renderCombinedDay(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  injury: InjuryOptions | undefined,
   combine: CombineOptions | undefined,
   optionalBlocks: OptionalBlocksOptions | undefined,
   rowTimerLogging: RowTimerLogging | undefined,
@@ -382,6 +425,9 @@ function renderCombinedDay(
   if (program.safety.length > 0) {
     header.append(renderSafetyNotesLink(program.safety));
   }
+  // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
+  const injuredLink = renderInjuredLink(program);
+  if (injuredLink !== undefined) header.append(injuredLink);
 
   const parts: HTMLElement[] = [header];
 
@@ -404,7 +450,7 @@ function renderCombinedDay(
   }
 
   session.blocks.forEach((combinedBlock, index) => {
-    parts.push(renderCombinedBlockCard(program, programId, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment, optionalBlocks, rowTimerLogging));
+    parts.push(renderCombinedBlockCard(program, programId, combinedBlock, index + 1, session.phase, date, log, locked, noEquipment, injury, optionalBlocks, rowTimerLogging));
   });
 
   return parts;
@@ -476,9 +522,17 @@ function renderBlockCard(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  injury: InjuryOptions | undefined,
   optionalBlocks: OptionalBlocksOptions | undefined,
   rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement {
+  // An optional block (boxing) whose every item is left out is one line with "Add it back", whatever was chosen about skipping.
+  const wholeBlockArea = block.optional === undefined ? undefined : wholeBlockLeftOutArea(block.items);
+  if (block.optional !== undefined && wholeBlockArea !== undefined) {
+    const itemKeys = block.items.map((item) => noEquipmentItemKey(slot.blockPosition, item.exercise.id, keyDayOf(slot)));
+    return renderLeftOutBlockCard(formatBlockTitle(displayNumber, block), leftOutBlockLine(block.optional.label, wholeBlockArea), block.optional.label, itemKeys, injury);
+  }
+
   // A skipped optional block is one line (it keeps its number) with "Add it back"; a logged round un-skips it (see `applySkippedBlocks`).
   if (block.skipped && block.optional !== undefined) {
     const blockKey = optionalBlockKey(slot.day, slot.blockPosition);
@@ -488,7 +542,7 @@ function renderBlockCard(
 
   const card = element("section", "card block-card");
   card.append(element("h2", "block-title", formatBlockTitle(displayNumber, block)));
-  appendBlockBody(card, program, programId, block, slot, phase, date, log, locked, noEquipment, rowTimerLogging);
+  appendBlockBody(card, program, programId, block, slot, phase, date, log, locked, noEquipment, injury, rowTimerLogging);
   return card;
 }
 
@@ -508,6 +562,7 @@ function renderCombinedBlockCard(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  injury: InjuryOptions | undefined,
   optionalBlocks: OptionalBlocksOptions | undefined,
   rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement {
@@ -515,7 +570,7 @@ function renderCombinedBlockCard(
 
   if (combinedBlock.arrangement === "single") {
     const [part] = combinedBlock.parts;
-    return renderBlockCard(program, programId, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment, optionalBlocks, rowTimerLogging);
+    return renderBlockCard(program, programId, part!.block, displayNumber, slotOf(part!), phase, date, log, locked, noEquipment, injury, optionalBlocks, rowTimerLogging);
   }
 
   const card = element("section", "card block-card");
@@ -524,7 +579,7 @@ function renderCombinedBlockCard(
     element("p", "combine-alternate-note", alternateNote(combinedBlock)),
   );
   for (const part of combinedBlock.parts) {
-    appendBlockBody(card, program, programId, part.block, slotOf(part), phase, date, log, locked, noEquipment, rowTimerLogging);
+    appendBlockBody(card, program, programId, part.block, slotOf(part), phase, date, log, locked, noEquipment, injury, rowTimerLogging);
   }
   return card;
 }
@@ -550,6 +605,7 @@ function appendBlockBody(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  injury: InjuryOptions | undefined,
   rowTimerLogging: RowTimerLogging | undefined,
 ): void {
   // Supersets rest between pairs, so the rest button belongs to the block rather than to one row.
@@ -571,7 +627,7 @@ function appendBlockBody(
   }
 
   for (const item of block.items) {
-    card.append(renderItemRow(program, programId, item, block, slot, phase, date, log, locked, noEquipment, rowTimerLogging));
+    card.append(renderItemRow(program, programId, item, block, slot, phase, date, log, locked, noEquipment, injury, rowTimerLogging));
   }
 }
 
@@ -601,10 +657,18 @@ function renderItemRow(
   log: WorkoutLog,
   locked: ReadonlySet<string>,
   noEquipment: NoEquipmentOptions | undefined,
+  injury: InjuryOptions | undefined,
   rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement {
   const { day: dayNumber, blockPosition } = slot;
   const keyDay = keyDayOf(slot);
+
+  // An item the injury leaves out is one compact line: no Start or Log controls, no progress, and not counted
+  // (it has no `data-row-key`, so the scroll-back after a set skips it too).
+  if (item.leftOut !== undefined) {
+    return renderLeftOutRow(item, noEquipmentItemKey(blockPosition, item.exercise.id, keyDay), injury);
+  }
+
   const row = element("div", "item-row");
   // Keys let app.ts scroll back to this row after a set (returnScroll.ts). "complete" means every set is done.
   row.dataset.rowKey = todayRowKey(blockPosition, item.exercise.id, keyDay);
@@ -630,6 +694,15 @@ function renderItemRow(
   const details = formatItemDetails(item);
   if (details.length > 0) {
     text.append(element("span", "item-details", details.join(" · ")));
+  }
+  // A kept "caution" row and an added-back row: done within what doesn't hurt.
+  if (item.painFreeOnly) {
+    text.append(element("span", "item-pain-free", PAIN_FREE_ONLY_LINE));
+  }
+  // The first session back after a cleared injury: pain-free only, plus (once halved) a line saying so.
+  if (item.firstTimeBack !== undefined) {
+    text.append(element("span", "item-pain-free", FIRST_TIME_BACK_LINE));
+    if (item.halvedForReturn) text.append(element("span", "item-pain-free", HALVED_FOR_RETURN_LINE));
   }
   const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item), keyDay);
   const isLocked = locked.has(itemKey);
@@ -708,8 +781,15 @@ function renderItemRow(
   }
 
 
+  // "Half sets today" is a sibling button, like Start, so the row button keeps opening the log screen.
+  if (item.firstTimeBack?.halfSetsOffered && !item.halvedForReturn) {
+    row.append(...renderHalfSetsToday(noEquipmentItemKey(blockPosition, item.exercise.id, keyDay), itemDisplayName(item), injury));
+  }
+
   // Items with a swap get the "No equipment" tick on its own line at the bottom of the row.
-  if (hasNoEquipmentSwap(item) && noEquipment !== undefined) {
+  // An injury wins: a stand-in or added-back row has no tick (`applyInjuries` already dropped its swap; this is the belt to that brace).
+  const hasInjuryChange = item.injuryStandInFor !== undefined || item.addedBack === true;
+  if (hasNoEquipmentSwap(item) && noEquipment !== undefined && !hasInjuryChange) {
     row.append(renderNoEquipmentTick(item, itemKey, isLocked, noEquipment, noEquipmentLine !== undefined ? noEquipmentNoteId : undefined));
   }
 
@@ -717,6 +797,79 @@ function renderItemRow(
     window.location.hash = logRouteHash(date, blockPosition, item.exercise.id, keyDay);
   });
   return row;
+}
+
+/**
+ * The "Add it back" button and its error line for left-out items, as a list
+ * to append; empty when the choice can't be made (no injury options, or a
+ * future preview date, like logging). `subject` names what comes back for
+ * the accessible name. Tapping saves the choice for the shown date through
+ * `injury.onAddBack`, which re-renders Today; a failure shows under the button.
+ */
+function renderAddItBack(itemKeys: string[], subject: string, injury: InjuryOptions | undefined): HTMLElement[] {
+  if (injury === undefined || !injury.canChoose) return [];
+
+  const button = element("button", "injury-add-back", ADD_IT_BACK_LABEL);
+  button.type = "button";
+  button.setAttribute("aria-label", addItBackButtonName(subject));
+
+  const errorLine = element("p", "field-error");
+  errorLine.setAttribute("role", "alert");
+
+  button.addEventListener("click", () => {
+    const failure = injury.onAddBack(itemKeys);
+    if (failure !== null) errorLine.textContent = failure;
+  });
+  return [button, errorLine];
+}
+
+/**
+ * The "Half sets today" button of a "First time back" row and its error line,
+ * as a list to append; empty when the choice can't be made (no injury
+ * options, or a future preview date). Tapping saves the choice for the shown
+ * date through `injury.onHalfSets`, which re-renders Today.
+ */
+function renderHalfSetsToday(itemKey: string, subject: string, injury: InjuryOptions | undefined): HTMLElement[] {
+  if (injury === undefined || !injury.canChoose) return [];
+
+  const button = element("button", "injury-add-back injury-half-sets", HALF_SETS_TODAY_LABEL);
+  button.type = "button";
+  button.setAttribute("aria-label", halfSetsTodayButtonName(subject));
+
+  const errorLine = element("p", "field-error");
+  errorLine.setAttribute("role", "alert");
+
+  button.addEventListener("click", () => {
+    const failure = injury.onHalfSets([itemKey]);
+    if (failure !== null) errorLine.textContent = failure;
+  });
+  return [button, errorLine];
+}
+
+/**
+ * The compact line of an item a flagged area leaves out:
+ * "Pull-ups   Left out for your shoulder · [Add it back]". It has no Start,
+ * Rest or Log controls and no progress, so it is neither counted nor opens a
+ * log screen (the log screen says "Nothing to log here" for it too).
+ * `itemKey` is the item's `noEquipmentItemKey`, the key the choice is saved under.
+ */
+function renderLeftOutRow(item: ItemView, itemKey: string, injury: InjuryOptions | undefined): HTMLElement {
+  const row = element("div", "item-row item-left-out");
+
+  const text = element("span", "item-left-out-text");
+  text.append(
+    element("span", "item-name", itemDisplayName(item)),
+    element("span", "item-left-out-line", leftOutLine(item.leftOut!.area)),
+  );
+  row.append(text, ...renderAddItBack([itemKey], itemDisplayName(item), injury));
+  return row;
+}
+
+/** The card of an optional block (boxing) whose every item is left out: its title, "Boxing left out for your shoulder" and "Add it back" for all its items. */
+function renderLeftOutBlockCard(title: string, line: string, blockLabel: string, itemKeys: string[], injury: InjuryOptions | undefined): HTMLElement {
+  const card = element("section", "card block-card skipped-block-card");
+  card.append(element("h2", "block-title", title), element("p", "skipped-block-line", line), ...renderAddItBack(itemKeys, blockLabel, injury));
+  return card;
 }
 
 /**
@@ -956,6 +1109,10 @@ function renderStartRestButton(
  * what it is.
  */
 function noEquipmentLineFor(item: ItemView, isLocked: boolean): string | undefined {
+  // An injury stand-in reads like a swapped row ("Instead of Hanging leg raise"); the lock note is the same.
+  const standIn = standInLine(item);
+  if (standIn !== undefined) return isLocked ? `${standIn} · sets logged` : standIn;
+
   if (!hasNoEquipmentSwap(item)) return undefined;
   if (item.swappedFrom === undefined) return undefined;
 

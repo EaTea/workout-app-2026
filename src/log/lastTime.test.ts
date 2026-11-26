@@ -326,3 +326,33 @@ describe("findLastTime across alternating weeks (PLAN.md PR 26 rule 4)", () => {
     expect(findLastTime(log, program, query("rotational_wall_throw", 3, "explosive"), week4Day3)).toBeUndefined();
   });
 });
+
+describe("findLastTime with injury stand-ins and the area-free session (Injury 2 review)", () => {
+  it("shows a suitcase split squat logged on 24 Nov (Day 2, block 3) as last time on 1 Dec", () => {
+    const log = makeLog(makeSession("2026-11-24", 2, [makeSet("suitcase_bulgarian_split_squat", 3, 1, 12), makeSet("suitcase_bulgarian_split_squat", 3, 2, 12)]));
+
+    const lastTime = findLastTime(log, program, query("suitcase_bulgarian_split_squat", 2, "mainStrength"), "2026-12-01");
+
+    expect(lastTime?.date).toBe("2026-11-24");
+    expect(lastTime?.sets).toHaveLength(2);
+    expect(lastTimeSetFor(lastTime, 2)?.reps).toBe(12);
+  });
+
+  it("does not show the stand-in's sets as last time for the original, nor the reverse", () => {
+    const log = makeLog(makeSession("2026-11-24", 2, [makeSet("suitcase_bulgarian_split_squat", 3, 1, 12)]));
+    expect(findLastTime(log, program, query("zercher_bulgarian_split_squat", 2, "mainStrength"), "2026-12-01")).toBeUndefined();
+  });
+
+  it("finds an area-free session's lying leg raise (logged 25 Nov as Day 3, block 2) on 2 Dec, as a core block", () => {
+    const log = makeLog(makeSession("2026-11-25", 3, [makeSet("lying_leg_raise", 2, 1, 12)]));
+
+    const lastTime = findLastTime(log, program, query("lying_leg_raise", 3, "core"), "2026-12-02");
+
+    expect(lastTime?.date).toBe("2026-11-25");
+  });
+
+  it("does not match an area-free exercise logged at a position whose area block does not hold it", () => {
+    const log = makeLog(makeSession("2026-11-25", 3, [makeSet("lying_leg_raise", 5, 1, 12)]));
+    expect(findLastTime(log, program, query("lying_leg_raise", 3, "core"), "2026-12-02")).toBeUndefined();
+  });
+});

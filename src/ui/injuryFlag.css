@@ -1,0 +1,82 @@
+/* Injury flag: the Settings card, Today's banner and the sheet's paragraphs. */
+.injury-banner-title {
+  margin: 0;
+  color: #f5c451;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.injury-banner-advice {
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.injury-banner-button,
+.injury-checked-button {
+  min-height: 44px;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.injury-section .field select {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.injury-subtitle,
+.injury-past-title {
+  margin: 12px 0 8px;
+  font-size: 16px;
+}
+
+.injury-flagged-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.injury-flagged-note {
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.injury-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.injury-confirm {
+  margin-top: 8px;
+}
+
+.injury-confirm button {
+  margin: 4px 8px 0 0;
+}
+
+.injury-past-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.injury-sheet-text {
+  line-height: 1.5;
+}
+
+.injury-secondary-button {
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid #3a4150;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

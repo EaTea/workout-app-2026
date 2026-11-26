@@ -16,6 +16,7 @@ const bundle: ExportBundle = {
   fatigueHistory: { checks: [{ date: "2026-11-09", savedProgramWeek: 2, maxPullUps: 10, savedAt: new Date("2026-11-09T07:30:00.000Z") }] },
   combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   optionalBlockChoices: new Map([["2026-11-09", new Set(["1:6"])]]),
+  injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", to: "2026-12-01", note: "pinch" }],
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -41,6 +42,7 @@ describe("exportToWire", () => {
       fatigueChecks: { version: 1, checks: [{ date: "2026-11-09", programWeek: 2, maxPullUps: 10, savedAt: "2026-11-09T07:30:00.000Z" }] },
       combines: { version: 1, combines: { "2026-11-09": { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" } } },
       optionalBlockChoices: { version: 1, choices: { "2026-11-09": { skipped: ["1:6"] } } },
+      injuries: { version: 1, injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", to: "2026-12-01", note: "pinch" }] },
     });
   });
 

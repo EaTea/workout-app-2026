@@ -20,6 +20,8 @@ describe("storageKeysForProgram", () => {
       noEquipment: "explosive-endurance.no-equipment",
       combines: "explosive-endurance.combines",
       optionalBlockChoices: "explosive-endurance.optional-block-choices",
+      injuries: "explosive-endurance.injuries",
+      injuryChoices: "explosive-endurance.injury-choices",
       importBackupPrefix: "explosive-endurance.import-backup-",
     });
   });
