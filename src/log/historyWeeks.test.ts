@@ -115,4 +115,33 @@ describe("groupDatesIntoWeeks", () => {
 
     expect(groupDatesIntoWeeks(log)).toEqual([]);
   });
+
+  describe("with breaks", () => {
+    // Start 2 Nov; break 26 Nov to 3 Dec (3 Dec is the first day back, week 4 day 4).
+    const weekBreak = [{ from: "2026-11-26", to: "2026-12-03" }];
+
+    it("keeps a week with a break inside it as one group (25 Nov W4 D3 and 3 Dec W4 D4)", () => {
+      const log = makeLog(makeSession("2026-12-03", 4), makeSession("2026-11-25", 4));
+
+      expect(groupDatesIntoWeeks(log, weekBreak).map((week) => week.dates)).toEqual([["2026-12-03", "2026-11-25"]]);
+    });
+
+    it("splits the same two dates without the break (8 days apart)", () => {
+      const log = makeLog(makeSession("2026-12-03", 4), makeSession("2026-11-25", 4));
+
+      expect(weekDates(log)).toEqual([["2026-12-03"], ["2026-11-25"]]);
+    });
+
+    it("still splits when the stored week changes across a break", () => {
+      const log = makeLog(makeSession("2026-12-07", 5), makeSession("2026-11-25", 4));
+
+      expect(groupDatesIntoWeeks(log, weekBreak).map((week) => week.dates)).toEqual([["2026-12-07"], ["2026-11-25"]]);
+    });
+
+    it("still splits two same-week sessions 7 program days apart even with a break elsewhere", () => {
+      const log = makeLog(makeSession("2026-11-20", 1), makeSession("2026-11-10", 1));
+
+      expect(groupDatesIntoWeeks(log, weekBreak).map((week) => week.dates)).toEqual([["2026-11-20"], ["2026-11-10"]]);
+    });
+  });
 });

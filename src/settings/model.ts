@@ -4,6 +4,8 @@
  * with the storage step; nothing here is serialised directly.
  */
 
+import type { TrainingBreak } from "../break/model";
+
 /**
  * One saved max in an exercise's history: the value and the calendar date
  * ("YYYY-MM-DD") it was saved. `savedOn` is null when the date is unknown
@@ -38,4 +40,13 @@ export interface TrainingSettings {
    * past day was shown with (the week 8 hold).
    */
   maxHistory: Record<string, MaxHistoryEntry[]>;
+
+  /**
+   * Breaks from training, so every function holding `settings` can do
+   * schedule maths with them (`programStatus`, `dateOfProgramDay`). Filled by
+   * `ui/app.ts` from `keys.breaks` (`loadBreaks`) whenever settings are
+   * loaded or changed; absent means none. NOT part of the settings wire:
+   * `settingsToWire` never writes it, and the Settings Save form keeps it.
+   */
+  breaks?: readonly TrainingBreak[];
 }

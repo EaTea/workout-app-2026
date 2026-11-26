@@ -16,6 +16,8 @@
  *   (the rest day is program.restDay)
  */
 
+import { breakDaysBetween } from "../break/operations";
+import type { TrainingBreak } from "../break/model";
 import { DAYS_PER_WEEK } from "./model";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -25,6 +27,13 @@ export type ProgramStatus =
   | { kind: "noStartDate" }
   | { kind: "notStarted"; startsOn: string }
   | { kind: "active"; week: number; dayNumber: number }
+  /**
+   * `today` is inside a break from training: no session. `until` is the
+   * break's `to` (the first day back); `week` and `dayNumber` are the
+   * program day training resumes on. Never reported when resuming would be
+   * past the last week (that is `complete`).
+   */
+  | { kind: "onBreak"; until: string; week: number; dayNumber: number }
   | { kind: "complete" };
 
 /**
@@ -67,34 +76,102 @@ export function addDaysToDate(calendarDate: string, days: number): string {
 
 /**
  * Works out where `today` sits in the program: before it starts, in a given
- * week (1-based) and day of that week (1-7), or after the last week.
+ * week (1-based) and day of that week (1-7), on a break, or after the last week.
  *
  * The start date is day 1 of week 1. Day number N runs the program day
  * numbered N in program.json (the rest day is program.restDay).
  *
+ * Breaks from training stop the clock: the program-day index is the days
+ * since the start date MINUS the days of breaks in that span, so the day
+ * after a break is the day that would have come next. A date inside a break
+ * is `onBreak` (resuming on the program day of the break's first day back,
+ * or `complete` when that would be past the last week). A break wholly
+ * before the start date or after `today` changes nothing.
+ *
+ *   start 2 Nov, break 26 Nov..3 Dec (to exclusive):
+ *   25 Nov  wk4 d3 | 26 Nov..2 Dec on a break | 3 Dec  wk4 d4 (resumes)
+ *
  * Note: a start date saved by an earlier version of the app (when week 1
  * began at the start of the start date's calendar week) is now simply read as
  * day 1. The stored format is unchanged, so no migration is needed.
+ * With `breaks` empty the result is exactly as it was before breaks existed.
  */
-export function programStatus(startDate: string | null, lengthWeeks: number, today: string): ProgramStatus {
+export function programStatus(startDate: string | null, lengthWeeks: number, today: string, breaks: readonly TrainingBreak[] = []): ProgramStatus {
   if (startDate === null) {
     return { kind: "noStartDate" };
   }
 
   const daysSinceStart = toDayNumber(today) - toDayNumber(startDate);
 
-  if (daysSinceStart < 0) {
-    return { kind: "notStarted", startsOn: startDate };
+  // A break can cover the start date, so Day 1 is really the first date training happens, not `startDate`.
+  // Before it the program has not started, even on dates between `startDate` and Day 1 that sit inside the break.
+  const realDayOne = dateOfProgramDay(startDate, breaks, 1, 1);
+  if (today < realDayOne) {
+    return { kind: "notStarted", startsOn: realDayOne };
   }
 
-  const week = Math.floor(daysSinceStart / DAYS_PER_WEEK) + 1;
+  const coveringBreak = breaks.find((trainingBreak) => trainingBreak.from <= today && today < trainingBreak.to);
+  if (coveringBreak !== undefined) {
+    // Break chains: breaks may touch, so the real first day back is the first date not covered.
+    const firstDayBack = firstDateNotOnBreak(breaks, coveringBreak.to);
+    const resumes = programStatus(startDate, lengthWeeks, firstDayBack, breaks);
+    return resumes.kind === "active" ? { kind: "onBreak", until: firstDayBack, week: resumes.week, dayNumber: resumes.dayNumber } : { kind: "complete" };
+  }
+
+  const programDayIndex = daysSinceStart - breakDaysBetween(breaks, startDate, today);
+  const week = Math.floor(programDayIndex / DAYS_PER_WEEK) + 1;
 
   if (week > lengthWeeks) {
     return { kind: "complete" };
   }
 
-  const dayNumber = (daysSinceStart % DAYS_PER_WEEK) + 1;
+  const dayNumber = (programDayIndex % DAYS_PER_WEEK) + 1;
   return { kind: "active", week, dayNumber };
+}
+
+/** The first date on or after `date` that is not inside any break (touching breaks chain). */
+function firstDateNotOnBreak(breaks: readonly TrainingBreak[], date: string): string {
+  let candidate = date;
+  let covering = breaks.find((trainingBreak) => trainingBreak.from <= candidate && candidate < trainingBreak.to);
+  while (covering !== undefined) {
+    candidate = covering.to;
+    covering = breaks.find((trainingBreak) => trainingBreak.from <= candidate && candidate < trainingBreak.to);
+  }
+  return candidate;
+}
+
+/**
+ * The inverse of `programStatus`: the calendar date on which program `week`
+ * (1-based) and `dayNumber` (1-7) fall, skipping break days. Returns the
+ * first date that is not on a break whose program-day index matches
+ * ((week - 1) * 7 + (dayNumber - 1) days of training since the start date).
+ * Used wherever the app turns a (week, day) into a date: the Day plan, week
+ * start dates for the retest window, and the held EMOM dates. With no
+ * breaks it is start + (week-1)*7 + (day-1), as before.
+ *
+ * Starts at the plain date and moves forward past breaks until the day
+ * count matches; a break before the start date never matters.
+ */
+export function dateOfProgramDay(startDate: string, breaks: readonly TrainingBreak[], week: number, dayNumber: number): string {
+  const targetIndex = (week - 1) * DAYS_PER_WEEK + (dayNumber - 1);
+
+  // The plain date (no breaks) is never later than the answer, so only ever move forward from it.
+  //   candidate on a break          -> jump to the first day back
+  //   candidate trained too few days -> add the shortfall (the skipped break days)
+  //   otherwise                     -> found: not on a break, and the right number of days trained
+  let candidate = addDaysToDate(startDate, targetIndex);
+  for (;;) {
+    const firstFreeDate = firstDateNotOnBreak(breaks, candidate);
+    if (firstFreeDate !== candidate) {
+      candidate = firstFreeDate;
+      continue;
+    }
+
+    const indexOfCandidate = toDayNumber(candidate) - toDayNumber(startDate) - breakDaysBetween(breaks, startDate, candidate);
+    if (indexOfCandidate >= targetIndex) return candidate;
+
+    candidate = addDaysToDate(candidate, targetIndex - indexOfCandidate);
+  }
 }
 
 /**

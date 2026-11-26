@@ -72,7 +72,7 @@ describe("First time back", () => {
     const item = itemOf(sessionOn("2026-12-02", { injuries: [clearedShoulder] }), "pallof_press");
 
     expect(item.rotatedIn?.displayName).toBe("Ab raises");
-    expect(item.firstTimeBack?.area).toBe("shoulder");
+    expect(item.firstTimeBack).toMatchObject({ reason: "injury", area: "shoulder" });
   });
 
   it("does not mark the unrotated Pallof press (caution) first time back", () => {
@@ -84,7 +84,7 @@ describe("First time back", () => {
   it("marks the pull-up EMOM on its first session after the clear, pain-free only", () => {
     const item = itemOf(sessionOn(CLEAR_DATE), "pull_up");
 
-    expect(item.firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: true });
+    expect(item.firstTimeBack).toEqual({ reason: "injury", area: "shoulder", halfSetsOffered: true });
     expect(item.leftOut).toBeUndefined();
     expect(item.halvedForReturn).toBeUndefined();
   });
@@ -100,7 +100,7 @@ describe("First time back", () => {
   it("marks an item that had a stand-in too, because the original returns", () => {
     const item = itemOf(sessionOn(CLEAR_DATE), "hanging_leg_raise");
 
-    expect(item.firstTimeBack?.area).toBe("shoulder");
+    expect(item.firstTimeBack).toMatchObject({ reason: "injury", area: "shoulder" });
     expect(item.injuryStandInFor).toBeUndefined();
   });
 
@@ -116,7 +116,7 @@ describe("First time back", () => {
   it("keeps the mark while today's own sets are logged, but stops offering Half sets", () => {
     const item = itemOf(sessionOn(CLEAR_DATE, { log: logPullUp(CLEAR_DATE) }), "pull_up");
 
-    expect(item.firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: false });
+    expect(item.firstTimeBack).toEqual({ reason: "injury", area: "shoulder", halfSetsOffered: false });
   });
 
   it("ignores sets logged under a stand-in's id and sets before the clear", () => {
@@ -139,7 +139,7 @@ describe("First time back", () => {
     const swapped = itemOf(built.session, "inverted_row");
 
     expect(swapped.swappedFrom?.id).toBe("pull_up");
-    expect(swapped.firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: false });
+    expect(swapped.firstTimeBack).toEqual({ reason: "injury", area: "shoulder", halfSetsOffered: false });
   });
 
   it("shows nothing for a clear older than the 14-day window", () => {
@@ -182,7 +182,7 @@ describe("Half sets today", () => {
   it("is not offered, and does not mark the row halved, where halving changes nothing (a warm-up, a one-set item)", () => {
     const plain = sessionOn(CLEAR_DATE);
     const warmup = plain.blocks.find((block) => block.type === "warmup")!;
-    expect(itemOf(plain, "ytwi").firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: false });
+    expect(itemOf(plain, "ytwi").firstTimeBack).toEqual({ reason: "injury", area: "shoulder", halfSetsOffered: false });
 
     const halved = sessionOn(CLEAR_DATE, { choices: choicesOf(CLEAR_DATE, `${warmup.position}:ytwi`) });
     expect(itemOf(halved, "ytwi").halvedForReturn).toBeUndefined();
@@ -231,7 +231,7 @@ describe("First time back with Half sets today on a combined day", () => {
     const rows = session.blocks.flatMap((block) => block.parts).flatMap((part) => part.block.items.map((item) => ({ day: part.source.day, item })));
 
     const pullUps = rows.find((row) => row.day === 1 && row.item.exercise.id === "pull_up")!.item;
-    expect(pullUps.firstTimeBack).toEqual({ area: "shoulder", halfSetsOffered: true });
+    expect(pullUps.firstTimeBack).toEqual({ reason: "injury", area: "shoulder", halfSetsOffered: true });
     expect(pullUps.halvedForReturn).toBe(true);
     expect(pullUps.minutes).toBe(5);
 

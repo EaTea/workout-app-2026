@@ -1,6 +1,7 @@
 import "./export.css";
-import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, injuryReplacementWarning, parseImport, wrongProgramMessage, type ImportSummary, type ProgramNames } from "../export/import";
+import { FILE_TOO_LARGE_MESSAGE, MAX_IMPORT_FILE_BYTES, breakReplacementWarning, injuryReplacementWarning, parseImport, wrongProgramMessage, type ImportSummary, type ProgramNames } from "../export/import";
 import { applyImport, undoLastImport } from "../export/importApply";
+import { loadBreaks } from "../break/storage";
 import { loadInjuries } from "../injury/storage";
 import { listImportBackups } from "../export/importBackup";
 import { todayLocalDate } from "../program/calendar";
@@ -94,6 +95,11 @@ export function summaryLines(summary: ImportSummary): string[] {
     summary.injuryCount === undefined
       ? "Injuries: none in the file (yours are kept)"
       : `Injuries: ${summary.injuryCount} (replace yours)`,
+  );
+  lines.push(
+    summary.breakCount === undefined
+      ? "Breaks: none in the file (yours are kept)"
+      : `Breaks: ${summary.breakCount} (replace yours)`,
   );
   return lines;
 }
@@ -224,6 +230,9 @@ export function renderImportSection(options: ImportSectionOptions): HTMLElement 
 
     const injuryWarning = injuryReplacementWarning(result.data.injuries, loadInjuries(options.storage, options.storageKeys.injuries));
     if (injuryWarning !== null) preview.append(element("p", "import-message import-injury-warning", injuryWarning));
+
+    const breakWarning = breakReplacementWarning(result.data.breaks, loadBreaks(options.storage, options.storageKeys.breaks));
+    if (breakWarning !== null) preview.append(element("p", "import-message import-break-warning", breakWarning));
 
     if (result.problems.length > 0) {
       const shown = result.problems.slice(0, MAX_PROBLEMS_SHOWN);

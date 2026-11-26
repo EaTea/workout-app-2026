@@ -6,6 +6,7 @@ import {
   settingsToWire,
 } from "./storage";
 import { storageKeysForProgram } from "../storage/programKeys";
+import type { TrainingSettings } from "./model";
 
 /** Explosive Endurance's keys, the ones the app has always used. */
 const KEYS = storageKeysForProgram("explosive-endurance");
@@ -229,5 +230,19 @@ describe("exercise ids that are Object.prototype member names", () => {
     expect(settings.maxReps).toEqual({ constructor: 7, toString: 5 });
     expect(settings.maxHistory.constructor).toEqual([{ savedOn: "2026-11-03", reps: 7 }]);
     expect(settings.maxHistory.toString).toEqual([{ savedOn: null, reps: 5 }]);
+  });
+});
+
+describe("breaks on the settings", () => {
+  it("are never written to the settings wire", () => {
+    const withBreaks: TrainingSettings = {
+      startDate: "2026-11-02",
+      maxReps: {},
+      maxSavedOn: {},
+      maxHistory: {},
+      breaks: [{ from: "2026-11-26", to: "2026-12-03" }],
+    };
+
+    expect(settingsToWire(withBreaks)).toEqual({ version: 2, startDate: "2026-11-02", maxReps: {}, maxSavedOn: {} });
   });
 });

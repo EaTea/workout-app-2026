@@ -12,13 +12,15 @@ import { renderProgramOverviewLink } from "./overview";
 import { itemDisplayName, rotationBlockStartWeek } from "../program/rotation";
 import { renderSafetyNotesLink } from "./safetyNotes";
 import { renderInjuredLink, renderInjuryBanners } from "./injuryFlagUi";
+import { breakOn } from "../break/operations";
+import { renderEndBreakControl, renderTakeBreakLink, type BreakTodayOptions } from "./breakUi";
+import { backOnText, ON_A_BREAK_TITLE } from "./breakText";
 import type { Injury, InjuryChoices } from "../injury/model";
-import { wasAreaInjuredRecently } from "../injury/operations";
-import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, FIRST_TIME_BACK_LINE, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
+import { addItBackButtonName, ADD_IT_BACK_LABEL, areaFreeHeading, firstTimeBackLine, HALF_SETS_TODAY_LABEL, HALVED_FOR_RETURN_LINE, halfSetsTodayButtonName, leftOutBlockLine, leftOutLine, PAIN_FREE_ONLY_LINE, standInLine, wholeBlockLeftOutArea } from "./injuryRowText";
 import "./injuryRows.css";
 import { renderRotationCard } from "./rotationCard";
 import { renderRetestCard, type RetestCardActions } from "./retestCard";
-import { checkInWeekToAsk, shouldSkipPullUps, trainingWeekOf, type CheckInDraft } from "./checkin";
+import { checkInWeekToAsk, shouldSkipPullUps, timeOffExplanation, trainingWeekOf, type CheckInDraft } from "./checkin";
 import { weeklyChecksFor } from "../fatigue/operations";
 import { renderCheckInCard } from "./checkinCard";
 import type { FatigueHistory } from "../fatigue/model";
@@ -32,6 +34,7 @@ import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import type { CombinesByDate } from "../combine/model";
 import { type CombinedBlock, type CombinedSession, type TrainingSessionView } from "../program/combine";
 import { activeCombineOn, activeDonorOn, combineOffersFor } from "../program/combineOffers";
+import type { TrainingBreak } from "../break/model";
 import { programStatus, todayLocalDate } from "../program/calendar";
 import { blockCountOf } from "../optionalBlocks/session";
 import { optionalBlockKey } from "../optionalBlocks/model";
@@ -189,6 +192,7 @@ export function renderTodayScreen(
   optionalBlocks?: OptionalBlocksOptions,
   setLogging?: TimerSetLoggingSource,
   injury?: InjuryOptions,
+  breakOptions?: BreakTodayOptions,
 ): HTMLElement {
   const screen = element("section", "screen");
 
@@ -196,8 +200,8 @@ export function renderTodayScreen(
   screen.append(...renderInjuryBanners(injury?.injuries ?? [], date));
 
   // A date whose day was folded into another date's session shows a card and no session.
-  const donor = activeDonorOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate());
-  const donorStatus = programStatus(settings.startDate, program.lengthWeeks, date);
+  const donor = activeDonorOn(program, settings.startDate, settings.breaks ?? [], date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate());
+  const donorStatus = programStatus(settings.startDate, program.lengthWeeks, date, settings.breaks);
   if (donor !== undefined && donorStatus.kind === "active") {
     screen.append(renderDonorCard(donor, date, donorStatus.week, program.lengthWeeks, program.safety));
     return screen;
@@ -220,20 +224,20 @@ export function renderTodayScreen(
         if (exercisesToRetest.length > 0 || jumpOnly) {
           screen.append(renderRetestCard(exercisesToRetest, settings, retest.actions, hasJump ? {
             week: trainingWeekOf(program, settings, date) ?? 0,
-            history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks),
+            history: weeklyChecksFor(retest.history, settings.startDate, program.lengthWeeks, settings.breaks ?? []),
           } : undefined, exercisesHeldBack));
         }
       }
       if (checkIn !== undefined) {
         const weekToAsk = checkInWeekToAsk(program, settings, date, checkIn.history, checkIn.snoozedDate);
         if (weekToAsk !== undefined) {
-          screen.append(renderCheckInCard(weekToAsk, weeklyChecksFor(checkIn.history, settings.startDate, program.lengthWeeks), checkIn.ruleText, {
+          screen.append(renderCheckInCard(weekToAsk, weeklyChecksFor(checkIn.history, settings.startDate, program.lengthWeeks, settings.breaks ?? []), checkIn.ruleText, {
             draft: checkIn.draftForWeek(weekToAsk),
             canSave: checkIn.canSave,
             onSave: checkIn.onSave,
             onSnooze: checkIn.onSnooze,
             skipPullUps: shouldSkipPullUps(injury?.injuries ?? [], date),
-            recentShoulderInjury: wasAreaInjuredRecently(injury?.injuries ?? [], "shoulder", date),
+            explainDrops: (drops) => timeOffExplanation(drops, injury?.injuries ?? [], settings.breaks ?? [], date),
           }));
         }
       }
@@ -249,17 +253,17 @@ export function renderTodayScreen(
         program,
         source: setLogging,
         programWeek: session.week,
-        hostDay: activeCombineOn(program, settings.startDate, date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate())?.hostDay,
+        hostDay: activeCombineOn(program, settings.startDate, settings.breaks ?? [], date, combine?.combines ?? NO_COMBINES, log, combine?.realToday ?? todayLocalDate())?.hostDay,
         isCombined: session.kind === "combined",
       };
       if (session.kind === "combined") {
         screen.append(...renderCombinedDay(program, programId, session, date, log, locked, noEquipment, injury, combine, optionalBlocks, rowTimerLogging));
       } else {
-        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, injury, combine, settings.startDate, optionalBlocks, rowTimerLogging));
+        screen.append(...renderTrainingDay(program, programId, session, date, log, locked, noEquipment, injury, combine, settings.startDate, settings.breaks ?? [], optionalBlocks, rowTimerLogging));
       }
       break;
     default:
-      screen.append(renderMessageCard(session, program, date));
+      screen.append(renderMessageCard(session, program, date, settings.breaks ?? [], breakOptions));
   }
 
   return screen;
@@ -267,7 +271,9 @@ export function renderTodayScreen(
 
 /**
  * A single card for sessions with nothing to train: not started, rest day,
- * finished. Each ends with the small "Program overview" link. The
+ * on a break, finished. Each ends with the small "Program overview" link. The
+ * on-a-break card also shows the break's note (looked up in `breaks`) and, when
+ * `breakOptions` is given, "End the break today" (or a hint in a preview). The
  * `noStartDate` case is only here to keep the switch exhaustive: app.ts never
  * renders Today without a start date (it shows the Overview), so the card just
  * points there. A program with safety notes keeps the "Safety notes" link on
@@ -278,6 +284,8 @@ function renderMessageCard(
   session: Exclude<SessionView, { kind: "training" }>,
   program: Program,
   date: string,
+  breaks: readonly TrainingBreak[],
+  breakOptions: BreakTodayOptions | undefined,
 ): HTMLElement {
   const lengthWeeks = program.lengthWeeks;
   const safetyNotes = program.safety;
@@ -303,6 +311,19 @@ function renderMessageCard(
       );
       break;
 
+    case "onBreak": {
+      // The break's note (if any) and, on the real today, a way to end it: the first day back is today.
+      const coveringBreak = breakOn(breaks, date);
+      card.append(
+        element("h2", "card-title", ON_A_BREAK_TITLE),
+        element("p", undefined, `${backOnText(session.until)} with Week ${session.resumesWeek}, Day ${session.resumesDayNumber}.`),
+      );
+      if (coveringBreak?.note !== undefined) card.append(element("p", "break-note-line", coveringBreak.note));
+      const endControl = breakOptions === undefined ? undefined : renderEndBreakControl(breakOptions);
+      if (endControl !== undefined) card.append(endControl);
+      break;
+    }
+
     case "complete":
       card.append(
         element("h2", "card-title", "Program complete"),
@@ -318,6 +339,8 @@ function renderMessageCard(
   }
   const injuredLink = renderInjuredLink(program);
   if (injuredLink !== undefined) card.append(injuredLink);
+  // Already on a break: the card has its own "End the break today"; a second "Take a break" would be noise.
+  if (session.kind !== "onBreak") card.append(renderTakeBreakLink());
   return card;
 }
 
@@ -340,6 +363,7 @@ function renderTrainingDay(
   injury: InjuryOptions | undefined,
   combine: CombineOptions | undefined,
   startDate: string | null,
+  breaks: readonly TrainingBreak[],
   optionalBlocks: OptionalBlocksOptions | undefined,
   rowTimerLogging: RowTimerLogging | undefined,
 ): HTMLElement[] {
@@ -358,13 +382,14 @@ function renderTrainingDay(
   // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
   const injuredLink = renderInjuredLink(program);
   if (injuredLink !== undefined) header.append(injuredLink);
+  header.append(renderTakeBreakLink());
 
   const parts: HTMLElement[] = [header];
 
   // "Short on time? Add Day N to today" and "Add missed Day N to today", right under the header so they are
   // seen without scrolling. Only on the real today, while nothing is logged and the pair is allowed.
   if (combine !== undefined) {
-    const offers = combineOffersFor(program, startDate, date, log, combine.combines, combine.realToday);
+    const offers = combineOffersFor(program, startDate, breaks, date, log, combine.combines, combine.realToday);
     if (offers.length > 0) parts.push(renderCombineOffers(offers, combine.actions));
   }
 
@@ -428,6 +453,7 @@ function renderCombinedDay(
   // "I'm injured" sits next to it (for programs that can train around an injury) and opens Settings' Injury card.
   const injuredLink = renderInjuredLink(program);
   if (injuredLink !== undefined) header.append(injuredLink);
+  header.append(renderTakeBreakLink());
 
   const parts: HTMLElement[] = [header];
 
@@ -701,7 +727,7 @@ function renderItemRow(
   }
   // The first session back after a cleared injury: pain-free only, plus (once halved) a line saying so.
   if (item.firstTimeBack !== undefined) {
-    text.append(element("span", "item-pain-free", FIRST_TIME_BACK_LINE));
+    text.append(element("span", "item-pain-free", firstTimeBackLine(item.firstTimeBack)));
     if (item.halvedForReturn) text.append(element("span", "item-pain-free", HALVED_FOR_RETURN_LINE));
   }
   const itemKey = noEquipmentItemKey(blockPosition, originalExerciseIdOf(item), keyDay);

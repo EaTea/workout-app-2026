@@ -1,3 +1,5 @@
+import type { TrainingBreak } from "../break/model";
+import { returnFromBreakOn } from "../break/operations";
 import type { Injury } from "../injury/model";
 import type { WorkoutLog } from "../log/model";
 import { setsForItem } from "../log/operations";
@@ -5,7 +7,7 @@ import { estimatedBlockMinutes } from "../optionalBlocks/session";
 import type { TrainingSettings } from "../settings/model";
 import { noEquipmentItemKey } from "./noEquipment";
 import { INJURY_AREAS, type InjuryArea, type InjuryLoadLevel, type Program } from "./model";
-import { buildBlocksForDate, type BlockView, type ItemView, type SessionView } from "./schedule";
+import { buildBlocksForDate, type BlockView, type FirstTimeBack, type ItemView, type SessionView } from "./schedule";
 import { effectiveLoads } from "./rotation";
 
 /*
@@ -242,16 +244,29 @@ function halvingChangesDose(item: ItemView, block: BlockView): boolean {
 }
 
 /**
- * Marks the items a recently cleared injury had been keeping out, the first
- * time they are back, and applies "Half sets today" to the ones the person
- * chose it for. Runs after `applyInjuries`, before the no-equipment swaps
- * (called by `buildSwappedSession` / `buildSwappedCombinedSession`).
+ * Marks the items that are back for the first time, and applies "Half sets
+ * today" to the ones the person chose it for. Runs after `applyInjuries`,
+ * before the no-equipment swaps (called by `buildSwappedSession` /
+ * `buildSwappedCombinedSession`). Two things can bring an item back:
  *
  *   injury cleared on `to` ──┬─ window: `to` .. `to` + 13 days (RETURN_TO_TRAINING_WINDOW_DAYS)
  *   item tagged "avoid" for the area (it was left out, or had a stand-in)
  *   no set logged under the ORIGINAL's id on a date from `to` up to, not
- *   including, today's date ─────────▶ firstTimeBack { area }  ("First time back · pain-free only")
+ *   including, today's date ─────────▶ firstTimeBack { reason "injury", area }  ("First time back · pain-free only")
+ *
+ *   run of breaks of 7+ days (touching breaks merged; ones ending on or
+ *   before the program's start ignored), ended `to` ──┬─ same window: `to` .. `to` + 13 days (returnFromBreakOn)
+ *   any item of a main block (`isMainBlockForReturn`)
+ *   no set logged on a date from the first day back (`to`) up to, not
+ *   including, today's date ─────────▶ firstTimeBack { reason "break" }  ("First session back · pain-free only")
+ *
  *   + key in `halfSetsKeys` ─────────▶ also halved, halvedForReturn
+ *
+ * An item already marked for an injury keeps that one marker (the injury
+ * wording wins), unless the injury's reason is used up (the exercise was
+ * trained since the clearing): then the break reason, if any, applies. Only
+ * main blocks are marked for a break (`isMainBlockForReturn`); an injury
+ * still marks a warm-up item tagged "avoid".
  *
  * Sets logged today (the session's `logDate`) do not end "first time back":
  * the row is still the first session, and halving by choice has to keep
@@ -264,8 +279,9 @@ function halvingChangesDose(item: ItemView, block: BlockView): boolean {
  * tick that swaps the row afterwards replaces the marked view (the swap is
  * another exercise), and a halved row drops its swap like an added-back one.
  *
- * `recentlyClearedInjuries` come from `recentlyClearedInjuriesOn`; with none
- * the session is returned as it is. The newest clearing date per area counts.
+ * `recentlyClearedInjuries` come from `recentlyClearedInjuriesOn`; the
+ * breaks are `context.settings.breaks` (filled by app.ts). With neither the
+ * session is returned as it is. The newest clearing date per area counts.
  * "Half sets today" is offered, and `halvedForReturn` set, only where halving
  * changes the dose (`halvingChangesDose`): never a warm-up or a one-set item.
  * When anything is halved the header's minutes drop by the estimated minutes
@@ -278,7 +294,10 @@ export function applyReturnToTraining(
   halfSetsKeys: ReadonlySet<string>,
   qualifyKeysWithDay = false,
 ): SessionView {
-  if (session.kind !== "training" || recentlyClearedInjuries.length === 0) return session;
+  if (session.kind !== "training") return session;
+
+  const returnFromBreak = returnFromBreakOn(context.settings.breaks ?? [], context.logDate, context.settings.startDate);
+  if (recentlyClearedInjuries.length === 0 && returnFromBreak === undefined) return session;
 
   const keyDay = qualifyKeysWithDay ? session.dayNumber : undefined;
   let anItemChanged = false;
@@ -288,7 +307,7 @@ export function applyReturnToTraining(
     ...block,
     items: block.items.map((item) => {
       const itemKey = noEquipmentItemKey(block.position, item.exercise.id, keyDay);
-      const changed = markReturningItem(item, block, itemKey, session.dayNumber, context, recentlyClearedInjuries, halfSetsKeys);
+      const changed = markReturningItem(item, block, itemKey, session.dayNumber, context, recentlyClearedInjuries, returnFromBreak, halfSetsKeys);
       if (changed !== item) anItemChanged = true;
       if (changed.halvedForReturn === true) anItemHalved = true;
       return changed;
@@ -301,7 +320,49 @@ export function applyReturnToTraining(
   return anItemHalved ? { ...marked, targetMinutes: minutesAfterChange(session.targetMinutes, session.blocks, blocks) } : marked;
 }
 
-/** The "First time back" marking (and halving) of one item, or the item itself when it does not qualify; see `applyReturnToTraining`. */
+/**
+ * True for the blocks a break's "First session back" marks: main training
+ * blocks. Warm-up, cooldown and walk blocks are not about training load, so
+ * a break leaves them alone. Used by `returnReasonFor`.
+ */
+function isMainBlockForReturn(block: BlockView): boolean {
+  return block.type !== "warmup" && block.type !== "cooldown" && block.type !== "walk";
+}
+
+/**
+ * Why one item is back: the marker to show, and whether it is already used
+ * up. Undefined when nothing brings it back or the reason is used up.
+ * `trainedOnOrAfter(date)` says whether the original exercise has a set
+ * logged from `date` up to (not including) today. An injury wins over a
+ * break (one marker, injury wording), but only while its reason is alive: if
+ * the exercise was trained since the injury's clearing, the break reason is
+ * tried next. A break's reason starts on its first day back (`to`).
+ */
+function returnReasonFor(
+  item: ItemView,
+  block: BlockView,
+  recentlyClearedInjuries: readonly Injury[],
+  returnFromBreak: TrainingBreak | undefined,
+  trainedOnOrAfter: (date: string) => boolean,
+): { makeMarker: (halfSetsOffered: boolean) => FirstTimeBack } | undefined {
+  const clearedAreas = recentlyClearedInjuries.filter((injury) => effectiveLoads(item)?.[injury.area] === "avoid");
+
+  if (clearedAreas.length > 0) {
+    // The newest clearing date among the injuries that would have kept it out.
+    const newest = clearedAreas.reduce((latest, injury) => ((injury.to ?? "") > (latest.to ?? "") ? injury : latest));
+    if (!trainedOnOrAfter(newest.to!)) {
+      return { makeMarker: (halfSetsOffered) => ({ reason: "injury", area: newest.area, halfSetsOffered }) };
+    }
+  }
+
+  if (returnFromBreak !== undefined && isMainBlockForReturn(block) && !trainedOnOrAfter(returnFromBreak.to)) {
+    return { makeMarker: (halfSetsOffered) => ({ reason: "break", halfSetsOffered }) };
+  }
+
+  return undefined;
+}
+
+/** The "First time back" / "First session back" marking (and halving) of one item, or the item itself when it does not qualify; see `applyReturnToTraining`. */
 function markReturningItem(
   item: ItemView,
   block: BlockView,
@@ -309,36 +370,33 @@ function markReturningItem(
   day: number,
   context: InjuryContext,
   recentlyClearedInjuries: readonly Injury[],
+  returnFromBreak: TrainingBreak | undefined,
   halfSetsKeys: ReadonlySet<string>,
 ): ItemView {
   // An item a flag still changes today (left out, stood in for, added back) is not "back" yet.
   if (item.leftOut !== undefined || item.injuryStandInFor !== undefined || item.addedBack === true) return item;
 
-  const clearedAreas = recentlyClearedInjuries.filter((injury) => effectiveLoads(item)?.[injury.area] === "avoid");
-  if (clearedAreas.length === 0) return item;
+  // Any set under the original's id from the clearing date (or the first day back) up to (not including) today ends that reason.
+  const trainedOnOrAfter = (since: string): boolean =>
+    Object.entries(context.log.sessions).some(
+      ([date, loggedSession]) =>
+        date >= since &&
+        date < context.logDate &&
+        loggedSession.sets.some((set) => set.exerciseId === item.exercise.id || set.exerciseId === item.noEquipment?.exercise.id),
+    );
 
-  // The newest clearing date among the injuries that would have kept it out.
-  const newest = clearedAreas.reduce((latest, injury) => ((injury.to ?? "") > (latest.to ?? "") ? injury : latest));
-  const clearedOn = newest.to!;
-
-  // Any set under the original's id from the clearing date up to (not including) today ends "first time back".
-  const trainedSinceClear = Object.entries(context.log.sessions).some(
-    ([date, loggedSession]) =>
-      date >= clearedOn &&
-      date < context.logDate &&
-      loggedSession.sets.some((set) => set.exerciseId === item.exercise.id || set.exerciseId === item.noEquipment?.exercise.id),
-  );
-  if (trainedSinceClear) return item;
+  const reason = returnReasonFor(item, block, recentlyClearedInjuries, returnFromBreak, trainedOnOrAfter);
+  if (reason === undefined) return item;
 
   // Halving a warm-up or a one-set item changes nothing, so neither the button nor the "halved" marker applies.
   const halvingHelps = halvingChangesDose(item, block);
 
   if (halvingHelps && halfSetsKeys.has(itemKey)) {
-    return { ...halveItem(item, block), noEquipment: undefined, firstTimeBack: { area: newest.area, halfSetsOffered: true }, halvedForReturn: true };
+    return { ...halveItem(item, block), noEquipment: undefined, firstTimeBack: reason.makeMarker(true), halvedForReturn: true };
   }
 
   const loggedToday = setsForItem(context.log, context.logDate, block.position, item.exercise.id, day).length > 0;
-  return { ...item, firstTimeBack: { area: newest.area, halfSetsOffered: halvingHelps && !loggedToday } };
+  return { ...item, firstTimeBack: reason.makeMarker(halvingHelps && !loggedToday) };
 }
 
 /**

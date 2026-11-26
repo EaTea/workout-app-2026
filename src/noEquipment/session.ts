@@ -217,7 +217,7 @@ export function buildSwappedSessionFor(
 ): SessionForDate {
   const skippedBlockKeys = skippedBlocks.get(date) ?? NO_SKIPPED_BLOCKS;
 
-  const combine = activeCombineOn(program, settings.startDate, date, combines, log, realToday);
+  const combine = activeCombineOn(program, settings.startDate, settings.breaks ?? [], date, combines, log, realToday);
   if (combine !== undefined) return buildSwappedCombinedSession(program, settings, log, ticks, date, combine, skippedBlockKeys, injuries, injuryChoices);
 
   return buildSwappedSession(program, settings, log, ticks, date, skippedBlockKeys, injuries, injuryChoices);

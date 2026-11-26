@@ -1,5 +1,5 @@
 import type { InjuryArea } from "../program/model";
-import type { ItemView, SessionView } from "../program/schedule";
+import type { FirstTimeBack, ItemView, SessionView } from "../program/schedule";
 import { areaWord } from "./injuryFlagText";
 
 /*
@@ -21,6 +21,14 @@ export const PAIN_FREE_ONLY_LINE = "Pain-free only · stop if it hurts";
 
 /** The line under the row of an exercise that is back for the first time after an injury was cleared. */
 export const FIRST_TIME_BACK_LINE = "First time back · pain-free only";
+
+/** The line under the row of an exercise on the first session back after a break of a week or more. */
+export const FIRST_SESSION_BACK_LINE = "First session back · pain-free only";
+
+/** The "back" line for a row's marker: the break wording for a break, the injury wording for a cleared injury. Used by Today. */
+export function firstTimeBackLine(marker: FirstTimeBack): string {
+  return marker.reason === "break" ? FIRST_SESSION_BACK_LINE : FIRST_TIME_BACK_LINE;
+}
 
 /** The label of the button that halves a "First time back" row's sets for the day. */
 export const HALF_SETS_TODAY_LABEL = "Half sets today";

@@ -57,6 +57,17 @@ describe("buildProgramOverview: phases", () => {
   });
 });
 
+describe("buildProgramOverview: during a break", () => {
+  it("keeps the phase of the week training resumes in as the current one", () => {
+    // Start 2 Nov, break 26 Nov to 2 Dec: the first day back (3 Dec) is week 4, the Deload phase.
+    const status = programStatus("2026-11-02", 8, "2026-11-27", [{ from: "2026-11-26", to: "2026-12-03" }]);
+    const phases = buildProgramOverview(program, status).phases;
+
+    expect(status.kind).toBe("onBreak");
+    expect(phases.filter((phase) => phase.isCurrent).map((phase) => phase.name)).toEqual(["Deload"]);
+  });
+});
+
 describe("buildProgramOverview: days", () => {
   it("returns days 1 to 7 in order with day 7 as rest", () => {
     const days = buildProgramOverview(program, noStartDate).days;

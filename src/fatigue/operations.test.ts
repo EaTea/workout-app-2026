@@ -29,23 +29,23 @@ function weekly(...checks: WeeklyFatigueCheck[]): WeeklyFatigueHistory {
 
 /** Saves `newCheck` into `history` with START_DATE and returns the weekly view of the result. */
 function saveAndView(history: FatigueHistory, newCheck: FatigueCheck): WeeklyFatigueHistory {
-  return weeklyChecksFor(recordCheck(history, newCheck, START_DATE, PROGRAM_LENGTH_WEEKS), START_DATE, PROGRAM_LENGTH_WEEKS);
+  return weeklyChecksFor(recordCheck(history, newCheck, START_DATE, PROGRAM_LENGTH_WEEKS, []), START_DATE, PROGRAM_LENGTH_WEEKS, []);
 }
 
 describe("programWeekOfDate", () => {
   it("is the week of the date, or undefined before the start, after the end or with no start date", () => {
-    expect(programWeekOfDate("2026-11-02", START_DATE, 8)).toBe(1);
-    expect(programWeekOfDate("2026-11-10", "2026-11-09", 8)).toBe(1);
-    expect(programWeekOfDate("2026-11-01", START_DATE, 8)).toBeUndefined();
-    expect(programWeekOfDate("2026-12-28", START_DATE, 8)).toBeUndefined();
-    expect(programWeekOfDate("2026-11-02", null, 8)).toBeUndefined();
+    expect(programWeekOfDate("2026-11-02", START_DATE, 8, [])).toBe(1);
+    expect(programWeekOfDate("2026-11-10", "2026-11-09", 8, [])).toBe(1);
+    expect(programWeekOfDate("2026-11-01", START_DATE, 8, [])).toBeUndefined();
+    expect(programWeekOfDate("2026-12-28", START_DATE, 8, [])).toBeUndefined();
+    expect(programWeekOfDate("2026-11-02", null, 8, [])).toBeUndefined();
   });
 });
 
 describe("weeklyChecksFor", () => {
   it("derives each check's week from the current start date, ignoring any stored week", () => {
     const history: FatigueHistory = { checks: [{ ...storedCheck(2, { maxPullUps: 10 }), savedProgramWeek: 5 }] };
-    expect(weeklyChecksFor(history, START_DATE, 8).checks.map((entry) => entry.programWeek)).toEqual([2]);
+    expect(weeklyChecksFor(history, START_DATE, 8, []).checks.map((entry) => entry.programWeek)).toEqual([2]);
   });
 
   it("re-files checks when the start date moves: saved with start 2 Nov, then start 9 Nov", () => {
@@ -56,23 +56,23 @@ describe("weeklyChecksFor", () => {
       ],
     };
 
-    const underOldStart = weeklyChecksFor(history, "2026-11-02", 8);
+    const underOldStart = weeklyChecksFor(history, "2026-11-02", 8, []);
     expect(underOldStart.checks.map((entry) => [entry.date, entry.programWeek])).toEqual([["2026-11-05", 1], ["2026-11-10", 2]]);
 
-    const underNewStart = weeklyChecksFor(history, "2026-11-09", 8);
+    const underNewStart = weeklyChecksFor(history, "2026-11-09", 8, []);
     expect(underNewStart.checks.map((entry) => [entry.date, entry.programWeek])).toEqual([["2026-11-10", 1]]);
     expect(history.checks).toHaveLength(2); // the 5 Nov check is kept in the stored history
   });
 
   it("leaves out checks before the start, after the end, or when there is no start date", () => {
     const history: FatigueHistory = { checks: [storedCheck(1), { ...storedCheck(1), date: "2026-10-30" }, { ...storedCheck(1), date: "2027-03-01" }] };
-    expect(weeklyChecksFor(history, START_DATE, 8).checks.map((entry) => entry.date)).toEqual(["2026-11-02"]);
-    expect(weeklyChecksFor(history, null, 8).checks).toEqual([]);
+    expect(weeklyChecksFor(history, START_DATE, 8, []).checks.map((entry) => entry.date)).toEqual(["2026-11-02"]);
+    expect(weeklyChecksFor(history, null, 8, []).checks).toEqual([]);
   });
 
   it("keeps only the newest check when two land in the same week", () => {
     const history: FatigueHistory = { checks: [{ ...storedCheck(2), date: "2026-11-10", maxPullUps: 9 }, { ...storedCheck(2), date: "2026-11-12", maxPullUps: 11 }] };
-    const view = weeklyChecksFor(history, START_DATE, 8);
+    const view = weeklyChecksFor(history, START_DATE, 8, []);
     expect(view.checks).toHaveLength(1);
     expect(view.checks[0]?.maxPullUps).toBe(11);
   });
@@ -80,20 +80,20 @@ describe("weeklyChecksFor", () => {
 
 describe("recordCheck / checkForWeek", () => {
   it("adds a check, stamps the week it was saved in, and finds it by week", () => {
-    const history = recordCheck({ checks: [] }, storedCheck(1, { maxPullUps: 12 }), START_DATE, 8);
+    const history = recordCheck({ checks: [] }, storedCheck(1, { maxPullUps: 12 }), START_DATE, 8, []);
     expect(history.checks[0]?.savedProgramWeek).toBe(1);
 
-    const view = weeklyChecksFor(history, START_DATE, 8);
+    const view = weeklyChecksFor(history, START_DATE, 8, []);
     expect(checkForWeek(view, 1)?.maxPullUps).toBe(12);
     expect(checkForWeek(view, 2)).toBeUndefined();
   });
 
   it("keeps an older check of the same derived week in storage; the newest one wins on read; the input is not mutated", () => {
     const original: FatigueHistory = { checks: [storedCheck(1, { maxPullUps: 12 }), storedCheck(2, { maxPullUps: 11 })] };
-    const updated = recordCheck(original, { ...storedCheck(2, { maxPullUps: 9 }), date: "2026-11-12" }, START_DATE, 8);
+    const updated = recordCheck(original, { ...storedCheck(2, { maxPullUps: 9 }), date: "2026-11-12" }, START_DATE, 8, []);
 
     expect(updated.checks).toHaveLength(3);
-    const view = weeklyChecksFor(updated, START_DATE, 8);
+    const view = weeklyChecksFor(updated, START_DATE, 8, []);
     expect(checkForWeek(view, 2)?.maxPullUps).toBe(9);
     expect(checkForWeek(view, 1)?.maxPullUps).toBe(12);
     expect(original.checks).toHaveLength(2);
@@ -110,7 +110,7 @@ describe("recordCheck / checkForWeek", () => {
     };
 
     // The start moved from 2 Nov to 9 Nov: 5 Nov is now before the program, 10 Nov is week 1.
-    const updated = recordCheck(history, { date: "2026-11-17", maxPullUps: 9, savedAt: new Date("2026-11-17T07:00:00.000Z") }, "2026-11-09", 8);
+    const updated = recordCheck(history, { date: "2026-11-17", maxPullUps: 9, savedAt: new Date("2026-11-17T07:00:00.000Z") }, "2026-11-09", 8, []);
 
     expect(updated.checks.map((entry) => [entry.date, entry.savedProgramWeek])).toEqual([
       ["2026-11-05", undefined],
@@ -123,15 +123,15 @@ describe("recordCheck / checkForWeek", () => {
 
   it("replaces a check with the very same date, and keeps checks dated before the start untouched", () => {
     const early: FatigueCheck = { date: "2026-10-20", maxPullUps: 14, savedAt: new Date("2026-10-20T07:00:00.000Z") };
-    const updated = recordCheck({ checks: [early, storedCheck(1, { maxPullUps: 12 })] }, storedCheck(1, { maxPullUps: 8 }), START_DATE, 8);
+    const updated = recordCheck({ checks: [early, storedCheck(1, { maxPullUps: 12 })] }, storedCheck(1, { maxPullUps: 8 }), START_DATE, 8, []);
 
     expect(updated.checks).toHaveLength(2);
     expect(updated.checks).toContainEqual(early);
-    expect(checkForWeek(weeklyChecksFor(updated, START_DATE, 8), 1)?.maxPullUps).toBe(8);
+    expect(checkForWeek(weeklyChecksFor(updated, START_DATE, 8, []), 1)?.maxPullUps).toBe(8);
   });
 
   it("saves a check dated outside the program without replacing anything in it", () => {
-    const updated = recordCheck({ checks: [storedCheck(1)] }, { ...storedCheck(1), date: "2026-10-20" }, START_DATE, 8);
+    const updated = recordCheck({ checks: [storedCheck(1)] }, { ...storedCheck(1), date: "2026-10-20" }, START_DATE, 8, []);
     expect(updated.checks).toHaveLength(2);
     expect(updated.checks.find((entry) => entry.date === "2026-10-20")?.savedProgramWeek).toBeUndefined();
   });
@@ -140,7 +140,7 @@ describe("recordCheck / checkForWeek", () => {
 describe("best recent after a start date change", () => {
   it("does not count checks dated before the new start date", () => {
     const history: FatigueHistory = { checks: [{ ...storedCheck(1), date: "2026-11-05", maxPullUps: 20 }, { ...storedCheck(1), date: "2026-11-10", maxPullUps: 10 }] };
-    const view = weeklyChecksFor(history, "2026-11-09", 8);
+    const view = weeklyChecksFor(history, "2026-11-09", 8, []);
     expect(bestRecent(view, "maxPullUps", 2)).toBe(10);
   });
 });
@@ -222,7 +222,7 @@ describe("fatigueWarnings", () => {
   });
 
   it("is empty when there is no check for the week, nothing to compare with, or no drop", () => {
-    const view = weeklyChecksFor(earlier, START_DATE, 8);
+    const view = weeklyChecksFor(earlier, START_DATE, 8, []);
     expect(fatigueWarnings(view, 2)).toEqual([]);
     expect(fatigueWarnings(view, 1)).toEqual([]);
     expect(fatigueWarnings(saveAndView(earlier, storedCheck(2, { maxPullUps: 11 })), 2)).toEqual([]);
@@ -235,7 +235,27 @@ describe("fatigueWarnings", () => {
   it("compares against checks that are before the new week only, using the new start date", () => {
     // Under start 9 Nov, the 5 Nov check (pull-ups 20) is before the program and must not cause a warning.
     const history: FatigueHistory = { checks: [{ ...storedCheck(1, { maxPullUps: 20 }), date: "2026-11-05" }, { ...storedCheck(1, { maxPullUps: 10 }), date: "2026-11-10" }, { ...storedCheck(2, { maxPullUps: 10 }), date: "2026-11-17" }] };
-    expect(fatigueWarnings(weeklyChecksFor(history, "2026-11-09", 8), 2)).toEqual([]);
-    expect(fatigueWarnings(weeklyChecksFor(history, "2026-11-02", 8), 3)).toHaveLength(1);
+    expect(fatigueWarnings(weeklyChecksFor(history, "2026-11-09", 8, []), 2)).toEqual([]);
+    expect(fatigueWarnings(weeklyChecksFor(history, "2026-11-02", 8, []), 3)).toHaveLength(1);
+  });
+});
+
+describe("check-in weeks with a break (start 2 Nov, break 26 Nov to 3 Dec)", () => {
+  const weekBreak = { from: "2026-11-26", to: "2026-12-03" };
+
+  it("gives a date after the break the week the schedule puts it in, and a break day no week", () => {
+    expect(programWeekOfDate("2026-11-25", START_DATE, 8, [weekBreak])).toBe(4);
+    expect(programWeekOfDate("2026-11-27", START_DATE, 8, [weekBreak])).toBeUndefined();
+    expect(programWeekOfDate("2026-12-03", START_DATE, 8, [weekBreak])).toBe(4);
+    expect(programWeekOfDate("2026-12-07", START_DATE, 8, [weekBreak])).toBe(5);
+    expect(programWeekOfDate("2026-11-30", START_DATE, 8, [])).toBe(5);
+  });
+
+  it("files a check under the break-aware week and re-derives savedProgramWeek from it", () => {
+    const afterBreak: FatigueCheck = { date: "2026-12-07", savedAt: new Date("2026-12-07T07:00:00.000Z"), maxPullUps: 10 };
+    const history = recordCheck({ checks: [] }, afterBreak, START_DATE, 8, [weekBreak]);
+
+    expect(history.checks[0]?.savedProgramWeek).toBe(5);
+    expect(weeklyChecksFor(history, START_DATE, 8, [weekBreak]).checks[0]?.programWeek).toBe(5);
   });
 });

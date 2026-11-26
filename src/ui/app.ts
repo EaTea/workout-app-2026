@@ -3,6 +3,7 @@ import { programStatus, toDayNumber, todayLocalDate } from "../program/calendar"
 import { readExportSource } from "../export/source";
 import { rotationBlockStartWeek } from "../program/rotation";
 import type { TrainingSettings } from "../settings/model";
+import { endBreakAndSave, loadBreaks } from "../break/storage";
 import { loadSettings, saveSettings } from "../settings/storage";
 import type { ProgramStorageKeys } from "../storage/programKeys";
 import { retestJumpSkippedFromWire, retestJumpSkippedToWire, applyRetestMax, mergeRetestCheck, retestDismissedFromWire, retestDismissedToWire } from "./retest";
@@ -38,7 +39,9 @@ import type { OptionalBlockKey, SkippedBlocksByDate } from "../optionalBlocks/mo
 import type { OptionalBlockControl } from "./optionalBlockCards";
 import { loadOptionalBlockChoices, setBlockSkipped } from "../optionalBlocks/storage";
 import type { Combine, CombinesByDate } from "../combine/model";
-import { activeCombineOn } from "../program/combineOffers";
+import { isSameBreakRunning } from "../break/operations";
+import { breakStartDate, type BreakStartDecision } from "../break/startDate";
+import { activeCombineOn, activeDonorOn } from "../program/combineOffers";
 import { addCombine, loadCombines, removeCombine } from "../combine/storage";
 import type { NoEquipmentTicks } from "../noEquipment/model";
 import { applyFatigueChange, loadFatigueHistory, type LoadFatigueHistoryResult } from "../fatigue/storage";
@@ -241,7 +244,16 @@ export function startApp(
   loadedPrograms: LoadedCatalogueEntry[] = [],
 ): void {
   const programNames = programNamesById(loadedPrograms);
-  let settings = initialSettings;
+  /**
+   * The breaks from training live under `keys.breaks`, not in the settings
+   * wire. Every place that (re)loads or builds settings passes them through
+   * here, so every function holding `settings` sees the breaks for schedule maths.
+   */
+  function withBreaks(loadedSettings: TrainingSettings): TrainingSettings {
+    return { ...loadedSettings, breaks: loadBreaks(localStorage, storageKeys.breaks) };
+  }
+
+  let settings = withBreaks(initialSettings);
   let log = loadedLog.log;
   /** Row Ed worked on in the log screen; the next Today render scrolls to the next unfinished row after it (PR 34). */
   let rowToReturnTo: string | undefined;
@@ -331,7 +343,7 @@ export function startApp(
     // ("1.3:pull_up"). Unticking the qualified key must also clear that plain key, or it would tick again.
     const hostDayOfKey = /^(\d+)\.(\d+:.+)$/.exec(itemKey);
     if (!ticked && hostDayOfKey !== null) {
-      const hostCombine = activeCombineOn(program, settings.startDate, shownDate, combines, log, todayLocalDate());
+      const hostCombine = activeCombineOn(program, settings.startDate, settings.breaks ?? [], shownDate, combines, log, todayLocalDate());
       if (hostCombine !== undefined && hostCombine.hostDay === Number(hostDayOfKey[1])) {
         const plainResult = setTick(localStorage, storageKeys.noEquipment, shownDate, hostDayOfKey[2]!, false, todayLocalDate());
         if (!plainResult.ok) return plainResult.error;
@@ -481,9 +493,49 @@ export function startApp(
       return failureMessage;
     }
 
-    settings = newSettings;
+    settings = withBreaks(newSettings);
     navigateTo("today");
     showSavedToast();
+    return null;
+  }
+
+  /**
+   * Where a new break would start now: tomorrow when the real today has
+   * logged sets or is an active combine's donor date, else today. Handed to
+   * the Settings break card, which shows the reason before "Start break".
+   */
+  function currentBreakStartDecision(): BreakStartDecision {
+    const realToday = todayLocalDate();
+    const hasLoggedToday = (log.sessions[realToday]?.sets.length ?? 0) > 0;
+    const isDonorToday = activeDonorOn(program, settings.startDate, settings.breaks ?? [], realToday, combines, log, realToday) !== undefined;
+    return breakStartDate(realToday, hasLoggedToday, isDonorToday);
+  }
+
+  /**
+   * Called by the Settings "Break from training" card after it started or
+   * ended a break and saved it. Reloads the breaks into the in-memory settings
+   * (`withBreaks`) so the schedule follows at once, redraws, and puts focus on
+   * the page heading (the card's button was replaced).
+   */
+  function handleBreaksChanged(): void {
+    settings = withBreaks(settings);
+    render();
+    focusMainHeading();
+  }
+
+  /**
+   * "End the break today" on Today's break card. Refuses on a `?date=` preview;
+   * otherwise ends the break covering the REAL today (so today is the first
+   * day back), reloads the breaks and redraws Today, which then shows that
+   * day's session. Returns null on success or a message to show under the button.
+   */
+  function handleEndBreak(): string | null {
+    if (!canSaveOnShownDate()) return PREVIEW_SAVING_OFF_MESSAGE;
+
+    const result = endBreakAndSave(localStorage, storageKeys.breaks, todayLocalDate());
+    if (!result.ok) return result.error;
+
+    handleBreaksChanged();
     return null;
   }
 
@@ -498,7 +550,7 @@ export function startApp(
    * as they were.
    */
   function handleImported(): void {
-    settings = loadSettings(localStorage, storageKeys);
+    settings = withBreaks(loadSettings(localStorage, storageKeys));
     loadedLog = loadLog(localStorage, storageKeys);
     log = loadedLog.log;
     loadedFatigue = loadFatigueHistory(localStorage, storageKeys);
@@ -584,7 +636,7 @@ export function startApp(
     if (failureMessage !== null) {
       return failureMessage;
     }
-    settings = newSettings;
+    settings = withBreaks(newSettings);
 
     if (exerciseId === RETEST_PULL_UP_ID) {
       recordRetestCheck({ maxPullUps: newMax }); // a failure only keeps the check in memory; the max itself is saved
@@ -609,14 +661,14 @@ export function startApp(
    */
   function recordRetestCheck(values: { broadJumpMetres?: number; maxPullUps?: number }): string | null {
     const realToday = todayLocalDate();
-    const status = programStatus(settings.startDate, program.lengthWeeks, realToday);
+    const status = programStatus(settings.startDate, program.lengthWeeks, realToday, settings.breaks);
     if (status.kind !== "active" || !phaseForWeek(program, status.week).retest) return "The retest week is not today";
     const week = status.week;
 
     const now = new Date();
     const result = applyFatigueChange(localStorage, storageKeys, (freshHistory) => {
-      const existing = checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week);
-      return recordCheck(freshHistory, mergeRetestCheck(existing, values, realToday, now), settings.startDate, program.lengthWeeks);
+      const existing = checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks, settings.breaks ?? []), week);
+      return recordCheck(freshHistory, mergeRetestCheck(existing, values, realToday, now), settings.startDate, program.lengthWeeks, settings.breaks ?? []);
     }, now);
 
     if (result.history !== undefined) fatigueHistory = result.history;
@@ -663,11 +715,11 @@ export function startApp(
     const check: FatigueCheck = { date: shownDate, savedAt: new Date(), ...values };
     let foundExistingCheck = false;
     const result = applyFatigueChange(localStorage, storageKeys, (freshHistory) => {
-      if (checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks), week) !== undefined) {
+      if (checkForWeek(weeklyChecksFor(freshHistory, settings.startDate, program.lengthWeeks, settings.breaks ?? []), week) !== undefined) {
         foundExistingCheck = true;
         return freshHistory; // keep the other copy's check untouched
       }
-      return recordCheck(freshHistory, check, settings.startDate, program.lengthWeeks);
+      return recordCheck(freshHistory, check, settings.startDate, program.lengthWeeks, settings.breaks ?? []);
     });
     if (result.history !== undefined) fatigueHistory = result.history;
     if (!result.saved) return result.error;
@@ -832,7 +884,7 @@ export function startApp(
         rowToReturnTo = undefined;
         const drop = dropWarningForShownDate(program, settings, shownDate, fatigueHistory);
         if (program.fatigueCheck !== undefined && drop.warnings.length > 0 && dropBannerDismissedWeek !== drop.week) {
-          main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week), drop.checkDate === undefined ? undefined : timeOffExplanation(drop.warnings, loadInjuries(localStorage, storageKeys.injuries), drop.checkDate)));
+          main.append(renderDropBanner(drop.warnings, program.fatigueCheck.rule, () => handleDismissDropBanner(drop.week), drop.checkDate === undefined ? undefined : timeOffExplanation(drop.warnings, loadInjuries(localStorage, storageKeys.injuries), settings.breaks ?? [], drop.checkDate)));
         }
       }
       const logTarget = parseLogRoute(window.location.hash);
@@ -844,7 +896,8 @@ export function startApp(
           programNames,
           currentSessionCount: () => Object.keys(log.sessions).length,
           onImported: handleImported,
-        }, { storage: localStorage, storageKey: storageKeys.injuries, today: todayLocalDate() }));
+        }, { storage: localStorage, storageKey: storageKeys.injuries, today: todayLocalDate() },
+        { storage: localStorage, storageKey: storageKeys.breaks, today: todayLocalDate(), startDecision: currentBreakStartDecision, onChanged: handleBreaksChanged }));
       } else if (route === "programs") {
         // Reached from "Switch program": choosing saves and reloads (the shell holds one program's keys).
         main.append(renderProgramPickerScreen(buildProgramPicker(loadedPrograms, storageKeys.programId), chooseProgramAndReload));
@@ -859,7 +912,7 @@ export function startApp(
         const planScreen = renderDayPlanScreen(program, storageKeys.programId, settings, planTarget.week, planTarget.dayNumber, shownDate, window.location.search, combines, log, todayLocalDate());
         if (planScreen !== undefined) main.append(planScreen);
       } else if (route === "overview") {
-        const status = programStatus(settings.startDate, program.lengthWeeks, shownDate);
+        const status = programStatus(settings.startDate, program.lengthWeeks, shownDate, settings.breaks);
         main.append(renderOverviewScreen(buildProgramOverview(program, status), {
           search: window.location.search,
           onStartToday: handleStartToday,
@@ -913,6 +966,11 @@ export function startApp(
           canChoose: shownDate <= todayLocalDate(),
           onAddBack: handleAddBackInjuredItems,
           onHalfSets: handleHalfSetsToday,
+        }, {
+          // Ending a break saves, so only on the real today (a `?date=` preview never saves).
+          canEnd: canSaveOnShownDate(),
+          showPreviewHint: isSameBreakRunning(settings.breaks ?? [], shownDate, todayLocalDate()),
+          onEnd: handleEndBreak,
         }));
       }
       // The log screen, the Overview and the Day plan belong to Today, so Today stays highlighted in the nav.
