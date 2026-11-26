@@ -3480,7 +3480,10 @@ from a guess. Until then a break covers it.
      reason; an injury's wording wins; warm-ups aren't marked). "A drop is
      common after time off." is added to any check-in drop during or up to
      28 days after such a break.
-  5. [ ] Export, import, README and e2e.
+  5. [x] Export, import, README and e2e: an optional `breaks` section in
+     the version 2 export; a file without one keeps the stored breaks; the
+     preview warns when a stored break would be removed or changed; the
+     import backup and undo cover them.
   - Merge point: a break can be taken and ended, and the schedule resumes
     where it stopped.
 - **Areas 1 — One table for the area facts** *(internal refactor)*: add

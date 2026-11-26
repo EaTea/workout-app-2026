@@ -2,6 +2,8 @@ import { combinesToWire, type CombinesWireV1 } from "../combine/wire";
 import type { CombinesByDate } from "../combine/model";
 import type { Injury } from "../injury/model";
 import { injuriesToWire, type InjuriesWireV1 } from "../injury/wire";
+import type { TrainingBreak } from "../break/model";
+import { breaksToWire, type BreaksWireV1 } from "../break/wire";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
 import { optionalBlockChoicesToWire, type OptionalBlockChoicesWireV1 } from "../optionalBlocks/wire";
 import { fatigueHistoryToWire, type FatigueHistoryWireV1 } from "../fatigue/wire";
@@ -29,6 +31,7 @@ import { maxHistoryToWire, type MaxHistoryWireV1 } from "../settings/maxHistoryS
  *       combines ─combinesToWire─▶ combines
  *       optionalBlockChoices ─optionalBlockChoicesToWire─▶ optionalBlockChoices
  *       injuries ─injuriesToWire─▶ injuries (the per-date injury choices are not exported)
+ *       breaks ─breaksToWire─▶ breaks
  *       corrupt log backups ─▶ corruptLogBackups (only when any)
  *       import backups ─────▶ importBackups (only when any)
  */
@@ -64,6 +67,9 @@ export interface ExportBundle {
 
   /** The flagged and cleared injuries; empty when none. */
   injuries: Injury[];
+
+  /** The breaks from training, past, current and coming; empty when none. */
+  breaks: TrainingBreak[];
 
   /** Backups of unreadable log text kept by the log storage; empty when none. */
   corruptLogBackups: CorruptLogBackup[];
@@ -114,6 +120,13 @@ export interface ExportWireV1 {
    * the no-equipment ticks.
    */
   injuries?: InjuriesWireV1;
+
+  /**
+   * The breaks from training (from, to, note). Written since Break 1 as an
+   * optional field of the same version, like `injuries`, so older files still
+   * fit (an import then keeps the stored breaks).
+   */
+  breaks?: BreaksWireV1;
 
   /** Present only when the log storage holds backups of unreadable log text. */
   corruptLogBackups?: CorruptLogBackupWire[];
@@ -174,6 +187,7 @@ export function exportToWire(bundle: ExportBundle): ExportWireV2 {
     combines: combinesToWire(bundle.combines),
     optionalBlockChoices: optionalBlockChoicesToWire(bundle.optionalBlockChoices),
     injuries: injuriesToWire(bundle.injuries),
+    breaks: breaksToWire(bundle.breaks),
   };
 
   if (bundle.corruptLogBackups.length > 0) {

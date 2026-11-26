@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync, writeFileSync } from "node:fs";
 
 /**
  * Break 1 step 2: the schedule skips a break. The break is seeded straight
@@ -198,4 +199,77 @@ test("more than 14 days after the break no row says First session back", async (
 
   await expect(page.locator(".item-row").first()).toBeVisible();
   await expect(page.getByText("First session back")).toHaveCount(0);
+});
+
+// ---- Break 1 step 5: export and import ----
+
+/** Fixes the clock at noon on `TODAY` and seeds the settings once (a guard in sessionStorage keeps a later clear from being undone by a reload). */
+async function seedSettingsOnce(page: Page): Promise<void> {
+  await page.clock.install({ time: new Date(`${TODAY}T12:00:00`) });
+  await page.addInitScript(() => {
+    if (window.sessionStorage.getItem("seeded") !== null) return;
+    window.sessionStorage.setItem("seeded", "yes");
+    window.localStorage.setItem("explosive-endurance.settings", JSON.stringify({ version: 1, startDate: "2026-11-02", maxReps: { pull_up: 12, dip: 15 } }));
+  });
+}
+
+/** Starts a week's break in Settings, then exports everything as JSON to `path`. */
+async function startBreakAndExportTo(page: Page, path: string): Promise<void> {
+  await startWeekBreakFromSettings(page);
+  await expect(page.locator(".break-section")).toContainText("On a break · Back on 3 Dec");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export everything as JSON" }).click();
+  await (await downloadPromise).saveAs(path);
+}
+
+test("a break exported and imported into a clean app shows on Today and in Settings", async ({ page }, testInfo) => {
+  await seedSettingsOnce(page);
+  const file = testInfo.outputPath("export.json");
+  await startBreakAndExportTo(page, file);
+  expect(JSON.parse(readFileSync(file, "utf-8")).breaks).toEqual({ version: 1, breaks: [{ from: TODAY, to: "2026-12-03", note: "Physio: rest the neck" }] });
+
+  // A clean app: everything cleared, only the program choice made again (as the picker would).
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem("workout-app.active-program", JSON.stringify({ version: 1, programId: "explosive-endurance" }));
+  });
+  await page.goto("/#/settings");
+  await page.reload();
+  await expect(page.locator(".break-section")).not.toContainText("On a break");
+
+  await page.getByLabel("Import from JSON").setInputFiles(file);
+  await expect(page.getByText("Breaks: 1 (replace yours)")).toBeVisible();
+  await page.getByRole("button", { name: "Replace my data" }).click();
+  await page.getByRole("button", { name: "Yes, replace my data" }).click();
+  await expect(page.locator(".toast")).toContainText("Imported. You can undo it in Settings.");
+
+  await expect(page.getByRole("heading", { name: "On a break" })).toBeVisible();
+  await expect(page.getByText("Physio: rest the neck")).toBeVisible();
+
+  await page.goto("/#/settings");
+  await expect(page.locator(".break-section")).toContainText("On a break · Back on 3 Dec");
+  await expect(page.locator(".break-section")).toContainText("Physio: rest the neck");
+});
+
+test("importing a file without a breaks section keeps the stored break", async ({ page }, testInfo) => {
+  await seedSettingsOnce(page);
+  const file = testInfo.outputPath("export.json");
+  await startBreakAndExportTo(page, file);
+
+  // An older export: the same file with no breaks section at all.
+  const olderExport = JSON.parse(readFileSync(file, "utf-8"));
+  delete olderExport.breaks;
+  const olderFile = testInfo.outputPath("older.json");
+  writeFileSync(olderFile, JSON.stringify(olderExport));
+
+  await page.getByLabel("Import from JSON").setInputFiles(olderFile);
+  await expect(page.getByText("Breaks: none in the file (yours are kept)")).toBeVisible();
+  await page.getByRole("button", { name: "Replace my data" }).click();
+  await page.getByRole("button", { name: "Yes, replace my data" }).click();
+  await expect(page.locator(".toast")).toContainText("Imported. You can undo it in Settings.");
+
+  await expect(page.getByRole("heading", { name: "On a break" })).toBeVisible();
+  const storedBreaks = await page.evaluate(() => JSON.parse(window.localStorage.getItem("explosive-endurance.breaks") ?? "null"));
+  expect(storedBreaks.breaks).toEqual([{ from: TODAY, to: "2026-12-03", note: "Physio: rest the neck" }]);
 });

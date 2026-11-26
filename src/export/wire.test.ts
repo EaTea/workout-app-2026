@@ -17,6 +17,7 @@ const bundle: ExportBundle = {
   combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   optionalBlockChoices: new Map([["2026-11-09", new Set(["1:6"])]]),
   injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", to: "2026-12-01", note: "pinch" }],
+  breaks: [{ from: "2026-11-26", to: "2026-12-03", note: "Physio" }, { from: "2026-12-20", to: "2026-12-22" }],
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -43,6 +44,7 @@ describe("exportToWire", () => {
       combines: { version: 1, combines: { "2026-11-09": { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" } } },
       optionalBlockChoices: { version: 1, choices: { "2026-11-09": { skipped: ["1:6"] } } },
       injuries: { version: 1, injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", to: "2026-12-01", note: "pinch" }] },
+      breaks: { version: 1, breaks: [{ from: "2026-11-26", to: "2026-12-03", note: "Physio" }, { from: "2026-12-20", to: "2026-12-22" }] },
     });
   });
 

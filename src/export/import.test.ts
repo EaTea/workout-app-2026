@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { injuryReplacementWarning, parseImport, wrongProgramMessage } from "./import";
+import { breakReplacementWarning, injuryReplacementWarning, parseImport, wrongProgramMessage } from "./import";
 import { exportToWire, serializeExport, type ExportBundle } from "./wire";
 
 const bundle: ExportBundle = {
@@ -30,6 +30,7 @@ const bundle: ExportBundle = {
   combines: new Map([["2026-11-09", { hostDay: 1, addedDay: 2, addedDate: "2026-11-10" }]]),
   optionalBlockChoices: new Map([["2026-11-09", new Set(["1:6"])]]),
   injuries: [{ area: "shoulder", side: "right", from: "2026-11-22", to: "2026-12-01", note: "pinch" }, { area: "shoulder", side: "left", from: "2026-12-10" }],
+  breaks: [{ from: "2026-11-26", to: "2026-12-03", note: "Physio" }, { from: "2026-12-20", to: "2026-12-22" }],
   corruptLogBackups: [],
   importBackups: [],
 };
@@ -47,7 +48,7 @@ describe("parseImport", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices, injuries: bundle.injuries });
+    expect(result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices, injuries: bundle.injuries, breaks: bundle.breaks });
     expect(result.problems).toEqual([]);
   });
 
@@ -76,7 +77,7 @@ describe("parseImport", () => {
     const result = parseImport(fileText());
 
     expect(result.ok && result.summary).toEqual({
-      exportedAt: "2026-11-09T08:00:00.000Z", sessionCount: 2, setCount: 3, checkCount: 1, firstSessionDate: "2026-11-02", lastSessionDate: "2026-11-04", startDate: "2026-11-02", injuryCount: 2,
+      exportedAt: "2026-11-09T08:00:00.000Z", sessionCount: 2, setCount: 3, checkCount: 1, firstSessionDate: "2026-11-02", lastSessionDate: "2026-11-04", startDate: "2026-11-02", injuryCount: 2, breakCount: 2,
     });
   });
 
@@ -193,7 +194,7 @@ describe("parseImport", () => {
       file.importBackups = [{ key: "explosive-endurance.import-backup-x", text: "{}" }];
     }));
 
-    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices, injuries: bundle.injuries });
+    expect(result.ok && result.data).toEqual({ programId: bundle.programId, settings: bundle.settings, log: bundle.log, fatigueHistory: bundle.fatigueHistory, combines: bundle.combines, optionalBlockChoices: bundle.optionalBlockChoices, injuries: bundle.injuries, breaks: bundle.breaks });
   });
 
   it("imports an older export without a combines section as no combines", () => {
@@ -266,6 +267,59 @@ describe("parseImport", () => {
       expect(result.ok && result.data.injuries).toBeUndefined();
       expect(result.ok && result.problems).toEqual(["The injuries section could not be read, so your current injuries will be kept."]);
     }
+  });
+
+  it("round-trips the breaks through an export and an import", () => {
+    const result = parseImport(fileText(() => {}));
+
+    expect(result.ok && result.data.breaks).toEqual(bundle.breaks);
+    expect(result.ok && result.summary.breakCount).toBe(2);
+  });
+
+  it("reads an older export without a breaks section as 'keep the stored breaks' (undefined, no problem)", () => {
+    const result = parseImport(fileText((file) => {
+      delete file.breaks;
+    }));
+
+    expect(result.ok && result.data.breaks).toBeUndefined();
+    expect(result.ok && result.summary.breakCount).toBeUndefined();
+    expect(result.ok && result.problems).toEqual([]);
+  });
+
+  it("reads a file with an empty breaks section as 'replace with none'", () => {
+    const result = parseImport(fileText((file) => {
+      file.breaks = { version: 1, breaks: [] };
+    }));
+
+    expect(result.ok && result.data.breaks).toEqual([]);
+    expect(result.ok && result.summary.breakCount).toBe(0);
+  });
+
+  it("drops bad breaks, and reports a section it cannot read as a problem (stored breaks kept), without refusing the file", () => {
+    const withBadEntries = parseImport(fileText((file) => {
+      file.breaks = { version: 1, breaks: [{ from: "2026-11-26", to: "2026-12-03" }, { from: "2026-12-03", to: "2026-11-26" }, { from: "tomorrow", to: "2026-12-03" }] };
+    }));
+    expect(withBadEntries.ok && withBadEntries.data.breaks).toEqual([{ from: "2026-11-26", to: "2026-12-03" }]);
+
+    for (const unreadable of [5, "x", [], { version: 2, breaks: [] }]) {
+      const result = parseImport(fileText((file) => {
+        file.breaks = unreadable;
+      }));
+      expect(result.ok && result.data.breaks).toBeUndefined();
+      expect(result.ok && result.problems).toEqual(["The breaks section could not be read, so your current breaks will be kept."]);
+    }
+  });
+
+  it("warns when the file's breaks would remove or change a stored break, and only then", () => {
+    const stored = { from: "2026-11-26", to: "2026-12-03", note: "Physio" };
+
+    expect(breakReplacementWarning(undefined, [stored])).toBeNull();
+    expect(breakReplacementWarning([stored], [stored])).toBeNull();
+    expect(breakReplacementWarning([], [])).toBeNull();
+    expect(breakReplacementWarning([stored], [])).toBeNull();
+    expect(breakReplacementWarning([], [stored])).toContain("would be removed or changed");
+    expect(breakReplacementWarning([{ ...stored, to: "2026-12-05" }], [stored])).toContain("one of your breaks");
+    expect(breakReplacementWarning([{ from: stored.from, to: stored.to }], [stored])).toContain("would be removed or changed");
   });
 
   it("warns when the file's injuries would remove or change an open flag, and only then", () => {

@@ -82,8 +82,8 @@ under keys that start with its id from `programs.json`: `<programId>.settings`,
 `.retest-jump-skipped`, `.no-equipment` (swap ticks per date, pruned after
 14 days, not exported), `.combines` (days combined into another day's session)
 `.optional-block-choices` (optional blocks such as boxing skipped on a
-date) and `.injuries` (the flagged and cleared injuries; all three are exported
-and imported), `.injury-choices` ("Add it back" and "Half sets today" per date,
+date), `.injuries` (the flagged and cleared injuries) and `.breaks` (the breaks
+from training; all four are exported and imported), `.injury-choices` ("Add it back" and "Half sets today" per date,
 pruned after 14 days, not exported), plus the backup keys `.log.corrupt-<time>`,
 `.fatigue.corrupt-<time>` and `.import-backup-<time>`. For Explosive Endurance
 (`explosive-endurance`) these are the keys the app has always used. One key is
@@ -186,6 +186,23 @@ instead of Hanging leg raise"). These are worked out from the injury dates and
 the program when the card is drawn, never stored (a combined day shows only the
 tag; exercises added back and logged count as done, not left out). Days with no
 logged sets still get no card.
+
+Taking a break: Settings has a "Break from training" card, and Today a "Take a
+break" link to it. A break starts today (never a `?date=` preview) and lasts 1
+to 28 days, with an optional note ("Physio: rest the neck"). While it runs the
+schedule stops: Today says "On a break" with the note and the day training
+resumes, and the program picks up on the next day, so a week's break moves
+everything after it a week later (the break days are not counted as program
+days). "End the break today" on Today or in Settings ends it early; ended and
+coming breaks are listed under "Past breaks" and "Coming up". History shows a
+line for each break. After a break of 7 days or more, each main-block exercise
+not yet trained since the break says "First session back · pain-free only" for
+the 14 days after it and offers "Half sets today", as after an injury, and a check-in drop up to 28
+days after it adds "A drop is common after time off." A break and an injury
+flag can overlap; the flag still applies. Breaks are stored under
+`<programId>.breaks` (a versioned `{ "version": 1, "breaks": [ { "from", "to",
+"note"? } ] }`, `to` being the first day back) and are carried by the JSON
+export and import.
 
 "Show me": in Steady Strength, a large "▶ Show me" button sits beside each
 exercise that has an animation, on Today, on the day plan, and in the log
@@ -498,7 +515,7 @@ stored at the moment you tap the button.
 settings, the max history (every max you saved, under `maxHistory`), the
 combined days, the skipped optional blocks and the injuries (`injuries`, an
 optional field of the same version 2; the per-date injury choices are not
-exported) in a
+exported) and the breaks from training (`breaks`, also optional) in a
 versioned file (`"format": "explosive-endurance-export"`, `"version": 2`, and
 `"programId"`, the catalogue id of the program the data belongs to),
 plus `corruptLogBackups` if the app ever had to set aside unreadable log text,
@@ -531,12 +548,15 @@ replace my data"); "Cancel" leaves everything as it was.
   left out. Files exported before the max history was added (no `maxHistory`)
   and files with older settings versions still import.
 - Importing replaces the log, weekly checks, settings, max history, combined
-  days, skipped optional blocks (boxing) and injuries. A file with an `injuries`
+  days, skipped optional blocks (boxing), injuries and breaks. A file with an `injuries`
   section replaces the stored injuries (the preview says so, and warns when an
   open flag would be removed or changed); a file without one (made before
   injuries were exported) leaves them as they are, and an `injuries` section
   that cannot be read is listed as a problem and leaves them as they are.
-  Undo puts the previous injuries back. Before
+  Undo puts the previous injuries back. Breaks work the same way: a file with
+  a `breaks` section replaces the stored breaks (the preview says so, and warns
+  when a stored break would be removed or changed), a file without one leaves
+  them as they are, and undo puts the previous breaks back. Before
   anything is written, the current data is saved as a backup in the browser
   (key `<programId>.import-backup-<time>`), itself a complete export
   file (written compactly, with the exact stored text of each key inside). The

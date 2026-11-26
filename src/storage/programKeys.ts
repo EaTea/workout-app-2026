@@ -50,7 +50,7 @@ export interface ProgramStorageKeys {
   injuries: string;
   /** Per-date injury choices such as "Add it back" (throwaway, pruned after 14 days, not exported). */
   injuryChoices: string;
-  /** The breaks from training the person has taken, with their dates (`break/storage.ts`; kept; carried by the JSON export in Break 1 step 5). */
+  /** The breaks from training the person has taken, with their dates (`break/storage.ts`; kept; carried by the JSON export and import). */
   breaks: string;
   /** Prefix of the backups an import keeps of the data it replaces (followed by an ISO timestamp). */
   importBackupPrefix: string;

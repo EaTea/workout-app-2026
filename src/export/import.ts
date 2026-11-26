@@ -1,5 +1,7 @@
 import type { CombinesByDate } from "../combine/model";
 import { combinesFromWire } from "../combine/wire";
+import type { TrainingBreak } from "../break/model";
+import { breaksFromWire } from "../break/wire";
 import type { Injury } from "../injury/model";
 import { injuriesFromWire } from "../injury/wire";
 import type { SkippedBlocksByDate } from "../optionalBlocks/model";
@@ -26,7 +28,8 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  *                                    ├─ fatigueChecks ▶ fatigueHistoryFromWire ▶ FatigueHistory
  *                                    ├─ combines (optional) ▶ combinesFromWire ▶ CombinesByDate
  *                                    ├─ optionalBlockChoices (optional) ▶ optionalBlockChoicesFromWire ▶ SkippedBlocksByDate
- *                                    └─ injuries (optional) ▶ injuriesFromWire ▶ Injury[]
+ *                                    ├─ injuries (optional) ▶ injuriesFromWire ▶ Injury[]
+ *                                    └─ breaks (optional) ▶ breaksFromWire ▶ TrainingBreak[]
  *
  * What is refused (nothing is read at all): text that is not JSON, a file
  * that is not our format, a version other than 1 or 2, a version 2 file whose `programId` is not a valid
@@ -47,7 +50,9 @@ import { EXPORT_FORMAT_NAME, VERSION_1_PROGRAM_ID } from "./wire";
  * with one replaces them. A section that cannot be read (not version 1, not a
  * list) is listed in `problems` and treated as absent, so the stored injuries
  * are kept; bad single entries are dropped by the loader's rules. Parsing never
- * throws: anything unexpected becomes "could not be read".
+ * throws: anything unexpected becomes "could not be read". The `breaks` section behaves exactly like
+ * `injuries`: absent (made before Break 1) or unreadable means `ImportedData.breaks` is undefined and the
+ * stored breaks are kept; a readable one replaces them.
  * `corruptLogBackups` and `importBackups` in the file are ignored: they are
  * not part of the data an import restores.
  *
@@ -83,6 +88,12 @@ export interface ImportedData {
    * are then left as they are.
    */
   injuries?: Injury[];
+  /**
+   * The file's breaks from training, which replace the stored ones. Undefined
+   * when the file has no readable `breaks` section (an older export): the
+   * stored breaks are then left as they are.
+   */
+  breaks?: TrainingBreak[];
 }
 
 /** What the confirmation step shows about the file. Dates are "YYYY-MM-DD"; the session dates are absent for an empty log. `exportedAt` is the file's ISO timestamp, absent when the file's is not a real date. */
@@ -96,6 +107,8 @@ export interface ImportSummary {
   startDate: string | null;
   /** How many injuries the file holds; undefined when it has no readable injuries section (the stored ones are then kept). */
   injuryCount?: number;
+  /** How many breaks the file holds; undefined when it has no readable breaks section (the stored ones are then kept). */
+  breakCount?: number;
 }
 
 /** Outcome of `parseImport`: refused with a message for the athlete, or readable data plus anything left out. */
@@ -188,7 +201,9 @@ function parseImportUnguarded(fileText: string): ImportParseResult {
   // Absent in files from before injuries existed: undefined, so the stored injuries are kept.
   const injuries = readInjuries(parsed.injuries, problems);
 
-  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory, combines, optionalBlockChoices, injuries };
+  // Absent in files from before breaks existed: undefined, so the stored breaks are kept.
+  const breaks = readBreaks(parsed.breaks, problems);
+  const data: ImportedData = { programId: programIdResult.programId, settings, log, fatigueHistory, combines, optionalBlockChoices, injuries, breaks };
   return { ok: true, data, summary: summarize(data, parsed.exportedAt), problems };
 }
 
@@ -209,6 +224,37 @@ function readInjuries(wire: unknown, problems: string[]): Injury[] | undefined {
   }
 
   return injuriesFromWire(wire);
+}
+
+/**
+ * Reads the file's optional `breaks` section, the same way `readInjuries`
+ * reads injuries: undefined when absent or unreadable (the latter is added to
+ * `problems`), meaning the import keeps the stored breaks. Only
+ * `parseImportUnguarded` calls it.
+ */
+function readBreaks(wire: unknown, problems: string[]): TrainingBreak[] | undefined {
+  if (wire === undefined) return undefined;
+  const isReadable = isRecord(wire) && wire.version === 1 && Array.isArray(wire.breaks);
+  if (!isReadable) {
+    problems.push("The breaks section could not be read, so your current breaks will be kept.");
+    return undefined;
+  }
+  return breaksFromWire(wire);
+}
+
+/**
+ * The preview's warning when importing `importedBreaks` would remove or change
+ * a stored break: the sentence to show, or null when every stored break is
+ * kept exactly (same days and note) or the file has no breaks section. Used by
+ * `ui/importSection.ts` with the breaks currently stored.
+ */
+export function breakReplacementWarning(importedBreaks: readonly TrainingBreak[] | undefined, storedBreaks: readonly TrainingBreak[]): string | null {
+  if (importedBreaks === undefined) return null;
+  const isKeptAsIs = (stored: TrainingBreak): boolean =>
+    importedBreaks.some((imported) => imported.from === stored.from && imported.to === stored.to && imported.note === stored.note);
+  const touched = storedBreaks.filter((stored) => !isKeptAsIs(stored));
+  if (touched.length === 0) return null;
+  return `This file's breaks replace yours: ${touched.length === 1 ? "one of your breaks" : `${touched.length} of your breaks`} would be removed or changed. Cancel to keep ${touched.length === 1 ? "it" : "them"}.`;
 }
 
 /**
@@ -315,5 +361,6 @@ function summarize(data: ImportedData, exportedAtWire: unknown): ImportSummary {
     lastSessionDate: sessionDates[sessionDates.length - 1],
     startDate: data.settings.startDate,
     injuryCount: data.injuries?.length,
+    breakCount: data.breaks?.length,
   };
 }

@@ -7,7 +7,7 @@ import { breaksFromWire, breaksToWire } from "./wire";
  * injected Storage-like object, so tests need no DOM). Settings and Today
  * (Break 1 step 3) call these when the person acts.
  *
- *   keys.breaks   BreaksWireV1 <-> TrainingBreak[]   (kept; carried by the JSON export in Break 1 step 5)
+ *   keys.breaks   BreaksWireV1 <-> TrainingBreak[]   (kept; carried by the JSON export and import)
  *
  * Every change re-reads the stored value first, so a second open copy of the
  * app cannot have its changes overwritten.
@@ -33,7 +33,7 @@ export function loadBreaks(storage: BreakStorage, key: string): TrainingBreak[] 
   }
 }
 
-/** Writes `breaks`, or returns the write failure. Never throws. The import will use it to put an export file's breaks in place. */
+/** Writes `breaks`, or returns the write failure. Never throws. `applyImport` uses it to put an export file's breaks in place. */
 export function saveBreaks(storage: BreakStorage, key: string, breaks: TrainingBreak[]): SaveBreaksResult {
   try {
     storage.setItem(key, JSON.stringify(breaksToWire(breaks)));
